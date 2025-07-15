@@ -1,0 +1,615 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 基礎設定 */
+html, body, #__next {
+  height: 100vh;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  box-sizing: border-box;
+  overflow-x: auto;
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+}
+
+/* 響應式斷點系統 */
+/* 手機直向 (320px - 480px) */
+@media (max-width: 480px) {
+  html, body {
+    font-size: 14px;
+  }
+  table {
+    font-size: 12px;
+    min-width: 300px;
+  }
+  button, input, select, textarea {
+    font-size: 16px;
+    min-height: 44px;
+  }
+  .modal, .Dialog, .AlertDialog {
+    width: 100vw !important;
+    min-width: 0 !important;
+    max-width: 100vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    border-radius: 0 !important;
+    padding: 1rem !important;
+    margin: 0 !important;
+  }
+}
+
+/* 手機橫向 (481px - 768px) */
+@media (min-width: 481px) and (max-width: 768px) {
+  html, body {
+    font-size: 15px;
+  }
+  table {
+    font-size: 13px;
+    min-width: 400px;
+  }
+  button, input, select, textarea {
+    font-size: 16px;
+    min-height: 44px;
+  }
+  .modal, .Dialog, .AlertDialog {
+    width: 90vw !important;
+    max-width: 600px !important;
+    height: auto !important;
+    max-height: 90vh !important;
+    border-radius: 8px !important;
+    padding: 1.5rem !important;
+  }
+}
+
+/* 平板直向 (769px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  html, body {
+    font-size: 16px;
+  }
+  table {
+    font-size: 14px;
+    min-width: 500px;
+  }
+  .modal, .Dialog, .AlertDialog {
+    width: 80vw !important;
+    max-width: 700px !important;
+    height: auto !important;
+    max-height: 80vh !important;
+    border-radius: 12px !important;
+    padding: 2rem !important;
+  }
+}
+
+/* 平板橫向 (1025px - 1366px) */
+@media (min-width: 1025px) and (max-width: 1366px) {
+  html, body {
+    font-size: 16px;
+}
+  .modal, .Dialog, .AlertDialog {
+    width: 70vw !important;
+    max-width: 800px !important;
+    height: auto !important;
+    max-height: 70vh !important;
+    border-radius: 12px !important;
+    padding: 2rem !important;
+  }
+}
+
+/* 電腦螢幕 (1367px+) */
+@media (min-width: 1367px) {
+  html, body {
+    font-size: 16px;
+  }
+  .modal, .Dialog, .AlertDialog {
+    width: 60vw !important;
+    max-width: 900px !important;
+    height: auto !important;
+    max-height: 60vh !important;
+    border-radius: 12px !important;
+    padding: 2.5rem !important;
+  }
+}
+
+/* 統一按鈕樣式 */
+.btn-primary {
+  @apply bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium;
+}
+
+.btn-secondary {
+  @apply bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium;
+}
+
+.btn-danger {
+  @apply bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium;
+}
+
+.btn-success {
+  @apply bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium;
+}
+
+.btn-warning {
+  @apply bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium;
+}
+
+/* 統一下拉選單樣式 */
+.select-unified {
+  @apply w-full border border-gray-300 p-3 rounded-xl bg-white shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:bg-blue-50 transition duration-150;
+}
+
+/* 統一輸入框樣式 */
+.input-unified {
+  @apply w-full border border-gray-300 p-3 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+}
+
+/* 統一對話框樣式 */
+.dialog-overlay {
+  @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4;
+}
+
+.dialog-content {
+  @apply bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto;
+}
+
+.dialog-title {
+  @apply text-xl font-bold text-gray-900 mb-4 p-6 pb-0;
+}
+
+.dialog-button {
+  @apply w-auto px-8 mx-auto block bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium m-6 mt-0;
+}
+
+/* 統一載入容器樣式 */
+.loading-container {
+  @apply flex items-center justify-center;
+}
+
+.loading-spinner {
+  @apply animate-spin rounded-full border-2 border-blue-600 border-t-transparent;
+}
+
+/* 響應式表格 */
+.responsive-table {
+  @apply w-full overflow-x-auto;
+}
+
+.responsive-table table {
+  @apply min-w-full divide-y divide-gray-200;
+}
+
+/* 響應式卡片網格 */
+.responsive-grid {
+  @apply grid gap-4;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+/* 響應式側邊欄 */
+.responsive-sidebar {
+  @apply transition-all duration-300;
+}
+
+/* 響應式導航 */
+.responsive-nav {
+  @apply flex flex-col md:flex-row;
+}
+
+/* 響應式文字大小 */
+.text-responsive-xs {
+  @apply text-xs sm:text-sm md:text-base;
+}
+
+.text-responsive-sm {
+  @apply text-sm sm:text-base md:text-lg;
+}
+
+.text-responsive-base {
+  @apply text-base sm:text-lg md:text-xl;
+}
+
+.text-responsive-lg {
+  @apply text-lg sm:text-xl md:text-2xl;
+}
+
+.text-responsive-xl {
+  @apply text-xl sm:text-2xl md:text-3xl;
+}
+
+.text-responsive-2xl {
+  @apply text-2xl sm:text-3xl md:text-4xl;
+}
+
+/* 響應式間距 */
+/* 已徹底移除 .p-responsive, .px-responsive, .py-responsive, .m-responsive, .mx-responsive, .my-responsive 及其 @apply 區塊，請直接用 Tailwind 原生間距語法 */
+
+/* 響應式容器 */
+.container-responsive {
+  @apply w-full max-w-7xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8;
+}
+
+/* 響應式隱藏/顯示 */
+.hide-mobile {
+  @apply hidden sm:block;
+}
+
+.show-mobile {
+  @apply block sm:hidden;
+}
+
+.hide-tablet {
+  @apply hidden md:block;
+}
+
+.show-tablet {
+  @apply block md:hidden;
+}
+
+/* 響應式彈出視窗 */
+.modal-responsive {
+  @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4 md:p-6 lg:p-8;
+}
+
+.modal-content-responsive {
+  @apply bg-white rounded-lg shadow-xl w-full max-w-md mx-auto max-h-[90vh] overflow-y-auto;
+}
+
+/* 響應式表單 */
+.form-responsive {
+  @apply space-y-4 sm:space-y-6;
+}
+
+.form-group-responsive {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4;
+}
+
+/* 響應式按鈕組 */
+.button-group-responsive {
+  @apply flex flex-col sm:flex-row gap-2 sm:gap-4;
+}
+
+/* 響應式統計卡片 */
+.stats-card-responsive {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6;
+}
+
+/* 響應式快速操作 */
+.quick-actions-responsive {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6;
+}
+
+/* 響應式側邊欄內容 */
+.sidebar-content-responsive {
+  @apply flex flex-col h-full;
+}
+
+.sidebar-nav-responsive {
+  @apply flex-1 overflow-y-auto;
+}
+
+.sidebar-footer-responsive {
+  @apply mt-auto border-t pt-4;
+}
+
+/* 響應式主內容區域 */
+.main-content-responsive {
+  @apply flex-1 overflow-x-auto p-2 md:p-8;
+}
+
+/* 響應式頁面標題 */
+.page-title-responsive {
+  @apply text-2xl md:text-4xl font-bold mb-4 md:mb-8 text-gray-900;
+}
+
+/* 響應式區塊標題 */
+.section-title-responsive {
+  @apply text-xl md:text-3xl font-semibold mb-4 md:mb-6 text-gray-800;
+}
+
+/* 響應式卡片 */
+.card-responsive {
+  @apply bg-white rounded-lg shadow-md p-4 md:p-6;
+}
+
+/* 響應式列表 */
+.list-responsive {
+  @apply space-y-2 sm:space-y-4;
+}
+
+/* 響應式分頁 */
+.pagination-responsive {
+  @apply flex flex-wrap justify-center gap-2 sm:gap-4;
+}
+
+/* 響應式搜尋/篩選 */
+.filter-responsive {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4;
+}
+
+/* 響應式工具列 */
+.toolbar-responsive {
+  @apply flex flex-col sm:flex-row gap-4 sm:gap-6 items-start sm:items-center justify-between;
+}
+
+/* 響應式狀態標籤 */
+.status-badge-responsive {
+  @apply inline-flex items-center px-2 py-1 rounded-full text-xs font-medium;
+}
+
+/* 響應式圖示 */
+.icon-responsive {
+  @apply w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6;
+}
+
+/* 響應式頭像 */
+.avatar-responsive {
+  @apply w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12;
+}
+
+/* 響應式載入動畫 */
+.loading-responsive {
+  @apply flex items-center justify-center p-4 md:p-8;
+}
+
+/* 響應式錯誤訊息 */
+.error-responsive {
+  @apply bg-red-50 border border-red-200 rounded-lg p-4 md:p-6 text-red-800;
+}
+
+/* 響應式成功訊息 */
+.success-responsive {
+  @apply bg-green-50 border border-green-200 rounded-lg p-4 md:p-6 text-green-800;
+}
+
+/* 響應式警告訊息 */
+.warning-responsive {
+  @apply bg-yellow-50 border border-yellow-200 rounded-lg p-4 md:p-6 text-yellow-800;
+}
+
+/* 響應式資訊訊息 */
+.info-responsive {
+  @apply bg-blue-50 border border-blue-200 rounded-lg p-4 md:p-6 text-blue-800;
+}
+
+/* 響應式空狀態 */
+.empty-state-responsive {
+  @apply text-center py-4 md:py-8 text-gray-500;
+}
+
+/* 響應式分隔線 */
+.divider-responsive {
+  @apply border-t border-gray-200 my-4 md:my-8;
+}
+
+/* 響應式摺疊面板 */
+.collapse-responsive {
+  @apply border border-gray-200 rounded-lg overflow-hidden;
+}
+
+.collapse-header-responsive {
+  @apply p-4 md:p-6 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors;
+}
+
+.collapse-content-responsive {
+  @apply p-4 md:p-6 border-t border-gray-200;
+}
+
+/* 響應式標籤 */
+.tab-responsive {
+  @apply flex flex-wrap border-b border-gray-200;
+}
+
+.tab-item-responsive {
+  @apply px-4 py-2 text-sm font-medium border-b-2 border-transparent cursor-pointer hover:text-gray-600 hover:border-gray-300;
+}
+
+.tab-item-active-responsive {
+  @apply text-blue-600 border-blue-600;
+}
+
+/* 響應式進度條 */
+.progress-responsive {
+  @apply w-full bg-gray-200 rounded-full h-2 sm:h-3;
+}
+
+.progress-bar-responsive {
+  @apply bg-blue-600 h-2 sm:h-3 rounded-full transition-all duration-300;
+}
+
+/* 響應式工具提示 */
+.tooltip-responsive {
+  @apply relative inline-block;
+}
+
+.tooltip-content-responsive {
+  @apply absolute z-10 px-2 py-1 text-xs text-white bg-gray-900 rounded opacity-0 invisible transition-all duration-200;
+}
+
+.tooltip-responsive:hover .tooltip-content-responsive {
+  @apply opacity-100 visible;
+}
+
+/* 響應式下拉選單 */
+.dropdown-responsive {
+  @apply relative inline-block;
+}
+
+.dropdown-content-responsive {
+  @apply absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200;
+}
+
+/* 響應式面包屑 */
+.breadcrumb-responsive {
+  @apply flex items-center space-x-2 text-sm text-gray-500 mb-4 md:mb-8;
+}
+
+/* 響應式頁腳 */
+.footer-responsive {
+  @apply bg-gray-50 border-t border-gray-200 py-4 md:py-8 mt-auto;
+}
+
+/* 響應式側邊欄切換按鈕 */
+.sidebar-toggle-responsive {
+  @apply fixed top-4 left-4 z-40 bg-white p-2 rounded-full shadow-lg md:hidden;
+}
+
+/* 響應式覆蓋層 */
+.overlay-responsive {
+  @apply fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden;
+}
+
+/* 響應式滾動條 */
+.scrollbar-responsive {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e0 #f7fafc;
+}
+
+.scrollbar-responsive::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-responsive::-webkit-scrollbar-track {
+  background: #f7fafc;
+}
+
+.scrollbar-responsive::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 3px;
+}
+
+.scrollbar-responsive::-webkit-scrollbar-thumb:hover {
+  background: #a0aec0;
+}
+
+/* 響應式動畫 */
+.fade-in-responsive {
+  @apply opacity-0 animate-pulse duration-300;
+}
+
+.slide-in-responsive {
+  @apply transform translate-x-full transition-transform duration-300;
+}
+
+.scale-in-responsive {
+  @apply transform scale-95 transition-transform duration-300;
+}
+
+/* 響應式列印樣式 */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  .print-break {
+    page-break-before: always;
+  }
+  
+  .print-avoid-break {
+    page-break-inside: avoid;
+  }
+}
+
+/* 響應式深色模式支援 */
+@media (prefers-color-scheme: dark) {
+  .dark-mode-support {
+    @apply bg-gray-900 text-white;
+  }
+}
+
+/* 響應式減少動畫支援 */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* 響應式高對比度支援 */
+@media (prefers-contrast: high) {
+  .high-contrast-support {
+    @apply border-2 border-black;
+  }
+}
+
+/* 手機直向：卡片單欄、間距大、sidebar 抽屜式 */
+@media (max-width: 640px) and (orientation: portrait) {
+  .card-list, .responsive-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .sidebar {
+    position: fixed;
+    left: 0; top: 0; bottom: 0;
+    width: 80vw;
+    max-width: 320px;
+    z-index: 50;
+    background: white;
+    box-shadow: 2px 0 16px rgba(0,0,0,0.08);
+    transform: translateX(-100%);
+    transition: transform 0.3s;
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .main-content {
+    padding: 1rem;
+  }
+  .responsive-btn, .responsive-card {
+    min-height: 48px;
+    font-size: 1.1rem;
+    border-radius: 0.75rem;
+  }
+}
+
+/* 手機橫向、平板直向：卡片雙欄、sidebar 固定左側 */
+@media (max-width: 1024px) and (orientation: landscape), (min-width: 641px) and (max-width: 1024px) and (orientation: portrait) {
+  .card-list, .responsive-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+  }
+  .sidebar {
+    position: static;
+    width: 220px;
+    max-width: 100vw;
+    box-shadow: none;
+    transform: none;
+  }
+  .main-content {
+    padding: 1.5rem;
+  }
+}
+
+/* 平板橫向、桌機：卡片多欄、sidebar 固定左側 */
+@media (min-width: 1025px) {
+  .card-list, .responsive-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+  }
+  .sidebar {
+    position: static;
+    width: 260px;
+    max-width: 100vw;
+    box-shadow: none;
+    transform: none;
+  }
+  .main-content {
+    padding: 2rem;
+  }
+}
+
+/* 觸控友善按鈕/卡片 */
+.responsive-btn, .responsive-card {
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 0.75rem;
+  font-size: 1rem;
+}
