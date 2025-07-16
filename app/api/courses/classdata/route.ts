@@ -19,9 +19,10 @@ export async function GET(req: NextRequest) {
     const data = doc.data();
     console.log('ClassData found:', data);
     return NextResponse.json(data);
-  } catch (error) {
-    console.error('Error fetching class data:', error);
-    return NextResponse.json({ error: (error as any).message || '查詢失敗' }, { status: 500 });
+  } catch (error: unknown) {
+    let message = '查詢失敗';
+    if (error instanceof Error) message = error.message;
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -33,7 +34,9 @@ export async function POST(req: NextRequest) {
     if (!courseId) return NextResponse.json({ error: 'Missing courseId' }, { status: 400 });
     await adminDb.collection('courses').doc(courseId).collection('ClassData').doc('main').set(classData, { merge: true });
     return NextResponse.json({ success: true });
-  } catch (error) {
-    return NextResponse.json({ error: (error as any).message || '寫入失敗' }, { status: 500 });
+  } catch (error: unknown) {
+    let message = '寫入失敗';
+    if (error instanceof Error) message = error.message;
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 } 

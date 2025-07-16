@@ -12,7 +12,9 @@ export async function POST(req: NextRequest) {
     });
     const doc = await docRef.get();
     return NextResponse.json({ id: doc.id, ...doc.data() });
-  } catch (error) {
-    return NextResponse.json({ error: (error as any).message || '建立失敗' }, { status: 500 });
+  } catch (error: unknown) {
+    let message = '新增失敗';
+    if (error instanceof Error) message = error.message;
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 } 

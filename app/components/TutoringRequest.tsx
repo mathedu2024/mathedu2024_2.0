@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, addDoc, Timestamp, doc, getDoc } from 'firebase/firestore';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Timestamp } from 'firebase/firestore';
 import LoadingSpinner from './LoadingSpinner';
-import AlertDialog from './AlertDialog';
 import Calendar from './Calendar';
 
 interface UserInfo {
@@ -11,12 +10,6 @@ interface UserInfo {
   name: string;
   account: string;
   role: string;
-}
-
-interface Teacher {
-  id: string;
-  name: string;
-  subjects: string[];
 }
 
 interface StudentCourse {
@@ -56,12 +49,12 @@ interface TutoringRequestForm {
 }
 
 export default function TutoringRequest({ userInfo }: { userInfo: UserInfo | null }) {
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  // Removed unused teachers state
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [studentCourses, setStudentCourses] = useState<StudentCourse[]>([]);
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  // Removed unused submitting state
+  // Removed unused showSuccessDialog state
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [formData, setFormData] = useState<TutoringRequestForm>({
     teacherId: '',
@@ -75,8 +68,8 @@ export default function TutoringRequest({ userInfo }: { userInfo: UserInfo | nul
     try {
       setLoading(true);
       const res = await fetch('/api/teacher/list');
-      const teachersList = await res.json();
-      setTeachers(teachersList);
+      await res.json();
+      // Removed unused teachers state
     } catch (error) {
       console.error('Error fetching teachers:', error);
     } finally {
@@ -98,7 +91,7 @@ export default function TutoringRequest({ userInfo }: { userInfo: UserInfo | nul
     }
   };
 
-  const getStudentEmail = async () => {
+  const getStudentEmail = useCallback(async () => {
     if (!userInfo) return '';
     try {
       const res = await fetch('/api/student/email', {
@@ -114,9 +107,9 @@ export default function TutoringRequest({ userInfo }: { userInfo: UserInfo | nul
       console.error('Error fetching student email:', error);
     }
     return '';
-  };
+  }, [userInfo]);
 
-  const fetchStudentCourses = async () => {
+  const fetchStudentCourses = useCallback(async () => {
     if (!userInfo) return;
     try {
       // 先查 /api/student/profile 取得 enrolledCourses
@@ -135,12 +128,12 @@ export default function TutoringRequest({ userInfo }: { userInfo: UserInfo | nul
         const resCourses = await fetch('/api/courses/list');
         if (resCourses.ok) {
           const allCourses = await resCourses.json();
-          const validCourses = allCourses.filter((c: any) => studentData.enrolledCourses.includes(c.id)).map((c: any) => ({
+          const validCourses = allCourses.filter((c: { id: string }) => studentData.enrolledCourses.includes(c.id)).map((c: { id: string; name?: string; code?: string; subject?: string; grade?: string }) => ({
             id: c.id,
             name: c.name || c.code || '未命名課程',
             code: c.code || '',
-            subject: c.subjectTag || c.subject || '未分類',
-            grade: c.gradeTags?.[0] || c.grade || ''
+            subject: c.subject || '未分類',
+            grade: c.grade || ''
           }));
           setStudentCourses(validCourses);
         } else {
@@ -153,7 +146,7 @@ export default function TutoringRequest({ userInfo }: { userInfo: UserInfo | nul
       console.error('獲取學生課程時發生錯誤:', error);
       setStudentCourses([]);
     }
-  };
+  }, [userInfo]);
 
   // 檢查學生是否符合時段資格
   const checkStudentEligibility = (timeSlot: TimeSlot): boolean => {
@@ -276,86 +269,9 @@ export default function TutoringRequest({ userInfo }: { userInfo: UserInfo | nul
     fetchTimeSlots();
     fetchStudentCourses();
     initializeForm();
-  }, [userInfo]);
+  }, [userInfo, getStudentEmail, fetchStudentCourses]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!userInfo) return;
-
-    console.log('學生ID:', userInfo.id);
-    console.log('學生帳號:', userInfo.account);
-    
-    try {
-      setSubmitting(true);
-      
-      const selectedTimeSlot = timeSlots.find(slot => slot.id === formData.timeSlotId);
-      if (!selectedTimeSlot) {
-        alert('請選擇輔導時段');
-        return;
-      }
-
-      // 檢查學生資格
-      if (!checkStudentEligibility(selectedTimeSlot)) {
-        alert('您不符合此輔導時段的資格要求');
-        return;
-      }
-
-      // 驗證電子郵件地址
-      if (selectedTimeSlot.tutoringMethod === 'online' && !formData.email.trim()) {
-        alert('線上輔導必須填寫電子郵件地址');
-        return;
-      }
-
-      // 獲取選中的課程資訊
-      const selectedCourse = studentCourses.find(course => course.id === formData.courseId);
-      if (!selectedCourse) {
-        alert('請選擇課程');
-        return;
-      }
-
-      const tutoringRequest = {
-        studentId: userInfo.id,
-        studentName: userInfo.name,
-        studentUsername: userInfo.account,
-        teacherId: selectedTimeSlot.teacherId,
-        teacherName: selectedTimeSlot.teacherName,
-        timeSlotId: selectedTimeSlot.id,
-        subject: selectedCourse.subject,
-        courseId: selectedCourse.id,
-        courseName: selectedCourse.name,
-        date: selectedTimeSlot.date,
-        time: selectedTimeSlot.time,
-        duration: selectedTimeSlot.duration,
-        notes: formData.notes,
-        email: formData.email,
-        tutoringMethod: selectedTimeSlot.tutoringMethod,
-        location: selectedTimeSlot.location,
-        status: 'pending',
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now()
-      };
-
-      await fetch('/api/tutoring-sessions/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(tutoringRequest),
-      });
-      
-      setShowSuccessDialog(true);
-      setFormData({
-        teacherId: '',
-        courseId: '',
-        timeSlotId: '',
-        notes: '',
-        email: formData.email // 保留電子郵件地址
-      });
-    } catch (error) {
-      console.error('Error submitting tutoring request:', error);
-      alert('提交預約申請時發生錯誤，請稍後再試');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  // Removed unused handleSubmit
 
   const handleDateSelect = (date: string) => {
     setSelectedDate(date);

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { adminDb } from '@/services/firebase-admin';
 
 export async function GET() {
@@ -38,11 +38,9 @@ export async function GET() {
       throw new Error('寫入後無法讀取測試資料');
     }
     
-  } catch (error) {
-    console.error('Firestore 測試失敗:', error);
-    return NextResponse.json({ 
-      error: (error as any).message || 'Firestore 連線測試失敗',
-      details: (error as any).stack
-    }, { status: 500 });
+  } catch (error: unknown) {
+    let message = '查詢失敗';
+    if (error instanceof Error) message = error.message;
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 } 

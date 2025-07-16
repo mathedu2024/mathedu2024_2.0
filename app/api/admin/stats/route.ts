@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { adminDb } from '../../../../services/firebase-admin';
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   const [studentsSnap, usersSnap, coursesSnap] = await Promise.all([
     adminDb.collection('student_data').get(),
     adminDb.collection('users').get(),

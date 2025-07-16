@@ -10,7 +10,9 @@ export async function POST(req: NextRequest) {
     const doc = snapshot.docs[0];
     const data = doc.data();
     return NextResponse.json({ courses: data.courses || [] });
-  } catch (error) {
-    return NextResponse.json({ error: (error as any).message || '查詢失敗' }, { status: 500 });
+  } catch (error: unknown) {
+    let message = '查詢失敗';
+    if (error instanceof Error) message = error.message;
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 } 

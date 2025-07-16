@@ -19,8 +19,8 @@ interface Announcement {
   subject?: '數學' | '理化' | '物理' | '化學' | '生物';
   department?: '高中部' | '國中部';
   links?: Link[];
-  createdAt?: any;
-  updatedAt?: any;
+  createdAt?: Date | { toDate: () => Date } | string | number | undefined;
+  updatedAt?: Date | { toDate: () => Date } | string | number | undefined;
 }
 
 export default function AnnouncementManager() {
@@ -224,8 +224,21 @@ export default function AnnouncementManager() {
   }
 
   function getCreatedAt(item: Announcement) {
-    if (item.createdAt?.toDate) {
-      return item.createdAt.toDate().toLocaleString();
+    const { createdAt } = item;
+    if (!createdAt) return '';
+    if (
+      typeof createdAt === 'object' &&
+      createdAt !== null &&
+      'toDate' in createdAt &&
+      typeof (createdAt as { toDate?: unknown }).toDate === 'function'
+    ) {
+      return (createdAt as { toDate: () => Date }).toDate().toLocaleString();
+    }
+    if (typeof createdAt === 'string' || typeof createdAt === 'number') {
+      return new Date(createdAt).toLocaleString();
+    }
+    if (createdAt instanceof Date) {
+      return createdAt.toLocaleString();
     }
     return '';
   }

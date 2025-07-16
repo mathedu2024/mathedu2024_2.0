@@ -25,11 +25,15 @@ export async function POST(req: NextRequest) {
     });
     try {
       await batch.commit();
-    } catch (err) {
-      return NextResponse.json({ error: (err as any).message || 'Firestore 批次寫入失敗' }, { status: 500 });
+    } catch (err: unknown) {
+      let message = 'Firestore 批次寫入失敗';
+      if (err instanceof Error) message = err.message;
+      return NextResponse.json({ error: message }, { status: 500 });
     }
     return NextResponse.json({ success: true });
-  } catch (error) {
-    return NextResponse.json({ error: (error as any).message || '課堂排序更新失敗' }, { status: 500 });
+  } catch (error: unknown) {
+    let message = '課堂排序更新失敗';
+    if (error instanceof Error) message = error.message;
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 } 

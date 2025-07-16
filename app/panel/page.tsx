@@ -87,9 +87,9 @@ export default function PanelLoginPage() {
 
       console.log('Panel - Redirecting to /back-panel');
       router.push('/back-panel');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Panel - Login error:', err);
-      setError(err.message || '發生未知錯誤');
+      setError(err instanceof Error ? err.message : '發生未知錯誤');
     } finally {
       setIsLoading(false);
     }

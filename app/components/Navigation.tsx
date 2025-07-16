@@ -9,11 +9,11 @@ export default function Navigation() {
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isClient, setIsClient] = useState(false);
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<unknown>(null);
 
   useEffect(() => {
     setIsClient(true);
-    setSession(getSession());
+    setSession(getSession() as unknown);
   }, []);
 
   const isActive = (path: string) => {
@@ -56,7 +56,18 @@ export default function Navigation() {
             {isClient && (
               <>
                 <a
-                  href={session && (session.role === 'admin' || session.role === 'teacher' || session.role === '管理員' || session.role === '老師') ? '/back-panel' : '/panel'}
+                  href={
+                    session &&
+                    typeof session === 'object' &&
+                    session !== null &&
+                    'role' in session &&
+                    ((session as { role?: string }).role === 'admin' ||
+                      (session as { role?: string }).role === 'teacher' ||
+                      (session as { role?: string }).role === '管理員' ||
+                      (session as { role?: string }).role === '老師')
+                      ? '/back-panel'
+                      : '/panel'
+                  }
                   className={`inline-flex items-center px-3 py-2 rounded-md text-sm md:text-base font-medium transition-colors ${
                     isActive('/panel')
                       ? 'bg-blue-50 text-blue-600'
@@ -66,7 +77,16 @@ export default function Navigation() {
                   網站管理
                 </a>
                 <a
-                  href={session && (session.role === 'student' || session.role === '學生') ? '/student' : '/login'}
+                  href={
+                    session &&
+                    typeof session === 'object' &&
+                    session !== null &&
+                    'role' in session &&
+                    ((session as { role?: string }).role === 'student' ||
+                      (session as { role?: string }).role === '學生')
+                      ? '/student'
+                      : '/login'
+                  }
                   className="inline-flex items-center px-4 py-2 border border-transparent text-sm md:text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
                 >
                   登入課程
@@ -141,7 +161,18 @@ export default function Navigation() {
           {isClient && (
             <>
               <a
-                href={session && (session.role === 'admin' || session.role === 'teacher' || session.role === '管理員' || session.role === '老師') ? '/back-panel' : '/panel'}
+                href={
+                  session &&
+                  typeof session === 'object' &&
+                  session !== null &&
+                  'role' in session &&
+                  ((session as { role?: string }).role === 'admin' ||
+                    (session as { role?: string }).role === 'teacher' ||
+                    (session as { role?: string }).role === '管理員' ||
+                    (session as { role?: string }).role === '老師')
+                    ? '/back-panel'
+                    : '/panel'
+                }
                 className={`block px-3 py-2 rounded-md text-base md:text-lg font-medium transition-colors ${
                   isActive('/panel')
                     ? 'bg-blue-50 text-blue-600'
@@ -152,7 +183,16 @@ export default function Navigation() {
                 網站管理
               </a>
               <a
-                href={session && (session.role === 'student' || session.role === '學生') ? '/student' : '/login'}
+                href={
+                  session &&
+                  typeof session === 'object' &&
+                  session !== null &&
+                  'role' in session &&
+                  ((session as { role?: string }).role === 'student' ||
+                    (session as { role?: string }).role === '學生')
+                    ? '/student'
+                    : '/login'
+                }
                 className="block px-3 py-2 rounded-md text-base md:text-lg font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors"
                 onClick={() => setIsMenuOpen(false)}
               >

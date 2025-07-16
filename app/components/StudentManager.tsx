@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import MultiSelectDropdown from './MultiSelectDropdown';
-import { collection, getDocs, setDoc, doc, deleteDoc, getDoc, query, where, documentId, serverTimestamp, updateDoc, writeBatch, arrayRemove } from 'firebase/firestore';
 import AlertDialog from './AlertDialog';
 import LoadingSpinner from './LoadingSpinner';
 
@@ -28,11 +27,8 @@ interface Course {
 
 export default function StudentManager() {
   const [students, setStudents] = useState<Student[]>([]);
-  const [showAddModal, setShowAddModal] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [alert, setAlert] = useState({ open: false, message: '' });
-  const [showDeleteDialog, setShowDeleteDialog] = useState<Student | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGrade, setSelectedGrade] = useState<string>('all');
   const [loading, setLoading] = useState(false);
@@ -62,9 +58,9 @@ export default function StudentManager() {
         const res2 = await fetch('/api/courses/list');
         const coursesRaw = await res2.json();
         // 保證 id 為「課程名稱(課程代碼)」格式
-        const courses = coursesRaw.map((c: any) => ({
-          ...c,
-          id: `${c.name}(${c.code})`
+        const courses = coursesRaw.map((c: unknown) => ({
+          ...c as Record<string, unknown>,
+          id: `${(c as Record<string, unknown>).name}(${(c as Record<string, unknown>).code})`
         }));
         setCourses(courses);
       } catch (error) {
@@ -219,12 +215,7 @@ export default function StudentManager() {
     return matchesSearch && matchesGrade;
   });
 
-  const gradeOrder: { [key: string]: number } = {
-    '高三': 6, '高二': 5, '高一': 4,
-    '國三': 3, '國二': 2, '國一': 1,
-  };
-
-  const updateStudentCourses = async (studentDocId: string, oldCourses: string[], newCourses: string[], studentInfo?: any) => {
+  const updateStudentCourses = async (studentDocId: string, oldCourses: string[], newCourses: string[], studentInfo?: Record<string, unknown>) => {
     await fetch('/api/course-student-list/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

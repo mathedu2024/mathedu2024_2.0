@@ -79,27 +79,33 @@ export async function POST(req: NextRequest) {
             } else {
               console.log(`找不到老師 ${teacherId} 的資料`);
             }
-          } catch (error) {
-            console.error(`更新老師 ${teacherId} 授課清單時發生錯誤:`, error);
+          } catch (error: unknown) {
+            let message = `更新老師 ${teacherId} 授課清單時發生錯誤`;
+            if (error instanceof Error) message = error.message;
+            console.error(message, error);
           }
         }
-      } catch (error) {
-        console.error('同步老師課程時發生錯誤:', error);
+      } catch (error: unknown) {
+        let message = '同步老師課程時發生錯誤';
+        if (error instanceof Error) message = error.message;
+        console.error(message, error);
       }
     }
     
     console.log('=== 課程建立 API 完成 ===');
     return NextResponse.json({ success: true, id });
     
-  } catch (error) {
+  } catch (error: unknown) {
+    let message = '創建課程失敗';
+    let details = '未知錯誤';
+    if (error instanceof Error) {
+      message = error.message;
+      details = error.stack || details;
+    }
     console.error('=== 課程建立 API 錯誤 ===');
     console.error('錯誤詳情:', error);
-    console.error('錯誤訊息:', (error as any).message);
-    console.error('錯誤堆疊:', (error as any).stack);
-    
-    return NextResponse.json({ 
-      error: (error as any).message || '創建課程失敗',
-      details: (error as any).stack || '未知錯誤'
-    }, { status: 500 });
+    console.error('錯誤訊息:', message);
+    console.error('錯誤堆疊:', details);
+    return NextResponse.json({ error: message, details }, { status: 500 });
   }
 } 

@@ -34,7 +34,7 @@ export default function PerformanceMonitor() {
 
     const updateMetrics = () => {
       if (typeof window !== 'undefined' && 'performance' in window) {
-        const memory = (performance as any).memory;
+        const memory = (performance as Performance & { memory?: { usedJSHeapSize: number } }).memory;
         setMetrics(prev => ({
           ...prev,
           memoryUsage: memory ? Math.round(memory.usedJSHeapSize / 1024 / 1024) : 0
@@ -69,12 +69,12 @@ export default function PerformanceMonitor() {
       }));
     };
 
-    window.addEventListener('login-performance' as any, handleLoginPerformance);
-    window.addEventListener('cache-stats' as any, handleCacheStats);
+    window.addEventListener('login-performance', handleLoginPerformance as EventListener);
+    window.addEventListener('cache-stats', handleCacheStats as EventListener);
     
     return () => {
-      window.removeEventListener('login-performance' as any, handleLoginPerformance);
-      window.removeEventListener('cache-stats' as any, handleCacheStats);
+      window.removeEventListener('login-performance', handleLoginPerformance as EventListener);
+      window.removeEventListener('cache-stats', handleCacheStats as EventListener);
     };
   }, []);
 

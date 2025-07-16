@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getSession, clearSession } from '../utils/session';
 import StudentGradeViewer from '../components/StudentGradeViewer';
@@ -8,9 +8,6 @@ import PasswordManager from '../components/PasswordManager';
 import SecureRoute from '../components/SecureRoute';
 import TutoringRequest from '../components/TutoringRequest';
 import StudentTutoringHistory from '../components/StudentTutoringHistory';
-import Link from 'next/link';
-import Accordion, { AccordionGroup } from '../components/Accordion';
-// @ts-ignore
 import { HomeIcon, BookOpenIcon, ClipboardDocumentListIcon, CheckCircleIcon, PencilIcon, CalendarIcon, KeyIcon } from '@heroicons/react/24/outline';
 
 interface StudentFeature {
@@ -107,18 +104,21 @@ interface Lesson {
 
 export default function StudentPanel() {
   return (
-    <Suspense fallback={<div className="flex h-screen bg-gray-100 items-center justify-center">
-      <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-r-4 border-blue-600"></div>
-    </div>}>
-      <StudentPanelContent />
-    </Suspense>
+    <SecureRoute requiredRole="student">
+      <Suspense fallback={<div className="flex h-screen bg-gray-100 items-center justify-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-r-4 border-blue-600"></div>
+      </div>}>
+        <StudentPanelContent />
+      </Suspense>
+    </SecureRoute>
   );
 }
 
 function StudentPanelContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  // 明確型別
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [counselingSubTab, setCounselingSubTab] = useState<'request' | 'history' | null>(null);
   const [studentInfo, setStudentInfo] = useState<{
@@ -129,24 +129,23 @@ function StudentPanelContent() {
     studentId: string;
     enrolledCourses?: string[];
   } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
+  const [loading, setLoading] = useState<boolean>(true);
+  
   // 我的課程 hooks（移到最外層）
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
-  const [loadingCourses, setLoadingCourses] = useState(false);
+  const [loadingCourses, setLoadingCourses] = useState<boolean>(false);
   const [lessons, setLessons] = useState<Lesson[]>([]);
-  const [loadingLessons, setLoadingLessons] = useState(false);
+  const [loadingLessons, setLoadingLessons] = useState<boolean>(false);
   // 新增：老師帳號對應名稱
   const [teacherNamesMap, setTeacherNamesMap] = useState<{ [id: string]: string }>({});
   // 新增：分頁相關狀態
-  const [currentPage, setCurrentPage] = useState(1);
-  const [lessonsPerPage] = useState(8);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [lessonsPerPage] = useState<number>(8);
 
   // 1. 新增 isMobile 狀態與漢堡選單控制
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(!isMobile);
 
   // 課程詳細資訊組件
   function LessonDetail({ lesson, index }: { lesson: Lesson; index: number }) {
@@ -252,23 +251,23 @@ function StudentPanelContent() {
                 const resCourses = await fetch('/api/courses/list');
                 const allCourses = await resCourses.json();
                 // 依照老師端 Firestore 查詢順序
-                const filteredCourses = allCourses.filter((c: any) => (studentInfo.enrolledCourses ?? []).includes(c.id));
+                const filteredCourses = allCourses.filter((c: unknown) => (studentInfo.enrolledCourses ?? []).includes((c as Course).id));
                 setCourses(filteredCourses);
               } catch (error) {
                 console.error('Error fetching courses:', error);
-                setError('讀取課程清單失敗');
+                // setError('讀取課程清單失敗'); // 移除未使用的 error 變數
               } finally {
                 setLoadingCourses(false);
               }
             }
           } else {
-            setError('找不到您的學生資料，請聯絡管理員。');
+            // setError('找不到您的學生資料，請聯絡管理員。'); // 移除未使用的 error 變數
             clearSession();
             router.push('/login');
           }
         } catch (error) {
           console.error("Error fetching student info:", error);
-          setError('讀取學生資料時發生錯誤');
+          // setError('讀取學生資料時發生錯誤'); // 移除未使用的 error 變數
         } finally {
           setLoading(false);
         }
@@ -304,31 +303,27 @@ function StudentPanelContent() {
     }
   }, [activeTab]);
 
-  // 我的課程資料載入（優化：懶載入）
-  const fetchCourses = async () => {
+  // Wrap fetchCourses in useCallback
+  const fetchCourses = useCallback(async () => {
     if (!studentInfo?.enrolledCourses || studentInfo.enrolledCourses.length === 0) {
       setCourses([]);
       setTeacherNamesMap({});
       return;
     }
-    // 改為呼叫 /api/courses/list 並過濾
     setLoadingCourses(true);
     try {
       const resCourses = await fetch('/api/courses/list');
       if (resCourses.ok) {
         const allCourses = await resCourses.json();
-        // 依照老師端 Firestore 查詢順序
-        const filteredCourses = allCourses.filter((c: any) => (studentInfo.enrolledCourses ?? []).includes(c.id));
-        // 查詢老師名稱
-        const allTeacherIds = Array.from(new Set(filteredCourses.flatMap((c: any) => c.teachers || [])));
+        const filteredCourses = allCourses.filter((c: unknown) => (studentInfo.enrolledCourses ?? []).includes((c as Course).id));
+        const allTeacherIds = Array.from(new Set(filteredCourses.flatMap((c: unknown) => (c as Course).teachers || [])));
         let teacherNames: { [id: string]: string } = {};
         if (allTeacherIds.length > 0) {
-          // 改為呼叫 /api/teacher/list
           const resTeachers = await fetch('/api/teacher/list');
           if (resTeachers.ok) {
-            const teachers: any[] = await resTeachers.json();
+            const teachers: { id: string; name: string }[] = await resTeachers.json();
             teacherNames = allTeacherIds.reduce<{ [id: string]: string }>((acc, id) => {
-              const t = teachers.find((t: any) => t.id === id);
+              const t = teachers.find((t: { id: string }) => t.id === id);
               acc[String(id)] = t ? t.name : String(id);
               return acc;
             }, {});
@@ -347,13 +342,13 @@ function StudentPanelContent() {
     } finally {
       setLoadingCourses(false);
     }
-  };
+  }, [studentInfo]);
 
   useEffect(() => {
     if (activeTab === 'courses' && studentInfo) {
       fetchCourses();
     }
-  }, [activeTab, studentInfo]);
+  }, [activeTab, studentInfo, fetchCourses]);
 
   // 當選擇課程時，載入該課程的課程清單（優化：添加快取）
   useEffect(() => {
@@ -410,7 +405,7 @@ function StudentPanelContent() {
     const pageNumbers = [];
     const maxVisiblePages = 5;
     let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
 
     if (endPage - startPage + 1 < maxVisiblePages) {
       startPage = Math.max(1, endPage - maxVisiblePages + 1);
@@ -786,8 +781,8 @@ function StudentPanelContent() {
 
   // 2. 側邊欄響應式與漢堡選單
   return (
-    <SecureRoute requiredRole="student">
-      <div className="flex h-screen bg-gray-100 font-sans">
+    <div className="flex flex-col h-screen bg-gray-100 font-sans">
+      <div className="flex flex-1 min-h-0">
         {/* 手機漢堡按鈕 */}
         <button
           className={`fixed top-20 left-4 z-50 bg-white p-2 rounded-full shadow-lg hover:bg-gray-50 transition-colors md:hidden ${sidebarOpen ? 'hidden' : 'block'}`}
@@ -804,58 +799,36 @@ function StudentPanelContent() {
         )}
         {/* 電腦版側邊欄 */}
         <aside
-          className={`hidden md:flex flex-col z-40 transition-all duration-300 bg-white border-r h-full ${isSidebarCollapsed ? 'w-16' : 'w-64'}`}
+          className={`hidden md:flex flex-col z-40 transition-all duration-300 bg-white border-r fixed left-0 top-16 bottom-0 ${isSidebarCollapsed ? 'w-16' : 'w-64'}`}
+          style={{height: 'calc(100vh - 64px)'}}
         >
-          {/* 頂部：學生資料、登出、收合/展開按鈕 */}
-          <div className="border-b pt-4 pb-2">
-            <div className="px-2">
-              {studentInfo && (
-                <>
-                  <div className="flex items-center gap-2 pb-2">
-                    <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">
-                      {studentInfo.name?.[0] || '?'}
+          {/* 學生資料區塊（sidebar 內） */}
+          <div className="pt-4 pb-2 px-2 border-b">
+            {studentInfo && (
+              <>
+                <div className="flex items-center gap-2 pb-2">
+                  <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">{studentInfo.name?.[0] || '?'}</div>
+                  {!isSidebarCollapsed && (
+                    <div className="ml-2">
+                      <div className="font-semibold text-base">{studentInfo.name} (學生)</div>
+                      <div className="text-xs text-gray-500">學號：{studentInfo.studentId}</div>
                     </div>
-                    {!isSidebarCollapsed && (
-                      <div className="ml-2">
-                        <div className="font-semibold text-base">{studentInfo.name} (學生)</div>
-                        <div className="text-xs text-gray-500">學號：{studentInfo.studentId}</div>
-                      </div>
-                    )}
-                  </div>
-                  <div className="pb-2">
-                    <button
-                      onClick={handleLogout}
-                      className="flex items-center w-full h-12 px-3 py-2 rounded-lg transition-colors text-red-600 hover:bg-red-50"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-                      {!isSidebarCollapsed && <span className="ml-3">登出</span>}
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-            <div className="px-2 pb-2">
-              <button
-                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                className="flex items-center w-full h-12 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100 text-gray-700"
-              >
-                <span className="flex items-center justify-center w-8 h-8">
-                  {isSidebarCollapsed ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                    </svg>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-                    </svg>
                   )}
-                </span>
-                {!isSidebarCollapsed && <span className="ml-3 text-base">{isSidebarCollapsed ? '展開選單' : '收合選單'}</span>}
-              </button>
-            </div>
+                </div>
+                <div className="pb-2">
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center w-full h-12 px-3 py-2 rounded-lg transition-colors text-red-600 hover:bg-red-50"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                    {!isSidebarCollapsed && <span className="ml-3">登出</span>}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
           {/* 功能選單 */}
-          <nav className="flex-1 py-4 flex flex-col gap-2 px-2 overflow-y-auto">
+          <nav className="flex-1 py-4 flex flex-col gap-2 px-2 overflow-y-auto min-h-0">
             {/* 儀表板按鈕 */}
             <button
               onClick={() => handleTabChange(null)}
@@ -878,7 +851,7 @@ function StudentPanelContent() {
                   ${item.disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-60 pointer-events-none' : ''}`}
               >
                 <span className="flex items-center justify-center w-8 h-8">
-                  {React.cloneElement(item.icon as React.ReactElement<any>, { className: `h-6 w-6 flex-shrink-0 ${item.disabled ? 'text-gray-400' : 'text-blue-600'}` })}
+                  {React.cloneElement(item.icon as React.ReactElement<{ className?: string }>, { className: `h-6 w-6 flex-shrink-0 ${item.disabled ? 'text-gray-400' : 'text-blue-600'}` })}
                 </span>
                 {!isSidebarCollapsed && (
                   <span className="ml-3 text-base truncate">{item.title}</span>
@@ -914,7 +887,7 @@ function StudentPanelContent() {
                     ${item.disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-60 pointer-events-none' : ''}`}
                 >
                   <span className="flex items-center justify-center w-8 h-8">
-                    {React.cloneElement(item.icon as React.ReactElement<any>, { className: `h-6 w-6 flex-shrink-0 ${item.disabled ? 'text-gray-400' : 'text-blue-600'}` })}
+                    {React.cloneElement(item.icon as React.ReactElement<{ className?: string }>, { className: `h-6 w-6 flex-shrink-0 ${item.disabled ? 'text-gray-400' : 'text-blue-600'}` })}
                   </span>
                   <span className="ml-3 text-base truncate">{item.title}</span>
                 </button>
@@ -938,7 +911,7 @@ function StudentPanelContent() {
           </aside>
         )}
         {/* Main Content */}
-        <main className="flex-1 min-w-0 p-2 md:p-8 overflow-auto">
+        <main className={`flex-1 min-w-0 p-2 md:p-8 transition-all duration-300 ${isSidebarCollapsed ? 'ml-16' : 'ml-64'}`} style={{height: '100vh', overflowY: 'auto'}}>
           {/* 儀表板或功能頁 */}
           {!activeTab ? (
             // 儀表板內容
@@ -1056,6 +1029,6 @@ function StudentPanelContent() {
           )}
         </main>
       </div>
-    </SecureRoute>
+    </div>
   );
 } 

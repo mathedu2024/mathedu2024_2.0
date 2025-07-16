@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     courseLists.forEach(docSnap => {
       const data = docSnap.data();
       if (Array.isArray(data.students)) {
-        const newStudents = data.students.filter((s: any) => s.studentId !== id);
+        const newStudents = data.students.filter((s: { studentId?: string }) => s.studentId !== id);
         if (newStudents.length !== data.students.length) {
           batch.update(docSnap.ref, { students: newStudents });
         }
@@ -21,7 +21,9 @@ export async function POST(req: NextRequest) {
     });
     await batch.commit();
     return NextResponse.json({ success: true });
-  } catch (error) {
-    return NextResponse.json({ error: (error as any).message || '刪除失敗' }, { status: 500 });
+  } catch (error: unknown) {
+    let message = '刪除失敗';
+    if (error instanceof Error) message = error.message;
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 } 

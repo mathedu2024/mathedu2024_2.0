@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import LoadingSpinner from './LoadingSpinner';
 import ConfirmDialog from './ConfirmDialog';
 import Calendar from './Calendar';
@@ -31,33 +31,15 @@ interface TutoringSession {
   updatedAt: string;
 }
 
-interface TimeSlot {
-  id: string;
-  teacherId: string;
-  teacherName: string;
-  date: string;
-  time: string;
-  duration: number;
-  maxStudents: number;
-  currentStudents: number;
-  status: 'available' | 'full' | 'cancelled';
-  restrictions: string;
-  notes: string;
-  tutoringType: 'individual' | 'group';
-  subjectRestriction?: string;
-  courseRestrictions?: string[];
-  createdAt: string;
-}
-
 export default function TutoringManager({ userInfo }: { userInfo: UserInfo | null }) {
   const [tutoringSessions, setTutoringSessions] = useState<TutoringSession[]>([]);
-  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
+  // Removed unused timeSlots state
   const [loading, setLoading] = useState(true);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState<boolean>(false);
   const [selectedSession, setSelectedSession] = useState<TutoringSession | null>(null);
   const [activeView, setActiveView] = useState<'calendar' | 'sessions'>('calendar');
 
-  const fetchTutoringSessions = async () => {
+  const fetchTutoringSessions = useCallback(async () => {
     if (!userInfo) return;
     try {
       setLoading(true);
@@ -73,27 +55,27 @@ export default function TutoringManager({ userInfo }: { userInfo: UserInfo | nul
     } finally {
       setLoading(false);
     }
-  };
+  }, [userInfo]);
 
-  const fetchTimeSlots = async () => {
+  const fetchTimeSlots = useCallback(async () => {
     if (!userInfo) return;
     try {
-      const res = await fetch('/api/time-slots/list', {
+      await fetch('/api/time-slots/list', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ teacherId: userInfo.id }),
       });
-      const slots = await res.json();
-      setTimeSlots(slots.filter((slot: any) => slot.teacherId === userInfo.id));
+      // Removed unused variable 'result'
     } catch (error) {
       console.error('Error fetching time slots:', error);
     }
-  };
+  }, [userInfo]);
 
   useEffect(() => {
     fetchTutoringSessions();
     fetchTimeSlots();
-  }, [userInfo]);
+    // fetchTutoringSessions and fetchTimeSlots are stable (not recreated), so this is safe
+  }, [userInfo, fetchTutoringSessions, fetchTimeSlots]);
 
   const handleStatusChange = async (sessionId: string, newStatus: TutoringSession['status']) => {
     try {
@@ -119,12 +101,12 @@ export default function TutoringManager({ userInfo }: { userInfo: UserInfo | nul
     if (!selectedSession) return;
     
     try {
-      const res = await fetch('/api/tutoring-sessions/delete', {
+      await fetch('/api/tutoring-sessions/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId: selectedSession.id }),
       });
-      const result = await res.json();
+      // Removed unused variable 'result'
       setTutoringSessions(prev => prev.filter(session => session.id !== selectedSession.id));
       setShowDeleteDialog(false);
       setSelectedSession(null);
@@ -376,8 +358,7 @@ export default function TutoringManager({ userInfo }: { userInfo: UserInfo | nul
           setSelectedSession(null);
         }}
         onConfirm={handleDeleteSession}
-        title="確認刪除"
-        message={`確定要刪除學生 ${selectedSession?.studentName} 的輔導預約嗎？此操作無法復原。`}
+        message="確定要刪除此預約記錄嗎？"
         confirmText="刪除"
         cancelText="取消"
         confirmColor="red"

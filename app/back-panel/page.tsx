@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import AnnouncementManager from '../components/AnnouncementManager';
 import ExamDateManager from '../components/ExamDateManager';
@@ -10,9 +10,8 @@ import TeacherAdminManager from '../components/TeacherAdminManager';
 import PasswordManager from '../components/PasswordManager';
 import TeacherCourseManager from '../components/TeacherCourseManager';
 import GradeManager from '../components/GradeManager';
-import TutoringManager from '../components/TutoringManager';
 import { getSession, clearSession } from '../utils/session';
-import Accordion, { AccordionGroup } from '../components/Accordion';
+import type { Course } from '../components/TeacherCourseManager';
 
 type AdminTab = 'announcements' | 'exam-dates' | 'students' | 'courses' | 'admin-teachers';
 type TeacherTab = 'teacher-courses' | 'teacher-grades' | 'teacher-exams' | 'tutoring';
@@ -28,13 +27,7 @@ interface BackPanelUserInfo {
   currentRole?: string;
 }
 
-interface CourseInfo {
-  id: string;
-  name: string;
-  code: string;
-}
-
-export default function BackPanel() {
+function BackPanel() {
   const router = useRouter();
   const searchParams = useSearchParams();
   // 1. 狀態 hooks 命名與學生端一致
@@ -44,10 +37,9 @@ export default function BackPanel() {
   const [userInfo, setUserInfo] = useState<BackPanelUserInfo | null>(null);
   const [lastActivity, setLastActivity] = useState<number>(Date.now());
   const [isChildProcessing, setIsChildProcessing] = useState(false);
-  const [courses, setCourses] = useState<CourseInfo[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [adminStats, setAdminStats] = useState({ studentCount: 0, teacherCount: 0, courseCount: 0 });
   const [loading, setLoading] = useState(true);
-  const [teacherCoursesLoading, setTeacherCoursesLoading] = useState(false);
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
   const handleActivity = useCallback(() => setLastActivity(Date.now()), []);
@@ -78,7 +70,7 @@ export default function BackPanel() {
       clearInterval(interval);
       events.forEach(event => window.removeEventListener(event, handleActivity));
     };
-  }, [isChildProcessing, lastActivity, router]);
+  }, [isChildProcessing, lastActivity, router, handleActivity]);
 
   useEffect(() => {
     console.time('back-panel-load');
@@ -203,7 +195,7 @@ export default function BackPanel() {
 
   useEffect(() => {
     if (userInfo?.role === '老師' && userInfo.account) {
-      setTeacherCoursesLoading(true);
+
       (async () => {
         // 先取得老師授課課程的名稱
         const res = await fetch('/api/teacher/courses', {
@@ -225,34 +217,27 @@ export default function BackPanel() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ teacherId: userInfo.id }),
         });
-        let fullCourses = [];
+        let fullCourses: Course[] = [];
         if (res2.ok) {
-          const allCourses = await res2.json();
+          const allCourses: Course[] = await res2.json();
           // 只保留老師授課的課程（用 name 過濾）
-          fullCourses = allCourses.filter((c: any) => courseNames.includes(c.name));
+          fullCourses = allCourses.filter((c: Course) => courseNames.includes(c.name));
         }
-        setCourses(fullCourses);
-        setTeacherCoursesLoading(false);
+        setCourses(fullCourses as Course[]);
+      })();
+    } else if (userInfo?.role === '管理員') {
+      // 管理員載入全部課程
+      (async () => {
+        const res = await fetch('/api/courses/list', { method: 'GET' });
+        if (res.ok) {
+          const allCourses: Course[] = await res.json();
+          setCourses(allCourses);
+        } else {
+          setCourses([]);
+        }
       })();
     }
-  }, [userInfo?.account, userInfo?.id]);
-
-  const adminDashboardCards = [
-    { id: 'announcements', title: '公告管理', description: '發布與管理最新公告', icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mb-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.354a1.76 1.76 0 013.417-.592z" /></svg> },
-    { id: 'exam-dates', title: '考試日期管理', description: '管理考試時程與重要日期', icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mb-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg> },
-    { id: 'students', title: '學生管理', description: '管理學生資訊與註冊狀態', icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mb-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg> },
-    { id: 'courses', title: '課程管理', description: '新增、編輯、管理所有課程', icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mb-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v11.494m-9-5.747h18" /></svg> },
-    { id: 'admin-teachers', title: '老師/管理員管理', description: '管理教師與管理員帳號', icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mb-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> },
-  ];
-  
-  const teacherDashboardCards = [
-    { id: 'teacher-courses', title: '授課課程管理', description: '管理您的授課課程、學生與內容', icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mb-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg> },
-    { id: 'teacher-grades', title: '成績管理', description: '上傳、查詢、與分析學生成績', icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mb-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V7a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg> },
-    { id: 'teacher-exams', title: '測驗管理', description: '建立、管理與查詢課堂測驗', icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mb-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-3-3v6m9-6a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
-    { id: 'tutoring', title: '課程輔導', description: '管理老師與學生的輔導排程', icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mb-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg> },
-  ];
-
-  const passwordDashboardCard = { id: 'password', title: '修改密碼', description: '修改您的登入密碼', icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mb-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg> };
+  }, [userInfo?.account, userInfo?.id, userInfo?.role]);
 
   const sidebarMenuItems: { [K in '管理員' | '老師']: { id: string; title: string; icon: React.JSX.Element }[] } = {
     '管理員': [
@@ -272,22 +257,9 @@ export default function BackPanel() {
     ],
   };
 
-  const teacherStats = [
-    { title: '授課課程', value: courses.length, color: 'blue', icon: <svg className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6l4 2" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12V6a2 2 0 00-2-2H6a2 2 0 00-2 2v6" /></svg> },
-    { title: '成績管理', value: '可管理', color: 'green', icon: <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg> },
-    { title: '輔導預約', value: '未開放', color: 'yellow', icon: <svg className="h-8 w-8 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg> },
-  ];
-
-  const adminStatsCards = [
-    { title: '學生總數', value: adminStats?.studentCount ?? 0, color: 'blue', icon: <svg className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg> },
-    { title: '教師總數', value: adminStats?.teacherCount ?? 0, color: 'green', icon: <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg> },
-    { title: '課程總數', value: adminStats?.courseCount ?? 0, color: 'yellow', icon: <svg className="h-8 w-8 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6l4 2" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12V6a2 2 0 00-2-2H6a2 2 0 00-2 2v6" /></svg> },
-    { title: '帳戶設定', value: '可修改', color: 'purple', icon: <svg className="h-8 w-8 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg> },
-  ];
-
   // 老師端側邊選單與快速操作順序與顏色（全部用 Tailwind 標準色）
   type TeacherColor = 'blue' | 'green' | 'orange' | 'yellow' | 'purple' | 'red';
-  const teacherSidebarMenu: { id: string; title: string; icon: React.ReactElement<any>; color: TeacherColor; disabled?: boolean }[] = [
+  const teacherSidebarMenu: { id: string; title: string; icon: React.ReactElement; color: TeacherColor; disabled?: boolean }[] = [
     { id: 'teacher-courses', title: '授課課程管理', icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6l4 2" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12V6a2 2 0 00-2-2H6a2 2 0 00-2 2v6" /></svg>, color: 'blue' },
     { id: 'teacher-grades', title: '成績管理', icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>, color: 'green' },
     { id: 'teacher-attendance', title: '點名管理', icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>, color: 'orange', disabled: true },
@@ -344,22 +316,22 @@ export default function BackPanel() {
     if (isAdmin || isTeacher) {
       const isAdminPanel = isAdmin;
       // 管理員/老師端快速操作卡片（原 quickActions，移到這裡）
-      const quickActions: { id: string; title: string; description: string; disabled?: boolean }[] = isAdminPanel
-        ? [
-            { id: 'announcements', title: '公告管理', description: '發布與管理最新公告' },
-            { id: 'exam-dates', title: '考試日期管理', description: '管理考試時程與重要日期' },
-            { id: 'students', title: '學生管理', description: '管理學生資訊與註冊狀態' },
-            { id: 'courses', title: '課程管理', description: '新增、編輯、管理所有課程' },
-            { id: 'admin-teachers', title: '老師/管理員管理', description: '管理教師與管理員帳號' },
-            { id: 'password', title: '修改密碼', description: '修改您的登入密碼' },
-          ]
-        : [
-            { id: 'teacher-courses', title: '授課課程管理', description: '管理您的授課課程、學生與內容' },
-            { id: 'teacher-grades', title: '成績管理', description: '上傳、查詢、與分析學生成績' },
-            { id: 'teacher-exams', title: '測驗管理', description: '建立、管理與查詢課堂測驗', disabled: true },
-            { id: 'tutoring', title: '課程輔導', description: '管理老師與學生的輔導排程', disabled: true },
-            { id: 'password', title: '修改密碼', description: '修改您的登入密碼' },
-          ];
+      // const quickActions: { id: string; title: string; description: string; disabled?: boolean }[] = isAdminPanel
+      //   ? [
+      //       { id: 'announcements', title: '公告管理', description: '發布與管理最新公告' },
+      //       { id: 'exam-dates', title: '考試日期管理', description: '管理考試時程與重要日期' },
+      //       { id: 'students', title: '學生管理', description: '管理學生資訊與註冊狀態' },
+      //       { id: 'courses', title: '課程管理', description: '新增、編輯、管理所有課程' },
+      //       { id: 'admin-teachers', title: '老師/管理員管理', description: '管理教師與管理員帳號' },
+      //       { id: 'password', title: '修改密碼', description: '修改您的登入密碼' },
+      //     ]
+      //   : [
+      //       { id: 'teacher-courses', title: '授課課程管理', description: '管理您的授課課程、學生與內容' },
+      //       { id: 'teacher-grades', title: '成績管理', description: '上傳、查詢、與分析學生成績' },
+      //       { id: 'teacher-exams', title: '測驗管理', description: '建立、管理與查詢課堂測驗', disabled: true },
+      //       { id: 'tutoring', title: '課程輔導', description: '管理老師與學生的輔導排程', disabled: true },
+      //       { id: 'password', title: '修改密碼', description: '修改您的登入密碼' },
+      //     ];
       // 修正：分別取用 adminStats 或 teacherStats
       const statsCards = isAdminPanel ? [
         { title: '學生數', value: adminStats.studentCount, color: 'blue', icon: <svg className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg> },
@@ -546,77 +518,66 @@ export default function BackPanel() {
     disabled: item.disabled || (item.id === 'tutoring' || item.id === 'teacher-exams' ? true : false),
   }));
 
-  function roleToChinese(role: string | undefined): string {
-    if (!role) return '';
-    if (role === 'admin') return '管理員';
-    if (role === 'teacher') return '老師';
-    if (role === 'student') return '學生';
-    return role;
-  }
-
   // 新增預設空白元件
   function TeacherExamManager() {
     return <div style={{padding:40, fontSize:22, color:'#666'}}>「測驗管理」功能開發中，敬請期待！</div>;
   }
 
   // 修正重複渲染：分離 mainItems 與 accountItems
-  const mainItems = allSidebarMenuItems.filter(f => f.id !== 'password');
-  const accountItems = allSidebarMenuItems.filter(f => f.id === 'password');
-  // 2. 在 BackPanel 組件內，定義 sidebarAccordionGroups
-  const sidebarAccordionGroups: AccordionGroup[] = [
-    {
-      id: 'main',
-      title: isAdmin ? '管理功能' : '教師功能',
-      content: (
-        <div className="flex flex-col gap-2">
-          {mainItems.map(item => (
-            <button
-              key={item.id}
-              onClick={() => {
-                if (isMobile) setSidebarOpen(false);
-                if (!item.disabled) handleTabChange(item.id as Tab);
-              }}
-              disabled={item.disabled}
-              className={`w-full flex items-baseline leading-none p-2 rounded-lg transition-colors select-none
-                ${activeTab === item.id ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100 text-gray-700'}
-                ${item.disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-60 pointer-events-none' : ''}`}
-            >
-              <span className="flex items-baseline w-8 h-8">
-                {React.cloneElement(item.icon, { className: 'h-[22px] w-[22px] flex-shrink-0 block align-middle ' + (item.disabled ? 'text-gray-400' : 'text-blue-600') })}
-              </span>
-              <span className="ml-3 text-sm md:text-base truncate align-middle">{item.title}</span>
-            </button>
-          ))}
-        </div>
-      ),
-    },
-    {
-      id: 'account',
-      title: '帳戶功能',
-      content: (
-        <div className="flex flex-col gap-2">
-          {accountItems.map(item => (
-            <button
-              key={item.id}
-              onClick={() => {
-                if (isMobile) setSidebarOpen(false);
-                if (!item.disabled) handleTabChange(item.id as Tab);
-              }}
-              disabled={item.disabled}
-              className={`w-full flex items-baseline leading-none p-2 rounded-lg transition-colors select-none
-                ${activeTab === item.id ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100 text-gray-700'}
-                ${item.disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-60 pointer-events-none' : ''}`}
-            >
-              <span className="flex items-baseline w-8 h-8">
-                {React.cloneElement(item.icon, { className: 'h-[22px] w-[22px] flex-shrink-0 block align-middle ' + (item.disabled ? 'text-gray-400' : 'text-blue-600') })}
-              </span>
-              <span className="ml-3 text-sm md:text-base truncate align-middle">{item.title}</span>
-            </button>
-          ))}
-        </div>
-      ),
-    },
-  ];
+  // const sidebarAccordionGroups = [
+  //   {
+  //     id: 'main',
+  //     title: isAdmin ? '管理功能' : '教師功能',
+  //     content: (
+  //       <div className="flex flex-col gap-2">
+  //         {mainItems.map(item => (
+  //           <button
+  //             key={item.id}
+  //             onClick={() => {
+  //               if (isMobile) setSidebarOpen(false);
+  //               if (!item.disabled) handleTabChange(item.id as Tab);
+  //             }}
+  //             disabled={item.disabled}
+  //             className={`w-full flex items-baseline leading-none p-2 rounded-lg transition-colors select-none
+  //               ${activeTab === item.id ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100 text-gray-700'}
+  //               ${item.disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-60 pointer-events-none' : ''}`}
+  //           >
+  //             <span className="flex items-baseline w-8 h-8">
+  //               {React.cloneElement(item.icon, { className: 'h-[22px] w-[22px] flex-shrink-0 block align-middle ' + (item.disabled ? 'text-gray-400' : 'text-blue-600') })}
+  //             </span>
+  //             <span className="ml-3 text-sm md:text-base truncate align-middle">{item.title}</span>
+  //           </button>
+  //         ))}
+  //       </div>
+  //     ),
+  //   },
+  //   {
+  //     id: 'account',
+  //     title: '帳戶功能',
+  //     content: (
+  //       <div className="flex flex-col gap-2">
+  //         {accountItems.map(item => (
+  //           <button
+  //             key={item.id}
+  //             onClick={() => {
+  //               if (isMobile) setSidebarOpen(false);
+  //               if (!item.disabled) handleTabChange(item.id as Tab);
+  //             }}
+  //             disabled={item.disabled}
+  //             className={`w-full flex items-baseline leading-none p-2 rounded-lg transition-colors select-none
+  //               ${activeTab === item.id ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100 text-gray-700'}
+  //               ${item.disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-60 pointer-events-none' : ''}`}
+  //           >
+  //             <span className="flex items-baseline w-8 h-8">
+  //               {React.cloneElement(item.icon, { className: 'h-[22px] w-[22px] flex-shrink-0 block align-middle ' + (item.disabled ? 'text-gray-400' : 'text-blue-600') })}
+  //             </span>
+  //             <span className="ml-3 text-sm md:text-base truncate align-middle">{item.title}</span>
+  //           </button>
+  //         ))}
+  //       </div>
+  //     ),
+  //   },
+  // ];
 
   return (
     <div className="flex h-screen bg-gray-100">
@@ -627,7 +588,8 @@ export default function BackPanel() {
         </button>
       )}
       {/* 側邊欄 */}
-      <aside className={`hidden md:flex flex-col z-40 transition-all duration-300 bg-white border-r h-full ${isSidebarCollapsed ? 'w-16' : 'w-64'}`}>
+      <aside className={`hidden md:flex flex-col z-40 transition-all duration-300 bg-white border-r fixed left-0 top-16 bottom-0 ${isSidebarCollapsed ? 'w-16' : 'w-64'}`}
+        style={{height: 'calc(100vh - 64px)'}}>
         {/* 頂部：用戶資料、登出、收合/展開按鈕 */}
         <div className="border-b pt-4 pb-2">
           <div className="px-2">
@@ -711,9 +673,17 @@ export default function BackPanel() {
         </nav>
       </aside>
 
-      <main className="flex-1 overflow-auto p-2 md:p-8">
+      <main className="flex-1 p-2 md:p-8 ml-0 md:ml-64 overflow-y-auto" style={{height: '100vh'}}>
           {renderContent()}
       </main>
     </div>
+  );
+}
+
+export default function BackPanelWrapper() {
+  return (
+    <Suspense>
+      <BackPanel />
+    </Suspense>
   );
 }

@@ -2,11 +2,9 @@
 
 import React from 'react';
 import Link from 'next/link';
-import Navigation from './components/Navigation';
 import { useState, useEffect } from 'react';
-import { getAnnouncements, getCourseInfo } from '../services/announcementService';
+import { getAnnouncements } from '../services/announcementService';
 import { getExams, Exam } from '../services/examService';
-import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { Listbox } from '@headlessui/react';
 import { ChevronUpDownIcon } from '@heroicons/react/20/solid';
 
@@ -23,42 +21,11 @@ interface Announcement {
   subject?: '數學' | '理化' | '物理' | '化學' | '生物';
   department?: '高中部' | '國中部';
   links?: Link[];
-  createdAt: any;
+  createdAt: string; // Changed from 'any' to 'string'
   description: string;
 }
 
-interface Course {
-  id: string;
-  name: string;
-  description: string;
-  coverImageURL?: string;
-}
-
-async function getHomePageData() {
-  const announcements = await getAnnouncements();
-  const courses = await getCourseInfo();
-  const exams = await getExams();
-  
-  return {
-    announcements: Array.isArray(announcements) 
-      ? announcements.map(a => ({ 
-          id: typeof a === 'object' && 'id' in a && typeof a.id === 'string' ? a.id : '', 
-          title: typeof a === 'object' && 'title' in a && typeof a.title === 'string' ? a.title : '', 
-          content: typeof a === 'object' && 'content' in a && typeof a.content === 'string' ? a.content : '',
-          createdAt: typeof a === 'object' && 'createdAt' in a ? a.createdAt : undefined,
-        })) 
-      : [],
-    courses: Array.isArray(courses) 
-      ? courses.map(c => ({
-          id: typeof c === 'object' && 'id' in c && typeof c.id === 'string' ? c.id : '',
-          name: typeof c === 'object' && 'title' in c && typeof c.title === 'string' ? c.title : '',
-          description: typeof c === 'object' && 'description' in c && typeof c.description === 'string' ? c.description : '',
-          coverImageURL: typeof c === 'object' && 'coverImageURL' in c && typeof c.coverImageURL === 'string' ? c.coverImageURL : undefined,
-        }))
-      : [],
-    exams: Array.isArray(exams) ? exams : [],
-  };
-}
+// Removed unused getHomePageData function
 
 export default function Home() {
   // 計算倒數天數 (考試前一天為第1天)
@@ -89,12 +56,10 @@ export default function Home() {
 
   // 公告與課程資料
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedAnnouncement, setExpandedAnnouncement] = useState<string | null>(null);
-  const [expandedCourse, setExpandedCourse] = useState<string | null>(null);
-  const [announcementPage, setAnnouncementPage] = useState(1);
+  const [announcementPage, setAnnouncementPage] = useState<number>(1);
   const ANNOUNCEMENTS_PER_PAGE = 3;
 
   // 篩選器狀態
@@ -140,15 +105,11 @@ export default function Home() {
         console.error('Error fetching announcements:', err);
         return [];
       }),
-      getCourseInfo().catch(err => {
-        console.error('Error fetching courses:', err);
-        return [];
-      }),
       getExams().catch(err => {
         console.error('Error fetching exams:', err);
         return [];
       })
-    ]).then(([ann, cou, exm]) => {
+    ]).then(([ann, exm]) => {
       setAnnouncements(
         Array.isArray(ann)
           ? ann.map(a => ({
@@ -159,18 +120,8 @@ export default function Home() {
               subject: typeof a === 'object' && 'subject' in a ? a.subject : undefined,
               department: typeof a === 'object' && 'department' in a ? a.department : undefined,
               links: typeof a === 'object' && 'links' in a && Array.isArray(a.links) ? a.links : undefined,
-              createdAt: typeof a === 'object' && 'createdAt' in a ? a.createdAt : undefined,
+              createdAt: typeof a === 'object' && 'createdAt' in a ? a.createdAt : '', // Changed from 'any' to 'string'
               description: typeof a === 'object' && 'description' in a && typeof a.description === 'string' ? a.description : '',
-            }))
-          : []
-      );
-      setCourses(
-        Array.isArray(cou)
-          ? cou.map(c => ({
-              id: c.id,
-              name: typeof c === 'object' && 'title' in c && typeof c.title === 'string' ? c.title : '',
-              description: typeof c === 'object' && 'description' in c && typeof c.description === 'string' ? c.description : '',
-              coverImageURL: typeof c === 'object' && 'coverImageURL' in c && typeof c.coverImageURL === 'string' ? c.coverImageURL : undefined,
             }))
           : []
       );

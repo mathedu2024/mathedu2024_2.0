@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
     if (!Array.isArray(courseKeys) || courseKeys.length === 0) {
       return NextResponse.json({ error: 'Missing courseKeys' }, { status: 400 });
     }
-    const results: Record<string, any> = {};
+    const results: Record<string, unknown> = {};
     for (const key of courseKeys) {
       const doc = await adminDb.collection('grades').doc(key).get();
       if (doc.exists) {
@@ -36,7 +36,9 @@ export async function POST(req: NextRequest) {
       }
     }
     return NextResponse.json(results);
-  } catch (error) {
-    return NextResponse.json({ error: (error as any).message || '查詢失敗' }, { status: 500 });
+  } catch (error: unknown) {
+    let message = '查詢失敗';
+    if (error instanceof Error) message = error.message;
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 } 

@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
     const { teacherId } = await req.json();
     console.log('courses/list API - Received teacherId:', teacherId);
     
-    let query: Query = adminDb.collection('courses');
+    const query: Query = adminDb.collection('courses');
     
     if (teacherId) {
       // 首先嘗試獲取老師的完整資訊
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
         } else {
           console.log('courses/list API - Teacher not found by ID');
         }
-      } catch (error) {
+      } catch {
         console.log('courses/list API - Teacher not found by ID, trying account lookup');
       }
       
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
           } else {
             console.log('courses/list API - Teacher not found by account');
           }
-        } catch (error) {
+        } catch {
           console.log('courses/list API - Teacher not found by account');
         }
       }
@@ -47,8 +47,8 @@ export async function POST(req: NextRequest) {
       const possibleIds = [teacherId];
       if (teacherInfo) {
         possibleIds.push(teacherInfo.id);
-        if ((teacherInfo as any).uid) possibleIds.push((teacherInfo as any).uid);
-        if ((teacherInfo as any).account) possibleIds.push((teacherInfo as any).account);
+        if ((teacherInfo as unknown as { uid: string }).uid) possibleIds.push((teacherInfo as unknown as { uid: string }).uid);
+        if ((teacherInfo as unknown as { account: string }).account) possibleIds.push((teacherInfo as unknown as { account: string }).account);
       }
       
       // 去重
@@ -84,8 +84,8 @@ export async function POST(req: NextRequest) {
             const course = { id: doc.id, ...doc.data() };
             allCourses.set(course.id, course);
           });
-        } catch (error) {
-          console.log(`courses/list API - Error querying for ID ${id}:`, error);
+        } catch {
+          // 查詢失敗時略過
         }
       }
       
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
       console.log(`courses/list API - Found ${courses.length} total courses for teacher ${teacherId}`);
       console.log('courses/list API - Course IDs:', courses.map(c => c.id));
       // 自動補齊所有欄位
-      const withDefaults = (course: any) => ({
+      const withDefaults = (course: Record<string, unknown>) => ({
         id: course.id,
         name: course.name || '',
         code: course.code || '',
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
     const snapshot = await query.get();
     const courses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     // 自動補齊所有欄位
-    const withDefaults = (course: any) => ({
+    const withDefaults = (course: Record<string, unknown>) => ({
       id: course.id,
       name: course.name || '',
       code: course.code || '',
@@ -147,9 +147,10 @@ export async function POST(req: NextRequest) {
       archived: typeof course.archived === 'boolean' ? course.archived : false,
     });
     return NextResponse.json(courses.map(withDefaults));
-  } catch (error) {
-    console.error('courses/list API - Error:', error);
-    return NextResponse.json({ error: (error as any).message || '查詢失敗' }, { status: 500 });
+  } catch (error: unknown) {
+    let message = '查詢失敗';
+    if (error instanceof Error) message = error.message;
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -160,7 +161,7 @@ export async function GET() {
     const snapshot = await adminDb.collection('courses').get();
     const courses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     // 自動補齊所有欄位
-    const withDefaults = (course: any) => ({
+    const withDefaults = (course: Record<string, unknown>) => ({
       id: course.id,
       name: course.name || '',
       code: course.code || '',
@@ -184,8 +185,13 @@ export async function GET() {
       archived: typeof course.archived === 'boolean' ? course.archived : false,
     });
     return NextResponse.json(courses.map(withDefaults));
-  } catch (error) {
-    console.error('courses/list API - GET Error:', error);
-    return NextResponse.json({ error: (error as any).message || '查詢失敗', stack: (error as any).stack }, { status: 500 });
+  } catch (error: unknown) {
+    let message = '查詢失敗';
+    let stack = undefined;
+    if (error instanceof Error) {
+      message = error.message;
+      stack = error.stack;
+    }
+    return NextResponse.json({ error: message, stack }, { status: 500 });
   }
 } 

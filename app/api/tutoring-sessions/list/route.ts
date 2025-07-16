@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/services/firebase-admin';
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   const snapshot = await adminDb.collection('tutoring-sessions').get();
   const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   return NextResponse.json(data);
@@ -17,7 +17,9 @@ export async function POST(req: NextRequest) {
       .get();
     const sessions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     return NextResponse.json(sessions);
-  } catch (error) {
-    return NextResponse.json({ error: (error as any).message || '查詢失敗' }, { status: 500 });
+  } catch (error: unknown) {
+    let message = '查詢失敗';
+    if (error instanceof Error) message = error.message;
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 } 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Timestamp } from 'firebase/firestore';
 import LoadingSpinner from './LoadingSpinner';
 import AlertDialog from './AlertDialog';
@@ -50,8 +50,13 @@ export default function Calendar({ userInfo, viewMode, onDateSelect }: CalendarP
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-  const [subjects, setSubjects] = useState<string[]>([]);
-  const [courses, setCourses] = useState<any[]>([]);
+  interface Course {
+    id: string;
+    name: string;
+    code: string;
+    [key: string]: unknown;
+  }
+  const [courses, setCourses] = useState<Course[]>([]);
   const [editingSlot, setEditingSlot] = useState<TimeSlot | null>(null);
   const [deletingSlot, setDeletingSlot] = useState<TimeSlot | null>(null);
   const [formData, setFormData] = useState({
@@ -72,13 +77,10 @@ export default function Calendar({ userInfo, viewMode, onDateSelect }: CalendarP
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [subjectsRes, coursesRes] = await Promise.all([
-          fetch('/api/subjects/list', { method: 'POST' }),
+        const [coursesRes] = await Promise.all([
           fetch('/api/courses/list', { method: 'POST' })
         ]);
-        const subjectsData = await subjectsRes.json();
         const coursesData = await coursesRes.json();
-        setSubjects(subjectsData);
         setCourses(coursesData);
       } catch (error) {
         console.error('Error fetching subjects and courses:', error);
@@ -87,36 +89,23 @@ export default function Calendar({ userInfo, viewMode, onDateSelect }: CalendarP
     fetchData();
   }, []);
 
-  // 學生模式下獲取整個月份的時段
-  useEffect(() => {
-    if (viewMode === 'student' && userInfo) {
-      fetchAllTimeSlots();
-    }
-  }, [currentDate, viewMode, userInfo]);
-
-  // 獲取整個月份的時段（學生模式）
-  const fetchAllTimeSlots = async () => {
+  // 1. 將 fetchAllTimeSlots useCallback 提到所有 useEffect 之前
+  const fetchAllTimeSlots = useCallback(async () => {
     if (!userInfo) return;
-    
     try {
       setLoading(true);
-      
-      // 獲取當前月份的所有可用時段
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth();
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
-      
       const startDate = formatDate(firstDay);
       const endDate = formatDate(lastDay);
-      
       const q = query(
         collection(db, 'time-slots'),
         where('date', '>=', startDate),
         where('date', '<=', endDate),
         where('status', '==', 'available')
       );
-      
       const querySnapshot = await getDocs(q);
       const slots = querySnapshot.docs.map(doc => ({ 
         id: doc.id, 
@@ -124,14 +113,25 @@ export default function Calendar({ userInfo, viewMode, onDateSelect }: CalendarP
         currentStudents: doc.data().currentStudents || 0,
         maxStudents: doc.data().maxStudents || 1
       }));
-      
       setAllTimeSlots(slots as TimeSlot[]);
     } catch (error) {
       console.error('Error fetching all time slots:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [userInfo, currentDate]);
+
+  // 2. 確保 useEffect 的依賴陣列為 [fetchAllTimeSlots]
+  useEffect(() => {
+    fetchAllTimeSlots();
+  }, [fetchAllTimeSlots]);
+
+  // 學生模式下獲取整個月份的時段
+  useEffect(() => {
+    if (viewMode === 'student' && userInfo) {
+      fetchAllTimeSlots();
+    }
+  }, [currentDate, viewMode, userInfo, fetchAllTimeSlots]);
 
   // 獲取當前月份的日期陣列
   const getDaysInMonth = (date: Date) => {
@@ -862,7 +862,7 @@ export default function Calendar({ userInfo, viewMode, onDateSelect }: CalendarP
                   課程限制
                 </label>
                 <div className="max-h-32 overflow-y-auto border border-gray-300 rounded-md p-2">
-                  {courses.map((course) => (
+                  {courses.map((course: Course) => (
                     <label key={course.id} className="flex items-center mb-2">
                       <input
                         type="checkbox"
@@ -1128,7 +1128,7 @@ export default function Calendar({ userInfo, viewMode, onDateSelect }: CalendarP
                   課程限制
                 </label>
                 <div className="max-h-32 overflow-y-auto border border-gray-300 rounded-md p-2">
-                  {courses.map((course) => (
+                  {courses.map((course: Course) => (
                     <label key={course.id} className="flex items-center mb-2">
                       <input
                         type="checkbox"

@@ -60,8 +60,9 @@ export async function POST(req: NextRequest) {
     await adminDb.collection('courses').doc(id).delete();
     
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('courses/delete API - Error:', error);
-    return NextResponse.json({ error: (error as any).message || '刪除失敗' }, { status: 500 });
+  } catch (error: unknown) {
+    let message = '刪除失敗';
+    if (error instanceof Error) message = error.message;
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 } 

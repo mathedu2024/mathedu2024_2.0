@@ -140,12 +140,9 @@ export async function POST(req: NextRequest) {
       headers: { 'Set-Cookie': cookie, 'Content-Type': 'application/json' },
     });
 
-  } catch (error: any) {
-    console.error('API - Login error:', error);
-    // Return a more descriptive error message
-    return NextResponse.json(
-      { error: `Internal server error: ${error.message}` }, 
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    let message = '登入失敗';
+    if (error instanceof Error) message = error.message;
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 } 

@@ -443,7 +443,7 @@ export default function LessonDetailPage() {
                   } else if (item.attachments && item.attachments.length > 0) {
                     const att = item.attachments[0];
                     if (typeof att === 'string') url = att;
-                    else if (att && typeof att === 'object' && 'url' in att) url = (att as any).url;
+                    else if (att && typeof att === 'object' && 'url' in att) url = (att as unknown as { url: string }).url;
                   }
                   if (url) {
                     try {
@@ -572,18 +572,18 @@ export default function LessonDetailPage() {
           </div>
 
           {/* 附件 */}
-          {Array.isArray(lesson.attachments) && (lesson.attachments as any[]).filter(a => {
+          {Array.isArray(lesson.attachments) && (lesson.attachments as unknown[]).filter(a => {
             if (typeof a === 'string') return a && a.trim() !== '';
-            if (a && typeof a === 'object' && 'url' in a) return a.url && a.url.trim() !== '';
+            if (a && typeof a === 'object' && 'url' in a) return (a as { url: string }).url && (a as { url: string }).url.trim() !== '';
             return false;
           }).length > 0 && (
             <div className="bg-white rounded-lg shadow-md p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-4">附件</h3>
               <div className="space-y-2">
-                {(lesson.attachments as any[])
+                {(lesson.attachments as unknown[])
                   .filter(a => {
                     if (typeof a === 'string') return a && a.trim() !== '';
-                    if (a && typeof a === 'object' && 'url' in a) return a.url && a.url.trim() !== '';
+                    if (a && typeof a === 'object' && 'url' in a) return (a as { url: string }).url && (a as { url: string }).url.trim() !== '';
                     return false;
                   })
                   .map((attachment, idx) => {
@@ -593,8 +593,11 @@ export default function LessonDetailPage() {
                       url = attachment;
                       name = `附件${idx + 1}`;
                     } else if (attachment && typeof attachment === 'object' && 'url' in attachment) {
-                      url = attachment.url;
-                      name = attachment.name && attachment.name.trim() !== '' ? attachment.name : `附件${idx + 1}`;
+                      url = (attachment as { url: string }).url;
+                      const rawName = (attachment as { name?: string }).name;
+                      name = rawName && rawName.trim() !== '' ? rawName : `附件${idx + 1}`;
+                    } else {
+                      return null;
                     }
                     return (
                       <a
@@ -608,10 +611,11 @@ export default function LessonDetailPage() {
                         <span className="text-gray-900">{name}</span>
                       </a>
                     );
-                  })}
+                  })
+                  .filter(Boolean)}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* 作業 */}
           {lesson.homework && (

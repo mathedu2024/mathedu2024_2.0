@@ -22,16 +22,12 @@ function generateRandomId() {
 
 export default function TeacherAdminManager() {
   const [teachers, setTeachers] = useState<AdminTeacher[]>([]);
-  const [showAddModal, setShowAddModal] = useState(false);
   const [editingTeacher, setEditingTeacher] = useState<AdminTeacher | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showResetId, setShowResetId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [alert, setAlert] = useState({ open: false, message: '' });
-  const [showDeleteDialog, setShowDeleteDialog] = useState<AdminTeacher | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedRole, setSelectedRole] = useState<string>('all');
+  const [alert, setAlert] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
 
   // 取得管理員/老師列表
   useEffect(() => {
@@ -39,10 +35,10 @@ export default function TeacherAdminManager() {
       setLoading(true);
       try {
         const res = await fetch('/api/admin/list');
-        const adminList: any[] = await res.json();
+        const adminList: AdminTeacher[] = await res.json();
         setTeachers(adminList);
-      } catch (error) {
-        console.error('Error fetching data:', error);
+      } catch {
+        console.error('Error fetching data');
       }
       setLoading(false);
     };
@@ -62,8 +58,8 @@ export default function TeacherAdminManager() {
     try {
       // 檢查帳號是否重複
       const res = await fetch('/api/admin/list');
-      const adminList: any[] = await res.json();
-      const isDuplicate = adminList.some((item: any) => {
+      const adminList: AdminTeacher[] = await res.json();
+      const isDuplicate = adminList.some((item: AdminTeacher) => {
         // 若是更新，允許自己
         if (editingTeacher.id && item.account === editingTeacher.account) return false;
         return item.account === editingTeacher.account;
@@ -77,7 +73,6 @@ export default function TeacherAdminManager() {
       const randomId = generateRandomId();
       const data = { ...editingTeacher, id: randomId, password: DEFAULT_PASSWORD };
       // 檔名為帳號
-      const docId = editingTeacher.account;
       // 新增或更新都統一呼叫 create-user API
       await fetch('/api/admin/create-user', { method: 'POST', body: JSON.stringify(data) });
       // 更新本地 teachers 狀態
@@ -111,7 +106,7 @@ export default function TeacherAdminManager() {
       });
       setTeachers(teachers => teachers.filter(item => item.account !== account));
       setAlert({ open: true, message: '帳號已成功刪除' });
-    } catch (error) {
+    } catch {
       setAlert({ open: true, message: '刪除失敗，請稍後再試。' });
     } finally {
       setIsSubmitting(false);

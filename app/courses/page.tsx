@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useState, useEffect } from 'react';
-import Navigation from '../components/Navigation';
+import Image from 'next/image';
 
 interface Course {
   id: string;
@@ -22,7 +22,7 @@ interface Course {
   coverImageURL?: string;
   location?: string;
   liveStreamURL?: string;
-  classTimes?: any[]; // 支援物件或字串陣列
+  classTimes?: string[] | Record<string, string>[]; // 支援物件或字串陣列
 }
 
 interface Teacher {
@@ -36,7 +36,6 @@ export default function CoursesPage() {
   const [loading, setLoading] = useState(true);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [error, setError] = useState<string>('');
   
   // 篩選器狀態
   const [selectedGrade, setSelectedGrade] = useState<string>('all');
@@ -53,7 +52,6 @@ export default function CoursesPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        setError('');
         // 讀取所有課程資料
         const res = await fetch('/api/courses/list');
         if (res.ok) {
@@ -70,8 +68,7 @@ export default function CoursesPage() {
         } else {
           setTeachers([]);
         }
-      } catch (error) {
-        setError('載入課程資料時發生錯誤，請稍後再試。');
+      } catch {
         setCourses([]);
         setTeachers([]);
       } finally {
@@ -153,12 +150,6 @@ export default function CoursesPage() {
       <h1 className="text-4xl font-bold text-center mb-12" style={{ color: 'rgb(70, 131, 229)' }}>
         課程介紹
       </h1>
-
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-8">
-          <p className="text-red-800">{error}</p>
-        </div>
-      )}
 
       {/* 課程篩選器 */}
       {/* 手機：Accordion 收合群組 */}
@@ -340,10 +331,12 @@ export default function CoursesPage() {
                 <div className="w-full aspect-square relative md:w-1/2 md:aspect-auto md:relative md:float-left md:mr-6 mb-4 md:mb-0">
                   <div className="hidden md:block pt-[100%]" />
                   {course.coverImageURL ? (
-                    <img
+                    <Image
                       src={course.coverImageURL}
                       alt={course.name}
-                      className="w-full h-full object-cover rounded-none md:absolute md:inset-0"
+                      layout="fill"
+                      objectFit="cover"
+                      className="w-full h-full rounded-none md:absolute md:inset-0"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 rounded-none md:absolute md:inset-0">
@@ -457,10 +450,10 @@ export default function CoursesPage() {
                   <h4 className="font-semibold text-gray-900 mb-1">上課時間</h4>
                   {Array.isArray(selectedCourse.classTimes) && selectedCourse.classTimes.length > 0 ? (
                     <ul className="list-disc list-inside text-gray-700">
-                      {selectedCourse.classTimes.map((time, idx) => (
+                      {selectedCourse.classTimes.map((time: string | Record<string, string>, idx: number) => (
                         <li key={idx}>
                           {typeof time === 'object' && time !== null && 'day' in time && 'startTime' in time && 'endTime' in time
-                            ? `${time.day} ${time.startTime} ~ ${time.endTime}`
+                            ? `${(time as Record<string, string>)['day']} ${(time as Record<string, string>)['startTime']} ~ ${(time as Record<string, string>)['endTime']}`
                             : String(time)}
                         </li>
                       ))}

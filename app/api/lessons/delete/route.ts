@@ -10,7 +10,9 @@ export async function POST(req: NextRequest) {
     const lessonRef = adminDb.collection('courses').doc(courseId).collection('lessons').doc(lessonId);
     await lessonRef.delete();
     return NextResponse.json({ success: true });
-  } catch (error) {
-    return NextResponse.json({ error: (error as any).message || '刪除課堂失敗' }, { status: 500 });
+  } catch (error: unknown) {
+    let message = '刪除失敗';
+    if (error instanceof Error) message = error.message;
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 } 

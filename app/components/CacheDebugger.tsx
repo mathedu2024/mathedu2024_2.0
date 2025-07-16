@@ -3,8 +3,16 @@
 import { useState, useEffect } from 'react';
 import { getCacheStats, resetCacheStats } from '../../services/authService';
 
+interface CacheStats {
+  cacheSize: number;
+  cacheHits: number;
+  cacheMisses: number;
+  totalRequests: number;
+  hitRate: number;
+}
+
 export default function CacheDebugger() {
-  const [stats, setStats] = useState<any>(null);
+  const [stats, setStats] = useState<CacheStats | null>(null);
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
@@ -17,7 +25,7 @@ export default function CacheDebugger() {
   useEffect(() => {
     const updateStats = () => {
       const currentStats = getCacheStats();
-      setStats(currentStats);
+      setStats(currentStats as CacheStats);
     };
 
     // 監聽快取統計事件
@@ -25,7 +33,7 @@ export default function CacheDebugger() {
       updateStats();
     };
 
-    window.addEventListener('cache-stats' as any, handleCacheStats);
+    window.addEventListener('cache-stats', handleCacheStats as EventListener);
     updateStats(); // 初始載入
 
     // 暫停自動更新功能

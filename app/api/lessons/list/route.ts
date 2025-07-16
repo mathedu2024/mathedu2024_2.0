@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
         .orderBy('order', 'asc')
         .orderBy('date', 'asc')
         .get();
-    } catch (err) {
+    } catch {
       // fallback 用 date desc 排序
       lessonsSnap = await adminDb
         .collection('courses')
@@ -31,7 +31,9 @@ export async function POST(req: NextRequest) {
     let lessons = lessonsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     if (fallback) lessons = lessons.reverse();
     return NextResponse.json(lessons);
-  } catch (error) {
-    return NextResponse.json({ error: (error as any).message || '查詢課堂失敗' }, { status: 500 });
+  } catch (error: unknown) {
+    let message = '查詢失敗';
+    if (error instanceof Error) message = error.message;
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 } 

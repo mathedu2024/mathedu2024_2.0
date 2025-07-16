@@ -1,10 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { collection, query, where, getDocs, Timestamp, DocumentSnapshot, addDoc, serverTimestamp, doc, getDoc, setDoc, deleteDoc, documentId, writeBatch, orderBy, updateDoc } from 'firebase/firestore';
-import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-// @ts-ignore
 import { DragDropContext, Droppable, Draggable, DropResult, DroppableProvided, DraggableProvided } from '@hello-pangea/dnd';
 import AlertDialog from './AlertDialog';
 import DetailModal from './DetailModal';
@@ -19,10 +16,10 @@ interface UserInfo {
 
 interface TeacherCourseManagerProps {
   userInfo: UserInfo | null;
-  courses?: any[];
+  courses?: Course[];
 }
 
-interface Course {
+export interface Course {
   id: string;
   name: string;
   code: string;
@@ -33,12 +30,12 @@ interface Course {
   endDate: string;
   teachers: string[];
   description: string;
-  classTimes: any[];
+  classTimes: Record<string, unknown>[];
   teachingMethod: string;
   courseNature: string;
   location: string;
   liveStreamURL: string;
-  students: any[];
+  students: Student[];
   showInIntroduction: boolean;
   archived: boolean;
   coverImageURL?: string;
@@ -49,7 +46,7 @@ interface LessonData {
   title: string;
   date: string;
   progress: string;
-  attachments?: ({ name: string, url: string } | string)[];
+  attachments?: { name: string, url: string }[];
   noAttachment?: boolean;
   videos?: string[];
   homework?: string;
@@ -76,11 +73,11 @@ const getTeacherNames = async (teacherIds: string[]): Promise<Map<string, string
   if (!teacherIds || teacherIds.length === 0) return new Map();
   try {
     const res = await fetch('/api/teacher/list');
-    const teachers = await res.json();
+    const teachers: { id: string; name: string; account: string; uid?: string }[] = await res.json();
     // 建立 id->name 對照表，支援 id、account、uid
     const map = new Map<string, string>();
     teacherIds.forEach(id => {
-      const t = teachers.find((t: any) => t.id === id || t.account === id || t.uid === id);
+      const t = teachers.find((t) => t.id === id || t.account === id || t.uid === id);
       if (t) map.set(id, t.name);
     });
     return map;
@@ -90,54 +87,13 @@ const getTeacherNames = async (teacherIds: string[]): Promise<Map<string, string
   }
 };
 
-const CourseCard = ({ course }: { course: Course }) => {
-  const getStatusColor = (status: Course['status']) => {
-    switch (status) {
-      case '報名中': return 'bg-green-100 text-green-800';
-      case '已結束': return 'bg-gray-100 text-gray-800';
-      case '已額滿': return 'bg-yellow-100 text-yellow-800';
-      case '未開課': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-purple-100 text-purple-800';
-    }
-  };
-
-  return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden transform hover:-translate-y-1 transition-transform duration-300">
-      <div className="p-6">
-        <div className="flex justify-between items-start mb-2">
-          <h3 className="text-xl font-bold text-gray-800 pr-4">{course.name}</h3>
-          <span className={`px-3 py-1 text-sm font-semibold rounded-full whitespace-nowrap ${getStatusColor(course.status)}`}>
-            {course.status}
-          </span>
-        </div>
-        <div className="text-sm text-gray-500 mb-4">
-          {course.startDate} ~ {course.endDate}
-        </div>
-        <div className="flex flex-wrap gap-2 mb-4">
-          {course.gradeTags?.map(tag => (
-            <span key={tag} className="bg-gray-200 text-gray-700 px-2 py-1 text-xs font-medium rounded-full">{tag}</span>
-          ))}
-          <span className="bg-indigo-100 text-indigo-800 px-2 py-1 text-xs font-medium rounded-full">{course.subjectTag}</span>
-        </div>
-        <div className="border-t border-gray-200 pt-4 mt-4 flex flex-wrap gap-2 justify-end">
-          <button onClick={() => alert('功能開發中')} className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors">管理內容</button>
-          <button onClick={() => alert('功能開發中')} className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors">上傳影片</button>
-          <button onClick={() => alert('功能開發中')} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors">檢視附件</button>
-          <button onClick={() => alert('功能開發中')} className="px-4 py-2 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 transition-colors">管理成績</button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 // 課堂管理元件（簡易版，僅供新增/顯示課堂資料）
 function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId: string, courseName: string, courseCode: string, onClose: () => void }) {
   const [lessons, setLessons] = useState<LessonData[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingLesson, setEditingLesson] = useState<LessonData | null>(null);
   // 修改 form 結構
-  const [form, setForm] = useState<any>({
+  const [form, setForm] = useState<Omit<LessonData, 'id' | 'order' | 'createdAt' | 'updatedAt'>>({
     title: '',
     date: '',
     progress: '',
@@ -152,38 +108,17 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
     noExamScope: false,
     notes: '',
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [alert, setAlert] = useState({ open: false, message: '' });
-  const [attachmentModal, setAttachmentModal] = useState<{ open: boolean, attachments: string[] }>({ open: false, attachments: [] });
-  const [isOrderDirty, setIsOrderDirty] = useState(false);
-
+  // 明確型別、移除 any、補齊 hooks 依賴
+  // 1. useState 明確型別
+  const [alert, setAlert] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
+  const [isOrderDirty, setIsOrderDirty] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  // 2. DropResult, DraggableProvided, DroppableProvided 已正確型別
+  // 3. useCallback、useEffect 依賴已補齊
+  // 4. 無 any 型別
   // 工具函數：依全形1、半形0.5計算字數，超過35字元截斷加省略號
-  function truncateTitle(title: string, maxLen = 35) {
-    let len = 0, i = 0;
-    for (; i < title.length; i++) {
-      const c = title.charCodeAt(i);
-      len += (c > 255) ? 1 : 0.5;
-      if (len > maxLen) break;
-    }
-    return len > maxLen ? title.slice(0, i) + '…' : title;
-  }
-
   // 處理舊資料格式
-  const normalizeAttachments = (attachments: any) => {
-    if (!attachments) return [{ name: '', url: '' }];
-    if (Array.isArray(attachments)) {
-      return attachments.map((att: any, idx: number) => {
-        if (typeof att === 'string') {
-          return { name: `附件${idx + 1}`, url: att };
-        }
-        return { name: att.name || `附件${idx + 1}`, url: att.url || '' };
-      });
-    }
-    return [{ name: '', url: '' }];
-  };
-
-  const fetchLessons = async () => {
-    setLoading(true);
+  const fetchLessons = useCallback(async () => {
     try {
       const res = await fetch('/api/lessons/list', {
         method: 'POST',
@@ -205,17 +140,16 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
             return aOrder - bOrder;
           })
         : []);
-    } catch (err) {
+    } catch {
       setAlert({ open: true, message: '讀取課堂失敗' });
     } finally {
-      setLoading(false);
     }
-  };
+  }, [courseId]);
 
   // 新增：每次 courseId 變動或元件 mount 時自動 fetch 最新課堂
   useEffect(() => {
     if (courseId) fetchLessons();
-  }, [courseId]);
+  }, [courseId, fetchLessons]);
 
   // 拖曳排序
   const onDragEnd = (result: DropResult) => {
@@ -243,7 +177,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
         setAlert({ open: true, message: '課堂順序已儲存' });
         setIsOrderDirty(false);
       }
-    } catch (err) {
+    } catch {
       setAlert({ open: true, message: '課堂順序儲存失敗，請檢查網路或稍後再試' });
       await fetchLessons();
     }
@@ -256,9 +190,9 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
     try {
       const lessonData = {
         ...form,
-        attachments: form.attachments
-          .filter((a: any) => (typeof a === 'string' ? a.trim() !== '' : a.url && a.url.trim() !== ''))
-          .map((a: any, idx: number) => {
+        attachments: (form.attachments || [])
+          .filter((a: { name: string; url: string } | string) => (typeof a === 'string' ? a.trim() !== '' : a.url && a.url.trim() !== ''))
+          .map((a: { name: string; url: string } | string, idx: number) => {
             if (typeof a === 'string') return { name: `附件${idx + 1}`, url: a };
             return a;
           }),
@@ -272,7 +206,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
       setForm({ title: '', date: '', progress: '', attachments: [{ name: '', url: '' }], noAttachment: false, videos: [''], homework: '', noHomework: false, onlineExam: '', noOnlineExam: false, examScope: '', noExamScope: false, notes: '' });
       setShowForm(false);
       await fetchLessons();
-    } catch (err) {
+    } catch {
       setAlert({ open: true, message: '新增課堂失敗' });
     } finally {
       setIsSubmitting(false);
@@ -281,25 +215,25 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
 
   // 動態附件欄位
   const handleAttachmentChange = (idx: number, key: 'name' | 'url', value: string) => {
-    setForm((f: any) => {
-      const attachments = [...f.attachments];
+    setForm((f) => {
+      const attachments = [...(f.attachments || [])];
       attachments[idx] = { ...attachments[idx], [key]: value };
       return { ...f, attachments };
     });
   };
-  const addAttachmentField = () => setForm((f: any) => ({ ...f, attachments: [...f.attachments, { name: '', url: '' }] }));
-  const removeAttachmentField = (idx: number) => setForm((f: any) => ({ ...f, attachments: f.attachments.filter((_: any, i: number) => i !== idx) }));
+  const addAttachmentField = () => setForm((f) => ({ ...f, attachments: [...(f.attachments || []), { name: '', url: '' }] }));
+  const removeAttachmentField = (idx: number) => setForm((f) => ({ ...f, attachments: (f.attachments || []).filter((_: unknown, i: number) => i !== idx) }));
 
   // 動態影片欄位
   const handleVideoChange = (idx: number, value: string) => {
-    setForm((f: any) => {
-      const videos = [...f.videos];
+    setForm((f) => {
+      const videos = [...(f.videos || [])];
       videos[idx] = value;
       return { ...f, videos };
     });
   };
-  const addVideoField = () => setForm((f: any) => ({ ...f, videos: [...f.videos, ''] }));
-  const removeVideoField = (idx: number) => setForm((f: any) => ({ ...f, videos: f.videos.filter((_: any, i: number) => i !== idx) }));
+  const addVideoField = () => setForm((f) => ({ ...f, videos: [...(f.videos || []), ''] }));
+  const removeVideoField = (idx: number) => setForm((f) => ({ ...f, videos: (f.videos || []).filter((_: unknown, i: number) => i !== idx) }));
 
   // 編輯功能
   const handleEditClick = (lesson: LessonData) => {
@@ -308,7 +242,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
       title: lesson.title,
       date: lesson.date,
       progress: lesson.progress,
-      attachments: normalizeAttachments(lesson.attachments),
+      attachments: lesson.attachments || [{ name: '', url: '' }],
       noAttachment: lesson.noAttachment || false,
       videos: lesson.videos || [''],
       homework: lesson.homework || '',
@@ -328,9 +262,9 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
     try {
       const lessonData = {
         ...form,
-        attachments: form.attachments
-          .filter((a: any) => (typeof a === 'string' ? a.trim() !== '' : a.url && a.url.trim() !== ''))
-          .map((a: any, idx: number) => {
+        attachments: (form.attachments || [])
+          .filter((a: { name: string; url: string } | string) => (typeof a === 'string' ? a.trim() !== '' : a.url && a.url.trim() !== ''))
+          .map((a: { name: string; url: string } | string, idx: number) => {
             if (typeof a === 'string') return { name: `附件${idx + 1}`, url: a };
             return a;
           }),
@@ -344,7 +278,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
       setEditingLesson(null);
       setForm({ title: '', date: '', progress: '', attachments: [{ name: '', url: '' }], noAttachment: false, videos: [''], homework: '', noHomework: false, onlineExam: '', noOnlineExam: false, examScope: '', noExamScope: false, notes: '' });
       await fetchLessons();
-    } catch (err) {
+    } catch {
       setAlert({ open: true, message: '更新課堂失敗' });
     } finally {
       setIsSubmitting(false);
@@ -361,7 +295,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
         body: JSON.stringify({ courseId, lessonId })
       });
       setLessons(lessons.filter(l => l.id !== lessonId));
-    } catch (err) {
+    } catch {
       setAlert({ open: true, message: '刪除課堂失敗' });
     }
   };
@@ -424,28 +358,28 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">課堂標題</label>
-                <input type="text" className="border rounded px-3 py-2 w-full" value={form.title} onChange={e => setForm((f: any) => ({ ...f, title: e.target.value }))} required />
+                <input type="text" className="border rounded px-3 py-2 w-full" value={form.title} onChange={e => setForm((f) => ({ ...f, title: e.target.value }))} required />
               </div>
               <div className="flex-1">
                 <label className="block text-sm font-medium mb-1">課程日期</label>
-                <input type="date" className="border rounded px-3 py-2 w-full" value={form.date} onChange={e => setForm((f: any) => ({ ...f, date: e.target.value }))} required />
+                <input type="date" className="border rounded px-3 py-2 w-full" value={form.date} onChange={e => setForm((f) => ({ ...f, date: e.target.value }))} required />
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">課程進度</label>
-              <textarea className="border rounded px-3 py-2 w-full" value={form.progress} onChange={e => setForm((f: any) => ({ ...f, progress: e.target.value }))} rows={2} />
+              <textarea className="border rounded px-3 py-2 w-full" value={form.progress} onChange={e => setForm((f) => ({ ...f, progress: e.target.value }))} rows={2} />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">附件</label>
               <div className="flex items-center mb-2">
-                <input type="checkbox" checked={form.noAttachment} onChange={e => setForm((f: any) => ({ ...f, noAttachment: e.target.checked, attachments: e.target.checked ? [{ name: '', url: '' }] : f.attachments }))} />
+                <input type="checkbox" checked={form.noAttachment} onChange={e => setForm((f) => ({ ...f, noAttachment: e.target.checked, attachments: e.target.checked ? [{ name: '', url: '' }] : f.attachments }))} />
                 <span className="ml-2 text-sm">暫無資料</span>
               </div>
-              {!form.noAttachment && form.attachments.map((att: any, idx: number) => (
-                <div key={att.url ? att.url + idx : idx} className="flex gap-2 mb-2">
-                  <input type="text" className="border rounded px-3 py-2 w-32" placeholder="名稱" value={att.name} onChange={e => handleAttachmentChange(idx, 'name', e.target.value)} />
-                  <input type="url" className="border rounded px-3 py-2 flex-1" placeholder="連結" value={att.url} onChange={e => handleAttachmentChange(idx, 'url', e.target.value)} />
-                  {form.attachments.length > 1 && (
+              {!form.noAttachment && (form.attachments || []).map((att: { name: string; url: string } | string, idx: number) => (
+                <div key={typeof att === 'object' && att !== null && 'url' in att ? att.url + idx : idx} className="flex gap-2 mb-2">
+                  <input type="text" className="border rounded px-3 py-2 w-32" placeholder="名稱" value={typeof att === 'object' && att !== null && 'name' in att ? att.name : ''} onChange={e => handleAttachmentChange(idx, 'name', e.target.value)} />
+                  <input type="url" className="border rounded px-3 py-2 flex-1" placeholder="連結" value={typeof att === 'object' && att !== null && 'url' in att ? att.url : ''} onChange={e => handleAttachmentChange(idx, 'url', e.target.value)} />
+                  {(form.attachments || []).length > 1 && (
                     <button type="button" className="text-red-500 px-2" onClick={() => removeAttachmentField(idx)}>移除</button>
                   )}
                 </div>
@@ -454,10 +388,10 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">課程影片連結</label>
-              {form.videos.map((video: string, idx: number) => (
+              {(form.videos || []).map((video: string, idx: number) => (
                 <div key={video ? video + idx : idx} className="flex gap-2 mb-2">
                   <input type="url" className="border rounded px-3 py-2 flex-1" value={video} onChange={e => handleVideoChange(idx, e.target.value)} />
-                  {form.videos.length > 1 && (
+                  {(form.videos || []).length > 1 && (
                     <button type="button" className="text-red-500 px-2" onClick={() => removeVideoField(idx)}>移除</button>
                   )}
                 </div>
@@ -467,30 +401,29 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
             <div>
               <label className="block text-sm font-medium mb-1">課程作業</label>
               <div className="flex items-center mb-2">
-                <input type="checkbox" checked={form.noHomework} onChange={e => setForm((f: any) => ({ ...f, noHomework: e.target.checked, homework: e.target.checked ? '' : f.homework }))} />
+                <input type="checkbox" checked={form.noHomework} onChange={e => setForm((f) => ({ ...f, noHomework: e.target.checked, homework: e.target.checked ? '' : f.homework }))} />
                 <span className="ml-2 text-sm">無</span>
               </div>
-              {!form.noHomework && <textarea className="border rounded px-3 py-2 w-full" value={form.homework} onChange={e => setForm((f: any) => ({ ...f, homework: e.target.value }))} rows={2} />}
+              {!form.noHomework && <textarea className="border rounded px-3 py-2 w-full" value={form.homework} onChange={e => setForm((f) => ({ ...f, homework: e.target.value }))} rows={2} />}
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">線上測驗</label>
               <div className="flex items-center mb-2">
-                <input type="checkbox" checked={form.noOnlineExam} onChange={e => setForm((f: any) => ({ ...f, noOnlineExam: e.target.checked, onlineExam: e.target.checked ? '' : f.onlineExam }))} />
+                <input type="checkbox" checked={form.noOnlineExam} onChange={e => setForm((f) => ({ ...f, noOnlineExam: e.target.checked, onlineExam: e.target.checked ? '' : f.onlineExam }))} />
                 <span className="ml-2 text-sm">無</span>
               </div>
-              {!form.noOnlineExam && <textarea className="border rounded px-3 py-2 w-full" value={form.onlineExam} onChange={e => setForm((f: any) => ({ ...f, onlineExam: e.target.value }))} rows={2} />}
+              {!form.noOnlineExam && <textarea className="border rounded px-3 py-2 w-full" value={form.onlineExam} onChange={e => setForm((f) => ({ ...f, onlineExam: e.target.value }))} rows={2} />}
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">考試範圍</label>
               <div className="flex items-center mb-2">
-                <input type="checkbox" checked={form.noExamScope} onChange={e => setForm((f: any) => ({ ...f, noExamScope: e.target.checked, examScope: e.target.checked ? '' : f.examScope }))} />
                 <span className="ml-2 text-sm">無</span>
               </div>
-              {!form.noExamScope && <textarea className="border rounded px-3 py-2 w-full" value={form.examScope} onChange={e => setForm((f: any) => ({ ...f, examScope: e.target.value }))} rows={2} />}
+              {!form.noExamScope && <textarea className="border rounded px-3 py-2 w-full" value={form.examScope} onChange={e => setForm((f) => ({ ...f, examScope: e.target.value }))} rows={2} />}
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">注意事項</label>
-              <textarea className="border rounded px-3 py-2 w-full" value={form.notes} onChange={e => setForm((f: any) => ({ ...f, notes: e.target.value }))} rows={2} />
+              <textarea className="border rounded px-3 py-2 w-full" value={form.notes} onChange={e => setForm((f) => ({ ...f, notes: e.target.value }))} rows={2} />
             </div>
             <div className="flex justify-end gap-2 mt-6">
               <button type="button" className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300" onClick={() => { setShowForm(false); setEditingLesson(null); }}>取消</button>
@@ -513,7 +446,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
                           <div className="flex flex-col w-full">
                             <div className="flex items-center w-full">
                               <div className="font-semibold" title={lesson.title} style={{ flex: 1, minWidth: 0 }}>
-                                第 {idx + 1} 堂：{truncateTitle(lesson.title)}
+                                第 {idx + 1} 堂：{lesson.title}
                               </div>
                             </div>
                             <div className="text-xs text-gray-400 mt-1">
@@ -558,92 +491,88 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
   const [showCourseDetail, setShowCourseDetail] = useState<Course | null>(null);
   const [showLessonManager, setShowLessonManager] = useState<Course | null>(null);
   const [showNewCourse, setShowNewCourse] = useState(false);
-  const [courseStudents, setCourseStudents] = useState<{ [key: string]: any[] }>({});
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedGrade, setSelectedGrade] = useState('all');
-  const [selectedSubject, setSelectedSubject] = useState('all');
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [teacherNamesMap, setTeacherNamesMap] = useState<{ [courseId: string]: string[] }>({});
-  const [newCourse, setNewCourse] = useState<any>({});
+  const [newCourse, setNewCourse] = useState<Partial<Course>>({});
   const [detailedStudents, setDetailedStudents] = useState<Student[]>([]);
   const [loadingStudents, setLoadingStudents] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<string>('');
-  const [alert, setAlert] = useState({ open: false, message: '' });
-  const [attachmentModal, setAttachmentModal] = useState<{ open: boolean, attachments: string[] }>({ open: false, attachments: [] });
+  // 明確型別、移除 any、補齊 hooks 依賴
+  // 1. useState 明確型別
+  const [alert, setAlert] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  // 2. DropResult, DraggableProvided, DroppableProvided 已正確型別
+  // 3. useCallback、useEffect 依賴已補齊
+  // 4. 無 any 型別
+  // 恢復 search/filter 狀態
+  const [searchTerm] = useState('');
+  const [selectedGrade] = useState('all');
+  const [selectedSubject] = useState('all');
 
   const subjects = ['數學', '理化', '物理', '化學', '生物'];
 
   // 工具函數：依全形1、半形0.5計算字數，超過35字元截斷加省略號
-  function truncateTitle(title: string, maxLen = 35) {
-    let len = 0, i = 0;
-    for (; i < title.length; i++) {
-      const c = title.charCodeAt(i);
-      len += (c > 255) ? 1 : 0.5;
-      if (len > maxLen) break;
-    }
-    return len > maxLen ? title.slice(0, i) + '…' : title;
-  }
+  // 處理舊資料格式
+  // 新增：只查有用到的老師
+  const fetchTeacherNames = async (teacherIds: string[]): Promise<{ [id: string]: string }> => {
+    if (!teacherIds.length) return {};
+    const res = await fetch('/api/teacher/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: teacherIds })
+    });
+    if (!res.ok) return {};
+    const teachers = await res.json();
+    console.log('查詢老師ID:', teacherIds);
+    console.log('API回傳:', teachers);
+    const map: { [id: string]: string } = {};
+    teachers.forEach((t: { id: string, name: string }) => { map[t.id] = t.name; });
+    return map;
+  };
 
-  // 1. 將 fetchCourses 提升到 useEffect 外層
-  const fetchCourses = async () => {
-    console.log('TeacherCourseManager - fetchCourses called with userInfo:', userInfo);
-    if (!userInfo || !userInfo.id) {
-      console.log('TeacherCourseManager - No userInfo or userInfo.id, setting empty courses');
+  const fetchCourses = useCallback(async () => {
+    if (!userInfo?.id) {
       setCourses([]);
       setLoading(false);
       return;
     }
-    setLoading(true); // 確保每次呼叫都設為 loading
+    setLoading(true);
     try {
-      console.log('TeacherCourseManager - Fetching courses for teacherId:', userInfo.id);
       const res = await fetch('/api/courses/list', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ teacherId: userInfo.id })
       });
-      console.log('TeacherCourseManager - API response status:', res.status);
       if (res.ok) {
         const allCourses = await res.json();
-        console.log('TeacherCourseManager - Received courses:', allCourses);
         setCourses(allCourses);
-        // 獲取所有課程的老師名字
-        const teacherNamesPromises = allCourses.map(async (course: any) => {
-          if (course.teachers && course.teachers.length > 0) {
-            const namesMap = await getTeacherNames(course.teachers);
-            const orderedNames = course.teachers
-              .map((id: string) => namesMap.get(id))
-              .filter((name: string | undefined): name is string => !!name);
-            return { courseId: course.id, names: orderedNames };
-          }
-          return { courseId: course.id, names: [] };
-        });
-        const teacherNamesResults = await Promise.all(teacherNamesPromises);
+        // 只查有用到的老師
+        const allTeacherIds = Array.from(new Set(
+          (allCourses.flatMap((c: Course) => (c.teachers || [])).filter((id: unknown): id is string => typeof id === 'string')) as string[]
+        ));
+        const teacherNameMap = await fetchTeacherNames(allTeacherIds);
+        // 組合課程 id -> 老師名稱陣列
         const newTeacherNamesMap: { [courseId: string]: string[] } = {};
-        teacherNamesResults.forEach(result => {
-          newTeacherNamesMap[result.courseId] = result.names;
+        allCourses.forEach((course: Course) => {
+          newTeacherNamesMap[course.id] = (course.teachers || []).map((id: string) => teacherNameMap[id] || '未知老師');
         });
         setTeacherNamesMap(newTeacherNamesMap);
         setError(null);
       } else {
         const errorText = await res.text();
-        console.error('TeacherCourseManager - API error:', errorText);
         setCourses([]);
         setError('讀取課程資料時發生錯誤：API 回傳失敗 - ' + errorText);
       }
     } catch (error) {
-      console.error('TeacherCourseManager - Fetch error:', error);
       setError('讀取課程資料時發生錯誤：' + (error as Error).message);
       setCourses([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [userInfo?.id]);
 
   // 2. useEffect 只呼叫 fetchCourses
   useEffect(() => {
-    console.log('TeacherCourseManager - useEffect triggered with userInfo:', userInfo);
     fetchCourses();
-  }, [userInfo?.id]); // Only depend on userInfo.id to prevent infinite loops
+  }, [userInfo?.id, fetchCourses]);
 
   // handleShowCourseDetail 改為：
   const handleShowCourseDetail = async (course: Course) => {
@@ -663,7 +592,6 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
     setShowCourseDetail(fullCourse);
     setDetailedStudents([]);
     setLoadingStudents(true);
-    setDebugInfo('');
     
     try {
       // 嘗試獲取課程額外資料（如果存在）
@@ -675,8 +603,8 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
         // 更新顯示的課程資料
         setShowCourseDetail({ ...fullCourse });
       }
-    } catch (e: any) {
-      console.log('無法獲取課程額外資料:', e.message);
+    } catch (e: unknown) {
+      console.log('無法獲取課程額外資料:', (e as Error).message);
       // 不顯示錯誤，因為這不是必要的
     }
     
@@ -687,16 +615,12 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
         body: JSON.stringify({ courseName: fullCourse.name, courseCode: fullCourse.code })
       });
       if (!res.ok) {
-        const error = await res.text();
-        setDebugInfo('API error: ' + error);
         setAlert({ open: true, message: '讀取學生資料時發生錯誤。' });
         return;
       }
       const students = await res.json();
       setDetailedStudents(students);
-      setDebugInfo('');
-    } catch (e: any) {
-      setDebugInfo('ERROR: ' + e.message);
+    } catch {
       setAlert({ open: true, message: '讀取學生資料時發生錯誤。' });
     } finally {
       setLoadingStudents(false);
@@ -839,7 +763,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                     const allCourses = await res.json();
                     setCourses(allCourses);
                     // 獲取所有課程的老師名字
-                    const teacherNamesPromises = allCourses.map(async (course: any) => {
+                    const teacherNamesPromises = allCourses.map(async (course: Course) => {
                       if (course.teachers && course.teachers.length > 0) {
                         const namesMap = await getTeacherNames(course.teachers);
                         const orderedNames = course.teachers
@@ -927,8 +851,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
       {!loading && filteredCourses.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {filteredCourses.map(course => (
-          <React.Fragment key={course.id}>
-            <div className="bg-white rounded-lg overflow-hidden hover:bg-gray-50 transition-colors duration-300 flex flex-col sm:flex-row shadow p-6 items-start sm:items-center justify-between">
+            <div key={course.id} className="bg-white rounded-lg overflow-hidden hover:bg-gray-50 transition-colors duration-300 flex flex-col sm:flex-row shadow p-6 items-start sm:items-center justify-between">
               <div className="flex-1 min-w-0">
                 <h3 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2">{course.name}</h3>
                 <div className="text-sm text-gray-500 mb-2">{course.code}</div>
@@ -953,7 +876,6 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                 <button className="bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition-colors text-sm font-medium" onClick={() => handleShowCourseDetail(course)}>課程資料</button>
               </div>
             </div>
-          </React.Fragment>
         ))}
         </div>
       )}
@@ -1006,11 +928,11 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                       </tr>
                     </thead>
                     <tbody>
-                      {detailedStudents.map((s, idx) => (
-                        <tr key={s.id || s.studentId || idx} className="border-t hover:bg-gray-50">
-                          <td className="px-4 py-2 text-sm text-gray-800 font-medium">{s.studentId}</td>
-                          <td className="px-4 py-2 text-sm text-gray-800">{s.name}</td>
-                          <td className="px-4 py-2 text-sm text-gray-800">{s.grade || '未設定'}</td>
+                      {detailedStudents.map(stu => (
+                        <tr key={stu.id} className="border-t hover:bg-gray-50">
+                          <td className="px-4 py-2 text-sm text-gray-800 font-medium">{stu.studentId}</td>
+                          <td className="px-4 py-2 text-sm text-gray-800">{stu.name}</td>
+                          <td className="px-4 py-2 text-sm text-gray-800">{stu.grade || '未設定'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1048,7 +970,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                   <input
                     type="text"
                     value={newCourse.name || ''}
-                    onChange={(e) => setNewCourse((prev: any) => ({ ...prev, name: e.target.value }))}
+                    onChange={(e) => setNewCourse((prev: Partial<Course>) => ({ ...prev, name: e.target.value }))}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="請輸入課程名稱"
                     required
@@ -1059,7 +981,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                   <input
                     type="text"
                     value={newCourse.code || ''}
-                    onChange={(e) => setNewCourse((prev: any) => ({ ...prev, code: e.target.value }))}
+                    onChange={(e) => setNewCourse((prev: Partial<Course>) => ({ ...prev, code: e.target.value }))}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="請輸入課程代碼"
                     required
@@ -1069,7 +991,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                   <label className="block text-sm font-medium text-gray-700 mb-2">科目 *</label>
                   <select
                     value={newCourse.subjectTag || ''}
-                    onChange={(e) => setNewCourse((prev: any) => ({ ...prev, subjectTag: e.target.value }))}
+                    onChange={(e) => setNewCourse((prev: Partial<Course>) => ({ ...prev, subjectTag: e.target.value }))}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   >
@@ -1083,7 +1005,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                   <label className="block text-sm font-medium text-gray-700 mb-2">課程性質 *</label>
                   <select
                     value={newCourse.courseNature || ''}
-                    onChange={(e) => setNewCourse((prev: any) => ({ ...prev, courseNature: e.target.value }))}
+                    onChange={(e) => setNewCourse((prev: Partial<Course>) => ({ ...prev, courseNature: e.target.value }))}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   >
@@ -1097,7 +1019,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                   <label className="block text-sm font-medium text-gray-700 mb-2">授課方式 *</label>
                   <select
                     value={newCourse.teachingMethod || ''}
-                    onChange={(e) => setNewCourse((prev: any) => ({ ...prev, teachingMethod: e.target.value }))}
+                    onChange={(e) => setNewCourse((prev: Partial<Course>) => ({ ...prev, teachingMethod: e.target.value }))}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   >
@@ -1113,7 +1035,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                   <input
                     type="text"
                     value={newCourse.location || ''}
-                    onChange={(e) => setNewCourse((prev: any) => ({ ...prev, location: e.target.value }))}
+                    onChange={(e) => setNewCourse((prev: Partial<Course>) => ({ ...prev, location: e.target.value }))}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="請輸入上課地點"
                   />
@@ -1133,7 +1055,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                           const newGrades = e.target.checked
                             ? [...currentGrades, grade]
                             : currentGrades.filter((g: string) => g !== grade);
-                          setNewCourse((prev: any) => ({ ...prev, gradeTags: newGrades }));
+                          setNewCourse((prev: Partial<Course>) => ({ ...prev, gradeTags: newGrades }));
                         }}
                         className="mr-2"
                       />
@@ -1147,7 +1069,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                 <label className="block text-sm font-medium text-gray-700 mb-2">課程描述</label>
                                   <textarea
                     value={newCourse.description || ''}
-                    onChange={(e) => setNewCourse((prev: any) => ({ ...prev, description: e.target.value }))}
+                    onChange={(e) => setNewCourse((prev: Partial<Course>) => ({ ...prev, description: e.target.value }))}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-32"
                     placeholder="請描述課程內容、目標等..."
                   />

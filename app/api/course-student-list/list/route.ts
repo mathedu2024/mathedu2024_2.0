@@ -19,8 +19,9 @@ export async function POST(req: NextRequest) {
     const students = data.students || [];
     console.log('Found students:', students.length);
     return NextResponse.json(students);
-  } catch (error) {
-    console.error('Error fetching student list:', error);
-    return NextResponse.json({ error: (error as any).message || '查詢失敗' }, { status: 500 });
+  } catch (error: unknown) {
+    let message = '查詢失敗';
+    if (error instanceof Error) message = error.message;
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 } 

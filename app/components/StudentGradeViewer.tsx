@@ -115,17 +115,6 @@ function getTaiwanPercentileLevels(scores: number[]) {
   return levels;
 }
 
-function getLevelText(score: number, levels: any) {
-  if (!levels) return '';
-  
-  // 由高到低依序比較，遇到符合的標準即分類
-  if (score >= (levels.頂標 || 0)) return '頂標';
-  if (score >= (levels.前標 || 0)) return '前標';
-  if (score >= (levels.均標 || 0)) return '均標';
-  if (score >= (levels.後標 || 0)) return '後標';
-  return '底標';
-}
-
 export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerProps) {
   const [selectedCourse, setSelectedCourse] = useState<string>(studentInfo.enrolledCourses?.[0] || '');
   const [courses, setCourses] = useState<CourseInfo[]>([]);
@@ -137,7 +126,7 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
   const [dateRange, setDateRange] = useState<{ from: string, to: string }>({ from: '', to: '' });
 
   // 獲取老師姓名函數
-  const getTeacherNames = (teacherIds: string[]) => {
+  const getTeacherNames = () => {
     // 1. Firestore 有 teacherName 欄位，直接顯示
     if (gradeData && gradeData.teacherName) {
       return gradeData.teacherName;
@@ -165,11 +154,11 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
         const resCourses = await fetch('/api/courses/list');
         const allCourses = await resCourses.json();
         // 只取學生有修的課程
-        const studentCourses = allCourses.filter((c: any) => studentInfo.enrolledCourses?.includes(c.id));
+        const studentCourses = allCourses.filter((c: unknown) => typeof c === 'object' && c !== null && (c as { id?: string }).id && studentInfo.enrolledCourses?.includes((c as { id: string }).id));
         setCourses(studentCourses);
         // 查詢成績
         if (studentCourses.length > 0) {
-          const courseKeys = studentCourses.map((c: any) => `${c.name}(${c.code})`);
+          const courseKeys = studentCourses.map((c: { name: string; code: string }) => `${c.name}(${c.code})`);
           const resGrades = await fetch('/api/grades/list', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -180,19 +169,20 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
           // 取得目前選擇的課程 key
           let selectedCourseKey = '';
           if (selectedCourse) {
-            const selected = studentCourses.find((c: any) => c.id === selectedCourse);
+            const selected = studentCourses.find((c: { id: string }) => c.id === selectedCourse);
             if (selected) {
-              selectedCourseKey = `${selected.name}(${selected.code})`;
+              selectedCourseKey = `${(selected as { name: string; code: string }).name}(${(selected as { name: string; code: string }).code})`;
             }
           } else if (studentCourses.length > 0) {
-            selectedCourseKey = `${studentCourses[0].name}(${studentCourses[0].code})`;
+            const first = studentCourses[0] as { name: string; code: string };
+            selectedCourseKey = `${first.name}(${first.code})`;
           }
 
           // 取得該課程的 gradeData
           const courseGradeData = gradesResult[selectedCourseKey] || {};
           const columns = courseGradeData.columns || {};
           const students = courseGradeData.grades && courseGradeData.grades[studentInfo.studentId]
-            ? [{ courseName: studentCourses.find((c: any) => `${c.name}(${c.code})` === selectedCourseKey)?.name, ...courseGradeData.grades[studentInfo.studentId] }]
+            ? [{ courseName: (studentCourses.find((c: { name: string; code: string }) => `${c.name}(${c.code})` === selectedCourseKey) as { name?: string })?.name, ...courseGradeData.grades[studentInfo.studentId] }]
             : [];
 
           setGradeData({
@@ -224,7 +214,7 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
     if (studentInfo.studentId) {
       fetchGradesAndCourses();
     }
-  }, [studentInfo.studentId, selectedCourse]);
+  }, [studentInfo.studentId, selectedCourse, studentInfo.enrolledCourses]);
 
   // 新增：平時成績明細加權計算
   const calcRegularScore = (student: StudentGradeRow): number => {
@@ -232,8 +222,8 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
     const { regularDetail } = gradeData.totalSetting || {};
     // 小考
     const quizScores = Object.entries(student.regularScores || {})
-      .filter(([idx, _]) => (gradeData.columns?.[idx]?.type === '小考成績'))
-      .map(([_, v]) => typeof v === 'number' ? v : Number(v))
+      .filter(([key]) => (gradeData.columns?.[key]?.type === '小考成績'))
+      .map(([, v]) => typeof v === 'number' ? v : Number(v))
       .filter(v => typeof v === 'number' && !isNaN(v)) as number[];
     let quizAvg = 0;
     if (quizScores.length > 0) {
@@ -248,8 +238,8 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
     }
     // 作業
     const homeworkScores = Object.entries(student.regularScores || {})
-      .filter(([idx, _]) => (gradeData.columns?.[idx]?.type === '作業成績'))
-      .map(([_, v]) => typeof v === 'number' ? v : Number(v))
+      .filter(([key]) => (gradeData.columns?.[key]?.type === '作業成績'))
+      .map(([, v]) => typeof v === 'number' ? v : Number(v))
       .filter(v => typeof v === 'number' && !isNaN(v)) as number[];
     let homeworkAvg = 0;
     if (homeworkScores.length > 0) {
@@ -264,8 +254,8 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
     }
     // 上課態度
     const attitudeScores = Object.entries(student.regularScores || {})
-      .filter(([idx, _]) => (gradeData.columns?.[idx]?.type === '上課態度'))
-      .map(([_, v]) => typeof v === 'number' ? v : Number(v))
+      .filter(([key]) => (gradeData.columns?.[key]?.type === '上課態度'))
+      .map(([, v]) => typeof v === 'number' ? v : Number(v))
       .filter(v => typeof v === 'number' && !isNaN(v)) as number[];
     let attitudeAvg = 0;
     if (attitudeScores.length > 0) {
@@ -325,16 +315,16 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
     if (!gradeData || !studentGrade) return [];
     const { from, to } = dateRange;
     return Object.entries(gradeData.columns)
-      .filter(([idx, col]) => {
+      .filter(([, col]) => {
         if (!from && !to) return true;
         if (from && col.date < from) return false;
         if (to && col.date > to) return false;
         return true;
       })
-      .map(([idx, col]) => ({
+      .map(([key, col]) => ({
         ...col,
-        idx,
-        score: studentGrade.regularScores?.[idx]
+        idx: key,
+        score: studentGrade.regularScores?.[key]
       }));
   };
 
@@ -351,13 +341,10 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
   };
 
   // 五標資料
-  const allRegularScores = studentGrade
-    ? Object.values(studentGrade.regularScores ?? {}).filter(s => typeof s === 'number') as number[]
-    : [];
-  const regularLevels = getTaiwanPercentileLevels(allRegularScores);
+  // Removed unused variable allRegularScores
 
   // 定期評量五標
-  const periodicLevels: { [name: string]: any } = {};
+  const periodicLevels: Record<string, ReturnType<typeof getTaiwanPercentileLevels>> = {};
   if (gradeData && gradeData.periodicScores) {
     gradeData.periodicScores.forEach(name => {
       const scores = gradeData.students.map(stu => stu.periodicScores?.[name] ?? 0).filter(s => typeof s === 'number');
@@ -407,7 +394,7 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
           {/* 課程資訊標題 */}
           <div className="text-blue-700 font-bold text-lg mb-2">
             {courses.find(c => c.id === selectedCourse)?.name}（{courses.find(c => c.id === selectedCourse)?.code}）
-            <span className="ml-4 text-base font-normal text-blue-500">授課教師：{getTeacherNames(gradeData?.teacherIds || [])}</span>
+            <span className="ml-4 text-base font-normal text-blue-500">授課教師：{getTeacherNames()}</span>
           </div>
           {/* 標籤頁 */}
           <div className="border-b mb-4">

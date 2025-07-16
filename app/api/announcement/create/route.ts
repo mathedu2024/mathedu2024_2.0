@@ -3,8 +3,9 @@ import { adminDb } from '../../../../services/firebase-admin';
 
 export async function POST(req: NextRequest) {
   try {
-    let { id, ...data } = await req.json();
-    if (!id) id = Date.now().toString();
+    const raw = await req.json();
+    const { id: rawId, ...data } = raw;
+    const id = rawId || Date.now().toString();
     
     // 添加創建時間
     const announcementData = {

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 export default function TestCourseCreate() {
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<string | number | boolean | React.ReactNode | null>(null);
   const [loading, setLoading] = useState(false);
 
   const testCourseCreate = async () => {
@@ -44,16 +44,16 @@ export default function TestCourseCreate() {
       const data = await response.json();
       console.log('API 回應資料:', data);
       
-      setResult({
+      setResult(JSON.stringify({
         status: response.status,
         data: data
-      });
+      }));
     } catch (error) {
       console.error('測試課程建立失敗:', error);
-      setResult({ 
+      setResult(JSON.stringify({ 
         error: error instanceof Error ? error.message : '未知錯誤',
         status: 'error'
-      });
+      }));
     } finally {
       setLoading(false);
     }
@@ -75,7 +75,7 @@ export default function TestCourseCreate() {
         <div className="mt-4">
           <h2 className="text-lg font-semibold mb-2">測試結果:</h2>
           <pre className="bg-gray-100 p-4 rounded overflow-auto">
-            {JSON.stringify(result, null, 2)}
+            {result}
           </pre>
         </div>
       )}

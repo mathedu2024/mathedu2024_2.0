@@ -58,122 +58,7 @@ type TotalScoreSetting = {
   periodicEnabled?: { [name in PeriodicScoreName]?: boolean };
 };
 
-async function getStudentListForCourse(courseName: string, courseCode: string) {
-  const res = await fetch('/api/course-student-list/list', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ courseName, courseCode }),
-  });
-  if (res.ok) {
-    const data = await res.json();
-    return data;
-  }
-  return [];
-}
-
-const DEFAULT_REGULAR_COLUMNS = 10;
-
-// 1. sticky 樣式
-const stickyCell = "bg-white sticky left-0 z-10";
-const stickyCell2 = "bg-white sticky left-20 z-10";
-
-// 1. 統一三個頁面的學號/姓名欄位寬度與 sticky 樣式
-const studentIdColStyle = { width: '120px', minWidth: '120px', maxWidth: '120px' };
-const studentNameColStyle = { width: '100px', minWidth: '100px', maxWidth: '100px' };
-const studentIdColClass = `px-4 py-2 text-left text-sm font-semibold text-gray-700 whitespace-nowrap ${stickyCell}`;
-const studentNameColClass = `px-4 py-2 text-left text-sm font-semibold text-gray-700 whitespace-nowrap ${stickyCell2}`;
-const studentIdTdClass = `px-4 py-2 text-sm text-gray-800 ${stickyCell}`;
-const studentNameTdClass = `px-4 py-2 text-sm text-gray-800 whitespace-nowrap ${stickyCell2}`;
-
-// 徹底遞迴移除 undefined，並將 undefined 轉為 null
-function removeUndefinedDeep(obj: any): any {
-  if (Array.isArray(obj)) {
-    return obj.map(removeUndefinedDeep);
-  } else if (obj && typeof obj === 'object') {
-    return Object.fromEntries(
-      Object.entries(obj)
-        .filter(([_, v]) => v !== undefined)
-        .map(([k, v]) => [k, v === undefined ? null : removeUndefinedDeep(v)])
-    );
-  }
-  return obj === undefined ? null : obj;
-}
-
-// 台灣學測五標計算方式：
-// 1. 由高到低排序
-// 2. percentile = (總人數 - 排名 + 1) / 總人數
-// 3. 頂標: 前12%（百分位 ≥ 0.88）
-//    前標: 前25%（0.75 ≤ 百分位 < 0.88）
-//    均標: 前50%（0.50 ≤ 百分位 < 0.75）
-//    後標: 後段25%（0.25 ≤ 百分位 < 0.50）
-//    底標: 最後12%（百分位 < 0.25）
-// 4. 當五標分數有標一樣時，取高標者
-// 5. 當某個標沒有數值時，自動填入較高標的數值
-function getTaiwanPercentileLevels(scores: number[]) {
-  if (scores.length === 0) return { 頂標: null, 前標: null, 均標: null, 後標: null, 底標: null, 平均: null };
-  const sorted = [...scores].sort((a, b) => b - a); // 由高到低
-  const n = sorted.length;
-  const levels: { [k: string]: number | null } = { 頂標: null, 前標: null, 均標: null, 後標: null, 底標: null, 平均: null };
-  
-  // 平均
-  levels['平均'] = parseFloat((scores.reduce((a, b) => a + b, 0) / n).toFixed(2));
-  
-  // 計算各標的分數
-  for (let i = 0; i < n; i++) {
-    const percentile = (n - i) / n;
-    const score = sorted[i];
-    
-    // 頂標: 前12%（百分位 ≥ 0.88）
-    if (percentile >= 0.88 && levels['頂標'] === null) {
-      levels['頂標'] = score;
-    }
-    // 前標: 前25%（0.75 ≤ 百分位 < 0.88）
-    else if (percentile >= 0.75 && percentile < 0.88 && levels['前標'] === null) {
-      levels['前標'] = score;
-    }
-    // 均標: 前50%（0.50 ≤ 百分位 < 0.75）
-    else if (percentile >= 0.50 && percentile < 0.75 && levels['均標'] === null) {
-      levels['均標'] = score;
-    }
-    // 後標: 後段25%（0.25 ≤ 百分位 < 0.50）
-    else if (percentile >= 0.25 && percentile < 0.50 && levels['後標'] === null) {
-      levels['後標'] = score;
-    }
-    // 底標: 最後12%（百分位 < 0.25）
-    else if (percentile < 0.25 && levels['底標'] === null) {
-      levels['底標'] = score;
-    }
-  }
-  
-  // 處理相同分數的情況：取高標者
-  const levelOrder = ['頂標', '前標', '均標', '後標', '底標'];
-  for (let i = 0; i < levelOrder.length - 1; i++) {
-    const currentLevel = levelOrder[i];
-    const nextLevel = levelOrder[i + 1];
-    
-    // 如果當前標的分數與下一標的分數相同，且當前標的分數不為null
-    if (levels[currentLevel] !== null && levels[nextLevel] !== null && 
-        levels[currentLevel] === levels[nextLevel]) {
-      // 將下一標的分數設為null，表示取高標者
-      levels[nextLevel] = null;
-    }
-  }
-  
-  // 處理沒有數值的情況：自動填入較高標的數值
-  for (let i = 1; i < levelOrder.length; i++) {
-    const currentLevel = levelOrder[i];
-    const prevLevel = levelOrder[i - 1];
-    
-    // 如果當前標沒有數值，且前一個標有數值
-    if (levels[currentLevel] === null && levels[prevLevel] !== null) {
-      levels[currentLevel] = levels[prevLevel];
-    }
-  }
-  
-  return levels;
-}
-
-async function saveGrades(courseName: string, courseCode: string, gradeData: any) {
+async function saveGrades(courseName: string, courseCode: string, gradeData: unknown) {
   const res = await fetch('/api/grades/save', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -193,6 +78,76 @@ async function getGrades(courseName: string, courseCode: string) {
     return data[`${courseName}(${courseCode})`];
   }
   return null;
+}
+
+// 恢復 DEFAULT_REGULAR_COLUMNS
+const DEFAULT_REGULAR_COLUMNS = 10;
+// sticky 樣式
+const stickyCell = "bg-white sticky left-0 z-10";
+const stickyCell2 = "bg-white sticky left-20 z-10";
+// 統一三個頁面的學號/姓名欄位寬度與 sticky 樣式
+const studentIdColStyle = { width: '120px', minWidth: '120px', maxWidth: '120px' };
+const studentNameColStyle = { width: '100px', minWidth: '100px', maxWidth: '100px' };
+const studentIdColClass = `px-4 py-2 text-left text-sm font-semibold text-gray-700 whitespace-nowrap ${stickyCell}`;
+const studentNameColClass = `px-4 py-2 text-left text-sm font-semibold text-gray-700 whitespace-nowrap ${stickyCell2}`;
+const studentIdTdClass = `px-4 py-2 text-sm text-gray-800 ${stickyCell}`;
+const studentNameTdClass = `px-4 py-2 text-sm text-gray-800 whitespace-nowrap ${stickyCell2}`;
+// 恢復 removeUndefinedDeep
+function removeUndefinedDeep(obj: unknown): unknown {
+  if (Array.isArray(obj)) {
+    return obj.map(removeUndefinedDeep);
+  } else if (obj && typeof obj === 'object') {
+    return Object.fromEntries(
+      Object.entries(obj as Record<string, unknown>)
+        .filter(([, v]) => v !== undefined)
+        .map(([k, v]) => [k, v === undefined ? null : removeUndefinedDeep(v)])
+    );
+  }
+  return obj === undefined ? null : obj;
+}
+
+// 恢復 getTaiwanPercentileLevels
+function getTaiwanPercentileLevels(scores: number[]) {
+  if (scores.length === 0) return { 頂標: null, 前標: null, 均標: null, 後標: null, 底標: null, 平均: null };
+  const sorted = [...scores].sort((a, b) => b - a); // 由高到低
+  const n = sorted.length;
+  const levels: { [k: string]: number | null } = { 頂標: null, 前標: null, 均標: null, 後標: null, 底標: null, 平均: null };
+  // 平均
+  levels['平均'] = parseFloat((scores.reduce((a, b) => a + b, 0) / n).toFixed(2));
+  // 計算各標的分數
+  for (let i = 0; i < n; i++) {
+    const percentile = (n - i) / n;
+    const score = sorted[i];
+    if (percentile >= 0.88 && levels['頂標'] === null) {
+      levels['頂標'] = score;
+    } else if (percentile >= 0.75 && percentile < 0.88 && levels['前標'] === null) {
+      levels['前標'] = score;
+    } else if (percentile >= 0.50 && percentile < 0.75 && levels['均標'] === null) {
+      levels['均標'] = score;
+    } else if (percentile >= 0.25 && percentile < 0.50 && levels['後標'] === null) {
+      levels['後標'] = score;
+    } else if (percentile < 0.25 && levels['底標'] === null) {
+      levels['底標'] = score;
+    }
+  }
+  // 處理相同分數的情況：取高標者
+  const levelOrder = ['頂標', '前標', '均標', '後標', '底標'];
+  for (let i = 0; i < levelOrder.length - 1; i++) {
+    const currentLevel = levelOrder[i];
+    const nextLevel = levelOrder[i + 1];
+    if (levels[currentLevel] !== null && levels[nextLevel] !== null && levels[currentLevel] === levels[nextLevel]) {
+      levels[nextLevel] = null;
+    }
+  }
+  // 處理沒有數值的情況：自動填入較高標的數值
+  for (let i = 1; i < levelOrder.length; i++) {
+    const currentLevel = levelOrder[i];
+    const prevLevel = levelOrder[i - 1];
+    if (levels[currentLevel] === null && levels[prevLevel] !== null) {
+      levels[currentLevel] = levels[prevLevel];
+    }
+  }
+  return levels;
 }
 
 export default function GradeManager({ userInfo }: GradeManagerProps) {
@@ -226,32 +181,29 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
   const [courses, setCourses] = useState<CourseInfo[]>([]);
   const [showPercentModal, setShowPercentModal] = useState(false);
   // 1. 新增 state：小考p%、作業q%、上課態度r%、特殊加分c、定期評量次數勾選、各項模式
-  const [percentQuizRaw, setPercentQuizRaw] = useState('20');
-  const [percentHomeworkRaw, setPercentHomeworkRaw] = useState('10');
-  const [percentAttitudeRaw, setPercentAttitudeRaw] = useState('10');
+  const [percentQuizRaw, setPercentQuizRaw] = useState<string>('20');
+  const [percentHomeworkRaw, setPercentHomeworkRaw] = useState<string>('10');
+  const [percentAttitudeRaw, setPercentAttitudeRaw] = useState<string>('10');
   const percentQuiz = Number(percentQuizRaw);
   const percentHomework = Number(percentHomeworkRaw);
   const percentAttitude = Number(percentAttitudeRaw);
-  const percentRegular = Number(percentQuiz) + Number(percentHomework) + Number(percentAttitude);
+  const percentRegular = percentQuiz + percentHomework + percentAttitude;
   const percentPeriodic = 100 - percentRegular;
   const [quizMode, setQuizMode] = useState<'all'|'best'>('all');
-  const [quizBestCount, setQuizBestCount] = useState(3);
+  const [quizBestCount, setQuizBestCount] = useState<number>(3);
   const [homeworkMode, setHomeworkMode] = useState<'all'|'best'>('all');
-  const [homeworkBestCount, setHomeworkBestCount] = useState(3);
+  const [homeworkBestCount, setHomeworkBestCount] = useState<number>(3);
   const [attitudeMode, setAttitudeMode] = useState<'all'|'best'>('all');
-  const [attitudeBestCount, setAttitudeBestCount] = useState(3);
-  const [periodicEnabled, setPeriodicEnabled] = useState([true, true, true]); // [第一次, 第二次, 期末]
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [attitudeBestCount, setAttitudeBestCount] = useState<number>(3);
+  const [periodicEnabled, setPeriodicEnabled] = useState<boolean[]>([true, true, true]); // [第一次, 第二次, 期末]
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState<boolean>(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
 
   // 檢查是否有未儲存的變更
   useEffect(() => {
-    // 這裡可以添加更詳細的變更檢測邏輯
-    // 暫時設為 false，實際使用時需要檢測變更
-    // 移除對 students 和 columnDetails 的依賴以避免無限循環
     setHasUnsavedChanges(false);
-  }, []); // Remove dependencies to prevent infinite loops
+  }, []);
 
   // 離開頁面檢查
   useEffect(() => {
@@ -262,20 +214,19 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
         return '您有未儲存的變更，確定要離開嗎？';
       }
     };
-
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasUnsavedChanges]);
 
   // 處理導航離開
-  const handleNavigation = (url: string) => {
-    if (hasUnsavedChanges) {
-      setShowLeaveConfirm(true);
-      setPendingNavigation(url);
-    } else {
-      window.location.href = url;
-    }
-  };
+  // const handleNavigation = (url: string) => {
+  //   if (hasUnsavedChanges) {
+  //     setShowLeaveConfirm(true);
+  //     setPendingNavigation(url);
+  //   } else {
+  //     window.location.href = url;
+  //   }
+  // };
 
   // 確認離開
   const confirmLeave = () => {
@@ -304,11 +255,14 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
       console.log('GradeManager - All courses:', allCourses.length);
       // 假設老師授課課程 id 在 userInfo.courses 或 userInfo.id
       // 若有老師課程清單 API 可改用
-      const teacherCourses = allCourses.filter((c: any) => c.teachers && c.teachers.includes(userInfo.id));
+      const teacherCourses = allCourses.filter((c: { teachers?: string[] }) => Array.isArray(c.teachers) && c.teachers.includes(userInfo.id));
       console.log('GradeManager - Teacher courses:', teacherCourses.length);
       setCourses(teacherCourses);
-    })();
-  }, [userInfo?.id]); // Only depend on userInfo.id to prevent infinite loops
+    })().catch((error: unknown) => {
+      console.error('載入課程資料時發生錯誤:', error);
+      alert('載入課程資料時發生錯誤: ' + (error instanceof Error ? error.message : String(error)));
+    });
+  }, [userInfo]);
 
   useEffect(() => {
     if (selectedCourseName && selectedCourseCode) {
@@ -398,9 +352,9 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
           setPercentHomeworkRaw('10');
           setPercentAttitudeRaw('10');
         }
-      })().catch((error: any) => {
+      })().catch((error: unknown) => {
         console.error('載入成績資料時發生錯誤:', error);
-        alert('載入成績資料時發生錯誤: ' + error.message);
+        alert('載入成績資料時發生錯誤: ' + (error instanceof Error ? error.message : String(error)));
       });
     } else {
       setStudents([]);
@@ -486,8 +440,6 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
         }
       }
       alert('成績已儲存！');
-    } catch (error) {
-      alert('儲存失敗，請稍後再試');
     } finally {
       setIsSaving(false);
     }
@@ -527,7 +479,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
     ];
     
     students.forEach(student => {
-      const row: any = {
+      const row: Record<string, string | number> = {
         studentId: student.studentId,
         name: student.name
       };
@@ -550,7 +502,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
     ];
     
     students.forEach(student => {
-      const row: any = {
+      const row: Record<string, string | number> = {
         studentId: student.studentId,
         name: student.name
       };
@@ -574,7 +526,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
     
     students.forEach(student => {
       // 平時成績計算
-      const { quizAvg, homeworkAvg, attitudeAvg, weighted: regularScore } = calcRegularScore(student);
+      const { weighted: regularScore } = calcRegularScore(student);
       // 定期評量
       const first = student.periodicScores?.['第一次定期評量'] ?? 0;
       const second = student.periodicScores?.['第二次定期評量'] ?? 0;
@@ -583,7 +535,6 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
       // 特殊加分
       const manualAdjust = typeof student.manualAdjust === 'number' ? student.manualAdjust : 0;
       // 平時成績顯示：現有平時成績數據 / (平時成績總%/100)
-      const regularScoreNum = typeof regularScore === 'number' && !isNaN(regularScore) ? regularScore : 0;
       const percentRegularNum = typeof totalSetting.regularPercent === 'number' && !isNaN(totalSetting.regularPercent) ? totalSetting.regularPercent : 0;
       const percentPeriodicNum = typeof totalSetting.periodicPercent === 'number' && !isNaN(totalSetting.periodicPercent) ? totalSetting.periodicPercent : 0;
       const manualAdjustNum = typeof manualAdjust === 'number' && !isNaN(manualAdjust) ? manualAdjust : 0;
@@ -601,7 +552,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
       });
       const periodicAvgNum = enabledPeriodic.length > 0 ? (periodicVals as number[]).reduce((a, b) => a + b, 0) / enabledPeriodic.length : 0;
       const total = Math.round(
-        regularScoreNum * percentRegularNum / 100 +
+        regularScore * percentRegularNum / 100 +
         periodicAvgNum * percentPeriodicNum / 100 +
         manualAdjustNum
       );
@@ -639,8 +590,8 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
   function calcRegularScore(stu: StudentGradeRow): { quizAvg: number; homeworkAvg: number; attitudeAvg: number; weighted: number } {
     // 小考
     const quizScores = Object.entries(stu.regularScores || {})
-      .filter(([idx, _]) => columnDetails[Number(idx)]?.type === '小考成績')
-      .map(([_, v]) => typeof v === 'number' ? v : undefined)
+      .filter(([idx]) => columnDetails[Number(idx)]?.type === '小考成績')
+      .map(([, v]) => typeof v === 'number' ? v : undefined)
       .filter(v => typeof v === 'number') as number[];
     let quizAvg = 0;
     if (quizScores.length > 0) {
@@ -654,8 +605,8 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
     }
     // 作業
     const homeworkScores = Object.entries(stu.regularScores || {})
-      .filter(([idx, _]) => columnDetails[Number(idx)]?.type === '作業成績')
-      .map(([_, v]) => typeof v === 'number' ? v : undefined)
+      .filter(([idx]) => columnDetails[Number(idx)]?.type === '作業成績')
+      .map(([, v]) => typeof v === 'number' ? v : undefined)
       .filter(v => typeof v === 'number') as number[];
     let homeworkAvg = 0;
     if (homeworkScores.length > 0) {
@@ -669,8 +620,8 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
     }
     // 上課態度
     const attitudeScores = Object.entries(stu.regularScores || {})
-      .filter(([idx, _]) => columnDetails[Number(idx)]?.type === '上課態度')
-      .map(([_, v]) => typeof v === 'number' ? v : undefined)
+      .filter(([idx]) => columnDetails[Number(idx)]?.type === '上課態度')
+      .map(([, v]) => typeof v === 'number' ? v : undefined)
       .filter(v => typeof v === 'number') as number[];
     let attitudeAvg = 0;
     if (attitudeScores.length > 0) {
@@ -1239,9 +1190,9 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                     </tr>
                   </thead>
                   <tbody>
-                    {students.map((stu, rowIdx) => {
+                    {students.map((stu) => {
                       // 平時成績計算
-                      const { quizAvg, homeworkAvg, attitudeAvg, weighted: regularScore } = calcRegularScore(stu);
+                      const { weighted: regularScore } = calcRegularScore(stu);
                       // 定期評量
                       const first = stu.periodicScores?.['第一次定期評量'] ?? 0;
                       const second = stu.periodicScores?.['第二次定期評量'] ?? 0;
@@ -1250,8 +1201,6 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                       // 特殊加分
                       const manualAdjust = typeof stu.manualAdjust === 'number' ? stu.manualAdjust : 0;
                       // 平時成績顯示：現有平時成績數據 / (平時成績總%/100)
-                      const regularScoreNum = typeof regularScore === 'number' && !isNaN(regularScore) ? regularScore : 0;
-                      const percentRegularNum = typeof totalSetting.regularPercent === 'number' && !isNaN(totalSetting.regularPercent) ? totalSetting.regularPercent : 0;
                       const percentPeriodicNum = typeof totalSetting.periodicPercent === 'number' && !isNaN(totalSetting.periodicPercent) ? totalSetting.periodicPercent : 0;
                       const manualAdjustNum = typeof manualAdjust === 'number' && !isNaN(manualAdjust) ? manualAdjust : 0;
                       // 匯出時用 totalSetting.periodicEnabled
@@ -1272,7 +1221,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                       const homeworkPercent = totalSetting.regularDetail['回家作業']?.percent ?? 0;
                       const attitudePercent = totalSetting.regularDetail['上課態度']?.percent ?? 0;
                       // 平時加權分數
-                      const regularScoreWeighted = quizAvg * quizPercent / 100 + homeworkAvg * homeworkPercent / 100 + attitudeAvg * attitudePercent / 100;
+                      const regularScoreWeighted = quizPercent / 100 + homeworkPercent / 100 + attitudePercent / 100;
                       const total = Math.round(
                         regularScoreWeighted +
                         periodicAvgNum * percentPeriodicNum / 100 +
@@ -1369,7 +1318,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                       <div className="text-red-500 text-sm mb-1">擇優採計次數不可大於資料數，已自動調整</div>
                     )}
                     <div className="font-bold mb-1">小考成績模式（共{Object.values(columnDetails).filter(col=>col.type==='小考成績').length}筆）</div>
-                    <select className="border rounded px-2 py-1 w-32 mr-2" value={quizMode} onChange={e=>setQuizMode(e.target.value as any)}>
+                    <select className="border rounded px-2 py-1 w-32 mr-2" value={quizMode} onChange={e=>setQuizMode(e.target.value as 'all' | 'best')}>
                       <option value="all">全部採計</option>
                       <option value="best">擇優採計</option>
                     </select>
@@ -1380,7 +1329,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                       <div className="text-red-500 text-sm mb-1">擇優採計次數不可大於資料數，已自動調整</div>
                     )}
                     <div className="font-bold mb-1">作業成績模式（共{Object.values(columnDetails).filter(col=>col.type==='作業成績').length}筆）</div>
-                    <select className="border rounded px-2 py-1 w-32 mr-2" value={homeworkMode} onChange={e=>setHomeworkMode(e.target.value as any)}>
+                    <select className="border rounded px-2 py-1 w-32 mr-2" value={homeworkMode} onChange={e=>setHomeworkMode(e.target.value as 'all' | 'best')}>
                       <option value="all">全部採計</option>
                       <option value="best">擇優採計</option>
                     </select>
@@ -1391,7 +1340,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                       <div className="text-red-500 text-sm mb-1">擇優採計次數不可大於資料數，已自動調整</div>
                     )}
                     <div className="font-bold mb-1">上課態度模式（共{Object.values(columnDetails).filter(col=>col.type==='上課態度').length}筆）</div>
-                    <select className="border rounded px-2 py-1 w-32 mr-2" value={attitudeMode} onChange={e=>setAttitudeMode(e.target.value as any)}>
+                    <select className="border rounded px-2 py-1 w-32 mr-2" value={attitudeMode} onChange={e=>setAttitudeMode(e.target.value as 'all' | 'best')}>
                       <option value="all">全部採計</option>
                       <option value="best">擇優採計</option>
                     </select>

@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     const students = data.students || [];
     
     // 移除指定學生
-    const updatedStudents = students.filter((s: any) => s.id !== studentId);
+    const updatedStudents = students.filter((s: { id: string }) => s.id !== studentId);
     
     // 更新文檔
     await docRef.set({ students: updatedStudents }, { merge: true });
@@ -59,8 +59,9 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Error removing student from course:', error);
-    return NextResponse.json({ error: (error as any).message || '移除學生失敗' }, { status: 500 });
+  } catch (error: unknown) {
+    let message = '移除失敗';
+    if (error instanceof Error) message = error.message;
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 } 

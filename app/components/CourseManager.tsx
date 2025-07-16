@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import MultiSelectDropdown from './MultiSelectDropdown';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import LoadingSpinner from './LoadingSpinner';
 import AlertDialog from './AlertDialog';
 import DetailModal from './DetailModal';
-import path from 'path';
+import Image from 'next/image';
 
 interface CourseManagerProps {
   onProcessingStateChange: (isProcessing: boolean) => void;
@@ -51,13 +51,6 @@ interface Teacher {
   name: string;
 }
 
-interface Student {
-  id: string; // Document ID
-  studentId: string; // 學號
-  name: string;
-  grade: string;
-}
-
 // 新增：取得 public/課程介紹圖片 目錄下所有圖片
 function useCourseImages() {
   const [images, setImages] = useState<string[]>([]);
@@ -70,29 +63,27 @@ function useCourseImages() {
 }
 
 export default function CourseManager({ onProcessingStateChange, userInfo }: CourseManagerProps) {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSubject, setSelectedSubject] = useState<string>('all');
+  const [searchTerm] = useState('');
+  const [selectedSubject] = useState<string>('all');
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAddModal, setShowAddModal] = useState(false);
   const [showStudentListModal, setShowStudentListModal] = useState<Course | null>(null);
-  const [studentList, setStudentList] = useState<any[]>([]);
+  interface Student {
+    id: string;
+    studentId: string;
+    name: string;
+    grade?: string;
+  }
+  const [studentList, setStudentList] = useState<Student[]>([]);
   const [loadingStudents, setLoadingStudents] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState<Course | null>(null);
-  const [showDetailModal, setShowDetailModal] = useState<Course | null>(null);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [processingState, setProcessingState] = useState(false);
   const [allTeachers, setAllTeachers] = useState<Teacher[]>([]);
-  const [isComposing, setIsComposing] = useState(false);
-  const nameInputRef = useRef<HTMLInputElement>(null);
-  const [coverImageFile, setCoverImageFile] = useState<File | null>(null);
-  const [selectedGrade, setSelectedGrade] = useState<string>('all');
-  const [showArchived, setShowArchived] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<string>('');
-  const [alert, setAlert] = useState({ open: false, message: '' });
-  const courseImages = useCourseImages();
   const [selectedImage, setSelectedImage] = useState<string>('');
+  const [alert, setAlert] = useState({ open: false, message: '' });
+  const [selectedGrade] = useState<string>('all');
+  const [showArchived] = useState(false);
+  const courseImages = useCourseImages();
 
   const isAdmin = userInfo && (
     Array.isArray(userInfo.role) 
@@ -115,7 +106,7 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
       } else {
         setCourses([]);
       }
-    } catch (error) {
+    } catch {
       setCourses([]);
     } finally {
       setLoading(false);
@@ -133,7 +124,7 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
       });
       const data = await res.json();
       return data.uids || [];
-    } catch (error) {
+    } catch {
       return [];
     }
   };
@@ -145,12 +136,12 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
         const res1 = await fetch('/api/teacher/list');
         let usersTeachers = await res1.json();
         // 過濾掉沒有 name 欄位的
-        usersTeachers = usersTeachers.filter((t: any) => (
+        usersTeachers = usersTeachers.filter((t: { role?: string[] | string; roles?: string[] | string; name?: string }) => (
           ((Array.isArray(t.role) && t.role.includes('teacher')) || t.role === 'teacher' || (Array.isArray(t.roles) && t.roles.includes('teacher')) || t.roles === 'teacher') &&
           t.name && t.name.trim() !== ''
         ));
         setAllTeachers(usersTeachers);
-      } catch (error) {
+      } catch {
       }
     };
     fetchTeachers();
@@ -206,10 +197,9 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
     }
     
     setEditingCourse(null);
-    setCoverImageFile(null);
 
     try {
-      let coverImageURL = selectedImage || editingCourse.coverImageURL || '';
+      const coverImageURL = selectedImage || editingCourse.coverImageURL || '';
 
       const teacherUids = await getTeacherUids(editingCourse.teachers);
 
@@ -258,9 +248,8 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
         setAlert({ open: true, message: '課程建立成功！' });
       }
 
-    } catch (error) {
-      console.error('儲存課程時發生錯誤:', error);
-      setAlert({ open: true, message: `儲存課程時發生錯誤: ${error instanceof Error ? error.message : '未知錯誤'}` });
+    } catch {
+      setAlert({ open: true, message: '儲存課程時發生錯誤' });
       // Revert UI on failure
       setCourses(prev => prev.filter(c => c.id !== docId));
     } finally {
@@ -301,7 +290,6 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
     } else {
       setSelectedImage('');
     }
-    setCoverImageFile(null);
   };
 
   const handleDelete = async (id: string) => {
@@ -327,7 +315,7 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
           });
           if (!response.ok) {
           }
-        } catch (error) {
+        } catch {
         }
       }
       // 呼叫 server 端 API 刪除課程（會自動同步從老師授課清單中移除）
@@ -338,7 +326,7 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
       });
       setCourses(prev => prev.filter(course => course.id !== id));
       setAlert({ open: true, message: '課程刪除成功！' });
-    } catch (error) {
+    } catch {
       setAlert({ open: true, message: '刪除課程時發生錯誤。' });
     } finally {
       await fetchCourses();
@@ -355,7 +343,7 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
       });
       setCourses(prev => prev.map(course => course.id === id ? { ...course, archived: true, status: '已封存' } : course));
       setAlert({ open: true, message: '課程封存成功！' });
-    } catch (error) {
+    } catch {
       setAlert({ open: true, message: '封存課程時發生錯誤。' });
     } finally {
       await fetchCourses();
@@ -372,7 +360,7 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
       });
       setCourses(prev => prev.map(course => course.id === id ? { ...course, archived: false, status: '未開課' } : course));
       setAlert({ open: true, message: '課程取消封存成功！' });
-    } catch (error) {
+    } catch {
       setAlert({ open: true, message: '取消封存課程時發生錯誤。' });
     } finally {
       await fetchCourses();
@@ -385,14 +373,13 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
       const urlParts = url.split('/');
       const uploadIndex = urlParts.findIndex(part => part === 'upload');
       if (uploadIndex !== -1 && uploadIndex + 2 < urlParts.length) {
-        const version = urlParts[uploadIndex + 1];
         const pathParts = urlParts.slice(uploadIndex + 2);
         const fullPath = pathParts.join('/');
         const extensionIndex = fullPath.lastIndexOf('.');
         return extensionIndex !== -1 ? fullPath.substring(0, extensionIndex) : fullPath;
       }
       return null;
-    } catch (error) {
+    } catch {
       return null;
     }
   };
@@ -435,25 +422,17 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
   const filteredCourses = courses.filter(course => {
     const matchesSearch = (course.name && course.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (course.code && course.code.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesGrade = selectedGrade === 'all' ||
-      (course.gradeTags && Array.isArray(course.gradeTags) && course.gradeTags.includes(selectedGrade));
-    const matchesSubject = selectedSubject === 'all' ||
-      course.subjectTag === selectedSubject;
+    const matchesGrade = selectedGrade === 'all' || (course.gradeTags && Array.isArray(course.gradeTags) && course.gradeTags.includes(selectedGrade));
+    const matchesSubject = selectedSubject === 'all' || course.subjectTag === selectedSubject;
     const matchesArchive = showArchived ? course.archived : !course.archived;
     return matchesSearch && matchesGrade && matchesSubject && matchesArchive;
   });
 
-  const gradeOrder: { [key: string]: number } = {
-    '高三': 6, '高二': 5, '高一': 4,
-    '國三': 3, '國二': 2, '國一': 1,
-  };
-  
   const handleShowStudents = async (course: Course) => {
     console.log('showStudentListModal:', course);
     setShowStudentListModal(course);
     setStudentList([]);
     setLoadingStudents(true);
-    setDebugInfo('');
     try {
       // 直接查 course-student-list
       const res = await fetch('/api/course-student-list/list', {
@@ -467,16 +446,14 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
       } else {
         setStudentList([]);
       }
-      setDebugInfo('');
-    } catch (e: any) {
-      setDebugInfo('ERROR: ' + e.message);
+    } catch {
       setStudentList([]);
     } finally {
       setLoadingStudents(false);
     }
   };
 
-  const handleRemoveStudentFromCourse = async (student: any, course: Course) => {
+  const handleRemoveStudentFromCourse = async (student: Student, course: Course) => {
     if (!window.confirm(`確定要將學生 ${student.name} 從課程「${course.name}」中移除嗎？`)) {
       return;
     }
@@ -500,7 +477,7 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
       } else {
         setAlert({ open: true, message: '移除學生時發生錯誤' });
       }
-    } catch (error) {
+    } catch {
       setAlert({ open: true, message: '移除學生時發生錯誤' });
     }
   };
@@ -757,7 +734,7 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
                 <label className="block text-sm font-medium text-gray-700 mb-2">上課時間安排 *</label>
                 <select
                   value={editingCourse.timeArrangementType}
-                  onChange={(e) => setEditingCourse(prev => prev ? { ...prev, timeArrangementType: e.target.value as any } : null)}
+                  onChange={(e) => setEditingCourse(prev => prev ? { ...prev, timeArrangementType: e.target.value as '依時段安排' | '依學年課程彈性安排' | '課程時間由學生自主安排' } : null)}
                   className="w-full p-2 border rounded-md"
                 >
                   <option value="依時段安排">依時段安排</option>
@@ -784,8 +761,8 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
                           value={time.startTime}
                           onChange={(e) => {
                             // 自動修正分鐘為5的倍數
-                            let [h, m] = e.target.value.split(":");
-                            m = (Math.round(parseInt(m, 10) / 5) * 5).toString().padStart(2, '0');
+                            const [h, mRaw] = e.target.value.split(":");
+                            const m = (Math.round(parseInt(mRaw, 10) / 5) * 5).toString().padStart(2, '0');
                             updateClassTime(index, 'startTime', `${h}:${m}`);
                           }}
                           className="p-2 border rounded-md"
@@ -797,8 +774,8 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
                           type="time"
                           value={time.endTime}
                           onChange={(e) => {
-                            let [h, m] = e.target.value.split(":");
-                            m = (Math.round(parseInt(m, 10) / 5) * 5).toString().padStart(2, '0');
+                            const [h, mRaw] = e.target.value.split(":");
+                            const m = (Math.round(parseInt(mRaw, 10) / 5) * 5).toString().padStart(2, '0');
                             updateClassTime(index, 'endTime', `${h}:${m}`);
                           }}
                           className="p-2 border rounded-md"
@@ -831,11 +808,12 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
                 <div className="flex flex-wrap gap-4">
                   {courseImages.map(img => (
                     <div key={img} className="relative">
-                      <img
+                      <Image
                         src={img}
                         alt={img}
+                        width={96}
+                        height={96}
                         className={`w-24 h-24 object-cover rounded-lg border-2 cursor-pointer ${selectedImage === img ? 'border-blue-600' : 'border-gray-200'}`}
-                        style={{ aspectRatio: '1 / 1' }}
                         onClick={() => setSelectedImage(img)}
                       />
                       {selectedImage === img && (
@@ -1026,33 +1004,34 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
           <div className="max-h-[80vh] overflow-y-auto">
             {/* 學生名單 */}
             <div>
-              <h3 className="text-lg font-semibold mb-4 text-gray-800">學生名單</h3>
+              <h4 className="font-semibold text-gray-900 mb-2 text-center">學生名單</h4>
               {loadingStudents ? (
                 <div className="flex items-center justify-center gap-2 text-gray-500 py-8">
                   <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
                   <span>正在載入學生名單...</span>
                 </div>
               ) : studentList.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full border border-gray-200 rounded-lg">
+                <div className="max-w-md mx-auto w-full p-2" style={{ maxHeight: 300 }}>
+                  <div className="overflow-x-auto" style={{ maxHeight: 220 }}>
+                    <table className="w-full table-fixed border border-gray-200 rounded-lg text-sm overflow-hidden">
                     <thead>
                       <tr className="bg-gray-100">
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">學號</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">姓名</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">年級</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">操作</th>
+                          <th className="px-1 py-1 text-center font-semibold text-gray-700 w-14 truncate">學號</th>
+                          <th className="px-1 py-1 text-center font-semibold text-gray-700 w-16 truncate">姓名</th>
+                          <th className="px-1 py-1 text-center font-semibold text-gray-700 w-12 truncate">年級</th>
+                          <th className="px-1 py-1 text-center font-semibold text-gray-700 w-12 truncate">操作</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {studentList.map((student, index) => (
-                        <tr key={index} className="border-t hover:bg-gray-50">
-                          <td className="px-4 py-2 text-sm text-gray-800 font-medium">{student.studentId}</td>
-                          <td className="px-4 py-2 text-sm text-gray-800">{student.name}</td>
-                          <td className="px-4 py-2 text-sm text-gray-800">{student.grade || '未設定'}</td>
-                          <td className="px-4 py-2 text-sm">
+                        {studentList.map(stu => (
+                          <tr key={stu.id} className="border-t hover:bg-blue-50 even:bg-gray-50">
+                            <td className="px-1 py-1 text-center text-gray-800 font-medium truncate">{stu.studentId}</td>
+                            <td className="px-1 py-1 text-center text-gray-800 truncate">{stu.name}</td>
+                            <td className="px-1 py-1 text-center text-gray-800 truncate">{stu.grade || '未設定'}</td>
+                            <td className="px-1 py-1 text-center">
                             <button
-                              onClick={() => handleRemoveStudentFromCourse(student, showStudentListModal)}
-                              className="text-red-600 hover:text-red-800 text-sm"
+                                onClick={() => handleRemoveStudentFromCourse(stu, showStudentListModal!)}
+                                className="bg-red-100 text-red-600 px-2 py-1 rounded hover:bg-red-200 transition text-xs"
                             >
                               移除
                             </button>
@@ -1061,6 +1040,7 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               ) : (
                 <p className="text-gray-500 text-center py-8">此課程尚無學生選修。</p>

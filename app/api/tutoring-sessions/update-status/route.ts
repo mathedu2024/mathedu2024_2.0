@@ -11,7 +11,9 @@ export async function POST(req: NextRequest) {
     await docRef.update({ status: newStatus, updatedAt: new Date() });
     const doc = await docRef.get();
     return NextResponse.json({ id: doc.id, ...doc.data() });
-  } catch (error) {
-    return NextResponse.json({ error: (error as any).message || '更新失敗' }, { status: 500 });
+  } catch (error: unknown) {
+    let message = '更新失敗';
+    if (error instanceof Error) message = error.message;
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 } 

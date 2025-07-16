@@ -1,5 +1,3 @@
-import { SESSION_TIMEOUT } from '../config/auth';
-
 const SESSION_KEY = 'user_session';
 
 export interface SessionData {
@@ -27,7 +25,7 @@ export const getSession = (): SessionData | null => {
   try {
     const sessionData = localStorage.getItem(SESSION_KEY);
     return sessionData ? JSON.parse(sessionData) : null;
-  } catch (error) {
+  } catch {
     clearSession();
     return null;
   }
@@ -71,17 +69,4 @@ export const getSessionFromCookie = (cookieString: string): SessionData | null =
     console.error('Error parsing session cookie:', error);
     return null;
   }
-};
-
-type UserRole = '管理員' | '老師' | '學生';
-
-const getRole = (role: string | string[]): UserRole => {
-  if (Array.isArray(role)) {
-    if (role.map(r => r.toLowerCase()).includes('admin')) return '管理員';
-    if (role.map(r => r.toLowerCase()).includes('teacher')) return '老師';
-    return '學生';
-  }
-  if (role?.toLowerCase() === 'admin') return '管理員';
-  if (role?.toLowerCase() === 'teacher') return '老師';
-  return '學生';
 }; 

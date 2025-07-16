@@ -1,99 +1,158 @@
 'use client';
 
 import Image from 'next/image';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useEffect, Suspense } from 'react';
+import React, { useState } from 'react';
 
 export default function TeacherPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [activeTab, setActiveTab] = useState<string | null>(null);
+  return (
+    <Suspense>
+      <TeacherPageContent />
+    </Suspense>
+  );
+}
 
-  // 初始化 activeTab 根據網址 query
-  useEffect(() => {
-    const tab = searchParams.get('tab');
-    if (tab) setActiveTab(tab);
-  }, [searchParams]);
-
-  // 切換分頁時，更新網址 query
-  const handleTabChange = (tab: string | null) => {
-    setActiveTab(tab);
-    const url = new URL(window.location.href);
-    if (tab) {
-      url.searchParams.set('tab', tab);
-    } else {
-      url.searchParams.delete('tab');
+function TeacherPageContent() {
+  const teachers = [
+    {
+      name: '吳其恩 老師',
+      subject: '數學科',
+      photo: '/老師介紹/吳其恩.png',
+      education: [
+        '新北市 信義國小(2013/08~2019/06)',
+        '新北市 中山國中(2019/08~2022/06)',
+        '光仁高中 普通科(2022/08~2025/06)',
+        '東吳大學 數學系(2025/09~)'
+      ],
+      experience: [
+        '2019年 北區四城市中小學學生專題寫作比賽',
+        '2024年 ARML Local',
+        '2024年 TI-Nspire學生數學競賽',
+        '2024年 數學競賽校內培訓',
+        '2025年 新北市高中計算器檢定',
+        '2025年 數學競賽校內培訓課程助教'
+      ],
+      expertise: [
+        '國高中數學成績補強',
+        '數位與智慧教育研究'
+      ],
+      courses: [
+        '國中數學系列課程',
+        '高中數學系列課程'
+      ]
     }
-    window.history.replaceState({}, '', url.toString());
-  };
+    // 可擴充更多老師
+  ];
+  type Teacher = typeof teachers[number];
+  const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
+  const [showModal, setShowModal] = useState(false);
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-4xl font-bold text-center mb-12" style={{ color: 'rgb(70, 131, 229)' }}>
+      <h1 className="text-4xl md:text-5xl font-bold text-center mb-12 text-blue-700 tracking-tight drop-shadow-sm">
         師資介紹
       </h1>
-      
-      <div className="space-y-8">
-        {/* 吳其恩老師區塊 */}
-        <div className="bg-white rounded-xl overflow-hidden p-6">
-          <div className="flex flex-col md:flex-row gap-8">
-            {/* 照片區域 */}
-            <div className="w-full md:w-1/3 relative aspect-square">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 px-2 sm:px-4 md:px-0">
+        {teachers.map((teacher, idx) => (
+          <div
+            key={teacher.name}
+            className="bg-white overflow-hidden hover:bg-gray-50 transition-all duration-300 flex flex-col md:block mb-6 md:mb-0 relative"
+          >
+            {/* 圖片區塊 */}
+            <div className="w-full aspect-square relative md:w-1/2 md:aspect-auto md:relative md:float-left md:mr-6 mb-4 md:mb-0">
+              <div className="hidden md:block pt-[100%]" />
               <Image
-                src="/老師介紹/吳其恩.png"
-                alt="吳其恩老師"
+                src={teacher.photo}
+                alt={teacher.name}
                 fill
                 priority
-                style={{ objectFit: 'contain' }}
+                style={{ objectFit: 'cover' }}
+                className="w-full h-full rounded-none md:absolute md:inset-0"
               />
             </div>
-            
-            {/* 資訊區域 */}
-            <div className="w-full md:w-2/3 space-y-4">
-              <h2 className="text-3xl font-bold">吳其恩 老師</h2>
-              
+            {/* 內容區塊 */}
+            <div className="w-full flex flex-col justify-between p-4 sm:p-6 gap-2 text-left bg-white md:absolute md:top-0 md:right-0 md:bottom-0 md:w-1/2 md:overflow-y-auto">
               <div>
-                <h3 className="text-xl font-semibold text-blue-600 mb-2">所屬科目</h3>
-                <p>數學科</p>
+                <h2 className="text-3xl md:text-2xl font-bold text-blue-800 mb-2 line-clamp-2">{teacher.name}</h2>
+                <div className="text-xl md:text-xl text-blue-600 font-semibold mb-2">{teacher.subject}</div>
+                <div className="text-lg md:text-lg text-blue-700 mb-4 leading-tight">
+                  {teacher.courses && teacher.courses.length > 0 ? teacher.courses.join(' / ') : ''}
+                </div>
               </div>
-              
-              <div>
-                <h3 className="text-xl font-semibold text-blue-600 mb-2">學歷</h3>
-                <li>新北市 信義國小(2013/08~2019/06)</li>
-                <li>新北市 中山國中(2019/08~2022/06)</li>
-                <li>光仁高中 普通科(2022/08~2025/06)</li>
-                <li>東吳大學 數學系(2025/09~)</li>
+              <button
+                className="w-full bg-blue-600 text-white py-3 md:py-2 px-4 rounded-lg text-lg md:text-sm font-bold hover:bg-blue-700 transition-colors duration-200 mt-2"
+                onClick={() => { setSelectedTeacher(teacher); setShowModal(true); }}
+              >
+                詳細資料
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+      {/* Detail Modal */}
+      {showModal && selectedTeacher && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              {/* Modal Header */}
+              <div className="flex justify-between items-start mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">{selectedTeacher.name}</h2>
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
               </div>
-              
-              <div>
-                <h3 className="text-xl font-semibold text-blue-600 mb-2">經歷</h3>
-                <ul className="list-disc list-inside space-y-1">
-                  <li>2024數學競賽校內培訓</li>
-                  <li>2024ARML Local</li>
-                  <li>2024年TI-Nspire學生數學競賽</li>
-                  <li>2025數學競賽校內培訓課程助教</li>
-                </ul>
+              {/* Teacher Details */}
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-1">負責科目</h4>
+                    <span className="text-blue-700 font-semibold">{selectedTeacher.subject}</span>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-1">學歷</h4>
+                    <ul className="list-disc list-inside text-gray-700">
+                      {selectedTeacher.education.map((e, i) => <li key={i}>{e}</li>)}
+                    </ul>
+                  </div>
+                  <div className="md:col-span-2">
+                    <h4 className="font-semibold text-gray-900 mb-1">經歷</h4>
+                    <ul className="list-disc list-inside text-gray-700">
+                      {selectedTeacher.experience.map((e, i) => <li key={i}>{e}</li>)}
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-1">專長</h4>
+                    <ul className="list-disc list-inside text-gray-700">
+                      {selectedTeacher.expertise.map((e, i) => <li key={i}>{e}</li>)}
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-1">授課課程</h4>
+                    <ul className="list-disc list-inside text-gray-700">
+                      {selectedTeacher.courses.map((e, i) => <li key={i}>{e}</li>)}
+                    </ul>
+                  </div>
+                </div>
               </div>
-              
-              <div>
-                <h3 className="text-xl font-semibold text-blue-600 mb-2">專長</h3>
-                <ul className="list-disc list-inside space-y-1">
-                  <li>國高中數學成績補強</li>
-                  <li>數位與智慧教育研究</li>
-                </ul>
-              </div>
-              
-              <div>
-                <h3 className="text-xl font-semibold text-blue-600 mb-2">授課課程</h3>
-                <ul className="list-disc list-inside space-y-1">
-                  <li>國中數學系列課程</li>
-                  <li>高中數學系列課程</li>
-                </ul>
+              {/* Modal Footer */}
+              <div className="flex justify-end mt-6 pt-6 border-t">
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+                >
+                  關閉
+                </button>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

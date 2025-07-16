@@ -85,10 +85,9 @@ export async function POST(req: NextRequest) {
     }
     
     return NextResponse.json({ success: true, id });
-  } catch (error) {
-    console.error('courses/update API - Error:', error);
-    return NextResponse.json({ 
-      error: (error as any).message || '更新課程失敗' 
-    }, { status: 500 });
+  } catch (error: unknown) {
+    let message = '更新課程失敗';
+    if (error instanceof Error) message = error.message;
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 } 

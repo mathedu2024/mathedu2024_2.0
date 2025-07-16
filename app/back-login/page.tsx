@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getSession, clearSession } from '../utils/session';
 import { db } from '../../services/firebase';
@@ -87,6 +87,213 @@ function StudentPanelContent() {
   const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
 
+  // 先宣告 handleLogout，讓 resetIdleTimer 可以安全依賴
+  const handleLogout = useCallback(() => {
+    // 清除閒置計時器
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+    }
+    // 清除暫存資料
+    clearSession();
+    // 清除 localStorage 中的課程資料
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('currentLesson');
+    }
+    console.log('用戶登出，已清除所有暫存資料');
+    router.push('/login');
+  }, [router]);
+
+  // 閒置檢測函數
+  const resetIdleTimer = useCallback(() => {
+    lastActivityRef.current = Date.now();
+    if (idleTimerRef.current) {
+      clearTimeout(idleTimerRef.current);
+    }
+    idleTimerRef.current = setTimeout(() => {
+      console.log('用戶閒置3分鐘，自動登出');
+      handleLogout();
+    }, IDLE_TIMEOUT);
+  }, [handleLogout]);
+
+  // 用戶活動檢測
+  const handleUserActivity = useCallback(() => {
+    resetIdleTimer();
+  }, [resetIdleTimer]);
+
+  // 初始化閒置檢測
+  useEffect(() => {
+    resetIdleTimer();
+
+    // 監聽用戶活動
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+    events.forEach(event => {
+      document.addEventListener(event, handleUserActivity, true);
+    });
+
+    // 清理函數
+    return () => {
+      if (idleTimerRef.current) {
+        clearTimeout(idleTimerRef.current);
+      }
+      events.forEach(event => {
+        document.removeEventListener(event, handleUserActivity, true);
+      });
+    };
+  }, [resetIdleTimer, handleUserActivity]);
+
+  useEffect(() => {
+    const fetchStudentData = async () => {
+      try {
+        const session = getSession();
+        if (!session || session.role !== 'student') {
+          router.push('/login');
+          return;
+        }
+
+        const userDocRef = doc(db, 'student_data', session.id);
+        const userDocSnap = await getDoc(userDocRef);
+
+        if (userDocSnap.exists()) {
+          const userData = userDocSnap.data();
+          setStudentInfo({
+            id: userDocSnap.id,
+            name: userData.name || '',
+            studentId: userData.studentId || userDocSnap.id,
+            enrolledCourses: userData.enrolledCourses || [],
+            grade: userData.grade || '',
+            class: userData.class || '',
+            email: userData.email,
+            phone: userData.phone
+          });
+          
+          // 檢查 URL 參數，如果有 tab=courses 則自動切換到課程列表
+          const tabParam = searchParams.get('tab');
+          if (tabParam === 'courses') {
+            setActiveTab('courses');
+          }
+          // 移除自動跳轉到課程列表的邏輯，讓學生登入後直接顯示儀表板
+        } else {
+          console.error('找不到學生資料');
+          router.push('/login');
+        }
+      } catch (error) {
+        console.error('獲取學生資料時發生錯誤:', error);
+        router.push('/login');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStudentData();
+  }, [router, searchParams]);
+
+  const fetchCourses = useCallback(async () => {
+    if (!studentInfo?.enrolledCourses || studentInfo.enrolledCourses.length === 0) {
+      setCourses([]);
+      setTeacherNamesMap({});
+      return;
+    }
+    
+    setLoadingCourses(true);
+    try {
+      console.log('Fetching courses for student:', studentInfo.enrolledCourses);
+      const coursePromises = studentInfo.enrolledCourses.map(async (courseId: string) => {
+        const courseDocRef = doc(db, 'courses', courseId);
+        const courseDocSnap = await getDoc(courseDocRef);
+        if (courseDocSnap.exists()) {
+          return { id: courseDocSnap.id, ...courseDocSnap.data() } as Course;
+        }
+        return null;
+      });
+      
+      const courseResults = await Promise.all(coursePromises);
+      const filteredCourses = courseResults.filter(Boolean) as Course[];
+      
+      console.log('Fetched courses:', filteredCourses);
+      setCourses(filteredCourses);
+      
+      // 查詢所有老師名稱
+      const allTeacherIds = Array.from(new Set(filteredCourses.flatMap(c => c.teachers || [])));
+      if (allTeacherIds.length > 0) {
+        const teacherNames: Record<string, string> = {};
+        // Firestore 'in' 限制 10 or 30 筆，分批查詢
+        const batchSize = 30;
+        for (let i = 0; i < allTeacherIds.length; i += batchSize) {
+          const batchIds = allTeacherIds.slice(i, i + batchSize);
+          const q = collection(db, 'admin-teachers');
+          const snapshot = await getDocs(q);
+          snapshot.docs.forEach(docSnap => {
+            if (batchIds.includes(docSnap.id)) {
+              teacherNames[docSnap.id] = docSnap.data().name || docSnap.id;
+            }
+          });
+        }
+        setTeacherNamesMap(teacherNames);
+      } else {
+        setTeacherNamesMap({});
+      }
+      
+      // 如果有課程，預設選擇第一個
+      if (filteredCourses.length > 0 && !selectedCourse) {
+        setSelectedCourse(filteredCourses[0]);
+      }
+      
+    } catch (error) {
+      console.error('Error fetching courses:', error);
+      setCourses([]);
+      setTeacherNamesMap({});
+    } finally {
+      setLoadingCourses(false);
+    }
+  }, [studentInfo, selectedCourse]);
+
+  useEffect(() => {
+    if (!selectedCourse) {
+      setLessons([]);
+      return;
+    }
+    
+    const fetchLessons = async () => {
+      if (!selectedCourse) {
+        return;
+      }
+      
+      setLoadingLessons(true);
+      try {
+        console.log('Fetching lessons for course:', selectedCourse.id);
+        const lessonsCollection = collection(db, 'courses', selectedCourse.id, 'lessons');
+        const lessonsSnapshot = await getDocs(lessonsCollection);
+        
+        const lessonsData = lessonsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        } as Lesson));
+        
+        // 按順序排序
+        const sortedLessons = lessonsData.sort((a, b) => 
+          (a.order ?? a.createdAt?.seconds ?? 0) - (b.order ?? b.createdAt?.seconds ?? 0)
+        );
+        
+        console.log('Fetched lessons:', sortedLessons);
+        setLessons(sortedLessons);
+      } catch (error) {
+        console.error('Error fetching lessons:', error);
+        setLessons([]);
+      } finally {
+        setLoadingLessons(false);
+      }
+    };
+
+    fetchLessons();
+  }, [selectedCourse]);
+
+  // 當切換到課程頁面時，確保課程資料已載入
+  useEffect(() => {
+    if (activeTab === 'courses' && studentInfo) {
+      fetchCourses();
+    }
+  }, [activeTab, studentInfo, fetchCourses]);
+
   // 功能卡片定義
   const studentFeatures = [
     {
@@ -151,217 +358,17 @@ function StudentPanelContent() {
     );
   }
 
-  // 閒置檢測函數
-  const resetIdleTimer = () => {
-    lastActivityRef.current = Date.now();
-    
-    if (idleTimerRef.current) {
-      clearTimeout(idleTimerRef.current);
-    }
-    
-    idleTimerRef.current = setTimeout(() => {
-      console.log('用戶閒置3分鐘，自動登出');
-      handleLogout();
-    }, IDLE_TIMEOUT);
-  };
+  // 根據學生選課顯示功能卡片
+  const enrolledSet = new Set(studentInfo?.enrolledCourses || []);
+  const filteredFeatures = studentFeatures.filter(f => {
+    // "我的課程"、"修改密碼"、"輔導預約"、"成績查詢"永遠顯示，其餘依選課顯示
+    if (f.id === 'courses' || f.id === 'change-password' || f.id === 'counseling' || f.id === 'grades') return true;
+    // 例如: 若有選課才顯示點名/測驗
+    if (f.id === 'attendance' || f.id === 'exam') return enrolledSet.size > 0;
+    return true;
+  });
 
-  // 用戶活動檢測
-  const handleUserActivity = () => {
-    resetIdleTimer();
-  };
-
-  // 初始化閒置檢測
-  useEffect(() => {
-    resetIdleTimer();
-
-    // 監聽用戶活動
-    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
-    events.forEach(event => {
-      document.addEventListener(event, handleUserActivity, true);
-    });
-
-    // 清理函數
-    return () => {
-      if (idleTimerRef.current) {
-        clearTimeout(idleTimerRef.current);
-      }
-      events.forEach(event => {
-        document.removeEventListener(event, handleUserActivity, true);
-      });
-    };
-  }, []);
-
-  useEffect(() => {
-    const fetchStudentData = async () => {
-      try {
-        const session = getSession();
-        if (!session || session.role !== 'student') {
-          router.push('/login');
-          return;
-        }
-
-        const userDocRef = doc(db, 'student_data', session.id);
-        const userDocSnap = await getDoc(userDocRef);
-
-        if (userDocSnap.exists()) {
-          const userData = userDocSnap.data();
-          setStudentInfo({
-            id: userDocSnap.id,
-            name: userData.name || '',
-            studentId: userData.studentId || userDocSnap.id,
-            enrolledCourses: userData.enrolledCourses || [],
-            grade: userData.grade || '',
-            class: userData.class || '',
-            email: userData.email,
-            phone: userData.phone
-          });
-          
-          // 檢查 URL 參數，如果有 tab=courses 則自動切換到課程列表
-          const tabParam = searchParams.get('tab');
-          if (tabParam === 'courses') {
-            setActiveTab('courses');
-          }
-          // 移除自動跳轉到課程列表的邏輯，讓學生登入後直接顯示儀表板
-        } else {
-          console.error('找不到學生資料');
-          router.push('/login');
-        }
-      } catch (error) {
-        console.error('獲取學生資料時發生錯誤:', error);
-        router.push('/login');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchStudentData();
-  }, [router, searchParams]);
-
-  const fetchCourses = async () => {
-    if (!studentInfo?.enrolledCourses || studentInfo.enrolledCourses.length === 0) {
-      setCourses([]);
-      setTeacherNamesMap({});
-      return;
-    }
-    
-    setLoadingCourses(true);
-    try {
-      console.log('Fetching courses for student:', studentInfo.enrolledCourses);
-      const coursePromises = studentInfo.enrolledCourses.map(async (courseId: string) => {
-        const courseDocRef = doc(db, 'courses', courseId);
-        const courseDocSnap = await getDoc(courseDocRef);
-        if (courseDocSnap.exists()) {
-          return { id: courseDocSnap.id, ...courseDocSnap.data() } as Course;
-        }
-        return null;
-      });
-      
-      const courseResults = await Promise.all(coursePromises);
-      const filteredCourses = courseResults.filter(Boolean) as Course[];
-      
-      console.log('Fetched courses:', filteredCourses);
-      setCourses(filteredCourses);
-      
-      // 查詢所有老師名稱
-      const allTeacherIds = Array.from(new Set(filteredCourses.flatMap(c => c.teachers || [])));
-      if (allTeacherIds.length > 0) {
-        const teacherNames: Record<string, string> = {};
-        // Firestore 'in' 限制 10 or 30 筆，分批查詢
-        const batchSize = 30;
-        for (let i = 0; i < allTeacherIds.length; i += batchSize) {
-          const batchIds = allTeacherIds.slice(i, i + batchSize);
-          const q = collection(db, 'admin-teachers');
-          const snapshot = await getDocs(q);
-          snapshot.docs.forEach(docSnap => {
-            if (batchIds.includes(docSnap.id)) {
-              teacherNames[docSnap.id] = docSnap.data().name || docSnap.id;
-            }
-          });
-        }
-        setTeacherNamesMap(teacherNames);
-      } else {
-        setTeacherNamesMap({});
-      }
-      
-      // 如果有課程，預設選擇第一個
-      if (filteredCourses.length > 0 && !selectedCourse) {
-        setSelectedCourse(filteredCourses[0]);
-      }
-      
-    } catch (error) {
-      console.error('Error fetching courses:', error);
-      setCourses([]);
-      setTeacherNamesMap({});
-    } finally {
-      setLoadingCourses(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!selectedCourse) {
-      setLessons([]);
-      return;
-    }
-    
-    const fetchLessons = async () => {
-      if (!selectedCourse) {
-        return;
-      }
-      
-      setLoadingLessons(true);
-      try {
-        console.log('Fetching lessons for course:', selectedCourse.id);
-        const lessonsCollection = collection(db, 'courses', selectedCourse.id, 'lessons');
-        const lessonsSnapshot = await getDocs(lessonsCollection);
-        
-        const lessonsData = lessonsSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        } as Lesson));
-        
-        // 按順序排序
-        const sortedLessons = lessonsData.sort((a, b) => 
-          (a.order ?? a.createdAt?.seconds ?? 0) - (b.order ?? b.createdAt?.seconds ?? 0)
-        );
-        
-        console.log('Fetched lessons:', sortedLessons);
-        setLessons(sortedLessons);
-      } catch (error) {
-        console.error('Error fetching lessons:', error);
-        setLessons([]);
-      } finally {
-        setLoadingLessons(false);
-      }
-    };
-
-    fetchLessons();
-  }, [selectedCourse]);
-
-  // 當切換到課程頁面時，確保課程資料已載入
-  useEffect(() => {
-    if (activeTab === 'courses' && studentInfo) {
-      fetchCourses();
-    }
-  }, [activeTab, studentInfo]);
-
-  const handleLogout = () => {
-    // 清除閒置計時器
-    if (idleTimerRef.current) {
-      clearTimeout(idleTimerRef.current);
-    }
-    
-    // 清除暫存資料
-    clearSession();
-    
-    // 清除 localStorage 中的課程資料
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('currentLesson');
-    }
-    
-    console.log('用戶登出，已清除所有暫存資料');
-    router.push('/login');
-  };
-
+  // 修正 studentInfo 型別檢查
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-100">
@@ -377,16 +384,6 @@ function StudentPanelContent() {
       </div>
     );
   }
-
-  // 根據學生選課顯示功能卡片
-  const enrolledSet = new Set(studentInfo.enrolledCourses || []);
-  const filteredFeatures = studentFeatures.filter(f => {
-    // "我的課程"、"修改密碼"、"輔導預約"、"成績查詢"永遠顯示，其餘依選課顯示
-    if (f.id === 'courses' || f.id === 'change-password' || f.id === 'counseling' || f.id === 'grades') return true;
-    // 例如: 若有選課才顯示點名/測驗
-    if (f.id === 'attendance' || f.id === 'exam') return enrolledSet.size > 0;
-    return true;
-  });
 
   // 渲染功能內容
   const renderContent = () => {
@@ -558,7 +555,7 @@ function StudentPanelContent() {
     <SecureRoute requiredRole="student">
       <div className="flex bg-gray-100 font-sans" style={{ height: 'calc(100vh - 64px)' }}>
         {/* Sidebar */}
-        <div className={`bg-white flex flex-col ${isSidebarCollapsed ? 'w-20' : 'w-64'} transition-all duration-200`} style={{ height: 'calc(100vh - 64px)', minHeight: 0 }}>
+        <div className={`bg-white flex flex-col ${isSidebarCollapsed ? 'w-20' : 'w-64'} transition-all duration-200`} style={{ height: 'calc(100vh - 64px)', minHeight: 0, position: 'fixed', left: 0, top: '64px', bottom: 0, zIndex: 40 }}>
           {/* 頂部學生資訊 */}
           <div className={`p-4 flex items-center border-b ${isSidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
             <div className="flex flex-col items-center w-full text-center">
@@ -623,7 +620,7 @@ function StudentPanelContent() {
           </div>
         </div>
         {/* Main Content */}
-        <main className="flex-1 p-4 md:p-8 overflow-y-auto" style={{ minHeight: 0, height: 'calc(100vh - 64px)' }}>
+        <main className="flex-1 p-4 md:p-8" style={{ minHeight: 0, height: 'calc(100vh - 64px)' }}>
           {/* 儀表板或功能頁 */}
           {!activeTab ? (
             // 儀表板內容

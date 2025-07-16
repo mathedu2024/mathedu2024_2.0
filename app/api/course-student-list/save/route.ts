@@ -23,8 +23,8 @@ export async function POST(req: NextRequest) {
   for (const courseId of added) {
     const ref = adminDb.collection('course-student-list').doc(courseId);
     const doc = await ref.get();
-    let students = (doc.exists ? doc.data()?.students : []) || [];
-    if (!students.some((s: any) => s.id === studentId)) {
+    const students = (doc.exists ? doc.data()?.students : []) || [];
+    if (!students.some((s: { id: string }) => s.id === studentId)) {
       students.push({ 
         id: studentId, 
         name: info.name, 
@@ -41,9 +41,9 @@ export async function POST(req: NextRequest) {
   for (const courseId of removed) {
     const ref = adminDb.collection('course-student-list').doc(courseId);
     const doc = await ref.get();
-    let students = (doc.exists ? doc.data()?.students : []) || [];
-    students = students.filter((s: any) => s.id !== studentId);
-    await ref.set({ students }, { merge: true });
+    const students = (doc.exists ? doc.data()?.students : []) || [];
+    const filteredStudents = students.filter((s: { id: string }) => s.id !== studentId);
+    await ref.set({ students: filteredStudents }, { merge: true });
   }
 
   // 更新現有課程中的學生資訊（確保資訊同步）
@@ -52,8 +52,8 @@ export async function POST(req: NextRequest) {
     const ref = adminDb.collection('course-student-list').doc(courseId);
     const doc = await ref.get();
     if (doc.exists) {
-      let students = doc.data()?.students || [];
-      const studentIndex = students.findIndex((s: any) => s.id === studentId);
+      const students = doc.data()?.students || [];
+      const studentIndex = students.findIndex((s: { id: string }) => s.id === studentId);
       if (studentIndex !== -1) {
         // 更新現有學生的資訊
         students[studentIndex] = {

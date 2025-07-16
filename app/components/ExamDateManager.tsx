@@ -74,7 +74,6 @@ export default function ExamDateManager() {
         <div className="grid grid-cols-1 gap-6">
           {editingId
             ? MAIN_EXAMS.filter(exam => exam.id === editingId).map(exam => {
-                const examData = exams[exam.id] || { name: exam.name, startDate: '', endDate: '' };
                 return (
                   <div key={exam.id} className="bg-white border border-gray-200 p-6 rounded-lg">
                     <div className="mb-4">
@@ -108,12 +107,11 @@ export default function ExamDateManager() {
                 );
               })
             : MAIN_EXAMS.map(exam => {
-                const examData = exams[exam.id] || { name: exam.name, startDate: '', endDate: '' };
                 return (
                   <div key={exam.id} className="bg-white border border-gray-200 p-6 rounded-lg">
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">{examData.name}</h3>
-                    <p className="text-gray-600 mb-2">{examData.startDate ? `開始：${examData.startDate}` : '尚未設定日期'}</p>
-                    <p className="text-gray-600 mb-4">{examData.endDate ? `結束：${examData.endDate}` : ''}</p>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">{exam.name}</h3>
+                    <p className="text-gray-600 mb-2">{exams[exam.id]?.startDate ? `開始：${exams[exam.id]?.startDate}` : '尚未設定日期'}</p>
+                    <p className="text-gray-600 mb-4">{exams[exam.id]?.endDate ? `結束：${exams[exam.id]?.endDate}` : ''}</p>
                     <button onClick={() => handleEdit(exam.id)} className="bg-blue-500 text-white px-4 py-2 rounded">設定</button>
                   </div>
                 );

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 export default function TestFirestore() {
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<string | number | boolean | React.ReactNode | null>(null);
   const [loading, setLoading] = useState(false);
 
   const testFirestore = async () => {
@@ -13,7 +13,7 @@ export default function TestFirestore() {
       const data = await response.json();
       setResult(data);
     } catch (error) {
-      setResult({ error: error instanceof Error ? error.message : '未知錯誤' });
+      setResult(JSON.stringify({ error: error instanceof Error ? error.message : '未知錯誤' }));
     } finally {
       setLoading(false);
     }

@@ -2,7 +2,6 @@ import React from 'react';
 
 interface ConfirmDialogProps {
   open: boolean;
-  title: string;
   message: string;
   onConfirm: () => void;
   onCancel: () => void;
@@ -13,7 +12,6 @@ interface ConfirmDialogProps {
 
 export default function ConfirmDialog({ 
   open, 
-  title, 
   message, 
   onConfirm, 
   onCancel, 

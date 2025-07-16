@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 
 export default function TestPage() {
-  const [courses, setCourses] = useState<any[]>([]);
-  const [teachers, setTeachers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  // 明確型別
+  const [courses, setCourses] = useState<Record<string, unknown>[]>([]);
+  const [teachers, setTeachers] = useState<Record<string, unknown>[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
 
   const fetchAllData = async () => {
     setLoading(true);
@@ -22,7 +23,7 @@ export default function TestPage() {
       const teachersRes = await fetch('/api/admin/list');
       if (teachersRes.ok) {
         const teachersData = await teachersRes.json();
-        const teacherUsers = teachersData.filter((user: any) => 
+        const teacherUsers = teachersData.filter((user: Record<string, unknown>) => 
           user.role === '老師' || user.role === 'teacher' || 
           (Array.isArray(user.role) && (user.role.includes('老師') || user.role.includes('teacher')))
         );
@@ -36,6 +37,7 @@ export default function TestPage() {
     }
   };
 
+  // 其餘 hooks 依賴與型別皆正確
   useEffect(() => {
     fetchAllData();
   }, []);
@@ -57,13 +59,14 @@ export default function TestPage() {
         <div>
           <h2 className="text-xl font-bold mb-4">課程資料 ({courses.length})</h2>
           <div className="bg-gray-100 p-4 rounded max-h-96 overflow-y-auto">
-            {courses.map((course, index) => (
+            {courses.map((course: Record<string, unknown>, index) => (
               <div key={index} className="mb-4 p-3 bg-white rounded border">
-                <div><strong>課程名稱:</strong> {course.name}</div>
-                <div><strong>課程代碼:</strong> {course.code}</div>
-                <div><strong>課程ID:</strong> {course.id}</div>
-                <div><strong>老師IDs (teachers):</strong> {JSON.stringify(course.teachers)}</div>
-                <div><strong>老師IDs (teacherUids):</strong> {JSON.stringify(course.teacherUids)}</div>
+                <div><strong>課程名稱:</strong> {String(course.name ?? '')}</div>
+                <div><strong>課程代碼:</strong> {String(course.code ?? '')}</div>
+                <div><strong>課程ID:</strong> {String(course.id ?? '')}</div>
+                <div><strong>老師IDs (teachers):</strong> {Array.isArray(course.teachers) ? course.teachers.join(', ') : String(course.teachers ?? '')}</div>
+                <div><strong>老師IDs (teacherUids):</strong> {Array.isArray(course.teacherUids) ? course.teacherUids.join(', ') : String(course.teacherUids ?? '')}</div>
+                <div><strong>狀態:</strong> {String(course.status ?? '')}</div>
               </div>
             ))}
           </div>
@@ -73,13 +76,13 @@ export default function TestPage() {
         <div>
           <h2 className="text-xl font-bold mb-4">老師資料 ({teachers.length})</h2>
           <div className="bg-gray-100 p-4 rounded max-h-96 overflow-y-auto">
-            {teachers.map((teacher, index) => (
+            {teachers.map((teacher: Record<string, unknown>, index) => (
               <div key={index} className="mb-4 p-3 bg-white rounded border">
-                <div><strong>姓名:</strong> {teacher.name}</div>
-                <div><strong>帳號:</strong> {teacher.account}</div>
-                <div><strong>用戶ID:</strong> {teacher.id}</div>
-                <div><strong>角色:</strong> {JSON.stringify(teacher.role)}</div>
-                <div><strong>UID:</strong> {teacher.uid || 'N/A'}</div>
+                <div><strong>姓名:</strong> {String(teacher.name ?? '')}</div>
+                <div><strong>帳號:</strong> {String(teacher.account ?? '')}</div>
+                <div><strong>用戶ID:</strong> {String(teacher.id ?? '')}</div>
+                <div><strong>角色:</strong> {Array.isArray(teacher.roles) ? teacher.roles.join(', ') : String(teacher.roles ?? '')}</div>
+                <div><strong>UID:</strong> {String(teacher.uid ?? 'N/A')}</div>
               </div>
             ))}
           </div>

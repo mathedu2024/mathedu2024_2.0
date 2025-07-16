@@ -83,10 +83,9 @@ export async function POST(req: NextRequest) {
       success: true, 
       message: `Successfully updated ${teacherIds.length} teachers` 
     });
-  } catch (error) {
-    console.error('update-teachers API - Error:', error);
-    return NextResponse.json({ 
-      error: (error as any).message || '更新老師課程失敗' 
-    }, { status: 500 });
+  } catch (error: unknown) {
+    let message = '更新老師課程失敗';
+    if (error instanceof Error) message = error.message;
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 } 

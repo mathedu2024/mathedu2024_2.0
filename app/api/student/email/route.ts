@@ -9,7 +9,9 @@ export async function POST(req: NextRequest) {
     if (snapshot.empty) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     const data = snapshot.docs[0].data();
     return NextResponse.json({ email: data.email || '' });
-  } catch (error) {
-    return NextResponse.json({ error: (error as any).message || '查詢失敗' }, { status: 500 });
+  } catch (error: unknown) {
+    let message = '查詢失敗';
+    if (error instanceof Error) message = error.message;
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 } 

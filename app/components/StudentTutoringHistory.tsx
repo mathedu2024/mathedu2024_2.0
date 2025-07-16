@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 import LoadingSpinner from './LoadingSpinner';
@@ -33,7 +33,7 @@ export default function StudentTutoringHistory({ userInfo }: { userInfo: UserInf
   const [tutoringSessions, setTutoringSessions] = useState<TutoringSession[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchTutoringSessions = async () => {
+  const fetchTutoringSessions = useCallback(async () => {
     if (!userInfo) return;
     
     try {
@@ -56,11 +56,11 @@ export default function StudentTutoringHistory({ userInfo }: { userInfo: UserInf
     } finally {
       setLoading(false);
     }
-  };
+  }, [userInfo]);
 
   useEffect(() => {
     fetchTutoringSessions();
-  }, [userInfo]);
+  }, [fetchTutoringSessions]);
 
   const getStatusColor = (status: TutoringSession['status']) => {
     switch (status) {

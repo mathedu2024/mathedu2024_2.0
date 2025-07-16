@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
         .orderBy('order', 'asc')
         .orderBy('date', 'asc')
         .get();
-    } catch (err) {
+    } catch {
       lessonsSnapshot = await adminDb
         .collection('courses')
         .doc(courseId)
@@ -27,7 +27,9 @@ export async function POST(req: NextRequest) {
     let lessons = lessonsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     if (fallback) lessons = lessons.reverse();
     return NextResponse.json(lessons);
-  } catch (error) {
-    return NextResponse.json({ error: (error as any).message || '查詢失敗' }, { status: 500 });
+  } catch (error: unknown) {
+    let message = '查詢失敗';
+    if (error instanceof Error) message = error.message;
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 } 

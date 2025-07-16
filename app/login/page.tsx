@@ -1,12 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { setSession } from '../utils/session';
 
 export default function StudentLoginPage() {
-  const router = useRouter();
+  // Removed unused router variable
   const [formData, setFormData] = useState({
     account: '', // This will be treated as account
     password: '',
@@ -50,7 +49,7 @@ export default function StudentLoginPage() {
         } else {
           throw new Error('伺服器回傳格式錯誤');
         }
-      } catch (e) {
+      } catch {
         throw new Error('伺服器錯誤，請稍後再試');
       }
 
@@ -66,8 +65,8 @@ export default function StudentLoginPage() {
       });
 
       window.location.href = '/student';
-    } catch (err: any) {
-      setError(err.message || '發生未知錯誤');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : '發生未知錯誤');
     } finally {
       setIsLoading(false);
     }

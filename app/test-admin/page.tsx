@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 export default function TestAdminPage() {
-  const [testResult, setTestResult] = useState<any>(null);
+  const [testResult, setTestResult] = useState<string | Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
 
   const testAdminConnection = async () => {
@@ -13,7 +13,7 @@ export default function TestAdminPage() {
       const result = await response.json();
       setTestResult(result);
     } catch (error) {
-      setTestResult({ error: (error as any).message });
+      setTestResult({ error: (error as unknown as { message: string }).message });
     } finally {
       setLoading(false);
     }
@@ -26,7 +26,7 @@ export default function TestAdminPage() {
       const result = await response.json();
       setTestResult({ classData: result });
     } catch (error) {
-      setTestResult({ error: (error as any).message });
+      setTestResult({ error: (error as unknown as { message: string }).message });
     } finally {
       setLoading(false);
     }
@@ -43,7 +43,7 @@ export default function TestAdminPage() {
       const result = await response.json();
       setTestResult({ studentList: result });
     } catch (error) {
-      setTestResult({ error: (error as any).message });
+      setTestResult({ error: (error as unknown as { message: string }).message });
     } finally {
       setLoading(false);
     }
