@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
       // 用文件ID查詢
       const snap = await adminDb.collection('users').where(FieldPath.documentId(), 'in', batchIds).get();
       teachers = teachers.concat(
-        snap.docs.map((doc: any) => {
+        snap.docs.map((doc) => {
           const data = doc.data();
           return { id: doc.id, name: data.name };
         })

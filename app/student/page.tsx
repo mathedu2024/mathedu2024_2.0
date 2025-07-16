@@ -118,7 +118,6 @@ function StudentPanelContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   // 明確型別
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [counselingSubTab, setCounselingSubTab] = useState<'request' | 'history' | null>(null);
   const [studentInfo, setStudentInfo] = useState<{
@@ -799,7 +798,7 @@ function StudentPanelContent() {
         )}
         {/* 電腦版側邊欄 */}
         <aside
-          className={`hidden md:flex flex-col z-40 transition-all duration-300 bg-white border-r fixed left-0 top-16 bottom-0 ${isSidebarCollapsed ? 'w-16' : 'w-64'}`}
+          className={`hidden md:flex flex-col z-40 transition-all duration-300 bg-white border-r fixed left-0 top-16 bottom-0 ${sidebarOpen ? 'w-16' : 'w-64'}`}
           style={{height: 'calc(100vh - 64px)'}}
         >
           {/* 學生資料區塊（sidebar 內） */}
@@ -808,7 +807,7 @@ function StudentPanelContent() {
               <>
                 <div className="flex items-center gap-2 pb-2">
                   <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">{studentInfo.name?.[0] || '?'}</div>
-                  {!isSidebarCollapsed && (
+                  {!sidebarOpen && (
                     <div className="ml-2">
                       <div className="font-semibold text-base">{studentInfo.name} (學生)</div>
                       <div className="text-xs text-gray-500">學號：{studentInfo.studentId}</div>
@@ -821,7 +820,7 @@ function StudentPanelContent() {
                     className="flex items-center w-full h-12 px-3 py-2 rounded-lg transition-colors text-red-600 hover:bg-red-50"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-                    {!isSidebarCollapsed && <span className="ml-3">登出</span>}
+                    {!sidebarOpen && <span className="ml-3">登出</span>}
                   </button>
                 </div>
               </>
@@ -837,7 +836,7 @@ function StudentPanelContent() {
               <span className="flex items-center justify-center w-8 h-8">
                 <HomeIcon className={`h-6 w-6 flex-shrink-0 ${activeTab === null ? 'text-blue-600' : 'text-blue-600'}`} />
               </span>
-              {!isSidebarCollapsed && (
+              {!sidebarOpen && (
                 <span className="ml-3 text-base truncate">儀表板</span>
               )}
             </button>
@@ -853,7 +852,7 @@ function StudentPanelContent() {
                 <span className="flex items-center justify-center w-8 h-8">
                   {React.cloneElement(item.icon as React.ReactElement<{ className?: string }>, { className: `h-6 w-6 flex-shrink-0 ${item.disabled ? 'text-gray-400' : 'text-blue-600'}` })}
                 </span>
-                {!isSidebarCollapsed && (
+                {!sidebarOpen && (
                   <span className="ml-3 text-base truncate">{item.title}</span>
                 )}
               </button>
@@ -911,7 +910,7 @@ function StudentPanelContent() {
           </aside>
         )}
         {/* Main Content */}
-        <main className={`flex-1 min-w-0 p-2 md:p-8 transition-all duration-300 ${isSidebarCollapsed ? 'ml-16' : 'ml-64'}`} style={{height: '100vh', overflowY: 'auto'}}>
+        <main className={`flex-1 min-w-0 p-2 md:p-8 transition-all duration-300 ${sidebarOpen ? 'ml-16' : 'ml-64'}`} style={{height: '100vh', overflowY: 'auto'}}>
           {/* 儀表板或功能頁 */}
           {!activeTab ? (
             // 儀表板內容

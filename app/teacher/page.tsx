@@ -1,8 +1,6 @@
 'use client';
 
 import Image from 'next/image';
-import { useSearchParams } from 'next/navigation';
-import { useEffect, Suspense } from 'react';
 import React, { useState } from 'react';
 
 export default function TeacherPage() {
@@ -54,7 +52,7 @@ function TeacherPageContent() {
         師資介紹
       </h1>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 px-2 sm:px-4 md:px-0">
-        {teachers.map((teacher, idx) => (
+        {teachers.map((teacher) => (
           <div
             key={teacher.name}
             className="bg-white overflow-hidden hover:bg-gray-50 transition-all duration-300 flex flex-col md:block mb-6 md:mb-0 relative"

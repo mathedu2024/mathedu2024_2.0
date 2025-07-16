@@ -11,5 +11,9 @@ if (!admin.apps.length && serviceAccount) {
   });
 }
 
+if (!admin.apps.length) {
+  throw new Error('Firebase admin not initialized. Check FIREBASE_SERVICE_ACCOUNT env variable.');
+}
+
 export const adminDb = admin.firestore();
 export default admin; 

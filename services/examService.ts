@@ -8,7 +8,7 @@ export interface Exam {
   name: string;
   startDate: string;
   endDate: string;
-  createdAt?: any;
+  createdAt?: string | Date;
 }
 
 export async function addExam(id: string, data: { name: string; startDate: string; endDate: string }) {

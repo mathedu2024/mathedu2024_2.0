@@ -2,7 +2,7 @@ import { db } from './firebase';
 import { doc, getDoc, collection, getDocs, query, limit, where } from 'firebase/firestore';
 
 // 認證快取
-const authCache = new Map<string, { data: any; timestamp: number }>();
+const authCache = new Map<string, { data: unknown; timestamp: number }>();
 const AUTH_CACHE_DURATION = 15 * 60 * 1000; // 增加到15分鐘快取
 
 // 快取統計
@@ -10,7 +10,7 @@ let cacheHits = 0;
 let cacheMisses = 0;
 
 // 預載入的用戶資料
-const preloadedUsers = new Map<string, any>();
+const preloadedUsers = new Map<string, unknown>();
 
 // 網路狀態檢測
 let isOnline = navigator.onLine;
@@ -124,7 +124,7 @@ export const validateStudentLogin = async (account: string, password: string) =>
     const userQuery = query(collection(db, 'users'), where('account', '==', account.trim()), where('role', '==', 'student'));
     const userDocSnapPromise = getDocs(userQuery);
     
-    const userDocSnap = await Promise.race([userDocSnapPromise, timeoutPromise]) as any;
+    const userDocSnap = await Promise.race([userDocSnapPromise, timeoutPromise]) as unknown;
     
     if (userDocSnap.empty) {
       return null;
@@ -219,7 +219,7 @@ export const validateTeacherLogin = async (account: string, password: string) =>
     const userQuery = query(collection(db, 'users'), where('account', '==', account.trim()), where('role', 'in', ['teacher', 'admin']));
     const userDocSnapPromise = getDocs(userQuery);
     
-    const userDocSnap = await Promise.race([userDocSnapPromise, timeoutPromise]) as any;
+    const userDocSnap = await Promise.race([userDocSnapPromise, timeoutPromise]) as unknown;
     
     if (userDocSnap.empty) {
       return null;

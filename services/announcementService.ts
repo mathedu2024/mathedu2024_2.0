@@ -5,7 +5,7 @@ export const getAnnouncements = async () => {
   return result;
 };
 
-export const createAnnouncement = async (data: any) => {
+export const createAnnouncement = async (data: Record<string, unknown>) => {
   const id = data.id || Date.now().toString();
   const res = await fetch('/api/announcement/create', {
     method: 'POST',
@@ -16,7 +16,7 @@ export const createAnnouncement = async (data: any) => {
   return result;
 };
 
-export const updateAnnouncement = async (id: string, data: any) => {
+export const updateAnnouncement = async (id: string, data: Record<string, unknown>) => {
   const res = await fetch('/api/announcement/update', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -44,7 +44,7 @@ export const getCourseInfo = async () => {
   return [];
 };
 
-export const createCourseInfo = async (data: any) => {
+export const createCourseInfo = async (data: Record<string, unknown>) => {
   const res = await fetch('/api/course-info/create', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -54,7 +54,7 @@ export const createCourseInfo = async (data: any) => {
   return result;
 };
 
-export const updateCourseInfo = async (id: string, data: any) => {
+export const updateCourseInfo = async (id: string, data: Record<string, unknown>) => {
   const res = await fetch('/api/course-info/update', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
