@@ -45,6 +45,15 @@ const sendCacheStats = () => {
   }
 };
 
+// 定义 User 类型
+interface User {
+  id?: string;
+  account: string;
+  password: string;
+  role: string;
+  [key: string]: any;
+}
+
 // 預載入常用用戶資料
 export const preloadUserData = async () => {
   try {
@@ -76,8 +85,8 @@ export const validateStudentLogin = async (account: string, password: string) =>
   // 檢查快取
   const cached = authCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < AUTH_CACHE_DURATION) {
-    const userData = cached.data;
-    if (userData.password === password) {
+    const userData = cached.data as User;
+    if (userData && userData.password === password) {
       // 快取命中
       cacheHits++;
       sendCacheStats();
@@ -91,8 +100,12 @@ export const validateStudentLogin = async (account: string, password: string) =>
   }
   
   // 檢查預載入資料
-  const preloaded = preloadedUsers.get(account.trim());
-  if (preloaded && preloaded.password === password && preloaded.role === 'student') {
+  const preloaded = preloadedUsers.get(account.trim()) as User | undefined;
+  if (
+    preloaded &&
+    preloaded.password === password &&
+    preloaded.role === 'student'
+  ) {
     // 預載入資料命中
     cacheHits++;
     sendCacheStats();
@@ -101,7 +114,7 @@ export const validateStudentLogin = async (account: string, password: string) =>
     // 更新快取
     authCache.set(cacheKey, {
       data: preloaded,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
     
     return preloaded;
@@ -121,22 +134,29 @@ export const validateStudentLogin = async (account: string, password: string) =>
     });
     
     // 查詢 users 集合中的學生帳號
-    const userQuery = query(collection(db, 'users'), where('account', '==', account.trim()), where('role', '==', 'student'));
+    const userQuery = query(
+      collection(db, 'users'),
+      where('account', '==', account.trim()),
+      where('role', '==', 'student')
+    );
     const userDocSnapPromise = getDocs(userQuery);
     
-    const userDocSnap = await Promise.race([userDocSnapPromise, timeoutPromise]) as unknown;
+    const userDocSnap = (await Promise.race([
+      userDocSnapPromise,
+      timeoutPromise,
+    ])) as { empty: boolean; docs: any[] };
     
     if (userDocSnap.empty) {
       return null;
     }
     
-    const userData = userDocSnap.docs[0].data();
+    const userData = userDocSnap.docs[0].data() as User;
     userData.id = userDocSnap.docs[0].id; // 確保 userInfo.id 是 document id
     
     // 快取用戶資料（包含密碼用於驗證）
     authCache.set(cacheKey, {
       data: userData,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
     
     // 同時更新預載入資料
@@ -151,10 +171,17 @@ export const validateStudentLogin = async (account: string, password: string) =>
     console.error('學生登入驗證失敗:', error);
     
     // 如果是網路錯誤，嘗試使用預載入資料
-    if (error instanceof Error && error.message.includes('驗證超時')) {
+    if (
+      error instanceof Error &&
+      error.message.includes('驗證超時')
+    ) {
       console.log('嘗試使用預載入資料進行驗證');
-      const preloaded2 = preloadedUsers.get(account.trim());
-      if (preloaded2 && preloaded2.password === password && preloaded2.role === 'student') {
+      const preloaded2 = preloadedUsers.get(account.trim()) as User | undefined;
+      if (
+        preloaded2 &&
+        preloaded2.password === password &&
+        preloaded2.role === 'student'
+      ) {
         console.log(`使用預載入資料驗證成功: ${account}`);
         return preloaded2;
       }
@@ -171,8 +198,8 @@ export const validateTeacherLogin = async (account: string, password: string) =>
   // 檢查快取
   const cached = authCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < AUTH_CACHE_DURATION) {
-    const userData = cached.data;
-    if (userData.password === password) {
+    const userData = cached.data as User;
+    if (userData && userData.password === password) {
       // 快取命中
       cacheHits++;
       sendCacheStats();
@@ -186,8 +213,12 @@ export const validateTeacherLogin = async (account: string, password: string) =>
   }
   
   // 檢查預載入資料
-  const preloaded = preloadedUsers.get(account.trim());
-  if (preloaded && preloaded.password === password && (preloaded.role === 'teacher' || preloaded.role === 'admin')) {
+  const preloaded = preloadedUsers.get(account.trim()) as User | undefined;
+  if (
+    preloaded &&
+    preloaded.password === password &&
+    (preloaded.role === 'teacher' || preloaded.role === 'admin')
+  ) {
     // 預載入資料命中
     cacheHits++;
     sendCacheStats();
@@ -196,7 +227,7 @@ export const validateTeacherLogin = async (account: string, password: string) =>
     // 更新快取
     authCache.set(cacheKey, {
       data: preloaded,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
     
     return preloaded;
@@ -216,22 +247,29 @@ export const validateTeacherLogin = async (account: string, password: string) =>
     });
     
     // 查詢 users 集合中的教師/管理員帳號
-    const userQuery = query(collection(db, 'users'), where('account', '==', account.trim()), where('role', 'in', ['teacher', 'admin']));
+    const userQuery = query(
+      collection(db, 'users'),
+      where('account', '==', account.trim()),
+      where('role', 'in', ['teacher', 'admin'])
+    );
     const userDocSnapPromise = getDocs(userQuery);
     
-    const userDocSnap = await Promise.race([userDocSnapPromise, timeoutPromise]) as unknown;
+    const userDocSnap = (await Promise.race([
+      userDocSnapPromise,
+      timeoutPromise,
+    ])) as { empty: boolean; docs: any[] };
     
     if (userDocSnap.empty) {
       return null;
     }
     
-    const userData = userDocSnap.docs[0].data();
+    const userData = userDocSnap.docs[0].data() as User;
     userData.id = userDocSnap.docs[0].id; // 確保 userInfo.id 是 document id
     
     // 快取用戶資料（包含密碼用於驗證）
     authCache.set(cacheKey, {
       data: userData,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
     
     // 同時更新預載入資料
@@ -246,10 +284,17 @@ export const validateTeacherLogin = async (account: string, password: string) =>
     console.error('教師登入驗證失敗:', error);
     
     // 如果是網路錯誤，嘗試使用預載入資料
-    if (error instanceof Error && error.message.includes('驗證超時')) {
+    if (
+      error instanceof Error &&
+      error.message.includes('驗證超時')
+    ) {
       console.log('嘗試使用預載入資料進行驗證');
-      const preloaded2 = preloadedUsers.get(account.trim());
-      if (preloaded2 && preloaded2.password === password && (preloaded2.role === 'teacher' || preloaded2.role === 'admin')) {
+      const preloaded2 = preloadedUsers.get(account.trim()) as User | undefined;
+      if (
+        preloaded2 &&
+        preloaded2.password === password &&
+        (preloaded2.role === 'teacher' || preloaded2.role === 'admin')
+      ) {
         console.log(`使用預載入資料驗證成功: ${account}`);
         return preloaded2;
       }

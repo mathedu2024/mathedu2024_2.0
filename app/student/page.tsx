@@ -113,7 +113,6 @@ export default function StudentPanel() {
     </SecureRoute>
   );
 }
-
 function StudentPanelContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -144,7 +143,7 @@ function StudentPanelContent() {
 
   // 1. 新增 isMobile 狀態與漢堡選單控制
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  const [sidebarOpen, setSidebarOpen] = useState<boolean>(!isMobile);
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
 
   // 課程詳細資訊組件
   function LessonDetail({ lesson, index }: { lesson: Lesson; index: number }) {
@@ -798,36 +797,63 @@ function StudentPanelContent() {
         )}
         {/* 電腦版側邊欄 */}
         <aside
-          className={`hidden md:flex flex-col z-40 transition-all duration-300 bg-white border-r fixed left-0 top-16 bottom-0 ${sidebarOpen ? 'w-16' : 'w-64'}`}
+          className={`hidden md:flex flex-col z-40 transition-all duration-300 bg-white border-r ${sidebarOpen ? 'w-16' : 'w-64'}`}
           style={{height: 'calc(100vh - 64px)'}}
         >
-          {/* 學生資料區塊（sidebar 內） */}
-          <div className="pt-4 pb-2 px-2 border-b">
+          <div className={`mt-4 flex flex-col ${sidebarOpen ? 'items-center' : 'items-start pl-4'}`}>
+            {/* 學生資料區塊（sidebar 內） */}
             {studentInfo && (
               <>
                 <div className="flex items-center gap-2 pb-2">
                   <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">{studentInfo.name?.[0] || '?'}</div>
-                  {!sidebarOpen && (
-                    <div className="ml-2">
-                      <div className="font-semibold text-base">{studentInfo.name} (學生)</div>
-                      <div className="text-xs text-gray-500">學號：{studentInfo.studentId}</div>
-                    </div>
-                  )}
+                  <div>
+                    {!sidebarOpen && <div className="font-normal text-base">{studentInfo.name} (學生)</div>}
+                    {!sidebarOpen && <div className="text-xs text-gray-500 font-light">學號：{studentInfo.studentId}</div>}
+                  </div>
                 </div>
-                <div className="pb-2">
+                <div className="pb-2 w-full">
                   <button
                     onClick={handleLogout}
-                    className="flex items-center w-full h-12 px-3 py-2 rounded-lg transition-colors text-red-600 hover:bg-red-50"
+                    className={sidebarOpen
+                      ? 'flex items-center justify-center w-12 h-12 rounded-full transition-colors text-red-600 hover:bg-red-50'
+                      : 'flex items-center w-full h-12 rounded-lg transition-colors text-red-600 hover:bg-red-50'}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
                     {!sidebarOpen && <span className="ml-3">登出</span>}
+                  </button>
+                </div>
+                {/* 收合/展開按鈕（在登出下方，展開時長條，收合時圓形，捕在側邊欄左側） */}
+                <div className="pt-0 pb-0 w-full"> 
+                  <button
+                    onClick={() => setSidebarOpen(!sidebarOpen)}
+                    className={
+                      sidebarOpen
+                        ? "flex items-center justify-center w-12 h-12 rounded-full transition-colors hover:rounded-lg hover:bg-gray-100 text-gray-700"
+                        : "flex items-center w-full h-12 rounded-lg transition-colors hover:bg-gray-100 text-gray-700"
+                    }
+                    aria-label={sidebarOpen ? "展開選單" : "收合選單"}
+                  >
+                    <span className="flex items-center justify-center w-8 h-8">
+                      {sidebarOpen ? (
+                        // 收合狀態顯示「>」
+                        <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      ) : (
+                        // 展開狀態顯示「<"}
+                        <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                      )}
+                    </span>
+                    {!sidebarOpen && <span className="ml-3 text-base">收合選單</span>}
                   </button>
                 </div>
               </>
             )}
           </div>
           {/* 功能選單 */}
-          <nav className="flex-1 py-4 flex flex-col gap-2 px-2 overflow-y-auto min-h-0">
+          <nav className={`flex-1 py-4 flex flex-col gap-2 overflow-y-auto min-h-0 w-full ${sidebarOpen ? 'items-center' : ''}`}>
             {/* 儀表板按鈕 */}
             <button
               onClick={() => handleTabChange(null)}
@@ -865,7 +891,7 @@ function StudentPanelContent() {
             {/* 頂部：只保留關閉按鈕 */}
             <div className="border-b px-2 pt-4 pb-2" />
             {/* 功能選單 */}
-            <nav className="flex-1 py-4 flex flex-col gap-2 px-2 overflow-y-auto">
+            <nav className="flex-1 py-4 flex flex-col gap-2 px-0 overflow-y-auto">
               {/* 儀表板按鈕 */}
               <button
                 onClick={() => { handleTabChange(null); setSidebarOpen(false); }}
@@ -910,7 +936,7 @@ function StudentPanelContent() {
           </aside>
         )}
         {/* Main Content */}
-        <main className={`flex-1 min-w-0 p-2 md:p-8 transition-all duration-300 ${sidebarOpen ? 'ml-16' : 'ml-64'}`} style={{height: '100vh', overflowY: 'auto'}}>
+        <main className={`flex-1 min-w-0 p-2 md:p-8 transition-all duration-300 ${sidebarOpen ? 'ml-16' : 'ml-64'} flex justify-center`} style={{height: '100vh', overflowY: 'auto'}}>
           {/* 儀表板或功能頁 */}
           {!activeTab ? (
             // 儀表板內容

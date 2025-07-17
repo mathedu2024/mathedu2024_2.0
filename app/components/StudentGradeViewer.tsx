@@ -181,9 +181,13 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
           // 取得該課程的 gradeData
           const courseGradeData = gradesResult[selectedCourseKey] || {};
           const columns = courseGradeData.columns || {};
-          const students = courseGradeData.grades && courseGradeData.grades[studentInfo.studentId]
-            ? [{ courseName: (studentCourses.find((c: { name: string; code: string }) => `${c.name}(${c.code})` === selectedCourseKey) as { name?: string })?.name, ...courseGradeData.grades[studentInfo.studentId] }]
+          // 修正：students 設為全班，myGrade 設為自己
+          const students = courseGradeData.grades
+            ? Object.values(courseGradeData.grades)
             : [];
+          const myGrade = courseGradeData.grades && courseGradeData.grades[studentInfo.studentId]
+            ? { courseName: (studentCourses.find((c: { name: string; code: string }) => `${c.name}(${c.code})` === selectedCourseKey) as { name?: string })?.name, ...courseGradeData.grades[studentInfo.studentId] }
+            : null;
 
           setGradeData({
             students,
@@ -204,7 +208,7 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
             teacherIds: courseGradeData.teacherIds || [],
             teacherNames: courseGradeData.teacherNames || []
           } as GradeData);
-          setStudentGrade(students[0] || null);
+          setStudentGrade(myGrade);
         }
       } catch (error) {
         console.error("Error fetching grades: ", error);

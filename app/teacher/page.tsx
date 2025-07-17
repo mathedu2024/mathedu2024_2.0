@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 
 export default function TeacherPage() {
   return (
