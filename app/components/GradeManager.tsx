@@ -1201,6 +1201,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                       // 特殊加分
                       const manualAdjust = typeof stu.manualAdjust === 'number' ? stu.manualAdjust : 0;
                       // 平時成績顯示：現有平時成績數據 / (平時成績總%/100)
+                      const percentRegularNum = typeof totalSetting.regularPercent === 'number' && !isNaN(totalSetting.regularPercent) ? totalSetting.regularPercent : 0;
                       const percentPeriodicNum = typeof totalSetting.periodicPercent === 'number' && !isNaN(totalSetting.periodicPercent) ? totalSetting.periodicPercent : 0;
                       const manualAdjustNum = typeof manualAdjust === 'number' && !isNaN(manualAdjust) ? manualAdjust : 0;
                       // 匯出時用 totalSetting.periodicEnabled
@@ -1216,14 +1217,9 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                         return typeof v === 'number' && !isNaN(v) ? v : 0;
                       });
                       const periodicAvgNum = enabledPeriodic.length > 0 ? (periodicVals as number[]).reduce((a, b) => a + b, 0) / enabledPeriodic.length : 0;
-                      // 取得平時成績百分比
-                      const quizPercent = totalSetting.regularDetail['平時測驗']?.percent ?? 0;
-                      const homeworkPercent = totalSetting.regularDetail['回家作業']?.percent ?? 0;
-                      const attitudePercent = totalSetting.regularDetail['上課態度']?.percent ?? 0;
-                      // 平時加權分數
-                      const regularScoreWeighted = quizPercent / 100 + homeworkPercent / 100 + attitudePercent / 100;
+                      // 修正：正確計算總成績
                       const total = Math.round(
-                        regularScoreWeighted +
+                        regularScore * percentRegularNum / 100 +
                         periodicAvgNum * percentPeriodicNum / 100 +
                         manualAdjustNum
                       );
