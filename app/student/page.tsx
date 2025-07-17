@@ -142,7 +142,7 @@ function StudentPanelContent() {
   const [lessonsPerPage] = useState<number>(8);
 
   // 1. 新增 isMobile 狀態與漢堡選單控制
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  // const isMobile = typeof window !== 'undefined' && window.innerWidth < 768; // 已移除未使用變數
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
 
   // 課程詳細資訊組件
