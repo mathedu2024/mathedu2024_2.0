@@ -9,6 +9,7 @@ import SecureRoute from '../components/SecureRoute';
 import TutoringRequest from '../components/TutoringRequest';
 import StudentTutoringHistory from '../components/StudentTutoringHistory';
 import { HomeIcon, BookOpenIcon, ClipboardDocumentListIcon, CheckCircleIcon, PencilIcon, CalendarIcon, KeyIcon } from '@heroicons/react/24/outline';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 interface StudentFeature {
   id: string;
@@ -106,7 +107,7 @@ export default function StudentPanel() {
   return (
     <SecureRoute requiredRole="student">
       <Suspense fallback={<div className="flex h-screen bg-gray-100 items-center justify-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-r-4 border-blue-600"></div>
+        <LoadingSpinner size={8} />
       </div>}>
         <StudentPanelContent />
       </Suspense>
@@ -512,7 +513,7 @@ function StudentPanelContent() {
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-100">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-r-4 border-blue-600"></div>
+        <LoadingSpinner size={8} />
       </div>
     );
   }
@@ -557,7 +558,7 @@ function StudentPanelContent() {
             <h2 className="text-2xl font-bold mb-6">我的課程</h2>
             {loadingCourses ? (
               <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <LoadingSpinner size={8} />
                 <span className="ml-4 text-gray-600">載入中...</span>
               </div>
             ) : courses.length === 0 ? (
@@ -571,7 +572,7 @@ function StudentPanelContent() {
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">選擇課程</label>
                   <select
-                    className="border border-gray-300 rounded-lg p-3 w-full md:w-80"
+                    className="select-unified w-full md:w-80"
                     value={selectedCourse ? selectedCourse.id : ''}
                     onChange={e => {
                       const course = courses.find(c => c.id === e.target.value);
@@ -662,7 +663,7 @@ function StudentPanelContent() {
                       
                       {loadingLessons ? (
                         <div className="flex justify-center items-center py-8">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                          <LoadingSpinner size={8} />
                           <span className="ml-3 text-gray-600">載入課程清單中...</span>
                         </div>
                       ) : lessons.length === 0 ? (
@@ -798,7 +799,12 @@ function StudentPanelContent() {
         {/* 電腦版側邊欄 */}
         <aside
           className={`hidden md:flex flex-col z-40 transition-all duration-300 bg-white border-r ${sidebarOpen ? 'w-16' : 'w-64'}`}
-          style={{height: 'calc(100vh - 64px)'}}
+          style={{
+            position: 'fixed',
+            top: 64,
+            left: 0,
+            height: 'calc(100vh - 64px)'
+          }}
         >
           <div className={`mt-4 flex flex-col ${sidebarOpen ? 'items-center' : 'items-start pl-4'}`}>
             {/* 學生資料區塊（sidebar 內） */}
@@ -856,7 +862,10 @@ function StudentPanelContent() {
           <nav className={`flex-1 py-4 flex flex-col gap-2 overflow-y-auto min-h-0 w-full ${sidebarOpen ? 'items-center' : ''}`}>
             {/* 儀表板按鈕 */}
             <button
-              onClick={() => handleTabChange(null)}
+              onClick={() => {
+                handleTabChange(null);
+                if (window.innerWidth < 768) setSidebarOpen(false);
+              }}
               className={`flex items-center w-full h-12 px-3 py-2 rounded-lg transition-colors select-none ${activeTab === null ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100 text-gray-700'}`}
             >
               <span className="flex items-center justify-center w-8 h-8">
@@ -869,7 +878,12 @@ function StudentPanelContent() {
             {allSidebarFeatures.map(item => (
               <button
                 key={item.id}
-                onClick={() => { if (!item.disabled) { handleTabChange(item.id); } }}
+                onClick={() => {
+                  if (!item.disabled) {
+                    handleTabChange(item.id);
+                    if (window.innerWidth < 768) setSidebarOpen(false);
+                  }
+                }}
                 disabled={item.disabled}
                 className={`flex items-center w-full h-12 px-3 py-2 rounded-lg transition-colors select-none
                   ${activeTab === item.id ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100 text-gray-700'}
@@ -936,11 +950,19 @@ function StudentPanelContent() {
           </aside>
         )}
         {/* Main Content */}
-        <main className={`flex-1 min-w-0 p-2 md:p-8 transition-all duration-300 ${sidebarOpen ? 'ml-16' : 'ml-64'} flex justify-center`} style={{height: '100vh', overflowY: 'auto'}}>
+        <main
+          className="flex-1 min-w-0 p-2 md:p-8 transition-all duration-300 flex justify-center"
+          style={{
+            height: '100vh',
+            overflowY: 'auto',
+            paddingLeft: sidebarOpen ? 64 : 256,
+            transition: 'padding-left 0.3s'
+          }}
+        >
           {/* 儀表板或功能頁 */}
           {!activeTab ? (
             // 儀表板內容
-            <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8">
+            <div className="max-w-7xl mx-auto w-full px-2 sm:px-4 md:px-6 lg:px-8">
               {/* 歡迎區塊 */}
               <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg shadow-lg p-4 md:p-6 text-white mb-4 md:mb-8">
                 <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
@@ -1031,10 +1053,10 @@ function StudentPanelContent() {
                       key={action.id}
                       onClick={action.onClick}
                       disabled={action.disabled}
-                      className={`min-w-[260px] sm:min-w-0 text-left p-6 rounded-2xl transition-all duration-300 flex items-center border ${
+                      className={`min-w-[260px] sm:min-w-0 text-left p-6 rounded-2xl transition-all sm:duration-200 md:duration-300 flex items-center border ${
                         action.disabled
                           ? 'bg-gray-100 cursor-not-allowed opacity-60 border-gray-200'
-                          : 'bg-white hover:bg-gray-50 border-gray-200 hover:shadow-xl hover:-translate-y-1'
+                          : 'bg-white hover:bg-gray-50 border-gray-200 hover:shadow-xl md:hover:-translate-y-1'
                       }`}
                     >
                       <div className={`p-4 rounded-xl mr-4 ${action.disabled ? 'bg-gray-200' : 'bg-blue-100'}`}>

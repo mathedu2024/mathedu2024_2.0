@@ -788,7 +788,7 @@ export default function Calendar({ userInfo, viewMode, onDateSelect }: CalendarP
                 <select
                   value={formData.time}
                   onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="select-unified w-full px-3 py-2 rounded-md"
                 >
                   <option value="09:00">09:00</option>
                   <option value="10:00">10:00</option>
@@ -809,7 +809,7 @@ export default function Calendar({ userInfo, viewMode, onDateSelect }: CalendarP
                 <select
                   value={formData.duration}
                   onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="select-unified w-full px-3 py-2 rounded-md"
                 >
                   <option value={30}>30 分鐘</option>
                   <option value={60}>60 分鐘</option>
@@ -844,7 +844,7 @@ export default function Calendar({ userInfo, viewMode, onDateSelect }: CalendarP
                 <select
                   value={formData.subjectRestriction}
                   onChange={(e) => handleSubjectSelection(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="select-unified w-full px-3 py-2 rounded-md"
                 >
                   <option value="">請選擇科目</option>
                   <option value="數學">數學</option>
@@ -1054,7 +1054,7 @@ export default function Calendar({ userInfo, viewMode, onDateSelect }: CalendarP
                 <select
                   value={formData.time}
                   onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="select-unified w-full px-3 py-2 rounded-md"
                 >
                   <option value="09:00">09:00</option>
                   <option value="10:00">10:00</option>
@@ -1075,7 +1075,7 @@ export default function Calendar({ userInfo, viewMode, onDateSelect }: CalendarP
                 <select
                   value={formData.duration}
                   onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="select-unified w-full px-3 py-2 rounded-md"
                 >
                   <option value={30}>30 分鐘</option>
                   <option value={60}>60 分鐘</option>
@@ -1110,7 +1110,7 @@ export default function Calendar({ userInfo, viewMode, onDateSelect }: CalendarP
                 <select
                   value={formData.subjectRestriction}
                   onChange={(e) => handleSubjectSelection(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="select-unified w-full px-3 py-2 rounded-md"
                 >
                   <option value="">請選擇科目</option>
                   <option value="數學">數學</option>

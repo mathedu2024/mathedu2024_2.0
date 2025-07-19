@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Bar } from 'react-chartjs-2';
 import 'chart.js/auto';
+import LoadingSpinner from './LoadingSpinner';
 
 interface StudentGradeViewerProps {
   studentInfo: {
@@ -376,7 +377,7 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
           選擇課程
         </label>
         <select
-          className="border border-gray-300 rounded-lg p-3 w-full md:w-80"
+          className="select-unified w-full md:w-80"
           value={selectedCourse}
           onChange={(e) => setSelectedCourse(e.target.value)}
         >
@@ -390,7 +391,7 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
       </div>
       {loading && (
         <div className="flex justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-4 border-r-4 border-blue-600"></div>
+          <LoadingSpinner size={8} />
         </div>
       )}
       {selectedCourse && !loading && (

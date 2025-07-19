@@ -345,7 +345,7 @@ function BackPanel() {
         { title: '帳戶設定', value: '可修改', color: 'purple', icon: <svg className="h-8 w-8 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg> },
       ];
       return (
-        <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto w-full px-2 sm:px-4 md:px-6 lg:px-8 mt-[5px]">
           {/* 歡迎區塊 */}
           <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg shadow-lg p-4 md:p-6 text-white mb-4 md:mb-8">
             <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
@@ -398,7 +398,7 @@ function BackPanel() {
                       <button
                         key={action.id}
                         onClick={() => handleTabChange(action.id as Tab)}
-                        className={`min-w-[260px] sm:min-w-0 text-left p-6 rounded-2xl shadow-md transition-all duration-300 flex items-center border-l-4 ${action.borderColor} bg-white hover:bg-gray-50 hover:-translate-y-1 ${
+                        className={`min-w-[260px] sm:min-w-0 text-left p-6 rounded-2xl shadow-md transition-all sm:duration-200 md:duration-300 flex items-center border-l-4 ${action.borderColor} bg-white hover:bg-gray-50 md:hover:-translate-y-1 ${
                           isActive ? `ring-2 ${ringColor}` : ''
                         }`}
                       >
@@ -426,7 +426,7 @@ function BackPanel() {
                         key={action.id}
                         onClick={() => !action.disabled && handleTabChange(action.id as Tab)}
                         disabled={action.disabled}
-                        className={`min-w-[260px] sm:min-w-0 text-left p-6 rounded-2xl shadow-md transition-all duration-300 flex items-center border-l-4 ${action.borderColor} bg-white hover:bg-gray-50 hover:-translate-y-1 ${
+                        className={`min-w-[260px] sm:min-w-0 text-left p-6 rounded-2xl shadow-md transition-all sm:duration-200 md:duration-300 flex items-center border-l-4 ${action.borderColor} bg-white hover:bg-gray-50 md:hover:-translate-y-1 ${
                           isActive ? `ring-2 ${ringColor}` : ''
                         } ${action.disabled ? 'bg-gray-100 cursor-not-allowed opacity-60 ring-0' : ''}`}
                       >
@@ -681,7 +681,14 @@ function BackPanel() {
         </nav>
       </aside>
 
-      <main className="flex-1 p-2 md:p-8 ml-0 md:ml-64 overflow-y-auto" style={{height: '100vh'}}>
+      <main
+        className="flex-1 overflow-y-auto bg-gray-100"
+        style={{
+          height: '100vh',
+          paddingLeft: isSidebarCollapsed ? 64 : 256,
+          transition: 'padding-left 0.3s'
+        }}
+      >
           {renderContent()}
       </main>
     </div>

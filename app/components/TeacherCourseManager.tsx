@@ -992,7 +992,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                   <select
                     value={newCourse.subjectTag || ''}
                     onChange={(e) => setNewCourse((prev: Partial<Course>) => ({ ...prev, subjectTag: e.target.value }))}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="select-unified w-full p-3"
                     required
                   >
                     <option value="">請選擇科目</option>
@@ -1006,7 +1006,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                   <select
                     value={newCourse.courseNature || ''}
                     onChange={(e) => setNewCourse((prev: Partial<Course>) => ({ ...prev, courseNature: e.target.value }))}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="select-unified w-full p-3"
                     required
                   >
                     <option value="">請選擇課程性質</option>
@@ -1020,7 +1020,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                   <select
                     value={newCourse.teachingMethod || ''}
                     onChange={(e) => setNewCourse((prev: Partial<Course>) => ({ ...prev, teachingMethod: e.target.value }))}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="select-unified w-full p-3"
                     required
                   >
                     <option value="">請選擇授課方式</option>

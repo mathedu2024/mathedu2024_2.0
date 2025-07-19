@@ -34,7 +34,7 @@ const Accordion: React.FC<AccordionProps> = ({ groups, defaultOpenId, className 
           >
             <span>{group.title}</span>
             <svg
-              className={`w-5 h-5 ml-2 transform transition-transform ${openId === group.id ? 'rotate-180' : ''}`}
+              className={`w-5 h-5 ml-2 transform sm:transition-transform ${openId === group.id ? 'rotate-180' : ''}`}
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -44,7 +44,7 @@ const Accordion: React.FC<AccordionProps> = ({ groups, defaultOpenId, className 
           </button>
           <div
             id={`accordion-content-${group.id}`}
-            className={`transition-all duration-300 ${openId === group.id ? 'max-h-[600px] opacity-100 overflow-y-auto' : 'max-h-0 opacity-0 overflow-hidden'} bg-white`}
+            className={`transition-all sm:duration-200 md:duration-300 ${openId === group.id ? 'max-h-[600px] opacity-100 overflow-y-auto' : 'max-h-0 opacity-0 overflow-hidden'} bg-white`}
             aria-hidden={openId !== group.id}
           >
             <div className="p-3 md:p-5">{group.content}</div>

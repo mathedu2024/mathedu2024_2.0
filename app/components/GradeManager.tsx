@@ -659,7 +659,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
       <h2 className="text-2xl font-bold mb-6">成績資料管理</h2>
       <div className="mb-4 flex flex-col md:flex-row md:items-center gap-4">
         <select
-          className="border border-gray-300 rounded-lg p-2 w-full md:w-64"
+          className="select-unified w-full md:w-64"
           value={selectedCourse}
           onChange={e => {
             setSelectedCourse(e.target.value);
@@ -823,7 +823,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                           <div className="mb-3">
                             <label className="block mb-1">成績性質：</label>
                             <select
-                              className="border rounded px-2 py-1 w-full"
+                              className="select-unified w-full"
                               value={detail.type || ''}
                               onChange={e => setColumnDetails(details => ({
                                 ...details,
@@ -1314,7 +1314,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                       <div className="text-red-500 text-sm mb-1">擇優採計次數不可大於資料數，已自動調整</div>
                     )}
                     <div className="font-bold mb-1">小考成績模式（共{Object.values(columnDetails).filter(col=>col.type==='小考成績').length}筆）</div>
-                    <select className="border rounded px-2 py-1 w-32 mr-2" value={quizMode} onChange={e=>setQuizMode(e.target.value as 'all' | 'best')}>
+                    <select className="select-unified w-32 mr-2" value={quizMode} onChange={e=>setQuizMode(e.target.value as 'all' | 'best')}>
                       <option value="all">全部採計</option>
                       <option value="best">擇優採計</option>
                     </select>
@@ -1325,7 +1325,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                       <div className="text-red-500 text-sm mb-1">擇優採計次數不可大於資料數，已自動調整</div>
                     )}
                     <div className="font-bold mb-1">作業成績模式（共{Object.values(columnDetails).filter(col=>col.type==='作業成績').length}筆）</div>
-                    <select className="border rounded px-2 py-1 w-32 mr-2" value={homeworkMode} onChange={e=>setHomeworkMode(e.target.value as 'all' | 'best')}>
+                    <select className="select-unified w-32 mr-2" value={homeworkMode} onChange={e=>setHomeworkMode(e.target.value as 'all' | 'best')}>
                       <option value="all">全部採計</option>
                       <option value="best">擇優採計</option>
                     </select>
@@ -1336,7 +1336,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                       <div className="text-red-500 text-sm mb-1">擇優採計次數不可大於資料數，已自動調整</div>
                     )}
                     <div className="font-bold mb-1">上課態度模式（共{Object.values(columnDetails).filter(col=>col.type==='上課態度').length}筆）</div>
-                    <select className="border rounded px-2 py-1 w-32 mr-2" value={attitudeMode} onChange={e=>setAttitudeMode(e.target.value as 'all' | 'best')}>
+                    <select className="select-unified w-32 mr-2" value={attitudeMode} onChange={e=>setAttitudeMode(e.target.value as 'all' | 'best')}>
                       <option value="all">全部採計</option>
                       <option value="best">擇優採計</option>
                     </select>

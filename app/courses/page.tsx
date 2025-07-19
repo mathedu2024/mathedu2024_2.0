@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import LoadingSpinner from '../components/LoadingSpinner';
 import Image from 'next/image';
 
 interface Course {
@@ -163,7 +163,7 @@ export default function CoursesPage() {
               <select
                 value={selectedGrade}
                 onChange={(e) => setSelectedGrade(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="select-unified w-full p-2 rounded-md"
               >
                 <option value="all">全部年級</option>
                 {grades.map(grade => (
@@ -177,7 +177,7 @@ export default function CoursesPage() {
               <select
                 value={selectedSubject}
                 onChange={(e) => setSelectedSubject(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="select-unified w-full p-2 rounded-md"
               >
                 <option value="all">全部科目</option>
                 {subjects.map(subject => (
@@ -191,7 +191,7 @@ export default function CoursesPage() {
               <select
                 value={selectedNature}
                 onChange={(e) => setSelectedNature(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="select-unified w-full p-2 rounded-md"
               >
                 <option value="all">全部性質</option>
                 {courseNatures.map(nature => (
@@ -205,7 +205,7 @@ export default function CoursesPage() {
               <select
                 value={selectedStatus}
                 onChange={(e) => setSelectedStatus(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="select-unified w-full p-2 rounded-md"
               >
                 <option value="all">全部狀態</option>
                 {statuses.map(status => (
@@ -238,7 +238,7 @@ export default function CoursesPage() {
             <select
               value={selectedGrade}
               onChange={(e) => setSelectedGrade(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="select-unified w-full p-2 rounded-md"
             >
               <option value="all">全部年級</option>
               {grades.map(grade => (
@@ -252,7 +252,7 @@ export default function CoursesPage() {
             <select
               value={selectedSubject}
               onChange={(e) => setSelectedSubject(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="select-unified w-full p-2 rounded-md"
             >
               <option value="all">全部科目</option>
               {subjects.map(subject => (
@@ -266,7 +266,7 @@ export default function CoursesPage() {
             <select
               value={selectedNature}
               onChange={(e) => setSelectedNature(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="select-unified w-full p-2 rounded-md"
             >
               <option value="all">全部性質</option>
               {courseNatures.map(nature => (
@@ -280,7 +280,7 @@ export default function CoursesPage() {
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="select-unified w-full p-2 rounded-md"
             >
               <option value="all">全部狀態</option>
               {statuses.map(status => (
@@ -307,7 +307,7 @@ export default function CoursesPage() {
       <div className="space-y-8">
         {loading ? (
           <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-r-4 border-blue-600 mx-auto mb-4"></div>
+            <LoadingSpinner size={8} className="mx-auto mb-4" />
             <p className="text-gray-600">正在載入課程資料...</p>
           </div>
         ) : filteredCourses.length === 0 ? (

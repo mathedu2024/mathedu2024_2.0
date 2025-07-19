@@ -372,7 +372,7 @@ export default function StudentManager() {
               <select
                 value={selectedGrade}
                 onChange={(e) => setSelectedGrade(e.target.value)}
-                className="w-full md:w-48 border border-gray-300 p-3 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="select-unified w-full md:w-48"
               >
                 <option value="all">全部年級</option>
                 {grades.map(grade => (

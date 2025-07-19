@@ -8,6 +8,7 @@ import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import SecureRoute from '../components/SecureRoute';
 import StudentGradeViewer from '../components/StudentGradeViewer';
 import PasswordManager from '../components/PasswordManager';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 // 閒置時間設定（3分鐘 = 180000毫秒）
 const IDLE_TIMEOUT = 3 * 60 * 1000;
@@ -62,7 +63,7 @@ interface Lesson {
 export default function StudentPanel() {
   return (
     <Suspense fallback={<div className="flex h-screen bg-gray-100 items-center justify-center">
-      <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-r-4 border-blue-600"></div>
+      <LoadingSpinner size={8} />
     </div>}>
       <StudentPanelContent />
     </Suspense>
@@ -372,7 +373,7 @@ function StudentPanelContent() {
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-100">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-r-4 border-blue-600"></div>
+        <LoadingSpinner size={8} />
       </div>
     );
   }
@@ -403,7 +404,7 @@ function StudentPanelContent() {
             <h2 className="text-2xl font-bold mb-6">我的課程</h2>
             {loadingCourses ? (
               <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                <LoadingSpinner size={8} />
                 <span className="ml-4 text-gray-600">載入中...</span>
               </div>
             ) : courses.length === 0 ? (
@@ -417,7 +418,7 @@ function StudentPanelContent() {
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">選擇課程</label>
                   <select
-                    className="border border-gray-300 rounded-lg p-3 w-full md:w-80"
+                    className="select-unified w-full md:w-80"
                     value={selectedCourse ? selectedCourse.id : ''}
                     onChange={e => {
                       const course = courses.find(c => c.id === e.target.value);
@@ -496,7 +497,7 @@ function StudentPanelContent() {
                       
                       {loadingLessons ? (
                         <div className="flex justify-center items-center py-8">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                          <LoadingSpinner size={8} />
                           <span className="ml-3 text-gray-600">載入課程清單中...</span>
                         </div>
                       ) : lessons.length === 0 ? (

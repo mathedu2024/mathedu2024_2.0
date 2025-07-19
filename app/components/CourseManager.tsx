@@ -735,7 +735,7 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
                 <select
                   value={editingCourse.timeArrangementType}
                   onChange={(e) => setEditingCourse(prev => prev ? { ...prev, timeArrangementType: e.target.value as '依時段安排' | '依學年課程彈性安排' | '課程時間由學生自主安排' } : null)}
-                  className="w-full p-2 border rounded-md"
+                  className="select-unified w-full p-2 rounded-md"
                 >
                   <option value="依時段安排">依時段安排</option>
                   <option value="依學年課程彈性安排">依學年課程彈性安排</option>
@@ -844,7 +844,7 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
                 <select
                   value={editingCourse.status}
                   onChange={(e) => setEditingCourse(prev => prev ? { ...prev, status: e.target.value as '未開課' | '報名中' | '開課中' | '已額滿' | '已結束' | '已封存' | '資料建置中...' } : null)}
-                  className="w-full p-2 border rounded-md"
+                  className="select-unified w-full p-2 rounded-md"
                   required
                 >
                   {courseStatuses.map(status => (
