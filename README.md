@@ -21,12 +21,12 @@ http://localhost:3000
 npm run build
 --------
 ##把code推到github
-git init
-git add .
-git commit -m "ver1.6.1"
-git branch -M main
-git remote add origin https://github.com/mathedu2024/mathedu2024_2.0.git
-git push -u origin main
+1. git init
+2. git add .
+3. git commit -m "ver1.6.1"
+4. git branch -M main
+5. git remote add origin https://github.com/mathedu2024/mathedu2024_2.0.git
+6. git push -u origin main
 
 ## 專案結構
 

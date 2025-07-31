@@ -564,7 +564,7 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
                 <label className="block text-sm font-medium text-gray-700 mb-2">開始日期 *</label>
                 <DatePicker
                   selected={editingCourse.startDate ? new Date(editingCourse.startDate) : null}
-                  onChange={(date) => {
+                  onChange={(date: Date | null) => {
                     const newDate = date ? date.toISOString().split('T')[0] : '';
                     setEditingCourse(prev => prev ? { ...prev, startDate: newDate } : null)
                   }}
@@ -578,7 +578,7 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
                 <label className="block text-sm font-medium text-gray-700 mb-2">結束日期 *</label>
                 <DatePicker
                   selected={editingCourse.endDate ? new Date(editingCourse.endDate) : null}
-                  onChange={(date) => {
+                  onChange={(date: Date | null) => {
                     const newDate = date ? date.toISOString().split('T')[0] : '';
                     setEditingCourse(prev => prev ? { ...prev, endDate: newDate } : null)
                   }}

@@ -32,6 +32,13 @@ type RegularScoreSetting = {
 
 type PeriodicScoreName = '第一次定期評量' | '第二次定期評量' | '期末評量';
 
+// 新增：ColumnDetail 類型定義
+type ColumnDetail = {
+  type: string;
+  name: string;
+  date: string;
+};
+
 type StudentGradeRow = {
   id: string;
   studentId: string;
@@ -175,7 +182,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
       '上課態度': { percent: 20, calcMethod: '平均' },
     },
   });
-  const [columnDetails, setColumnDetails] = useState<{ [idx: number]: { type: string; name: string; date: string } }>({});
+  const [columnDetails, setColumnDetails] = useState<{ [idx: number]: ColumnDetail }>({});
   const [editingColumn, setEditingColumn] = useState<number | null>(null);
   const inputRefs = useRef<(HTMLInputElement | null)[][]>([]);
   const [courses, setCourses] = useState<CourseInfo[]>([]);
@@ -460,7 +467,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
       { header: '學號', key: 'studentId', width: 15 },
       { header: '姓名', key: 'name', width: 15 },
       ...Array.from({ length: regularColumns }).map((_, idx) => {
-        const detail = columnDetails[idx] || {};
+        const detail: ColumnDetail = columnDetails[idx] || { type: '', name: '', date: '' };
         let displayName = '';
         if (detail.type === '作業成績') {
           const count = Array.from({ length: idx + 1 }).filter((_, i) => (columnDetails[i]?.type) === '作業成績').length;
@@ -710,7 +717,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                       <th className={studentIdColClass} style={studentIdColStyle}>學號</th>
                       <th className={studentNameColClass} style={studentNameColStyle}>姓名</th>
                       {Array.from({ length: regularColumns }).map((_, idx) => {
-                        const detail = columnDetails[idx] || {};
+                        const detail: ColumnDetail = columnDetails[idx] || { type: '', name: '', date: '' };
                         // 依 type 與同類型順序命名
                         let displayName = '';
                         if (detail.type === '作業成績') {
@@ -816,7 +823,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                       for (let i = 0; i < distEntries.length; i += 2) {
                         distRows.push(distEntries.slice(i, i+2));
                       }
-                      const detail = columnDetails[editingColumn] || {};
+                      const detail: ColumnDetail = columnDetails[editingColumn] || { type: '', name: '', date: '' };
                       return (
                         <>
                           {/* 平時成績：成績性質下方補上名稱和考試日期 */}

@@ -3,7 +3,7 @@ import { Geist } from "next/font/google";
 import "./globals.css";
 import Navigation from './components/Navigation';
 
-const geist = Geist({
+const geistFont = Geist({
   subsets: ["latin"],
 });
 
@@ -26,7 +26,7 @@ export default function RootLayout({
         <link rel="shortcut icon" href="/learn.png" type="image/png" />
         <link rel="apple-touch-icon" href="/learn.png" />
       </head>
-      <body className={`${geist.className} h-full flex flex-col`}>
+      <body className={`${geistFont.className} h-full flex flex-col`}>
         <Navigation />
         <main className="flex-1 overflow-y-auto">{children}</main>
       </body>

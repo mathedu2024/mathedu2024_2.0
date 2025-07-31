@@ -7,6 +7,7 @@ import { getAnnouncements } from '../services/announcementService';
 import { getExams, Exam } from '../services/examService';
 import { Listbox } from '@headlessui/react';
 import { ChevronUpDownIcon } from '@heroicons/react/20/solid';
+import Footer from './components/Footer';
 
 interface Link {
   name: string;
@@ -356,18 +357,9 @@ export default function Home() {
           )}
         </div>
       </section>
-
-      {/* 在網站公告區塊之後插入聯絡資訊區塊，字體加大 */}
-      <div className="mt-4 md:mt-8 pt-4 md:pt-8 border-t border-gray-200">
-        <div className="flex flex-col md:flex-row md:justify-center md:space-x-8 gap-2 text-gray-600 text-base md:text-lg font-semibold items-center">
-          <div className="text-center md:text-left break-all flex-shrink-0">E-mail：mathedu2024.class@gmail.com</div>
-          <div className="text-center md:text-left break-all flex-shrink-0">LINE@：@674ofxrd</div>
-        </div>
-      </div>
-
-      {/* 課程資訊區塊 */}
-      {/* 課程資訊區塊已移除課程列表 */}
-
+      
+      {/* 添加 Footer 组件 */}
+      <Footer />
     </main>
   );
 }
