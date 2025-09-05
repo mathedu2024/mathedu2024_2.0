@@ -1,30 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
-import { getAuth, onAuthStateChanged, User, signInWithPopup, GoogleAuthProvider, signInAnonymously, signOut } from 'firebase/auth';
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
 import { db } from '../../services/firebase';
-import { Bar } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-} from 'chart.js';
 import { Modal } from './ui';
 import LoadingSpinner from './LoadingSpinner';
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend
-);
 
 
 interface GradeData {
@@ -36,6 +18,18 @@ interface GradeData {
 
 interface CourseInfo { id: string; name: string; code: string; teacherName?: string; }
 
+interface DistributionData {
+  statistics: {
+    平均: number | null;
+    頂標: number | null;
+    前標: number | null;
+    均標: number | null;
+    後標: number | null;
+    底標: number | null;
+  };
+  distribution: { range: string; count: number }[];
+}
+
 // 修正：Props 中加入 studentId
 interface StudentGradeViewerProps {
   studentInfo: {
@@ -45,12 +39,6 @@ interface StudentGradeViewerProps {
   };
 }
 
-function getTaiwanPercentileLevels(scores: number[]) {
-  if (!scores || scores.length === 0) return { 平均: 0, 頂標: 0, 前標: 0, 均標: 0, 後標: 0, 底標: 0 };
-  const sorted = [...scores].sort((a, b) => b - a);
-  const avg = Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10;
-  return { 平均: avg, 頂標: sorted[Math.floor(scores.length * 0.12)] || 0, 前標: sorted[Math.floor(scores.length * 0.25)] || 0, 均標: sorted[Math.floor(scores.length * 0.5)] || 0, 後標: sorted[Math.floor(scores.length * 0.75)] || 0, 底標: sorted[Math.floor(scores.length * 0.88)] || 0 };
-}
 
 type StudentGradeRow = { studentId: string; regularScores?: Record<string, number>; periodicScores?: Record<string, number>; manualAdjust?: number; };
 
@@ -65,25 +53,19 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
   const [authUser, setAuthUser] = useState<User | null>(null);
 
   const [teacherNamesMap, setTeacherNamesMap] = useState<Record<string, string>>({});
-  const [selectedGradeForChart, setSelectedGradeForChart] = useState<any>(null);
-  const [distributionData, setDistributionData] = useState<any>(null);
+  const [selectedGradeForChart, setSelectedGradeForChart] = useState<{ name: string; type: string; date: string; idx: string; score: number | undefined; } | null>(null);
+  const [distributionData, setDistributionData] = useState<DistributionData | null>(null);
 
-  const auth = typeof window !== 'undefined' ? getAuth() : ({} as any);
+  const auth = typeof window !== 'undefined' ? getAuth() : null;
 
   useEffect(() => {
-    if (!auth || !auth.app) return;
+    if (!auth) return;
     return onAuthStateChanged(auth, (user) => setAuthUser(user));
-  }, []);
+  }, [auth]);
 
-  const handleGoogleLogin = async () => {
-    try { setError(null); const provider = new GoogleAuthProvider(); await signInWithPopup(auth, provider); } catch (e: any) { setError(e?.message || '登入失敗'); }
-  };
-  const handleAnonLogin = async () => {
-    try { setError(null); await signInAnonymously(auth); } catch (e: any) { setError(e?.message || '匿名登入失敗'); }
-  };
-  const handleLogout = async () => { try { await signOut(auth); } catch {} };
+  
 
-  const handleSelectGrade = async (gradeItem: any) => {
+  const handleSelectGrade = async (gradeItem: { name: string; type: string; date: string; idx: string; score: number | undefined; }) => {
     if (selectedGradeForChart?.idx === gradeItem.idx) {
       setSelectedGradeForChart(null);
       setDistributionData(null);
@@ -104,9 +86,9 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
         throw new Error(errorData.error || '無法載入成績分布資料');
       }
       const data = await res.json();
-      setDistributionData(data);
-    } catch (e: any) {
-      setError(e.message || '載入成績分布時發生未知錯誤');
+      setDistributionData(data as DistributionData);
+    } catch (e: unknown) {
+      setError((e as Error).message || '載入成績分布時發生未知錯誤');
     }
   };
 
@@ -131,11 +113,10 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
             if (enrolledIds.length > 0) {
               const resCourses = await fetch('/api/courses/list');
               if (resCourses.ok) {
-                const allCourses: any[] = await resCourses.json();
+                const allCourses: CourseInfo[] = await resCourses.json();
                 const filtered = allCourses
-                  .filter((c: any) => enrolledIds.includes(String(c.id)));
-                // 取所有教師 id 建立對照
-                const allTeacherIds = Array.from(new Set(filtered.flatMap((c: any) => c.teachers || []))).map(String);
+                  .filter((c) => enrolledIds.includes(String(c.id)));
+                // 取所有教師 id 建立對照 (已移除未使用的變數)
                 try {
                   const resTeachers = await fetch('/api/teacher/list');
                   if (resTeachers.ok) {
@@ -145,12 +126,15 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
                     setTeacherNamesMap(map);
                   }
                 } catch {}
-                const normalized = filtered.map((c: any) => ({
-                  id: String(c.id),
-                  name: c.name || c.title || String(c.id),
-                  code: c.code || String(c.id),
-                  teacherName: (c.teachers && c.teachers.length > 0) ? (teacherNamesMap[String(c.teachers[0])] || String(c.teachers[0])) : undefined
-                } as CourseInfo));
+                const normalized = filtered.map((c) => {
+                  const courseData = c as unknown as Record<string, unknown>;
+                  return {
+                    id: String(c.id),
+                    name: c.name || courseData.title as string || String(c.id),
+                    code: c.code || String(c.id),
+                    teacherName: (courseData.teachers && Array.isArray(courseData.teachers) && courseData.teachers.length > 0) ? (teacherNamesMap[String(courseData.teachers[0])] || String(courseData.teachers[0])) : undefined
+                  } as CourseInfo;
+                });
                 if (normalized.length > 0) { setCourses(normalized); return; }
               }
             }
@@ -163,7 +147,7 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
         try {
           const studentDocSnap = await getDoc(studentDocRef);
           if (studentDocSnap.exists()) {
-            const sd = studentDocSnap.data() as any;
+            const sd = studentDocSnap.data();
             if (Array.isArray(sd?.enrolledCourses)) enrolled = sd.enrolledCourses as string[];
           }
         } catch {}
@@ -172,7 +156,7 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
           try {
             const subRef = collection(db, 'student_data', studentNumber, 'enrolledCourses');
             const subSnap = await getDocs(subRef);
-            enrolled = subSnap.docs.map(d => (d.id || (d.data() as any)?.courseId)).filter(Boolean) as string[];
+            enrolled = subSnap.docs.map(d => (d.id || (d.data() as Record<string, unknown>)?.courseId)).filter(Boolean) as string[];
           } catch {}
         }
 
@@ -184,15 +168,15 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
           try {
             const cSnap = await getDoc(doc(db, 'courses', entry));
             if (cSnap.exists()) {
-              const cd = cSnap.data() as any;
-              let teacherName: string | undefined = cd.teacherName;
-              const teacherId = cd.teacherId || (Array.isArray(cd.teachers) ? cd.teachers[0] : undefined);
+              const cd = cSnap.data() as Record<string, unknown>;
+              let teacherName: string | undefined = cd.teacherName as string;
+              const teacherId = cd.teacherId || (Array.isArray(cd.teachers) ? (cd.teachers as string[])[0] : undefined);
               if (!teacherName && teacherId) {
                 try {
                   const uSnap = await getDoc(doc(db, 'users', String(teacherId)));
                   if (uSnap.exists()) {
-                    const ud = uSnap.data() as any;
-                    teacherName = ud?.name || teacherId;
+                    const ud = uSnap.data() as Record<string, unknown>;
+                    teacherName = (ud?.name as string) || String(teacherId);
                   } else {
                     teacherName = String(teacherId);
                   }
@@ -200,18 +184,18 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
                   teacherName = String(teacherId);
                 }
               }
-              base = { id: entry, name: cd.name || entry, code: cd.code || entry, teacherName };
+              base = { id: entry, name: (cd.name || entry) as string, code: (cd.code || entry) as string, teacherName };
             }
           } catch {}
           return base;
         }));
         setCourses(results.filter(Boolean) as CourseInfo[]);
-      } catch (e: any) {
+      } catch {
         setError('載入選課時發生錯誤');
       } finally { setLoading(false); }
     };
     loadStudentCourses();
-  }, [studentInfo?.id, studentInfo?.studentId]);
+  }, [studentInfo?.id, studentInfo?.studentId, teacherNamesMap]);
 
   // 讀取該課程中該學生的成績（改為呼叫後端 API）
   useEffect(() => {
@@ -249,8 +233,8 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
           setGradeData(null);
         }
 
-      } catch (e: any) {
-        setError(e.message || '載入成績時發生未知錯誤');
+      } catch (e: unknown) {
+        setError((e as Error).message || '載入成績時發生未知錯誤');
         setGradeData(null);
       } finally {
         setLoading(false);
@@ -282,25 +266,6 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
     }
   }, [gradeData, studentInfo, authUser, studentGrade]);
 
-  const getStudentScores = (gradeType?: string) => {
-    if (!gradeData || !studentGrade) return [];
-    if (gradeType) {
-      return gradeData.students.flatMap(student => Object.entries(student.regularScores || {})
-        .filter(([key]) => gradeData.columns?.[key]?.type === gradeType)
-        .map(([key, value]) => ({ type: gradeData.columns[key].type, value: typeof value === 'number' ? value : Number(value), studentId: student.studentId, columnId: key }))
-      ).filter(s => typeof s.value === 'number' && !isNaN(s.value));
-    }
-    return Object.entries(gradeData.columns || {}).map(([key, col]) => ({ id: key, name: col.name, type: col.type, date: col.date, value: (studentGrade.regularScores as any)?.[key] }));
-  };
-
-function getClassScoresByType(type: string): number[] {
-  if (!gradeData) return [];
-    return gradeData.students.flatMap(student => Object.entries(student.regularScores || {})
-      .filter(([key]) => gradeData.columns?.[key]?.type === type)
-      .map(([, value]) => typeof value === 'number' ? value : Number(value))
-      .filter(v => typeof v === 'number' && !isNaN(v))
-  );
-}
 
 const calcRegularScore = (student: StudentGradeRow): number => {
   if (!gradeData || !student) return 0;
@@ -326,19 +291,9 @@ const calcRegularDisplay = (student: StudentGradeRow): string => {
   return (weighted / (totalPercent / 100)).toFixed(1);
 };
 
-const calcTotalScore = (student: StudentGradeRow): number => {
-  if (!gradeData || !student) return 0;
-    const regular = calcRegularScore(student);
-    const names = ['第一次定期評量', '第二次定期評量', '期末評量'];
-    const enabled = names.filter(n => (gradeData.totalSetting?.periodicEnabled?.[n] ?? true));
-    const vals = enabled.map(n => Number(student.periodicScores?.[n] ?? 0) || 0);
-    const periodicAvg = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : 0;
-    const pct = Number(gradeData.totalSetting?.periodicPercent) || 0;
-    return Math.round(regular + periodicAvg * (pct/100));
-  };
 
 const filteredRegularScores = () => {
-    if (!gradeData) return [] as any[];
+    if (!gradeData) return [] as { name: string; type: string; date: string; idx: string; score: number | undefined; }[];
     
     // 修正：使用 studentId 查找學生，並簡化邏輯
     const target = gradeData.students.find(s => {
@@ -352,7 +307,7 @@ const filteredRegularScores = () => {
     const { from, to } = dateRange;
     return Object.entries(gradeData.columns)
         .filter(([, col]) => (!from && !to) || (!from || col.date >= from) && (!to || col.date <= to))
-        .map(([key, col]) => ({ ...col, idx: key, score: target.regularScores?.[key] }));
+        .map(([key, col]) => ({ ...col, idx: key, score: target.regularScores?.[key] } as { name: string; type: string; date: string; idx: string; score: number | undefined; }));
   };
 
   const getTeacherNames = () => {
@@ -388,7 +343,7 @@ const filteredRegularScores = () => {
 
     <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 mb-2">選擇課程</label>
-        <select className="select-unified w-full md:w-80" value={selectedCourse} onChange={(e) => setSelectedCourse(e.target.value)}>
+        <select className="select-unified w-full md:w-80" value={selectedCourse} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedCourse(e.target.value)}>
         <option value="">請選擇課程</option>
           {courses.map(course => {
             // 建立 grades 集合的文件 ID 格式：課程名稱(課程代碼)
@@ -489,7 +444,7 @@ const filteredRegularScores = () => {
                     </tr>
                   </thead>
                   <tbody>
-                      {filteredRegularScores().map((col: any, index: number) => (
+                      {filteredRegularScores().map((col, index: number) => (
                       <tr key={index} onClick={() => handleSelectGrade(col)} className="cursor-pointer hover:bg-gray-50">
                         <td className="border border-gray-200 px-4 py-2">{col.name}</td>
                           <td className="border border-gray-200 px-4 py-2">{col.type}</td>
@@ -507,70 +462,7 @@ const filteredRegularScores = () => {
                   <h4 className="text-lg font-semibold mb-4">個人成績趨勢圖</h4>
                   <div className="bg-white p-4 border rounded-lg">
                     <div className="h-80">
-                      <Bar
-                        data={{
-                          labels: filteredRegularScores().map((col: any) => col.name),
-                          datasets: [
-                            {
-                              label: '個人分數',
-                              data: filteredRegularScores().map((col: any) => col.score || 0),
-                              backgroundColor: 'rgba(59, 130, 246, 0.6)', // 主視覺藍色
-                              borderColor: 'rgba(59, 130, 246, 1)', // 主視覺藍色邊框
-                              borderWidth: 1,
-                            },
-                          ],
-                        }}
-                        options={{
-                          responsive: true,
-                          maintainAspectRatio: false,
-                          plugins: {
-                            legend: {
-                              display: false,
-                            },
-                            title: {
-                              display: true,
-                              text: '個人平時成績分布',
-                              font: {
-                                size: 16,
-                                weight: 'bold',
-                              },
-                            },
-                            tooltip: {
-                              callbacks: {
-                                afterLabel: function(context) {
-                                  const score = context.parsed.y;
-                                  if (score >= 90) return '等級：優秀';
-                                  if (score >= 80) return '等級：良好';
-                                  if (score >= 70) return '等級：中等';
-                                  if (score >= 60) return '等級：及格';
-                                  return '等級：不及格';
-                                },
-                              },
-                            },
-                          },
-                          scales: {
-                            y: {
-                              beginAtZero: true,
-                              max: 100,
-                              ticks: {
-                                stepSize: 10,
-                              },
-                              grid: {
-                                color: 'rgba(0, 0, 0, 0.1)',
-                              },
-                            },
-                            x: {
-                              ticks: {
-                                maxRotation: 45,
-                                minRotation: 0,
-                              },
-                              grid: {
-                                display: false,
-                              },
-                            },
-                          },
-                        }}
-                      />
+                      {/* Bar chart removed - using table presentation only */}
                     </div>
                   </div>
                   
@@ -596,7 +488,7 @@ const filteredRegularScores = () => {
                     </tr>
                   </thead>
                   <tbody>
-                      {gradeData?.periodicScores?.map((scoreName, index) => {
+                      {gradeData?.periodicScores?.map((scoreName: string, index: number) => {
                       const myScore = studentGrade?.periodicScores?.[scoreName];
                         const allScores = gradeData.students.map(s => s.periodicScores?.[scoreName]).filter(s => typeof s === 'number') as number[];
                         const rank = myScore !== undefined && typeof myScore === 'number' ? allScores.filter(s => s > myScore).length + 1 : null;
@@ -708,7 +600,7 @@ const filteredRegularScores = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {distributionData.distribution.map((d: any, index: number) => (
+                  {distributionData.distribution.map((d: { range: string; count: number }, index: number) => (
                     <tr key={index}>
                       <td className="px-4 py-2 text-sm text-gray-900 border-b">{d.range}</td>
                       <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 border-b">
@@ -720,12 +612,12 @@ const filteredRegularScores = () => {
                             <div 
                               className="bg-blue-600 h-2 rounded-full" 
                               style={{ 
-                                width: `${Math.max(5, (d.count / Math.max(...distributionData.distribution.map((item: any) => item.count))) * 100)}%` 
+                                width: `${Math.max(5, (d.count / Math.max(...distributionData.distribution.map((item: { range: string; count: number }) => item.count))) * 100)}%` 
                               }}
                             ></div>
                           </div>
                           <span className="text-xs text-gray-500">
-                            {Math.round((d.count / distributionData.distribution.reduce((sum: number, item: any) => sum + item.count, 0)) * 100)}%
+                            {Math.round((d.count / distributionData.distribution.reduce((sum: number, item: { range: string; count: number }) => sum + item.count, 0)) * 100)}%
                           </span>
                         </div>
                       </td>

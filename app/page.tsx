@@ -8,6 +8,7 @@ import { getExams, Exam } from '../services/examService';
 import { Listbox } from '@headlessui/react';
 import { ChevronUpDownIcon } from '@heroicons/react/20/solid';
 import Footer from './components/Footer';
+import LoadingSpinner from './components/LoadingSpinner';
 
 interface Link {
   name: string;
@@ -143,7 +144,7 @@ export default function Home() {
   // 如果發生錯誤，顯示錯誤訊息
   if (error) {
     return (
-      <main className="min-h-screen p-8 bg-gray-50">
+      <main className="h-full p-8 bg-gray-50">
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="text-2xl font-bold text-red-600 mb-4">載入錯誤</h1>
           <p className="text-gray-600">{error}</p>
@@ -159,7 +160,7 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen p-2 sm:p-4 md:p-6 lg:p-8 bg-gray-50">
+    <main className="h-full p-2 sm:p-4 md:p-6 lg:p-8 bg-gray-50">
       {/* 頁首區塊 */}
       <div className="mb-4 md:mb-8 text-center">
         <div className="bg-white rounded-xl p-4 md:p-6 mb-4 md:mb-8">
@@ -178,7 +179,7 @@ export default function Home() {
         <h2 className="text-2xl md:text-4xl font-bold text-center text-white mb-4 md:mb-8">重要考試時程</h2>
         {loading ? (
           <div className="flex items-center justify-center p-4 md:p-8 py-4 md:py-8">
-            <div className="loading-spinner h-10 w-10"></div>
+            <LoadingSpinner size={40} />
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

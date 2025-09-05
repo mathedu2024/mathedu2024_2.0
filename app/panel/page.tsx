@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { setSession } from '../utils/session';
+import alerts from '../utils/alerts';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function PanelLoginPage() {
   const router = useRouter();
@@ -89,14 +91,28 @@ export default function PanelLoginPage() {
       router.push('/back-panel');
     } catch (err: unknown) {
       console.error('Panel - Login error:', err);
-      setError(err instanceof Error ? err.message : '發生未知錯誤');
+      const message = err instanceof Error ? err.message : '發生未知錯誤';
+      setError(message);
+      
+      // 根據錯誤類型顯示對應的 SweetAlert2 對話框
+      if (message.includes('Invalid password') || message.includes('密碼')) {
+        alerts.showPasswordError();
+      } else if (message.includes('Account not found') || message.includes('查無') || message.includes('not found')) {
+        alerts.showAccountNotFound();
+      } else if (message.includes('學生帳號請由學生登入頁面登入')) {
+        alerts.showError(message);
+      } else if (message.includes('伺服器錯誤') || message.includes('伺服器回傳格式錯誤')) {
+        alerts.showErrorCode('500');
+      } else {
+        alerts.showError(message);
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4" style={{height: 'calc(100vh - 64px)'}}>
+    <div className="h-full bg-gray-100 flex items-center justify-center p-4">
       <div className="w-full max-w-4xl flex flex-row bg-white shadow-2xl rounded-2xl overflow-hidden">
         {/* Left Panel */}
         <div className="w-1/2 bg-blue-600 p-12 text-white hidden md:flex flex-col justify-center items-center text-center">
@@ -193,10 +209,7 @@ export default function PanelLoginPage() {
               className="w-full py-3 mt-2 btn-primary text-lg"
             >
               {isLoading ? (
-                <div className="loading-container">
-                  <div className="loading-spinner h-5 w-5 border-2 border-white"></div>
-                  <span className="ml-2">載入中...</span>
-                </div>
+                <LoadingSpinner size={20} color="white" text="載入中..." />
               ) : '登入'}
             </button>
           </form>

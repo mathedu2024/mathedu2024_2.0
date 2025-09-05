@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Timestamp } from 'firebase/firestore';
 import LoadingSpinner from './LoadingSpinner';
 import AlertDialog from './AlertDialog';
+import alerts from '../utils/alerts';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../services/firebase';
 
@@ -232,19 +233,19 @@ export default function Calendar({ userInfo, viewMode, onDateSelect }: CalendarP
 
     // 驗證限制設定
     if (!formData.subjectRestriction && formData.courseRestrictions.length === 0) {
-      alert('請至少選擇一個科目或課程限制');
+      alerts.showWarning('請至少選擇一個科目或課程限制');
       return;
     }
 
     // 驗證人數限制（僅個人輔導需要驗證）
     if (formData.tutoringType === 'individual' && formData.maxStudents > 5) {
-      alert('個人輔導人數不能超過5人');
+      alerts.showWarning('個人輔導人數不能超過5人');
       return;
     }
 
     // 驗證實體輔導地點
     if (formData.tutoringMethod === 'physical' && !formData.location.trim()) {
-      alert('實體輔導必須填寫輔導地點');
+      alerts.showWarning('實體輔導必須填寫輔導地點');
       return;
     }
 
@@ -294,7 +295,7 @@ export default function Calendar({ userInfo, viewMode, onDateSelect }: CalendarP
       });
     } catch (error) {
       console.error('Error creating time slot:', error);
-      alert('創建時段時發生錯誤');
+      alerts.showError('創建時段時發生錯誤');
     }
   };
 
@@ -358,19 +359,19 @@ export default function Calendar({ userInfo, viewMode, onDateSelect }: CalendarP
 
     // 驗證限制設定
     if (!formData.subjectRestriction && formData.courseRestrictions.length === 0) {
-      alert('請至少選擇一個科目或課程限制');
+      alerts.showWarning('請至少選擇一個科目或課程限制');
       return;
     }
 
     // 驗證人數限制（僅個人輔導需要驗證）
     if (formData.tutoringType === 'individual' && formData.maxStudents > 5) {
-      alert('個人輔導人數不能超過5人');
+      alerts.showWarning('個人輔導人數不能超過5人');
       return;
     }
 
     // 驗證實體輔導地點
     if (formData.tutoringMethod === 'physical' && !formData.location.trim()) {
-      alert('實體輔導必須填寫輔導地點');
+      alerts.showWarning('實體輔導必須填寫輔導地點');
       return;
     }
 
@@ -417,7 +418,7 @@ export default function Calendar({ userInfo, viewMode, onDateSelect }: CalendarP
       });
     } catch (error) {
       console.error('Error updating time slot:', error);
-      alert('更新時段時發生錯誤');
+      alerts.showError('更新時段時發生錯誤');
     }
   };
 
@@ -439,7 +440,7 @@ export default function Calendar({ userInfo, viewMode, onDateSelect }: CalendarP
       fetchTimeSlots(selectedDate || '');
     } catch (error) {
       console.error('Error deleting time slot:', error);
-      alert('刪除時段時發生錯誤');
+      alerts.showError('刪除時段時發生錯誤');
     }
   };
 

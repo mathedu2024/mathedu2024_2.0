@@ -4,8 +4,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import "react-datepicker/dist/react-datepicker.css";
 import { DragDropContext, Droppable, Draggable, DropResult, DroppableProvided, DraggableProvided } from '@hello-pangea/dnd';
 import AlertDialog from './AlertDialog';
-import DetailModal from './DetailModal';
+import alerts from '../utils/alerts';
+// import DetailModal from './DetailModal'; // 移除未使用的 import
 import LoadingSpinner from './LoadingSpinner';
+import CourseDetailModal from './CourseDetailModal';
 
 interface UserInfo {
   id: string;
@@ -287,7 +289,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
 
   // 刪除功能
   const handleDeleteLesson = async (lessonId: string) => {
-    if (!window.confirm('確定要刪除此課堂嗎？')) return;
+    if (!(await alerts.confirm('確定要刪除此課堂嗎？'))) return;
     try {
       await fetch('/api/lessons/delete', {
         method: 'POST',
@@ -493,8 +495,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
   const [showNewCourse, setShowNewCourse] = useState(false);
   const [teacherNamesMap, setTeacherNamesMap] = useState<{ [courseId: string]: string[] }>({});
   const [newCourse, setNewCourse] = useState<Partial<Course>>({});
-  const [detailedStudents, setDetailedStudents] = useState<Student[]>([]);
-  const [loadingStudents, setLoadingStudents] = useState(false);
+  const [teachers, setTeachers] = useState<{ id: string; name: string }[]>([]);
   // 明確型別、移除 any、補齊 hooks 依賴
   // 1. useState 明確型別
   const [alert, setAlert] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
@@ -527,6 +528,18 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
     teachers.forEach((t: { id: string, name: string }) => { map[t.id] = t.name; });
     return map;
   };
+
+  const fetchTeachers = useCallback(async () => {
+    try {
+      const res = await fetch('/api/teacher/list');
+      if (res.ok) {
+        const teachersData = await res.json();
+        setTeachers(teachersData);
+      }
+    } catch (error) {
+      console.error('獲取老師資料時發生錯誤:', error);
+    }
+  }, []);
 
   const fetchCourses = useCallback(async () => {
     if (!userInfo?.id) {
@@ -574,6 +587,11 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
     fetchCourses();
   }, [userInfo?.id, fetchCourses]);
 
+  // 獲取老師資料
+  useEffect(() => {
+    fetchTeachers();
+  }, [fetchTeachers]);
+
   // handleShowCourseDetail 改為：
   const handleShowCourseDetail = async (course: Course) => {
     // 新增：log course 內容
@@ -588,10 +606,8 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
       }
     }
     
-    // 先設定課程詳情，避免 API 錯誤影響顯示
+    // 設定課程詳情
     setShowCourseDetail(fullCourse);
-    setDetailedStudents([]);
-    setLoadingStudents(true);
     
     try {
       // 嘗試獲取課程額外資料（如果存在）
@@ -606,24 +622,6 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
     } catch (e: unknown) {
       console.log('無法獲取課程額外資料:', (e as Error).message);
       // 不顯示錯誤，因為這不是必要的
-    }
-    
-    try {
-      const res = await fetch('/api/course-student-list/list', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ courseName: fullCourse.name, courseCode: fullCourse.code })
-      });
-      if (!res.ok) {
-        setAlert({ open: true, message: '讀取學生資料時發生錯誤。' });
-        return;
-      }
-      const students = await res.json();
-      setDetailedStudents(students);
-    } catch {
-      setAlert({ open: true, message: '讀取學生資料時發生錯誤。' });
-    } finally {
-      setLoadingStudents(false);
     }
   };
 
@@ -803,8 +801,8 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-8">
+    <div className="container mx-auto px-4 py-8 h-full flex flex-col">
+      <div className="flex justify-between items-center mb-8 flex-shrink-0">
         <h2 className="text-3xl font-bold" style={{ color: 'rgb(70, 131, 229)' }}>我的授課課程</h2>
         {userInfo?.role === '管理員' && (
           <button 
@@ -849,7 +847,8 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
       
       {/* 課程卡片清單 */}
       {!loading && filteredCourses.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {filteredCourses.map(course => (
             <div key={course.id} className="bg-white rounded-lg overflow-hidden hover:bg-gray-50 transition-colors duration-300 flex flex-col sm:flex-row shadow p-6 items-start sm:items-center justify-between">
               <div className="flex-1 min-w-0">
@@ -876,75 +875,19 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                 <button className="bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition-colors text-sm font-medium" onClick={() => handleShowCourseDetail(course)}>課程資料</button>
               </div>
             </div>
-        ))}
+            ))}
+          </div>
         </div>
       )}
-      {/* 詳細資料彈窗 */}
-      {showCourseDetail && (
-        <DetailModal
-          open={!!showCourseDetail}
-          title={showCourseDetail.name}
-          onClose={() => setShowCourseDetail(null)}
-        >
-          <div className="space-y-4 max-h-[70vh] overflow-auto max-w-3xl mx-auto p-6">
-            {/* 課程詳細資料 */}
-            <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-              <h3 className="text-lg font-semibold mb-4 text-gray-800">課程資訊</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div><span className="font-medium text-gray-700">課程名稱：</span>{showCourseDetail.name}</div>
-                <div><span className="font-medium text-gray-700">課程代碼：</span>{showCourseDetail.code}</div>
-                <div><span className="font-medium text-gray-700">課程狀態：</span>{showCourseDetail.status}</div>
-                <div><span className="font-medium text-gray-700">科目：</span>{showCourseDetail.subjectTag}</div>
-                <div><span className="font-medium text-gray-700">年級：</span>{(showCourseDetail.gradeTags || []).join(', ')}</div>
-                <div><span className="font-medium text-gray-700">課程性質：</span>{showCourseDetail.courseNature}</div>
-                <div><span className="font-medium text-gray-700">授課方式：</span>{showCourseDetail.teachingMethod}</div>
-                <div><span className="font-medium text-gray-700">上課地點：</span>{showCourseDetail.location}</div>
-                <div><span className="font-medium text-gray-700">開始日期：</span>{showCourseDetail.startDate}</div>
-                <div><span className="font-medium text-gray-700">結束日期：</span>{showCourseDetail.endDate}</div>
-              </div>
-              {showCourseDetail.description && (
-                <div className="mt-4">
-                  <span className="font-medium text-gray-700">課程描述：</span>
-                  <p className="mt-1 text-sm text-gray-600 bg-white p-3 rounded border">{showCourseDetail.description}</p>
-                </div>
-              )}
-            </div>
-            {/* 學生名單表格 */}
-            <div>
-              <h4 className="font-semibold text-gray-900 mb-2">學生名單</h4>
-              {loadingStudents ? (
-                <div className="flex items-center justify-center gap-2 text-gray-500 py-8">
-                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
-                  <span>正在載入學生名單...</span>
-                </div>
-              ) : detailedStudents.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full border border-gray-200 rounded-lg">
-                    <thead>
-                      <tr className="bg-gray-100">
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">學號</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">姓名</th>
-                        <th className="px-4 py-2 text-left text-sm font-semibold text-gray-700">年級</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {detailedStudents.map(stu => (
-                        <tr key={stu.id} className="border-t hover:bg-gray-50">
-                          <td className="px-4 py-2 text-sm text-gray-800 font-medium">{stu.studentId}</td>
-                          <td className="px-4 py-2 text-sm text-gray-800">{stu.name}</td>
-                          <td className="px-4 py-2 text-sm text-gray-800">{stu.grade || '未設定'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <p className="text-gray-500 text-center py-8">此課程尚無學生選修。</p>
-              )}
-            </div>
-          </div>
-        </DetailModal>
-      )}
+      {/* 課程詳細資料模態框 */}
+      <CourseDetailModal
+        course={showCourseDetail}
+        teachers={teachers}
+        open={!!showCourseDetail}
+        onClose={() => setShowCourseDetail(null)}
+        showDescription={false}
+        showStudents={true}
+      />
       {/* 滿版課堂管理 */}
       {showLessonManager && (
         <LessonManager 

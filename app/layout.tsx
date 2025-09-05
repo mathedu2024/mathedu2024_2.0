@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
+import 'sweetalert2/dist/sweetalert2.min.css';
 import Navigation from './components/Navigation';
 
 const geistFont = Geist({
@@ -28,7 +29,7 @@ export default function RootLayout({
       </head>
       <body className={`${geistFont.className} h-full flex flex-col`}>
         <Navigation />
-        <main className="flex-1 overflow-y-auto">{children}</main>
+        <main className="flex-1">{children}</main>
       </body>
     </html>
   );

@@ -108,7 +108,7 @@ export default function StudentPanel() {
   return (
     <SecureRoute requiredRole="student">
       <Suspense fallback={<div className="flex h-screen bg-gray-100 items-center justify-center">
-        <LoadingSpinner size={8} />
+        <LoadingSpinner />
       </div>}>
         <StudentPanelContent />
       </Suspense>
@@ -514,7 +514,7 @@ function StudentPanelContent() {
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-100">
-        <LoadingSpinner size={8} />
+        <LoadingSpinner />
       </div>
     );
   }
@@ -559,7 +559,7 @@ function StudentPanelContent() {
             <h2 className="text-2xl font-bold mb-6">我的課程</h2>
             {loadingCourses ? (
               <div className="flex justify-center items-center h-64">
-                <LoadingSpinner size={8} />
+                <LoadingSpinner />
                 <span className="ml-4 text-gray-600">載入中...</span>
               </div>
             ) : courses.length === 0 ? (
@@ -664,7 +664,7 @@ function StudentPanelContent() {
                       
                       {loadingLessons ? (
                         <div className="flex justify-center items-center py-8">
-                          <LoadingSpinner size={8} />
+                          <LoadingSpinner />
                           <span className="ml-3 text-gray-600">載入課程清單中...</span>
                         </div>
                       ) : lessons.length === 0 ? (
@@ -813,8 +813,6 @@ function StudentPanelContent() {
         <main
           className="flex-1 min-w-0 p-2 md:p-8 transition-all duration-300 flex justify-center"
           style={{
-            height: '100vh',
-            overflowY: 'auto',
             paddingLeft: sidebarOpen ? 64 : 256,
             transition: 'padding-left 0.3s'
           }}

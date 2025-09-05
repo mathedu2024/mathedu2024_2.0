@@ -75,14 +75,14 @@ export async function POST(req: NextRequest) {
     
     if (!userDoc || !userDoc.exists) {
       console.log('API - User not found');
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+      return NextResponse.json({ error: 'Account not found' }, { status: 401 });
     }
     
     const userData = userDoc.data();
     console.log('API - Checking password...');
     if (!userData || userData.password !== password) {
       console.log('API - Password mismatch');
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+      return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
     }
     
     console.log('API - Password correct, processing...');

@@ -1,4 +1,5 @@
-import React from 'react';
+import { useEffect } from 'react';
+import Swal from 'sweetalert2';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -17,42 +18,21 @@ export default function ConfirmDialog({
   onCancel, 
   confirmText = '確認', 
   cancelText = '取消',
-  confirmColor = 'red'
 }: ConfirmDialogProps) {
-  if (!open) return null;
+  useEffect(() => {
+    if (!open) return;
+    Swal.fire({
+      icon: 'question',
+      title: message,
+      showCancelButton: true,
+      confirmButtonText: confirmText,
+      cancelButtonText: cancelText,
+      focusCancel: true,
+    }).then(result => {
+      if (result.isConfirmed) onConfirm();
+      else onCancel();
+    });
+  }, [open, message, onConfirm, onCancel, confirmText, cancelText]);
 
-  const getConfirmButtonClass = () => {
-    switch (confirmColor) {
-      case 'red':
-        return 'btn-danger';
-      case 'blue':
-        return 'btn-primary';
-      case 'green':
-        return 'btn-success';
-      default:
-        return 'btn-danger';
-    }
-  };
-
-  return (
-    <div className="dialog-overlay">
-      <div className="dialog-content">
-        <div className="dialog-title">{message}</div>
-        <div className="flex gap-4 mt-4">
-          <button
-            onClick={onCancel}
-            className="flex-1 btn-secondary min-h-[44px]"
-          >
-            {cancelText}
-          </button>
-          <button
-            onClick={onConfirm}
-            className={`flex-1 min-h-[44px] ${getConfirmButtonClass()}`}
-          >
-            {confirmText}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  return null;
 } 

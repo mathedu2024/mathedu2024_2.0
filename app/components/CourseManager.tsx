@@ -6,7 +6,8 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import LoadingSpinner from './LoadingSpinner';
 import AlertDialog from './AlertDialog';
-import DetailModal from './DetailModal';
+import alerts from '../utils/alerts';
+import { Modal } from './ui';
 import Image from 'next/image';
 
 interface CourseManagerProps {
@@ -293,7 +294,7 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('確定要刪除此課程嗎？')) return;
+    if (!(await alerts.confirm('確定要刪除此課程嗎？'))) return;
     try {
       // 找到要刪除的課程
       const courseToDelete = courses.find(course => course.id === id);
@@ -334,7 +335,7 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
   };
 
   const handleArchive = async (id: string) => {
-    if (!window.confirm('確定要封存此課程嗎？封存後課程將不會顯示在課程列表中。')) return;
+    if (!(await alerts.confirm('確定要封存此課程嗎？封存後課程將不會顯示在課程列表中。'))) return;
     try {
       await fetch('/api/courses/archive', {
         method: 'POST',
@@ -351,7 +352,7 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
   };
 
   const handleUnarchive = async (id: string) => {
-    if (!window.confirm('確定要取消封存此課程嗎？')) return;
+    if (!(await alerts.confirm('確定要取消封存此課程嗎？'))) return;
     try {
       await fetch('/api/courses/archive', {
         method: 'POST',
@@ -454,7 +455,7 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
   };
 
   const handleRemoveStudentFromCourse = async (student: Student, course: Course) => {
-    if (!window.confirm(`確定要將學生 ${student.name} 從課程「${course.name}」中移除嗎？`)) {
+    if (!(await alerts.confirm(`確定要將學生 ${student.name} 從課程「${course.name}」中移除嗎？`))) {
       return;
     }
 
@@ -483,8 +484,8 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
   };
 
   return (
-    <div className="max-w-6xl mx-auto w-full p-4">
-      <h2 className="text-2xl font-bold mb-6">課程管理</h2>
+    <div className="max-w-6xl mx-auto w-full p-4 h-full flex flex-col">
+      <h2 className="text-2xl font-bold mb-6 flex-shrink-0">課程管理</h2>
       {/* 篩選器區塊已移除 */}
         {/* 新增課程按鈕 */}
         {!editingCourse && (
@@ -891,7 +892,7 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
       )}
       {/* 課程列表 - 只在非編輯狀態下顯示 */}
       {!editingCourse && (
-        <>
+        <div className="flex-1 min-h-0 flex flex-col">
           {/* 課程列表 */}
           {loading ? (
             <div className="flex justify-center items-center py-12">
@@ -899,7 +900,7 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
               <p className="text-gray-600 ml-4">載入中...</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-4 flex-1 min-h-0 overflow-y-auto">
               {/* 調試信息 */}
               <div className="text-sm text-gray-500 mb-4">
                 載入到 {filteredCourses.length} 個課程 (總共 {courses.length} 個)
@@ -992,46 +993,45 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
               ))}
             </div>
           )}
-        </>
+        </div>
       )}
       {/* Course Detail Modal */}
-      {showStudentListModal && (
-        <DetailModal
-          open={!!showStudentListModal}
-          title={`「${showStudentListModal.name}」學生清單`}
-          onClose={() => setShowStudentListModal(null)}
-        >
-          <div className="max-h-[80vh] overflow-y-auto">
-            {/* 學生名單 */}
-            <div>
-              <h4 className="font-semibold text-gray-900 mb-2 text-center">學生名單</h4>
-              {loadingStudents ? (
-                <div className="flex items-center justify-center gap-2 text-gray-500 py-8">
-                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
-                  <span>正在載入學生名單...</span>
-                </div>
-              ) : studentList.length > 0 ? (
-                <div className="max-w-md mx-auto w-full p-2" style={{ maxHeight: 300 }}>
-                  <div className="overflow-x-auto" style={{ maxHeight: 220 }}>
-                    <table className="w-full table-fixed border border-gray-200 rounded-lg text-sm overflow-hidden">
+      <Modal
+        open={!!showStudentListModal}
+        onClose={() => setShowStudentListModal(null)}
+        title={`「${showStudentListModal?.name}」學生清單`}
+        size="lg"
+      >
+        <div className="max-h-[60vh] overflow-y-auto">
+          {/* 學生名單 */}
+          <div>
+            <h4 className="font-semibold text-gray-900 mb-4 text-center">學生名單</h4>
+            {loadingStudents ? (
+              <div className="flex items-center justify-center py-8">
+                <LoadingSpinner size={20} text="正在載入學生名單..." />
+              </div>
+            ) : studentList.length > 0 ? (
+              <div className="w-full">
+                <div className="overflow-x-auto">
+                  <table className="w-full border border-gray-200 rounded-lg text-sm">
                     <thead>
                       <tr className="bg-gray-100">
-                          <th className="px-1 py-1 text-center font-semibold text-gray-700 w-14 truncate">學號</th>
-                          <th className="px-1 py-1 text-center font-semibold text-gray-700 w-16 truncate">姓名</th>
-                          <th className="px-1 py-1 text-center font-semibold text-gray-700 w-12 truncate">年級</th>
-                          <th className="px-1 py-1 text-center font-semibold text-gray-700 w-12 truncate">操作</th>
+                        <th className="px-4 py-3 text-center font-semibold text-gray-700">學號</th>
+                        <th className="px-4 py-3 text-center font-semibold text-gray-700">姓名</th>
+                        <th className="px-4 py-3 text-center font-semibold text-gray-700">年級</th>
+                        <th className="px-4 py-3 text-center font-semibold text-gray-700">操作</th>
                       </tr>
                     </thead>
                     <tbody>
-                        {studentList.map(stu => (
-                          <tr key={stu.id} className="border-t hover:bg-blue-50 even:bg-gray-50">
-                            <td className="px-1 py-1 text-center text-gray-800 font-medium truncate">{stu.studentId}</td>
-                            <td className="px-1 py-1 text-center text-gray-800 truncate">{stu.name}</td>
-                            <td className="px-1 py-1 text-center text-gray-800 truncate">{stu.grade || '未設定'}</td>
-                            <td className="px-1 py-1 text-center">
+                      {studentList.map(stu => (
+                        <tr key={stu.id} className="border-t hover:bg-blue-50 even:bg-gray-50">
+                          <td className="px-4 py-3 text-center text-gray-800 font-medium">{stu.studentId}</td>
+                          <td className="px-4 py-3 text-center text-gray-800">{stu.name}</td>
+                          <td className="px-4 py-3 text-center text-gray-800">{stu.grade || '未設定'}</td>
+                          <td className="px-4 py-3 text-center">
                             <button
-                                onClick={() => handleRemoveStudentFromCourse(stu, showStudentListModal!)}
-                                className="bg-red-100 text-red-600 px-2 py-1 rounded hover:bg-red-200 transition text-xs"
+                              onClick={() => handleRemoveStudentFromCourse(stu, showStudentListModal!)}
+                              className="bg-red-100 text-red-600 px-3 py-1 rounded hover:bg-red-200 transition text-sm"
                             >
                               移除
                             </button>
@@ -1040,16 +1040,15 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
                       ))}
                     </tbody>
                   </table>
-                  </div>
                 </div>
-              ) : (
-                <p className="text-gray-500 text-center py-8">此課程尚無學生選修。</p>
-              )}
-            </div>
+              </div>
+            ) : (
+              <p className="text-gray-500 text-center py-8">此課程尚無學生選修。</p>
+            )}
           </div>
-        </DetailModal>
-      )}
+        </div>
+      </Modal>
       <AlertDialog open={alert.open} message={alert.message} onClose={() => setAlert({ open: false, message: '' })} />
     </div>
   );
-} 
+}

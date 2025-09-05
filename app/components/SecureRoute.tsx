@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSession, isAuthenticated } from '../utils/session';
+import LoadingSpinner from './LoadingSpinner';
 
 interface SecureRouteProps {
   children: React.ReactNode;
@@ -62,16 +63,15 @@ export default function SecureRoute({
 
   if (isLoading) {
     return fallback || (
-      <div className="flex h-screen items-center justify-center bg-gray-100">
-        <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-r-4 border-blue-600"></div>
-        <span className="ml-4 text-gray-600">驗證中...</span>
+      <div className="flex h-full items-center justify-center bg-gray-100">
+        <LoadingSpinner size={64} text="驗證中..." />
       </div>
     );
   }
 
   if (!isAuthorized) {
     return fallback || (
-      <div className="flex h-screen items-center justify-center bg-gray-100">
+      <div className="flex h-full items-center justify-center bg-gray-100">
         <div className="text-center">
           <div className="text-red-500 text-6xl mb-4">🚫</div>
           <h2 className="text-2xl font-bold text-gray-900 mb-4">存取被拒絕</h2>

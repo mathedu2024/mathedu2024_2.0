@@ -2,6 +2,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import * as ExcelJS from 'exceljs';
+import CourseDetailModal from './CourseDetailModal';
+import alerts from '../utils/alerts';
+import { Modal } from './ui';
+
 
 interface UserInfo {
   id: string;
@@ -18,6 +22,27 @@ interface CourseInfo {
   id: string;
   name: string;
   code: string;
+}
+
+interface DistributionData {
+  statistics: {
+    平均: number | null;
+    頂標: number | null;
+    前標: number | null;
+    均標: number | null;
+    後標: number | null;
+    底標: number | null;
+  };
+  distribution: { range: string; count: number }[];
+}
+
+interface PercentileStatistics {
+  平均: number | null;
+  頂標: number | null;
+  前標: number | null;
+  均標: number | null;
+  後標: number | null;
+  底標: number | null;
 }
 
 // 型別定義
@@ -114,11 +139,11 @@ function removeUndefinedDeep(obj: unknown): unknown {
 }
 
 // 恢復 getTaiwanPercentileLevels
-function getTaiwanPercentileLevels(scores: number[]) {
+function getTaiwanPercentileLevels(scores: number[]): PercentileStatistics {
   if (scores.length === 0) return { 頂標: null, 前標: null, 均標: null, 後標: null, 底標: null, 平均: null };
   const sorted = [...scores].sort((a, b) => b - a); // 由高到低
   const n = sorted.length;
-  const levels: { [k: string]: number | null } = { 頂標: null, 前標: null, 均標: null, 後標: null, 底標: null, 平均: null };
+  const levels: PercentileStatistics = { 頂標: null, 前標: null, 均標: null, 後標: null, 底標: null, 平均: null };
   // 平均
   levels['平均'] = parseFloat((scores.reduce((a, b) => a + b, 0) / n).toFixed(2));
   // 計算各標的分數
@@ -188,9 +213,9 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
   const [courses, setCourses] = useState<CourseInfo[]>([]);
   const [showPercentModal, setShowPercentModal] = useState(false);
   // 1. 新增 state：小考p%、作業q%、上課態度r%、特殊加分c、定期評量次數勾選、各項模式
-  const [percentQuizRaw, setPercentQuizRaw] = useState<string>('20');
-  const [percentHomeworkRaw, setPercentHomeworkRaw] = useState<string>('10');
-  const [percentAttitudeRaw, setPercentAttitudeRaw] = useState<string>('10');
+  const [percentQuizRaw, setPercentQuizRaw] = useState<string>('40');
+  const [percentHomeworkRaw, setPercentHomeworkRaw] = useState<string>('40');
+  const [percentAttitudeRaw, setPercentAttitudeRaw] = useState<string>('20');
   const percentQuiz = Number(percentQuizRaw);
   const percentHomework = Number(percentHomeworkRaw);
   const percentAttitude = Number(percentAttitudeRaw);
@@ -206,6 +231,35 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState<boolean>(false);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+  const [showCourseDetail, setShowCourseDetail] = useState<{ id: string; name: string; code: string } | null>(null);
+  const [teachers, setTeachers] = useState<{ id: string; name: string }[]>([]);
+  const [isDistributionModalOpen, setIsDistributionModalOpen] = useState(false);
+  const [distributionData, setDistributionData] = useState<DistributionData | null>(null);
+  const [selectedColumnForChart, setSelectedColumnForChart] = useState<ColumnDetail | null>(null);
+
+  const handleShowDistribution = (colIdx: number) => {
+    const scores = students.map(s => s.regularScores?.[colIdx]).filter(score => typeof score === 'number' && !isNaN(score)) as number[];
+    const stats = getTaiwanPercentileLevels(scores);
+    const distribution = [
+        { range: '90-100', count: 0 },
+        { range: '80-89', count: 0 },
+        { range: '70-79', count: 0 },
+        { range: '60-69', count: 0 },
+        { range: '50-59', count: 0 },
+        { range: '<50', count: 0 },
+    ];
+    scores.forEach(score => {
+        if (score >= 90) distribution[0].count++;
+        else if (score >= 80) distribution[1].count++;
+        else if (score >= 70) distribution[2].count++;
+        else if (score >= 60) distribution[3].count++;
+        else if (score >= 50) distribution[4].count++;
+        else distribution[5].count++;
+    });
+    setDistributionData({ statistics: stats, distribution });
+    setSelectedColumnForChart(columnDetails[colIdx]);
+    setIsDistributionModalOpen(true);
+  };
 
   // 檢查是否有未儲存的變更
   useEffect(() => {
@@ -249,6 +303,19 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
     setPendingNavigation(null);
   };
 
+  // 獲取老師資料
+  const fetchTeachers = async () => {
+    try {
+      const res = await fetch('/api/teacher/list');
+      if (res.ok) {
+        const teachersData = await res.json();
+        setTeachers(teachersData);
+      }
+    } catch (error) {
+      console.error('獲取老師資料時發生錯誤:', error);
+    }
+  };
+
   useEffect(() => {
     if (!userInfo || !userInfo.id) {
       setCourses([]);
@@ -267,9 +334,14 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
       setCourses(teacherCourses);
     })().catch((error: unknown) => {
       console.error('載入課程資料時發生錯誤:', error);
-      alert('載入課程資料時發生錯誤: ' + (error instanceof Error ? error.message : String(error)));
+      alerts.showError(error instanceof Error ? error.message : String(error));
     });
   }, [userInfo]);
+
+  // 獲取老師資料
+  useEffect(() => {
+    fetchTeachers();
+  }, []);
 
   useEffect(() => {
     if (selectedCourseName && selectedCourseCode) {
@@ -316,38 +388,38 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
           if (gradeData.totalSetting) {
             setTotalSetting({
               ...gradeData.totalSetting,
-              regularPercent: gradeData.totalSetting.regularPercent ?? 40,
-              periodicPercent: gradeData.totalSetting.periodicPercent ?? 60,
+              regularPercent: gradeData.totalSetting.regularPercent ?? 60,
+              periodicPercent: gradeData.totalSetting.periodicPercent ?? 40,
               manualAdjust: gradeData.totalSetting.manualAdjust ?? 0,
               regularDetail: gradeData.totalSetting.regularDetail ?? {
-                '平時測驗': { percent: 20, calcMethod: '平均' },
-                '回家作業': { percent: 10, calcMethod: '平均' },
-                '上課態度': { percent: 10, calcMethod: '平均' },
+                '平時測驗': { percent: 40, calcMethod: '平均' },
+            '回家作業': { percent: 40, calcMethod: '平均' },
+            '上課態度': { percent: 20, calcMethod: '平均' },
               }
             });
             // 同步 percentQuiz/percentHomework/percentAttitude
-            setPercentQuizRaw(String(gradeData.totalSetting.regularDetail?.['平時測驗']?.percent ?? '20'));
-            setPercentHomeworkRaw(String(gradeData.totalSetting.regularDetail?.['回家作業']?.percent ?? '10'));
-            setPercentAttitudeRaw(String(gradeData.totalSetting.regularDetail?.['上課態度']?.percent ?? '10'));
+            setPercentQuizRaw(String(gradeData.totalSetting.regularDetail?.['平時測驗']?.percent ?? '40'));
+            setPercentHomeworkRaw(String(gradeData.totalSetting.regularDetail?.['回家作業']?.percent ?? '40'));
+            setPercentAttitudeRaw(String(gradeData.totalSetting.regularDetail?.['上課態度']?.percent ?? '20'));
           } else {
             setTotalSetting({
-              regularPercent: 40,
-              periodicPercent: 60,
+              regularPercent: 60,
+              periodicPercent: 40,
               manualAdjust: 0,
               regularDetail: {
-                '平時測驗': { percent: 20, calcMethod: '平均' },
-                '回家作業': { percent: 10, calcMethod: '平均' },
-                '上課態度': { percent: 10, calcMethod: '平均' },
+                '平時測驗': { percent: 40, calcMethod: '平均' },
+                '回家作業': { percent: 40, calcMethod: '平均' },
+                '上課態度': { percent: 20, calcMethod: '平均' },
               }
             });
-            setPercentQuizRaw('20');
-            setPercentHomeworkRaw('10');
-            setPercentAttitudeRaw('10');
+            setPercentQuizRaw('40');
+            setPercentHomeworkRaw('40');
+            setPercentAttitudeRaw('20');
           }
         } else {
           setTotalSetting({
-            regularPercent: 40,
-            periodicPercent: 60,
+            regularPercent: 60,
+            periodicPercent: 40,
             manualAdjust: 0,
             regularDetail: {
               '平時測驗': { percent: 20, calcMethod: '平均' },
@@ -361,13 +433,13 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
         }
       })().catch((error: unknown) => {
         console.error('載入成績資料時發生錯誤:', error);
-        alert('載入成績資料時發生錯誤: ' + (error instanceof Error ? error.message : String(error)));
+        alerts.showError(error instanceof Error ? error.message : String(error));
       });
     } else {
       setStudents([]);
       setTotalSetting({
-        regularPercent: 40,
-        periodicPercent: 60,
+        regularPercent: 60,
+        periodicPercent: 40,
         manualAdjust: 0,
         regularDetail: {
           '平時測驗': { percent: 20, calcMethod: '平均' },
@@ -384,7 +456,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
   // handleSave: 儲存時同步 periodicEnabled
   const handleSave = async () => {
     if (!selectedCourseName || !selectedCourseCode) {
-      alert('請先選擇課程');
+      alerts.showWarning('請先選擇課程');
       return;
     }
     const periodicNames: PeriodicScoreName[] = ['第一次定期評量', '第二次定期評量', '期末評量'];
@@ -446,7 +518,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
           setPeriodicEnabled(periodicNames.map(name => !!latestGradeData.totalSetting.periodicEnabled?.[name]));
         }
       }
-      alert('成績已儲存！');
+      alerts.showSuccess('成績已儲存！');
     } finally {
       setIsSaving(false);
     }
@@ -454,7 +526,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
 
   const handleExport = () => {
     if (!selectedCourseName || !selectedCourseCode || students.length === 0) {
-      alert('請先選擇課程且有學生資料');
+      alerts.showWarning('請先選擇課程且有學生資料');
       return;
     }
 
@@ -585,12 +657,29 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+      
+      // 顯示匯出成功動畫對話框
+      alerts.showSuccess('成績資料匯出成功！', {
+        title: '匯出完成',
+        text: 'Excel 檔案已下載到您的電腦',
+        icon: 'success',
+        showConfirmButton: true,
+        confirmButtonText: '確定',
+        timer: 3000,
+        timerProgressBar: true,
+        allowOutsideClick: false,
+        allowEscapeKey: true,
+        customClass: {
+          popup: 'animate-bounce-in',
+          title: 'text-green-600'
+        }
+      });
     });
   };
 
   const handleImport = () => {
     // TODO: import from CSV/Excel
-    alert('匯入功能尚未實作');
+    alerts.showInfo('匯入功能尚未實作');
   };
 
   // 輔助函數：平時成績計算
@@ -653,6 +742,55 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
     setShowPercentModal(true);
   };
 
+  // 處理課程詳細資訊顯示
+  const handleShowCourseDetail = (course: { id: string; name: string; code: string }) => {
+    setShowCourseDetail(course);
+  };
+
+  // 處理刪除課程欄位
+  const handleDeleteColumn = () => {
+    if (editingColumn !== null) {
+      // 移除該欄位的成績資料
+      setStudents(prev => prev.map(stu => {
+        const newRegularScores = { ...stu.regularScores };
+        delete newRegularScores[editingColumn];
+        // 重新整理 index 以確保欄位順序
+        const reordered: { [key: string]: number | undefined } = {};
+        let c = 0;
+        for (let i = 0; i < regularColumns; i++) {
+          if (i !== editingColumn) {
+            reordered[c] = newRegularScores[i];
+            c++;
+          }
+        }
+        return { ...stu, regularScores: reordered };
+      }));
+      
+      // 移除欄位詳細資訊
+      setColumnDetails(prev => {
+        const newDetails = { ...prev };
+        delete newDetails[editingColumn];
+        // 重新整理 index
+        const reordered: { [key: string]: { type: string; name: string; date: string } } = {};
+        let c = 0;
+        for (let i = 0; i < regularColumns; i++) {
+          if (i !== editingColumn) {
+            reordered[c] = newDetails[i];
+            c++;
+          }
+        }
+        return reordered;
+      });
+      
+      // 減少欄位數量
+      setRegularColumns(prev => Math.max(1, prev - 1));
+      
+      // 關閉彈窗
+      setEditingColumn(null);
+      setShowCourseDetail(null);
+    }
+  };
+
   // 讀取時初始化 periodicEnabled 狀態
   useEffect(() => {
     if (totalSetting && totalSetting.periodicEnabled) {
@@ -662,8 +800,8 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
   }, [totalSetting]);
 
   return (
-    <div className="max-w-6xl mx-auto w-full p-4">
-      <h2 className="text-2xl font-bold mb-6">成績資料管理</h2>
+    <div className="max-w-6xl mx-auto w-full p-4 h-full flex flex-col">
+      <h2 className="text-2xl font-bold mb-6 flex-shrink-0">成績資料管理</h2>
       <div className="mb-4 flex flex-col md:flex-row md:items-center gap-4">
         <select
           className="select-unified w-full md:w-64"
@@ -717,20 +855,20 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                       <th className={studentIdColClass} style={studentIdColStyle}>學號</th>
                       <th className={studentNameColClass} style={studentNameColStyle}>姓名</th>
                       {Array.from({ length: regularColumns }).map((_, idx) => {
-                        const detail: ColumnDetail = columnDetails[idx] || { type: '', name: '', date: '' };
+                        const detail = columnDetails[idx];
                         // 依 type 與同類型順序命名
                         let displayName = '';
-                        if (detail.type === '作業成績') {
-                          const count = Array.from({ length: idx + 1 }).filter((_, i) => (columnDetails[i]?.type) === '作業成績').length;
+                        if (detail?.type === '回家作業') {
+                          const count = Array.from({ length: idx + 1 }).filter((_, i) => (columnDetails[i]?.type) === '回家作業').length;
                           displayName = `作業${count}`;
-                        } else if (detail.type === '上課態度') {
+                        } else if (detail?.type === '上課態度') {
                           const count = Array.from({ length: idx + 1 }).filter((_, i) => (columnDetails[i]?.type) === '上課態度').length;
-                          displayName = `上課${count}`;
-                        } else if (detail.type === '小考成績') {
+                          displayName = `態度${count}`;
+                        } else if (detail?.type === '小考成績') {
                           const count = Array.from({ length: idx + 1 }).filter((_, i) => (columnDetails[i]?.type) === '小考成績').length;
                           displayName = `小考${count}`;
                         } else {
-                          displayName = detail.name?.trim() ? detail.name : `成績${idx + 1}`;
+                          displayName = detail?.name?.trim() ? detail.name : `成績${idx + 1}`;
                         }
                         return (
                           <th key={idx} className="px-4 py-2 text-left text-sm font-semibold text-gray-700 whitespace-nowrap" style={{ width: '120px' }}>
@@ -739,8 +877,8 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                               <button
                                 className="mt-1 text-blue-500 hover:text-blue-700 text-xs border border-blue-400 rounded px-2 py-0.5"
                                 type="button"
-                                onClick={() => setEditingColumn(idx)}
-                              >成績資訊</button>
+                                onClick={() => handleShowDistribution(idx)}
+                              >成績分布</button>
                             </div>
                           </th>
                         );
@@ -758,30 +896,49 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                           return (
                             <td key={colIdx} className="px-2 py-2" style={{ width: '120px' }}>
                               <input
-                                inputMode="numeric"
-                                className="w-16 border rounded p-1"
-                                value={score ?? ''}
-                                ref={el => {
-                                  if (!inputRefs.current[rowIdx]) inputRefs.current[rowIdx] = [];
-                                  inputRefs.current[rowIdx][colIdx] = el;
-                                }}
-                                onChange={e => {
-                                  const value = e.target.value;
-                                  setStudents(prev => prev.map(s =>
-                                    s.id === stu.id
-                                      ? { ...s, regularScores: { ...s.regularScores, [colIdx]: value === '' ? undefined : parseInt(value, 10) } }
-                                      : s
-                                  ));
-                                }}
-                                onKeyDown={e => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    if (rowIdx < students.length - 1) {
-                                      inputRefs.current[rowIdx + 1]?.[colIdx]?.focus();
-                                    }
-                                  }
-                                }}
-                              />
+                      inputMode="numeric"
+                      className="w-16 border rounded p-1"
+                      value={score ?? ''}
+                      ref={el => {
+                        if (!inputRefs.current[rowIdx]) inputRefs.current[rowIdx] = [];
+                        inputRefs.current[rowIdx][colIdx] = el;
+                      }}
+                      onChange={e => {
+                        const value = e.target.value;
+                        setStudents(prev => prev.map(s =>
+                          s.id === stu.id
+                            ? { ...s, regularScores: { ...s.regularScores, [colIdx]: value === '' ? undefined : parseInt(value, 10) } }
+                            : s
+                        ));
+                      }}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          if (rowIdx < students.length - 1) {
+                            inputRefs.current[rowIdx + 1]?.[colIdx]?.focus();
+                          }
+                        }
+                      }}
+                      onBlur={e => {
+                        const value = e.target.value;
+                        if (value !== '') {
+                          const numValue = parseInt(value, 10);
+                          if (numValue < 0) {
+                            setStudents(prev => prev.map(s =>
+                              s.id === stu.id
+                                ? { ...s, regularScores: { ...s.regularScores, [colIdx]: 0 } }
+                                : s
+                            ));
+                          } else if (numValue > 100) {
+                            setStudents(prev => prev.map(s =>
+                              s.id === stu.id
+                                ? { ...s, regularScores: { ...s.regularScores, [colIdx]: 100 } }
+                                : s
+                            ));
+                          }
+                        }
+                      }}
+                    />
                               {/* 4. 小於60分標記* */}
                               {isLow && (
                                 <span className="text-red-500 ml-1 font-bold">*</span>
@@ -794,181 +951,30 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                   </tbody>
                 </table>
               </div>
-              {/* 成績資訊彈窗 */}
-              {editingColumn !== null && selectedTab === 'regular' && (
-                <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-                  <div className="bg-white rounded-lg shadow-lg p-6 min-w-[300px] w-full max-w-md max-h-[70vh] overflow-auto">
-                    {/* 大標題最上方 */}
-                    <div className="mb-4 font-bold text-lg">
-                      {`第${editingColumn + 1}次成績資訊`}
-                    </div>
-                    {(() => {
-                      const scores = students.map(stu => stu.regularScores?.[editingColumn]).filter(s => typeof s === 'number') as number[];
-                      const levels = getTaiwanPercentileLevels(scores);
-                      // 分布（10分一段，最後一格為100以上，且100以上在最前面）
-                      const dist: {[k: string]: number} = {};
-                      dist['100以上'] = 0;
-                      for (let i = 90; i >= 0; i -= 10) dist[`${i}-${i+9}`] = 0;
-                      scores.forEach(s => {
-                        if (s >= 100) {
-                          dist['100以上']++;
-                        } else {
-                          const bucket = `${Math.floor(s/10)*10}-${Math.floor(s/10)*10+9}`;
-                          dist[bucket]++;
-                        }
-                      });
-                      // 分布表每行兩格，100以上在最前面
-                      const distEntries = Object.entries(dist) as [string, number][];
-                      const distRows: [string, number][][] = [];
-                      for (let i = 0; i < distEntries.length; i += 2) {
-                        distRows.push(distEntries.slice(i, i+2));
-                      }
-                      const detail: ColumnDetail = columnDetails[editingColumn] || { type: '', name: '', date: '' };
-                      return (
-                        <>
-                          {/* 平時成績：成績性質下方補上名稱和考試日期 */}
-                          <div className="mb-3">
-                            <label className="block mb-1">成績性質：</label>
-                            <select
-                              className="select-unified w-full"
-                              value={detail.type || ''}
-                              onChange={e => setColumnDetails(details => ({
-                                ...details,
-                                [editingColumn]: {
-                                  ...details[editingColumn],
-                                  type: e.target.value
-                                }
-                              }))}
-                            >
-                              <option value="">請選擇</option>
-                              <option value="小考成績">小考成績</option>
-                              <option value="作業成績">作業成績</option>
-                              <option value="上課態度">上課態度</option>
-                            </select>
-                          </div>
-                          <div className="mb-3">
-                            <label className="block mb-1">名稱：</label>
-                            <input
-                              className="border rounded px-2 py-1 w-full"
-                              value={detail.name || ''}
-                              onChange={e => setColumnDetails(details => ({
-                                ...details,
-                                [editingColumn]: {
-                                  ...details[editingColumn],
-                                  name: e.target.value
-                                }
-                              }))}
-                            />
-                          </div>
-                          <div className="mb-3">
-                            <label className="block mb-1">考試日期：</label>
-                            <input
-                              type="date"
-                              className="border rounded px-2 py-1 w-full"
-                              value={detail.date || ''}
-                              onChange={e => setColumnDetails(details => ({
-                                ...details,
-                                [editingColumn]: {
-                                  ...details[editingColumn],
-                                  date: e.target.value
-                                }
-                              }))}
-                            />
-                          </div>
-                          {/* 五標與分布下移到這裡 */}
-                          <div className="mb-3 mt-4">
-                            <div className="mb-1 font-semibold">平均與五標：</div>
-                            <table className="border text-base mb-2 w-full">
-                              <thead>
-                                <tr>
-                                  <th className="border px-2 py-1 font-bold text-center">平均</th>
-                                  <th className="border px-2 py-1 font-bold text-center">頂標</th>
-                                  <th className="border px-2 py-1 font-bold text-center">前標</th>
-                                  <th className="border px-2 py-1 font-bold text-center">均標</th>
-                                  <th className="border px-2 py-1 font-bold text-center">後標</th>
-                                  <th className="border px-2 py-1 font-bold text-center">底標</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                <tr>
-                                  <td className="border px-2 py-1 text-center">{levels['平均'] ?? 0}</td>
-                                  <td className="border px-2 py-1 text-center">{levels['頂標'] ?? 0}</td>
-                                  <td className="border px-2 py-1 text-center">{levels['前標'] ?? 0}</td>
-                                  <td className="border px-2 py-1 text-center">{levels['均標'] ?? 0}</td>
-                                  <td className="border px-2 py-1 text-center">{levels['後標'] ?? 0}</td>
-                                  <td className="border px-2 py-1 text-center">{levels['底標'] ?? 0}</td>
-                                </tr>
-                              </tbody>
-                            </table>
-                            {/* 分布表格恢復，每行兩格，最高區間為100以上 */}
-                            <div className="mb-1 font-semibold">成績分布：</div>
-                            <table className="border text-base mt-2 w-full">
-                              <tbody>
-                                {distRows.map((row: [string, number][], idx: number) => (
-                                  <tr key={idx}>
-                                    {row.map(([range, count]: [string, number]) => (
-                                      <React.Fragment key={range}>
-                                        <td className="border px-2 py-1 font-bold text-center">{range}</td>
-                                        <td className="border px-2 py-1 text-center">{count}</td>
-                                      </React.Fragment>
-                                    ))}
-                                    {/* 若最後一行只有一格，補空格 */}
-                                    {row.length === 1 && <><td className="border px-2 py-1"></td><td className="border px-2 py-1"></td></>}
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </>
-                      );
-                    })()}
-                    <div className="flex justify-between gap-2 mt-4">
-                      <button
-                        className="px-4 py-2 rounded bg-red-100 text-red-700 hover:bg-red-200"
-                        onClick={() => {
-                          // 刪除此欄
-                          setRegularColumns(prev => prev > 1 ? prev - 1 : 1);
-                          setStudents(prev => prev.map(stu => {
-                            const newScores = { ...stu.regularScores };
-                            delete newScores[editingColumn];
-                            // 重新整理 index 以確保欄位順序
-                            const reordered: { [key: string]: number | undefined } = {};
-                            let c = 0;
-                            for (let i = 0; i < prev.length; i++) {
-                              if (i !== editingColumn) {
-                                reordered[c] = newScores[i];
-                                c++;
-                              }
-                            }
-                            return { ...stu, regularScores: reordered };
-                          }));
-                          setColumnDetails(details => {
-                            const newDetails = { ...details };
-                            delete newDetails[editingColumn!];
-                            // 重新整理 index
-                            const reordered: { [key: string]: { type: string; name: string; date: string } } = {};
-                            let c = 0;
-                            for (let i = 0; i < regularColumns; i++) {
-                              if (i !== editingColumn) {
-                                reordered[c] = newDetails[i];
-                                c++;
-                              }
-                            }
-                            return reordered;
-                          });
-                          setEditingColumn(null);
-                        }}
-                        type="button"
-                      >刪除此欄</button>
-                      <button
-                        className="px-4 py-2 rounded bg-gray-200 text-gray-800 hover:bg-gray-300"
-                        onClick={() => setEditingColumn(null)}
-                        type="button"
-                      >關閉</button>
-                    </div>
-                  </div>
-                </div>
-              )}
+              {/* 平時成績課程詳細資訊模態框 */}
+              <CourseDetailModal
+                course={showCourseDetail}
+                teachers={teachers}
+                open={!!showCourseDetail && selectedTab === 'regular'}
+                onClose={() => {
+                  setShowCourseDetail(null);
+                  setEditingColumn(null);
+                }}
+                showDescription={false}
+                showStudents={false}
+                showDeleteButton={true}
+                onDelete={handleDeleteColumn}
+                isGradeInfo={true}
+                isPeriodic={false}
+                editingColumn={editingColumn}
+                columnDetails={columnDetails}
+                onColumnDetailsChange={setColumnDetails}
+                students={students}
+                getTaiwanPercentileLevels={getTaiwanPercentileLevels}
+                periodicScores={periodicScores}
+              />
+
+              {/* 平時成績分析卡片（已移除） */}
             </div>
           )}
           {selectedTab === 'periodic' && (
@@ -997,7 +1003,16 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                             <button
                               className="mt-1 text-blue-500 hover:text-blue-700 text-xs border border-blue-400 rounded px-2 py-0.5"
                               type="button"
-                              onClick={() => setEditingColumn(idx)}
+                              onClick={() => {
+                                setEditingColumn(idx);
+                                // 創建一個簡化的課程資訊物件
+                                const tempCourse = {
+                                  id: `periodic-${idx}`,
+                                  name: `${periodicScores[idx]}成績`,
+                                  code: `PERIODIC-${idx + 1}`
+                                };
+                                handleShowCourseDetail(tempCourse);
+                              }}
                             >成績資訊</button>
                           </div>
                         </th>
@@ -1057,117 +1072,42 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                   </tbody>
                 </table>
               </div>
-              {/* 定期評量成績資訊彈窗 */}
-              {editingColumn !== null && selectedTab === 'periodic' && (
-                <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-                  <div className="bg-white rounded-lg shadow-lg p-6 min-w-[300px] w-full max-w-md max-h-[70vh] overflow-auto">
-                    <div className="mb-4 font-bold text-lg">
-                      {`${periodicScores[editingColumn]}成績資訊`}
+              {/* 定期評量課程詳細資訊模態框 */}
+              <CourseDetailModal
+                course={showCourseDetail}
+                teachers={teachers}
+                open={!!showCourseDetail && selectedTab === 'periodic'}
+                onClose={() => {
+                  setShowCourseDetail(null);
+                  setEditingColumn(null);
+                }}
+                showDescription={false}
+                showStudents={false}
+                showDeleteButton={false}
+                isGradeInfo={true}
+                isPeriodic={true}
+                editingColumn={editingColumn}
+                columnDetails={columnDetails}
+                onColumnDetailsChange={setColumnDetails}
+                students={students}
+                getTaiwanPercentileLevels={getTaiwanPercentileLevels}
+                periodicScores={periodicScores}
+              />
+
+              {/* 定期評量分析卡片 */}
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {periodicScores.map((scoreName) => {
+                  // 只分析該次評量分數
+                  const scores = students.map(stu => stu.periodicScores?.[scoreName]).filter(v => typeof v === 'number' && !isNaN(v)) as number[];
+                  const levels = getTaiwanPercentileLevels(scores);
+                  return (
+                    <div key={scoreName} className="bg-blue-50 rounded-lg p-4 shadow">
+                      <div className="font-bold text-blue-700 mb-2">{scoreName} 分析</div>
+                      <div className="text-sm text-gray-700">平均：{levels.平均 ?? '-'}，頂標：{levels.頂標 ?? '-'}，前標：{levels.前標 ?? '-'}，均標：{levels.均標 ?? '-'}，後標：{levels.後標 ?? '-'}，底標：{levels.底標 ?? '-'}</div>
                     </div>
-                    <div className="mb-3">
-                      <label className="block mb-1">日期：</label>
-                      <input
-                        type="date"
-                        className="border rounded px-2 py-1 w-full"
-                        value={columnDetails[editingColumn]?.date || ''}
-                        onChange={e => setColumnDetails(details => ({
-                          ...details,
-                          [editingColumn]: {
-                            ...details[editingColumn],
-                            date: e.target.value
-                          }
-                        }))}
-                      />
-                    </div>
-                    <div className="mb-3">
-                      <label className="block mb-1">名稱：</label>
-                      <input
-                        className="border rounded px-2 py-1 w-full"
-                        value={periodicScores[editingColumn]}
-                        disabled
-                      />
-                    </div>
-                    {/* 統計資訊 */}
-                    {(() => {
-                      const scores = students.map(stu => stu.periodicScores?.[periodicScores[editingColumn]]).filter(s => typeof s === 'number') as number[];
-                      if (scores.length === 0) return <div className="mb-2 text-gray-500">尚無成績資料</div>;
-                      const levels = getTaiwanPercentileLevels(scores);
-                      // 分布（10分一段，最後一格為100以上）
-                      const dist: {[k: string]: number} = {};
-                      dist['100以上'] = 0;
-                      for (let i = 90; i >= 0; i -= 10) dist[`${i}-${i+9}`] = 0;
-                      scores.forEach(s => {
-                        if (s >= 100) {
-                          dist['100以上']++;
-                        } else {
-                          const bucket = `${Math.floor(s/10)*10}-${Math.floor(s/10)*10+9}`;
-                          dist[bucket]++;
-                        }
-                      });
-                      // 分布表每行兩格
-                      const distEntries = Object.entries(dist) as [string, number][];
-                      const distRows: [string, number][][] = [];
-                      for (let i = 0; i < distEntries.length; i += 2) {
-                        distRows.push(distEntries.slice(i, i+2));
-                      }
-                      return (
-                        <>
-                          <div className="mb-3 mt-4">
-                            <div className="mb-1 font-semibold">平均與五標：</div>
-                            <table className="border text-base mb-2 w-full">
-                              <thead>
-                                <tr>
-                                  <th className="border px-2 py-1 font-bold text-center">平均</th>
-                                  <th className="border px-2 py-1 font-bold text-center">頂標</th>
-                                  <th className="border px-2 py-1 font-bold text-center">前標</th>
-                                  <th className="border px-2 py-1 font-bold text-center">均標</th>
-                                  <th className="border px-2 py-1 font-bold text-center">後標</th>
-                                  <th className="border px-2 py-1 font-bold text-center">底標</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                <tr>
-                                  <td className="border px-2 py-1 text-center">{levels['平均'] ?? 0}</td>
-                                  <td className="border px-2 py-1 text-center">{levels['頂標'] ?? 0}</td>
-                                  <td className="border px-2 py-1 text-center">{levels['前標'] ?? 0}</td>
-                                  <td className="border px-2 py-1 text-center">{levels['均標'] ?? 0}</td>
-                                  <td className="border px-2 py-1 text-center">{levels['後標'] ?? 0}</td>
-                                  <td className="border px-2 py-1 text-center">{levels['底標'] ?? 0}</td>
-                                </tr>
-                              </tbody>
-                            </table>
-                            {/* 分布表格恢復，每行兩格，最高區間為100以上 */}
-                            <div className="mb-1 font-semibold">成績分布：</div>
-                            <table className="border text-base mt-2 w-full">
-                              <tbody>
-                                {distRows.map((row: [string, number][], idx: number) => (
-                                  <tr key={idx}>
-                                    {row.map(([range, count]: [string, number]) => (
-                                      <React.Fragment key={range}>
-                                        <td className="border px-2 py-1 font-bold text-center">{range}</td>
-                                        <td className="border px-2 py-1 text-center">{count}</td>
-                                      </React.Fragment>
-                                    ))}
-                                    {/* 若最後一行只有一格，補空格 */}
-                                    {row.length === 1 && <><td className="border px-2 py-1"></td><td className="border px-2 py-1"></td></>}
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </>
-                      );
-                    })()}
-                    <div className="flex justify-end gap-2 mt-4">
-                      <button
-                        className="px-4 py-2 rounded bg-gray-200 text-gray-800 hover:bg-gray-300"
-                        onClick={() => setEditingColumn(null)}
-                        type="button"
-                      >關閉</button>
-                    </div>
-                  </div>
-                </div>
-              )}
+                  );
+                })}
+              </div>
             </div>
           )}
           {selectedTab === 'total' && (
@@ -1283,98 +1223,265 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
             </div>
           )}
           {/* 2. 百分比調整 Modal 內容重構 */}
-          {showPercentModal && (
-            <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-              <div className="bg-white rounded-lg shadow-lg p-6 min-w-[400px] w-[480px]">
-                <div className="mb-4 font-bold text-lg text-center">成績設定</div>
-                <div className="mb-4 flex flex-col gap-4">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block mb-1">小考成績 p%</label>
-                      <input type="number" min={0} max={100} className="border rounded px-2 py-1 w-full text-center" value={percentQuizRaw} onChange={e=>setPercentQuizRaw(e.target.value)} />
-                    </div>
-                    <div>
-                      <label className="block mb-1">作業成績 q%</label>
-                      <input type="number" min={0} max={100} className="border rounded px-2 py-1 w-full text-center" value={percentHomeworkRaw} onChange={e=>setPercentHomeworkRaw(e.target.value)} />
-                    </div>
-                    <div>
-                      <label className="block mb-1">上課態度 r%</label>
-                      <input type="number" min={0} max={100} className="border rounded px-2 py-1 w-full text-center" value={percentAttitudeRaw} onChange={e=>setPercentAttitudeRaw(e.target.value)} />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block mb-1">平時成績 a%</label>
-                      <input type="number" className="border rounded px-2 py-1 w-full text-center bg-gray-100" value={percentRegular} readOnly />
-                    </div>
-                    <div>
-                      <label className="block mb-1">定期評量 b%</label>
-                      <input type="number" className="border rounded px-2 py-1 w-full text-center bg-gray-100" value={percentPeriodic} readOnly />
-                    </div>
-                  </div>
-                  <div className="text-center text-red-500 text-sm" style={{ minHeight: '1.5em' }}>
-                    {(percentRegular > 100 || percentPeriodic < 0) && 'p+q+r 不可超過 100'}
-                  </div>
-                  {/* 各項模式與筆數顯示 */}
-                  <div className="mt-2">
-                    {quizMode==='best' && quizBestCount > Object.values(columnDetails).filter(col=>col.type==='小考成績').length && (
-                      <div className="text-red-500 text-sm mb-1">擇優採計次數不可大於資料數，已自動調整</div>
-                    )}
-                    <div className="font-bold mb-1">小考成績模式（共{Object.values(columnDetails).filter(col=>col.type==='小考成績').length}筆）</div>
-                    <select className="select-unified w-32 mr-2" value={quizMode} onChange={e=>setQuizMode(e.target.value as 'all' | 'best')}>
-                      <option value="all">全部採計</option>
-                      <option value="best">擇優採計</option>
-                    </select>
-                    {quizMode==='best' && <input type="number" min={1} max={Object.values(columnDetails).filter(col=>col.type==='小考成績').length} className="border rounded px-2 py-1 w-16" value={quizBestCount > Object.values(columnDetails).filter(col=>col.type==='小考成績').length ? Object.values(columnDetails).filter(col=>col.type==='小考成績').length : quizBestCount} onChange={e=>setQuizBestCount(Math.min(Number(e.target.value),Object.values(columnDetails).filter(col=>col.type==='小考成績').length))} />}<span className="ml-2 text-gray-500">前x筆高分平均</span>
-                  </div>
-                  <div className="mt-2">
-                    {homeworkMode==='best' && homeworkBestCount > Object.values(columnDetails).filter(col=>col.type==='作業成績').length && (
-                      <div className="text-red-500 text-sm mb-1">擇優採計次數不可大於資料數，已自動調整</div>
-                    )}
-                    <div className="font-bold mb-1">作業成績模式（共{Object.values(columnDetails).filter(col=>col.type==='作業成績').length}筆）</div>
-                    <select className="select-unified w-32 mr-2" value={homeworkMode} onChange={e=>setHomeworkMode(e.target.value as 'all' | 'best')}>
-                      <option value="all">全部採計</option>
-                      <option value="best">擇優採計</option>
-                    </select>
-                    {homeworkMode==='best' && <input type="number" min={1} max={Object.values(columnDetails).filter(col=>col.type==='作業成績').length} className="border rounded px-2 py-1 w-16" value={homeworkBestCount > Object.values(columnDetails).filter(col=>col.type==='作業成績').length ? Object.values(columnDetails).filter(col=>col.type==='作業成績').length : homeworkBestCount} onChange={e=>setHomeworkBestCount(Math.min(Number(e.target.value),Object.values(columnDetails).filter(col=>col.type==='作業成績').length))} />}<span className="ml-2 text-gray-500">前x筆高分平均</span>
-                  </div>
-                  <div className="mt-2">
-                    {attitudeMode==='best' && attitudeBestCount > Object.values(columnDetails).filter(col=>col.type==='上課態度').length && (
-                      <div className="text-red-500 text-sm mb-1">擇優採計次數不可大於資料數，已自動調整</div>
-                    )}
-                    <div className="font-bold mb-1">上課態度模式（共{Object.values(columnDetails).filter(col=>col.type==='上課態度').length}筆）</div>
-                    <select className="select-unified w-32 mr-2" value={attitudeMode} onChange={e=>setAttitudeMode(e.target.value as 'all' | 'best')}>
-                      <option value="all">全部採計</option>
-                      <option value="best">擇優採計</option>
-                    </select>
-                    {attitudeMode==='best' && <input type="number" min={1} max={Object.values(columnDetails).filter(col=>col.type==='上課態度').length} className="border rounded px-2 py-1 w-16" value={attitudeBestCount > Object.values(columnDetails).filter(col=>col.type==='上課態度').length ? Object.values(columnDetails).filter(col=>col.type==='上課態度').length : attitudeBestCount} onChange={e=>setAttitudeBestCount(Math.min(Number(e.target.value),Object.values(columnDetails).filter(col=>col.type==='上課態度').length))} />}<span className="ml-2 text-gray-500">前x筆高分平均</span>
-                  </div>
-                  <div className="mt-2">
-                    <div className="font-bold mb-1">定期評量次數</div>
-                    {[0,1,2].map(i=>(
-                      <label key={i} className="mr-4">
-                        <input type="checkbox" checked={periodicEnabled[i] || false} onChange={()=>setPeriodicEnabled(arr=>arr.map((v,idx)=>idx===i?!v:v))} />
-                        {['第一次定期評量','第二次定期評量','期末評量'][i]}
-                      </label>
-                    ))}
-                    {/* 新增：目前採計提示 */}
-                    <div className="mt-2 text-sm text-blue-700">
-                      目前採計：{
-                        periodicEnabled.map((v,i)=>v?['第一次定期評量','第二次定期評量','期末評量'][i]:null).filter(Boolean).join('、') || '（無）'
-                      }
-                    </div>
-                  </div>
-                </div>
-                <div className="flex justify-center gap-4 mt-4">
-                  <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 min-w-[110px]" disabled={percentRegular>100||percentPeriodic<0} onClick={async ()=>{
-                    setShowPercentModal(false);
-                    await handleSave();
-                  }}>儲存</button>
-                  <button className="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500 min-w-[110px]" onClick={()=>setShowPercentModal(false)}>取消</button>
-                </div>
-              </div>
+          <Modal
+  open={showPercentModal}
+  onClose={() => setShowPercentModal(false)}
+  title="百分比調整"
+  size="lg"
+>
+  <div className="space-y-6">
+    {/* 成績設定 */}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">小考 (%)</label>
+        <input
+          type="number"
+          min="0"
+          max="100"
+          value={percentQuizRaw}
+          onChange={e => setPercentQuizRaw(e.target.value)}
+          className="w-full border border-gray-300 p-3 rounded-lg"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">作業 (%)</label>
+        <input
+          type="number"
+          min="0"
+          max="100"
+          value={percentHomeworkRaw}
+          onChange={e => setPercentHomeworkRaw(e.target.value)}
+          className="w-full border border-gray-300 p-3 rounded-lg"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">上課態度 (%)</label>
+        <input
+          type="number"
+          min="0"
+          max="100"
+          value={percentAttitudeRaw}
+          onChange={e => setPercentAttitudeRaw(e.target.value)}
+          className="w-full border border-gray-300 p-3 rounded-lg"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">平時成績 (%)</label>
+        <input
+          type="number"
+          min="0"
+          max="100"
+          value={percentRegular}
+          readOnly
+          className="w-full border border-gray-300 p-3 rounded-lg bg-gray-50"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">定期評量 (%)</label>
+        <input
+          type="number"
+          min="0"
+          max="100"
+          value={percentPeriodic}
+          readOnly
+          className="w-full border border-gray-300 p-3 rounded-lg bg-gray-50"
+        />
+      </div>
+    </div>
+
+    {/* 百分比總和驗證 */}
+    <div className="bg-gray-50 p-4 rounded-lg">
+      <div className="text-sm text-gray-600 mb-2">平時成績總和：{percentRegular}%</div>
+      <div className="text-sm text-gray-600 mb-2">總成績總和：{percentRegular + percentPeriodic}%</div>
+      {(percentRegular > 100 || percentPeriodic < 0) && (
+        <div className="text-red-600 text-sm">⚠️ p+q+r 不可超過 100</div>
+      )}
+    </div>
+
+    {/* 採計模式設定 */}
+    <div className="space-y-4">
+      <h4 className="font-semibold text-gray-900">成績採計模式</h4>
+      
+      {/* 小考採計模式 */}
+      <div className="border rounded-lg p-4">
+        <label className="block text-sm font-medium text-gray-700 mb-2">小考成績採計（共{Object.values(columnDetails).filter(col=>col.type==='小考成績').length}筆）</label>
+        <div className="space-y-2">
+          <label className="flex items-center">
+            <input
+              type="radio"
+              name="quizMode"
+              value="all"
+              checked={quizMode === 'all'}
+              onChange={e => setQuizMode(e.target.value as 'all' | 'best')}
+              className="mr-2"
+            />
+            全部採計
+          </label>
+          <label className="flex items-center">
+            <input
+              type="radio"
+              name="quizMode"
+              value="best"
+              checked={quizMode === 'best'}
+              onChange={e => setQuizMode(e.target.value as 'all' | 'best')}
+              className="mr-2"
+            />
+            擇優採計
+          </label>
+          {quizMode === 'best' && (
+            <div className="ml-6">
+              <label className="block text-sm text-gray-600 mb-1">採計次數：</label>
+              <input
+                type="number"
+                min="1"
+                max={Object.values(columnDetails).filter(col=>col.type==='小考成績').length}
+                value={quizBestCount}
+                onChange={e => setQuizBestCount(Math.min(Number(e.target.value), Object.values(columnDetails).filter(col=>col.type==='小考成績').length))}
+                className="w-20 border border-gray-300 p-1 rounded"
+              />
+              {quizBestCount > Object.values(columnDetails).filter(col=>col.type==='小考成績').length && (
+                <div className="text-red-500 text-sm mt-1">⚠️ 採計次數不可大於資料數</div>
+              )}
             </div>
           )}
+        </div>
+      </div>
+
+      {/* 作業採計模式 */}
+      <div className="border rounded-lg p-4">
+        <label className="block text-sm font-medium text-gray-700 mb-2">作業成績採計（共{Object.values(columnDetails).filter(col=>col.type==='作業成績').length}筆）</label>
+        <div className="space-y-2">
+          <label className="flex items-center">
+            <input
+              type="radio"
+              name="homeworkMode"
+              value="all"
+              checked={homeworkMode === 'all'}
+              onChange={e => setHomeworkMode(e.target.value as 'all' | 'best')}
+              className="mr-2"
+            />
+            全部採計
+          </label>
+          <label className="flex items-center">
+            <input
+              type="radio"
+              name="homeworkMode"
+              value="best"
+              checked={homeworkMode === 'best'}
+              onChange={e => setHomeworkMode(e.target.value as 'all' | 'best')}
+              className="mr-2"
+            />
+            擇優採計
+          </label>
+          {homeworkMode === 'best' && (
+            <div className="ml-6">
+              <label className="block text-sm text-gray-600 mb-1">採計次數：</label>
+              <input
+                type="number"
+                min="1"
+                max={Object.values(columnDetails).filter(col=>col.type==='作業成績').length}
+                value={homeworkBestCount}
+                onChange={e => setHomeworkBestCount(Math.min(Number(e.target.value), Object.values(columnDetails).filter(col=>col.type==='作業成績').length))}
+                className="w-20 border border-gray-300 p-1 rounded"
+              />
+              {homeworkBestCount > Object.values(columnDetails).filter(col=>col.type==='作業成績').length && (
+                <div className="text-red-500 text-sm mt-1">⚠️ 採計次數不可大於資料數</div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 上課態度採計模式 */}
+      <div className="border rounded-lg p-4">
+        <label className="block text-sm font-medium text-gray-700 mb-2">上課態度採計（共{Object.values(columnDetails).filter(col=>col.type==='上課態度').length}筆）</label>
+        <div className="space-y-2">
+          <label className="flex items-center">
+            <input
+              type="radio"
+              name="attitudeMode"
+              value="all"
+              checked={attitudeMode === 'all'}
+              onChange={e => setAttitudeMode(e.target.value as 'all' | 'best')}
+              className="mr-2"
+            />
+            全部採計
+          </label>
+          <label className="flex items-center">
+            <input
+              type="radio"
+              name="attitudeMode"
+              value="best"
+              checked={attitudeMode === 'best'}
+              onChange={e => setAttitudeMode(e.target.value as 'all' | 'best')}
+              className="mr-2"
+            />
+            擇優採計
+          </label>
+          {attitudeMode === 'best' && (
+            <div className="ml-6">
+              <label className="block text-sm text-gray-600 mb-1">採計次數：</label>
+              <input
+                type="number"
+                min="1"
+                max={Object.values(columnDetails).filter(col=>col.type==='上課態度').length}
+                value={attitudeBestCount}
+                onChange={e => setAttitudeBestCount(Math.min(Number(e.target.value), Object.values(columnDetails).filter(col=>col.type==='上課態度').length))}
+                className="w-20 border border-gray-300 p-1 rounded"
+              />
+              {attitudeBestCount > Object.values(columnDetails).filter(col=>col.type==='上課態度').length && (
+                <div className="text-red-500 text-sm mt-1">⚠️ 採計次數不可大於資料數</div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 定期評量採計 */}
+      <div className="border rounded-lg p-4">
+        <label className="block text-sm font-medium text-gray-700 mb-2">定期評量採計</label>
+        <div className="space-y-2">
+          {[0,1,2].map(i=>(
+            <label key={i} className="flex items-center">
+              <input
+                type="checkbox"
+                checked={periodicEnabled[i] || false}
+                onChange={()=>setPeriodicEnabled(arr=>arr.map((v,idx)=>idx===i?!v:v))}
+                className="mr-2"
+              />
+              {['第一次定期評量','第二次定期評量','期末評量'][i]}
+            </label>
+          ))}
+          <div className="text-sm text-blue-600 mt-2">
+            目前採計：{
+              periodicEnabled.map((v,i)=>v?['第一次定期評量','第二次定期評量','期末評量'][i]:null).filter(Boolean).join('、') || '（無）'
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* 按鈕區域 */}
+    <div className="flex justify-end space-x-3 pt-4 border-t">
+      <button
+        onClick={() => setShowPercentModal(false)}
+        className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+      >
+        取消
+      </button>
+      <button
+        onClick={async () => {
+          setShowPercentModal(false);
+          await handleSave();
+        }}
+        disabled={percentRegular>100||percentPeriodic<0}
+        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        儲存
+      </button>
+    </div>
+  </div>
+</Modal>
           {/* 離開確認彈窗 */}
           {showLeaveConfirm && (
             <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
@@ -1396,8 +1503,63 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
               </div>
             </div>
           )}
+
+          {isDistributionModalOpen && distributionData && selectedColumnForChart && (
+            <Modal
+              open={isDistributionModalOpen}
+              onClose={() => setIsDistributionModalOpen(false)}
+              title={`${selectedColumnForChart.name} - 成績詳細資料`}
+              size="lg"
+            >
+              <div className="space-y-6">
+                {/* 五標表格 */}
+                <div>
+                  <h5 className="font-semibold mb-3">五標統計</h5>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full border border-gray-200 rounded-lg">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-sm font-medium text-gray-700 border-b">項目</th>
+                          <th className="px-4 py-2 text-center text-sm font-medium text-gray-700 border-b">分數</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td className="px-4 py-2 text-sm text-gray-900 border-b">頂標</td>
+                          <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 border-b">{distributionData.statistics.頂標 ?? '-'}</td>
+                        </tr>
+                        <tr>
+                          <td className="px-4 py-2 text-sm text-gray-900 border-b">前標</td>
+                          <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 border-b">{distributionData.statistics.前標 ?? '-'}</td>
+                        </tr>
+                        <tr>
+                          <td className="px-4 py-2 text-sm text-gray-900 border-b">均標</td>
+                          <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 border-b">{distributionData.statistics.均標 ?? '-'}</td>
+                        </tr>
+                        <tr>
+                          <td className="px-4 py-2 text-sm text-gray-900 border-b">後標</td>
+                          <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 border-b">{distributionData.statistics.後標 ?? '-'}</td>
+                        </tr>
+                        <tr>
+                          <td className="px-4 py-2 text-sm text-gray-900 border-b">底標</td>
+                          <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 border-b">{distributionData.statistics.底標 ?? '-'}</td>
+                        </tr>
+                        <tr className="bg-gray-50">
+                          <td className="px-4 py-2 text-sm font-medium text-gray-900">平均</td>
+                          <td className="px-4 py-2 text-center text-sm font-bold text-gray-900">{distributionData.statistics.平均 ?? '-'}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+
+                {/* 長條圖（改用表格呈現，已移除） */}
+              </div>
+            </Modal>
+          )}
         </>
       )}
     </div>
   );
-} 
+}

@@ -1,8 +1,9 @@
 import React from 'react';
+import { MoonLoader } from 'react-spinners';
 
 export interface LoadingSpinnerProps {
   size?: number;
-  border?: number;
+  
   color?: 'blue' | 'white' | 'gray';
   className?: string;
   text?: string;
@@ -12,25 +13,27 @@ export interface LoadingSpinnerProps {
 // 統一使用主視覺藍色 blue-600
 export default function LoadingSpinner({ 
   className = '', 
-  size = 8, 
-  border = 4,
+  size = 50, 
+  
   color = 'blue',
   text,
   fullScreen = false
 }: LoadingSpinnerProps) {
-  const colorClasses = {
-    blue: 'border-blue-600 border-t-transparent',
-    white: 'border-white border-t-transparent',
-    gray: 'border-gray-600 border-t-transparent'
+  const colorMap = {
+    blue: '#3B82F6',
+    white: '#FFFFFF',
+    gray: '#6B7280'
   };
 
-  const spinnerClasses = `animate-spin rounded-full h-${size} w-${size} border-${border} ${colorClasses[color]} ${className}`;
-
   const content = (
-    <div className="flex items-center justify-center">
-      <div className={spinnerClasses} style={{ borderStyle: 'solid' }} />
+    <div className={`flex items-center justify-center ${className}`}>
+      <MoonLoader
+        color={colorMap[color]}
+        size={size}
+        speedMultiplier={1}
+      />
       {text && (
-        <span className="ml-2 text-gray-600">{text}</span>
+        <span className="ml-3 text-gray-600 font-medium">{text}</span>
       )}
     </div>
   );

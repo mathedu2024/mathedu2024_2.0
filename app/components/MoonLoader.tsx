@@ -1,40 +1,26 @@
 import React from 'react';
 import { MoonLoader } from 'react-spinners';
 
-export interface LoadingSpinnerProps {
-  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
-  color?: 'blue' | 'white' | 'gray';
+export interface MoonLoaderProps {
+  size?: number;
+  color?: string;
   className?: string;
   text?: string;
   fullScreen?: boolean;
 }
 
-export default function LoadingSpinner({
-  size = 'md',
-  color = 'blue',
+export default function MoonLoaderComponent({
+  size = 50,
+  color = '#3B82F6', // 主視覺藍色
   className = '',
   text,
   fullScreen = false
-}: LoadingSpinnerProps) {
-  const sizeMap = {
-    xs: 20,
-    sm: 30,
-    md: 40,
-    lg: 50,
-    xl: 60
-  };
-
-  const colorMap = {
-    blue: '#3B82F6',
-    white: '#FFFFFF',
-    gray: '#6B7280'
-  };
-
+}: MoonLoaderProps) {
   const content = (
     <div className={`flex items-center justify-center ${className}`}>
       <MoonLoader
-        color={colorMap[color]}
-        size={sizeMap[size]}
+        color={color}
+        size={size}
         speedMultiplier={1}
       />
       {text && (
@@ -52,4 +38,4 @@ export default function LoadingSpinner({
   }
 
   return content;
-} 
+}

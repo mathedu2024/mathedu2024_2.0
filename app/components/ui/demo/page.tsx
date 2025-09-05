@@ -1,5 +1,6 @@
 'use client';
 
+import alerts from '../../../utils/alerts';
 import React, { useState } from 'react';
 import {
   Button,
@@ -43,7 +44,7 @@ export default function UIDemoPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="h-full bg-gray-50 p-8">
       <div className="max-w-7xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">UI 元件庫示範</h1>
         
@@ -96,7 +97,7 @@ export default function UIDemoPage() {
               <p className="text-gray-600">帶有藍色邊框的卡片。</p>
             </Card>
 
-            <Card color="green" onClick={() => alert('卡片被點擊了！')} hover>
+            <Card color="green" onClick={() => alerts.toast('卡片被點擊了！')} hover>
               <h3 className="text-lg font-medium mb-2">可點擊卡片</h3>
               <p className="text-gray-600">點擊此卡片會有互動效果。</p>
             </Card>
@@ -199,21 +200,21 @@ export default function UIDemoPage() {
               title="新增課程"
               description="建立新的課程"
               icon={demoIcons.plus}
-              onClick={() => alert('新增課程')}
+              onClick={() => alerts.toast('新增課程')}
               color="green"
             />
             <QuickActionCard
               title="管理用戶"
               description="查看和管理用戶"
               icon={demoIcons.user}
-              onClick={() => alert('管理用戶')}
+              onClick={() => alerts.toast('管理用戶')}
               color="blue"
             />
             <QuickActionCard
               title="查看報告"
               description="查看系統報告"
               icon={demoIcons.book}
-              onClick={() => alert('查看報告')}
+              onClick={() => alerts.toast('查看報告')}
               color="purple"
             />
           </div>
@@ -249,7 +250,7 @@ export default function UIDemoPage() {
                 name="李四"
                 role="學生"
                 size="lg"
-                onClick={() => alert('用戶頭像被點擊了！')}
+                onClick={() => alerts.toast('用戶頭像被點擊了！')}
               />
             </Card>
           </div>
@@ -325,4 +326,4 @@ export default function UIDemoPage() {
       </div>
     </div>
   );
-} 
+}

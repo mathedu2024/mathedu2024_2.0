@@ -1,4 +1,5 @@
-import React from 'react';
+import { useEffect } from 'react';
+import Swal from 'sweetalert2';
 
 interface AlertDialogProps {
   open: boolean;
@@ -8,18 +9,16 @@ interface AlertDialogProps {
 }
 
 export default function AlertDialog({ open, message, onClose, buttonText = '確定' }: AlertDialogProps) {
-  if (!open) return null;
-  return (
-    <div className="dialog-overlay">
-      <div className="dialog-content">
-        <div className="dialog-title">{message}</div>
-        <button
-          onClick={onClose}
-          className="dialog-button"
-        >
-          {buttonText}
-        </button>
-      </div>
-    </div>
-  );
+  useEffect(() => {
+    if (!open) return;
+    Swal.fire({
+      icon: 'info',
+      title: message,
+      confirmButtonText: buttonText,
+    }).finally(() => {
+      onClose();
+    });
+  }, [open, message, onClose, buttonText]);
+
+  return null;
 } 

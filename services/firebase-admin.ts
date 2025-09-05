@@ -1,8 +1,13 @@
 import admin from 'firebase-admin';
 
-const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
-  ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
-  : undefined;
+let serviceAccount;
+try {
+  serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
+    ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
+    : undefined;
+} catch (e) {
+  console.error('Error parsing FIREBASE_SERVICE_ACCOUNT:', e);
+}
 
 if (!admin.apps.length && serviceAccount) {
   admin.initializeApp({

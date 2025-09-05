@@ -241,6 +241,11 @@ export default function LessonDetailPage() {
 
   // 將 YouTube URL 轉換為嵌入 URL
   const getEmbedUrl = (url: string) => {
+    // 檢查 URL 是否為空或無效
+    if (!url || typeof url !== 'string' || url.trim() === '') {
+      return null; // 返回 null 而不是空字串
+    }
+    
     let videoId = '';
     
     if (url.includes('youtube.com/watch?v=')) {
@@ -317,7 +322,7 @@ export default function LessonDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="h-full bg-gray-100 flex items-center justify-center">
         {/* Skeleton UI: 三區塊骨架 */}
         <div className="w-full max-w-6xl px-8 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8 animate-pulse">
           {/* C區：課堂清單骨架 */}
@@ -360,7 +365,7 @@ export default function LessonDetailPage() {
   if (!lesson) {
     // 只有在 loading=false 且 lesson=null 時才顯示
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="h-full bg-gray-100 flex items-center justify-center">
         <div className="text-center">
           <div className="text-red-500 text-6xl mb-4">⚠️</div>
           <h2 className="text-2xl font-bold text-gray-900 mb-4">找不到課程資訊</h2>
@@ -376,7 +381,7 @@ export default function LessonDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 relative">
+    <div className="h-full bg-gray-100 relative">
       {/* 頂部導航 */}
       <div className="bg-white shadow-sm border-b sticky top-0 z-30">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
@@ -482,34 +487,49 @@ export default function LessonDetailPage() {
             {lesson.videos && lesson.videos.length > 0 ? (
               <div>
                 {/* 影片播放器（強制 16:9） */}
-                <div style={{ position: 'relative', width: '100%', paddingTop: '56.25%' }}>
-                  <iframe
-                    src={getEmbedUrl(lesson.videos[currentVideoIndex])}
-                    title={`影片 ${currentVideoIndex + 1}`}
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      height: '100%',
-                      border: 0,
-                      userSelect: 'none',
-                      WebkitUserSelect: 'none',
-                      MozUserSelect: 'none',
-                      msUserSelect: 'none',
-                      pointerEvents: 'auto'
-                    }}
-                    frameBorder="0"
-                    allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    sandbox="allow-scripts allow-same-origin allow-presentation allow-forms allow-popups allow-popups-to-escape-sandbox"
-                    loading="lazy"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
+                {(() => {
+                  const embedUrl = getEmbedUrl(lesson.videos[currentVideoIndex]);
+                  if (!embedUrl) {
+                    return (
+                      <div className="aspect-video bg-gray-100 flex items-center justify-center">
+                        <div className="text-center text-gray-500">
+                          <div className="text-4xl mb-2">⚠️</div>
+                          <p>無效的影片連結</p>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div style={{ position: 'relative', width: '100%', paddingTop: '56.25%' }}>
+                      <iframe
+                        src={embedUrl}
+                        title={`影片 ${currentVideoIndex + 1}`}
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          height: '100%',
+                          border: 0,
+                          userSelect: 'none',
+                          WebkitUserSelect: 'none',
+                          MozUserSelect: 'none',
+                          msUserSelect: 'none',
+                          pointerEvents: 'auto'
+                        }}
+                        frameBorder="0"
+                        allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        sandbox="allow-scripts allow-same-origin allow-presentation allow-forms allow-popups allow-popups-to-escape-sandbox"
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                  );
+                })()}
                 
                 {/* 影片控制按鈕 */}
-                {lesson.videos.length > 1 && (
+                {lesson.videos.length > 1 && getEmbedUrl(lesson.videos[currentVideoIndex]) && (
                   <div className="p-4 bg-gray-50 border-t">
                     <div className="flex items-center justify-between">
                       <button

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import MultiSelectDropdown from './MultiSelectDropdown';
 import AlertDialog from './AlertDialog';
+import alerts from '../utils/alerts';
 import LoadingSpinner from './LoadingSpinner';
 
 interface Student {
@@ -173,7 +174,7 @@ export default function StudentManager() {
   };
 
   const handleDelete = async (studentToDelete: Student) => {
-    if (window.confirm(`確定要刪除學生 ${studentToDelete.name} 的資料嗎？`)) {
+    if (await alerts.confirm(`確定要刪除學生 ${studentToDelete.name} 的資料嗎？`)) {
       setLoading(true);
       try {
         await fetch('/api/student/delete', {
@@ -224,8 +225,8 @@ export default function StudentManager() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto w-full p-4">
-      <h2 className="text-2xl font-bold mb-6">學生資料管理</h2>
+    <div className="max-w-6xl mx-auto w-full p-4 h-full flex flex-col">
+      <h2 className="text-2xl font-bold mb-6 flex-shrink-0">學生資料管理</h2>
 
       {isEditing && editingStudent && (
         <div className="bg-white border border-gray-200 p-6 rounded-lg shadow-sm mb-6">
@@ -359,8 +360,8 @@ export default function StudentManager() {
       )}
 
       {!isEditing && (
-        <>
-          <div className="bg-white border border-gray-200 p-6 rounded-lg shadow-sm mb-6">
+        <div className="flex-1 min-h-0 flex flex-col">
+          <div className="bg-white border border-gray-200 p-6 rounded-lg shadow-sm mb-6 flex-shrink-0">
             <div className="flex flex-col md:flex-row gap-4 items-center">
               <input
                 type="text"
@@ -470,7 +471,7 @@ export default function StudentManager() {
               </tbody>
             </table>
           </div>
-        </>
+        </div>
       )}
 
       <AlertDialog open={alert.open} message={alert.message} onClose={() => setAlert({ open: false, message: '' })} />

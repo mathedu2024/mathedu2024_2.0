@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import LoadingSpinner from './LoadingSpinner';
 import AlertDialog from './AlertDialog';
+import alerts from '../utils/alerts';
 
 interface AdminTeacher {
   id: string;
@@ -95,7 +96,7 @@ export default function TeacherAdminManager() {
   const handleDelete = async (account: string) => {
     // Prevent deleting the test account
     if (account === 'test') return;
-    const confirmDelete = window.confirm('確定要刪除此帳號嗎？此操作無法復原！');
+    const confirmDelete = await alerts.confirm('確定要刪除此帳號嗎？此操作無法復原！');
     if (!confirmDelete) return;
     setIsSubmitting(true);
     try {
@@ -136,8 +137,8 @@ export default function TeacherAdminManager() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto w-full p-4">
-      <h2 className="text-2xl font-bold mb-6">老師/管理員管理</h2>
+    <div className="max-w-6xl mx-auto w-full p-4 h-full flex flex-col">
+      <h2 className="text-2xl font-bold mb-6 flex-shrink-0">老師/管理員管理</h2>
       <div className="block md:flex gap-4 items-center mb-6">
         {/* 手機下Accordion */}
         <div className="md:hidden">
@@ -243,14 +244,14 @@ export default function TeacherAdminManager() {
       )}
       {/* 列表區域 - 編輯時隱藏 */}
       {!isEditing && (
-        <>
+        <div className="flex-1 min-h-0 flex flex-col">
           {loading ? (
             <div className="flex justify-center items-center py-12">
               <LoadingSpinner size={12} />
               <p className="text-gray-600 ml-4">載入中...</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-4 flex-1 min-h-0 overflow-y-auto">
               {teachers.length === 0 ? (
                 <div className="text-center py-12 text-gray-500">
                   <p>尚無帳號資料</p>
@@ -294,7 +295,7 @@ export default function TeacherAdminManager() {
               )}
             </div>
           )}
-        </>
+        </div>
       )}
       {/* 密碼復原彈窗 */}
       {showResetId && (

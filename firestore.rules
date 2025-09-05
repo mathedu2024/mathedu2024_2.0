@@ -2,16 +2,70 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 允許 server 端（使用 service account）完全存取
+
+    // 預設規則：拒絕所有未明確允許的讀寫
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
+    }
+
+    // 使用者資料 (students, teachers)
+    // 假設您的使用者集合名稱為 "users" 且文件 ID 為 user.uid
+    match /users/{userId} {
+      // 使用者只能讀取和更新自己的資料
+      allow read, update: if request.auth != null && request.auth.uid == userId;
+      // 允許管理員讀取所有使用者資料
+      allow get: if request.auth != null && request.auth.token.role == 'admin';
     }
     
-    // 保留原有的用戶端規則（但 server 端不受限制）
+    // 學生資料集合
+    match /student_data/{studentId} {
+        // 學生本人或老師/管理員可以讀取
+        allow get: if request.auth != null && (request.auth.uid == studentId || request.auth.token.role in ['teacher', 'admin']);
+        // 學生本人可以更新
+        allow update: if request.auth != null && request.auth.uid == studentId;
+        // 管理員可以建立/刪除
+        allow create, delete: if request.auth != null && request.auth.token.role == 'admin';
+    }
+
+    // 老師集合
+    match /teachers/{teacherId} {
+        // 任何登入者都可讀取老師公開資料
+        allow get: if request.auth != null;
+        // 老師本人或管理員可以更新
+        allow update: if request.auth != null && (request.auth.uid == teacherId || request.auth.token.role == 'admin');
+        // 管理員可以建立/刪除
+        allow create, delete: if request.auth != null && request.auth.token.role == 'admin';
+    }
+
+    // 課程集合
     match /courses/{courseId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null &&
-        ("admin" in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles);
+      // 任何登入的使用者都可以讀取課程列表
+      allow get, list: if request.auth != null;
+      // 只有老師或管理員可以建立、更新、刪除課程
+      allow create, update, delete: if request.auth != null && request.auth.token.role in ['teacher', 'admin'];
+    }
+
+    // 課程學生列表
+    match /course-student-list/{courseKey} {
+        // 老師和管理員有完整權限
+        allow read, write: if request.auth != null && request.auth.token.role in ['teacher', 'admin'];
+    }
+
+    // 公告集合
+    match /announcements/{announcementId} {
+      // 任何登入的使用者都可以讀取公告
+      allow get, list: if request.auth != null;
+      // 只有管理員可以建立、更新、刪除公告
+      allow create, update, delete: if request.auth != null && request.auth.token.role == 'admin';
+    }
+
+    // 課程成績、學生列表等子集合
+    match /courses/{courseId}/{collection}/{documentId} {
+       // 老師和管理員有完整權限
+       allow read, write: if request.auth != null && request.auth.token.role in ['teacher', 'admin'];
+       // 學生只能讀取 (例如：自己的成績)
+       // 此處需要更細緻的規則，例如檢查學生是否屬於該課程
+       // allow read: if request.auth != null && resource.data.studentId == request.auth.uid;
     }
   }
-} 
+}

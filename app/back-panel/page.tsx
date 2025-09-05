@@ -580,7 +580,7 @@ function BackPanel() {
   // ];
 
   return (
-    <div className="flex h-screen bg-gray-100 overflow-hidden">  {/* 添加 overflow-hidden */}
+    <div className="flex h-screen bg-gray-100 overflow-hidden">
       {/* 漢堡按鈕（僅手機顯示，sidebar 關閉時顯示） */}
       {isMobile && !sidebarOpen && (
         <button className="fixed top-16 left-4 z-40 bg-white p-2 rounded-full shadow-lg md:hidden hover:bg-gray-50 transition-colors" onClick={() => setSidebarOpen(true)}>
@@ -601,13 +601,15 @@ function BackPanel() {
       />
 
       <main
-        className="flex-1 overflow-y-auto bg-gray-100"
+        className="flex-1 flex flex-col min-h-0 bg-gray-100"
         style={{
           paddingLeft: sidebarOpen ? 64 : 256,
           transition: 'padding-left 0.3s'
         }}
       >
+        <div className="flex-1">
           {renderContent()}
+        </div>
       </main>
     </div>
   );

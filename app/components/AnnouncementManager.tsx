@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import LoadingSpinner from './LoadingSpinner';
 import AlertDialog from './AlertDialog';
+import alerts from '../utils/alerts';
 import { Listbox } from '@headlessui/react';
 import { ChevronUpDownIcon } from '@heroicons/react/20/solid';
 
@@ -141,7 +142,7 @@ export default function AnnouncementManager() {
   }
 
   async function handleDelete(id: string) {
-    if (!window.confirm('確定要刪除這則公告嗎？')) return;
+    if (!(await alerts.confirm('確定要刪除這則公告嗎？'))) return;
     
     setLoading(true);
     try {
@@ -244,8 +245,8 @@ export default function AnnouncementManager() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto w-full p-4">
-      <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8 flex flex-col md:flex-row gap-2 md:gap-4 items-start md:items-center justify-between mb-6 min-w-0">
+    <div className="max-w-6xl mx-auto w-full p-4 h-full flex flex-col">
+      <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8 flex flex-col md:flex-row gap-2 md:gap-4 items-start md:items-center justify-between mb-6 min-w-0 flex-shrink-0">
         <h2 className="text-2xl font-bold">公告管理</h2>
         {!isEditing && (
           <button
@@ -406,7 +407,7 @@ export default function AnnouncementManager() {
 
       {/* 列表區域 */}
       {!isEditing && (
-        <>
+        <div className="flex-1 min-h-0 overflow-y-auto">
           {loading ? (
             <div className="flex justify-center items-center py-12">
               <LoadingSpinner size={12} />
@@ -490,7 +491,7 @@ export default function AnnouncementManager() {
               )}
             </div>
           )}
-        </>
+        </div>
       )}
 
       <AlertDialog 

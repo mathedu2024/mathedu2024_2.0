@@ -63,8 +63,8 @@ export default function ExamDateManager() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto w-full p-4">
-      <h2 className="text-2xl font-bold mb-6">考試日期管理</h2>
+    <div className="max-w-4xl mx-auto w-full p-4 h-full flex flex-col">
+      <h2 className="text-2xl font-bold mb-6 flex-shrink-0">考試日期管理</h2>
       <AlertDialog open={alertOpen} message="更新成功！" onClose={() => setAlertOpen(false)} />
       {loading ? (
         <div className="flex justify-center items-center py-12">
