@@ -35,8 +35,21 @@ const initializeFirebaseAdmin = () => {
       if (!privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
         console.error('Firebase Admin SDK Error: Private key does not have proper PEM format');
         console.error('Please check your environment variables and ensure the private key is correctly formatted');
+        // Try to fix common issues with PEM format
+        if (!privateKey.startsWith('-----BEGIN')) {
+          console.log('Attempting to fix PEM format...');
+          // If it doesn't have the header, it might be base64 only, so add the PEM wrapper
+          privateKey = `-----BEGIN PRIVATE KEY-----\n${privateKey}\n-----END PRIVATE KEY-----`;
+        }
       } else {
         console.log('Private key properly formatted for initialization');
+      }
+      
+      // Additional check for proper PEM structure (header, body, footer)
+      if (!privateKey.includes('-----END PRIVATE KEY-----')) {
+        console.error('Firebase Admin SDK Error: Private key is missing END marker');
+        // Try to add the end marker if it's missing
+        privateKey = `${privateKey}\n-----END PRIVATE KEY-----`;
       }
     } else {
       console.error('Firebase Admin SDK Error: Private key is undefined');
