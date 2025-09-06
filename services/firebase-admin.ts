@@ -8,9 +8,24 @@ if (!admin.apps.length) {
 
     // Ensure proper formatting of the private key
     let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+    
     // Handle different formats of private key
-    if (privateKey && !privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
+    if (privateKey) {
+      // Remove quotes if they exist at the beginning and end
+      if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
+        privateKey = privateKey.slice(1, -1);
+      }
+      
+      // Always replace escaped newlines with actual newlines
       privateKey = privateKey.replace(/\\n/g, '\n');
+      
+      // Ensure the key has proper PEM format
+      if (!privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
+        console.error('Firebase Admin SDK Error: Private key does not have proper PEM format');
+        console.error('Please check your environment variables and ensure the private key is correctly formatted');
+      }
+    } else {
+      console.error('Firebase Admin SDK Error: Private key is undefined');
     }
 
     const serviceAccount: admin.ServiceAccount = {
