@@ -7,13 +7,15 @@ import { serialize } from 'cookie';
 // We move this inside the POST handler to ensure env variables are loaded.
 const initializeFirebaseAdmin = () => {
   if (!admin.apps.length) {
+    if (!process.env.FIREBASE_PROJECT_ID || !process.env.FIREBASE_CLIENT_EMAIL || !process.env.FIREBASE_PRIVATE_KEY) {
+      throw new Error('Missing Firebase Admin SDK environment variables');
+    }
+
     // Log environment variables for debugging right before initialization
     console.log('--- Initializing Firebase Admin ---');
     console.log('FIREBASE_PROJECT_ID:', process.env.FIREBASE_PROJECT_ID);
     console.log('FIREBASE_CLIENT_EMAIL:', process.env.FIREBASE_CLIENT_EMAIL);
-    console.log('FIREBASE_PRIVATE_KEY exists:', !!process.env.FIREBASE_PRIVATE_KEY);
-    console.log('PRIVATE_KEY START:', process.env.FIREBASE_PRIVATE_KEY?.slice(0, 30));
-    console.log('PRIVATE_KEY END:', process.env.FIREBASE_PRIVATE_KEY?.slice(-30));
+    console.log('FIREBASE_PRIVATE_KEY exists:', true);
     console.log('------------------------------------');
 
     const serviceAccount: admin.ServiceAccount = {
@@ -145,4 +147,4 @@ export async function POST(req: NextRequest) {
     if (error instanceof Error) message = error.message;
     return NextResponse.json({ error: message }, { status: 500 });
   }
-} 
+}
