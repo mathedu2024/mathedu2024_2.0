@@ -21,4 +21,4 @@ export default function AlertDialog({ open, message, onClose, buttonText = 'ç¢ºå
   }, [open, message, onClose, buttonText]);
 
   return null;
-} 
+}

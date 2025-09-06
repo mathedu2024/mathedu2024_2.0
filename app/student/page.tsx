@@ -110,7 +110,9 @@ export default function StudentPanel() {
       <Suspense fallback={<div className="flex h-screen bg-gray-100 items-center justify-center">
         <LoadingSpinner />
       </div>}>
-        <StudentPanelContent />
+        <div>
+          <StudentPanelContent />
+        </div>
       </Suspense>
     </SecureRoute>
   );
@@ -937,4 +939,4 @@ function StudentPanelContent() {
       </div>
     </div>
   );
-} 
+}

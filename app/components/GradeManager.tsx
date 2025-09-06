@@ -352,8 +352,8 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ courseName: selectedCourseName, courseCode: selectedCourseCode }),
         });
-        const list = await res.json();
-        setStudents(list.map((stu: { studentId: string; name: string; grade: string }) => ({
+        const studentList = await res.json();
+        const initialStudents = studentList.map((stu: { studentId: string; name: string; grade: string }) => ({
           id: stu.studentId,
           studentId: stu.studentId,
           name: stu.name,
@@ -362,7 +362,8 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
           periodicScores: {},
           totalScore: 0,
           manualAdjust: 0,
-        })));
+        }));
+
         // 載入現有成績資料
         const courseKey = `${selectedCourseName}(${selectedCourseCode})`;
         const resGrades = await fetch('/api/grades/list', {
@@ -372,10 +373,19 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
         });
         const gradesResult = await resGrades.json();
         const gradeData = gradesResult[courseKey];
+
+        if (gradeData && gradeData.students) {
+          const gradeDataStudentsMap = new Map(gradeData.students.map((s: StudentGradeRow) => [s.studentId, s]));
+          const mergedStudents = initialStudents.map((s: StudentGradeRow) => {
+            const savedStudentData = gradeDataStudentsMap.get(s.studentId);
+            return savedStudentData ? { ...s, ...(savedStudentData as StudentGradeRow) } : s;
+          });
+          setStudents(mergedStudents);
+        } else {
+          setStudents(initialStudents);
+        }
+        
         if (gradeData) {
-          if (gradeData.students) {
-            setStudents(gradeData.students);
-          }
           if (gradeData.columns) {
             setColumnDetails(gradeData.columns);
           }
@@ -1094,20 +1104,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                 periodicScores={periodicScores}
               />
 
-              {/* 定期評量分析卡片 */}
-              <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {periodicScores.map((scoreName) => {
-                  // 只分析該次評量分數
-                  const scores = students.map(stu => stu.periodicScores?.[scoreName]).filter(v => typeof v === 'number' && !isNaN(v)) as number[];
-                  const levels = getTaiwanPercentileLevels(scores);
-                  return (
-                    <div key={scoreName} className="bg-blue-50 rounded-lg p-4 shadow">
-                      <div className="font-bold text-blue-700 mb-2">{scoreName} 分析</div>
-                      <div className="text-sm text-gray-700">平均：{levels.平均 ?? '-'}，頂標：{levels.頂標 ?? '-'}，前標：{levels.前標 ?? '-'}，均標：{levels.均標 ?? '-'}，後標：{levels.後標 ?? '-'}，底標：{levels.底標 ?? '-'}</div>
-                    </div>
-                  );
-                })}
-              </div>
+              
             </div>
           )}
           {selectedTab === 'total' && (

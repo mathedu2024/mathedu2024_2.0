@@ -11,7 +11,7 @@ export default function TestGradesPage() {
   };
 
   return (
-    <div className="h-full bg-gray-50">
+    <div className="bg-gray-50 h-full">
       <div className="container mx-auto py-8">
         <h1 className="text-3xl font-bold text-center mb-8">成績查詢測試頁面</h1>
         <StudentGradeViewer studentInfo={mockStudentInfo} />

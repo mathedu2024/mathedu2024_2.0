@@ -23,15 +23,9 @@ export default function Modal({
   className = ''
 }: ModalProps) {
   useEffect(() => {
-    if (open) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
-
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
+    // 不再修改全局body的overflow，避免雙滾輪問題
+    // 改為使用CSS控制模態框內部的滾動
+    return () => {};
   }, [open]);
 
   if (!open) return null;
@@ -51,11 +45,11 @@ export default function Modal({
   };
 
   return (
-    <div 
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
       onClick={handleOverlayClick}
     >
-      <div className={`bg-white rounded-lg shadow-xl w-full ${sizeClasses[size]} max-h-[90vh] overflow-y-auto ${className}`}>
+      <div className={`bg-white rounded-lg shadow-xl w-full ${sizeClasses[size]} max-h-[90vh] overflow-hidden ${className}`}>
         {/* Header */}
         {(title || showCloseButton) && (
           <div className="flex items-center justify-between p-6 pb-0">
@@ -77,10 +71,10 @@ export default function Modal({
         )}
         
         {/* Content */}
-        <div className="p-6">
+        <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 80px)' }}>
           {children}
         </div>
       </div>
     </div>
   );
-} 
+}

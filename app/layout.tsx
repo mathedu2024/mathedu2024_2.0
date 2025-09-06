@@ -27,9 +27,9 @@ export default function RootLayout({
         <link rel="shortcut icon" href="/learn.png" type="image/png" />
         <link rel="apple-touch-icon" href="/learn.png" />
       </head>
-      <body className={`${geistFont.className} h-full flex flex-col`}>
+      <body className={`${geistFont.className} h-full flex flex-col overflow-hidden`}>
         <Navigation />
-        <main className="flex-1">{children}</main>
+        <main className="flex-1 overflow-auto">{children}</main>
       </body>
     </html>
   );

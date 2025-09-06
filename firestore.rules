@@ -53,10 +53,26 @@ service cloud.firestore {
 
     // 公告集合
     match /announcements/{announcementId} {
-      // 任何登入的使用者都可以讀取公告
-      allow get, list: if request.auth != null;
+      // 任何使用者都可以讀取公告
+      allow get, list: if true;
       // 只有管理員可以建立、更新、刪除公告
       allow create, update, delete: if request.auth != null && request.auth.token.role == 'admin';
+    }
+
+    // 考試日期集合
+    match /exam_dates/{examId} {
+      // 任何使用者都可以讀取
+      allow get, list: if true;
+      // 只有管理員可以建立、更新、刪除
+      allow create, update, delete: if request.auth != null && request.auth.token.role == 'admin';
+    }
+
+    // 輔導時段集合
+    match /time-slots/{slotId} {
+      // 任何登入的使用者都可以讀取時段
+      allow get, list: if request.auth != null;
+      // 只有後端 (Admin SDK) 可以寫入
+      allow write: if false;
     }
 
     // 課程成績、學生列表等子集合

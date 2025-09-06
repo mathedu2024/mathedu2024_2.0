@@ -1,54 +1,24 @@
-import admin from 'firebase-admin';
+import * as admin from 'firebase-admin';
 
-let serviceAccount;
-try {
-  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+if (!admin.apps.length) {
+  try {
+    const serviceAccount: admin.ServiceAccount = {
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    };
+
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+      databaseURL: process.env.FIREBASE_DATABASE_URL,
+    });
+    console.log('Firebase Admin SDK initialized successfully.');
+  } catch (error) {
+    console.error('Error initializing Firebase Admin SDK:', error);
   }
-} catch (e) {
-  console.error('Error parsing FIREBASE_SERVICE_ACCOUNT:', e);
 }
 
-if (!admin.apps.length && serviceAccount) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
-  });
-}
+const adminDb = admin.firestore();
+const auth = admin.auth();
 
-let adminDb: admin.firestore.Firestore;
-
-if (admin.apps.length) {
-  adminDb = admin.firestore();
-} else {
-  console.warn('Firebase admin not initialized. Using a mock Firestore object for build purposes.');
-  const mockDb = () => new Proxy({}, {
-    get: (target, prop) => {
-      if (prop === 'then') {
-        return undefined;
-      }
-      if (prop === 'collection' || prop === 'doc' || prop === 'where' || prop === 'orderBy' || prop === 'limit') {
-        return mockDb;
-      }
-      if (prop === 'batch') {
-        return () => ({
-            set: () => {},
-            update: () => {},
-            delete: () => {},
-            commit: () => Promise.resolve(),
-        });
-      }
-      return () => Promise.resolve({
-        docs: [],
-        empty: true,
-        exists: false,
-        data: () => null,
-        id: 'mock-id'
-      });
-    }
-  });
-  adminDb = mockDb() as unknown as admin.firestore.Firestore;
-}
-
-
-export { adminDb };
-export default admin;
+export { adminDb, auth };

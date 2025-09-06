@@ -20,8 +20,8 @@ CLOUDINARY_API_KEY=your-api-key
 CLOUDINARY_API_SECRET=your-api-secret
 
 # Next.js Configuration
-NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your-cloud-name
-NEXT_PUBLIC_CLOUDINARY_API_KEY=your-api-key
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=your-api-key
 ```
 
 請將 `your-cloud-name`、`your-api-key`、`your-api-secret` 替換為你的實際 Cloudinary 憑證。
