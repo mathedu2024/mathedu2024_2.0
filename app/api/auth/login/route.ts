@@ -18,16 +18,23 @@ const initializeFirebaseAdmin = () => {
     console.log('FIREBASE_PRIVATE_KEY exists:', true);
     console.log('------------------------------------');
 
-    const serviceAccount: admin.ServiceAccount = {
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    };
-    console.log('privateKey (raw):', JSON.stringify(process.env.FIREBASE_PRIVATE_KEY));
-    console.log('privateKey (after replace):', JSON.stringify(serviceAccount.privateKey));
+    // Ensure proper formatting of the private key
+    let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+    // Handle different formats of private key
+    if (privateKey && !privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
+      privateKey = privateKey.replace(/\\n/g, '\n');
+    }
+    
+    console.log('Private key properly formatted for initialization');
+    // Don't log the actual key for security reasons
 
     admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
+      credential: admin.credential.cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: privateKey,
+      }),
+      databaseURL: process.env.FIREBASE_DATABASE_URL,
     });
   }
 };

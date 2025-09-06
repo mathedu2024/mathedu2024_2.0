@@ -6,10 +6,17 @@ if (!admin.apps.length) {
       throw new Error('Missing Firebase Admin SDK environment variables');
     }
 
+    // Ensure proper formatting of the private key
+    let privateKey = process.env.FIREBASE_PRIVATE_KEY;
+    // Handle different formats of private key
+    if (privateKey && !privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
+      privateKey = privateKey.replace(/\\n/g, '\n');
+    }
+
     const serviceAccount: admin.ServiceAccount = {
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      privateKey: privateKey,
     };
 
     admin.initializeApp({
