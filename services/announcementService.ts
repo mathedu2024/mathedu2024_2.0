@@ -1,11 +1,26 @@
 import { db } from './firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, limit } from 'firebase/firestore';
 
 // 公告事項 CRUD
 export const getAnnouncements = async () => {
-  const snapshot = await getDocs(collection(db, 'announcements'));
-  const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  return data;
+  try {
+    console.log('Fetching announcements from Firestore...');
+    const announcementsRef = collection(db, 'announcements');
+    const q = query(announcementsRef, limit(20)); // 限制獲取數量以提高性能
+    const snapshot = await getDocs(q);
+    
+    if (snapshot.empty) {
+      console.log('No announcements found in Firestore');
+      return [];
+    }
+    
+    console.log(`Successfully fetched ${snapshot.docs.length} announcements`);
+    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return data;
+  } catch (error) {
+    console.error('Error fetching announcements:', error);
+    throw error; // 重新拋出錯誤以便上層處理
+  }
 };
 
 // 課程資訊 CRUD

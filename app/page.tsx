@@ -97,44 +97,264 @@ export default function Home() {
     // return () => clearInterval(timer);
   }, [exams]);
 
-  // 取得公告、課程與考試資訊
+  // 檢查本地緩存
   useEffect(() => {
-    setLoading(true);
+    // 檢查是否有緩存數據可用
+    const checkCache = () => {
+      // 確保只在客戶端執行
+      if (typeof window === 'undefined') return false;
+      
+      try {
+        const cachedAnn = localStorage.getItem('cached_announcements');
+        const cachedExm = localStorage.getItem('cached_exams');
+        const annCacheTime = localStorage.getItem('announcements_cache_time');
+        const exmCacheTime = localStorage.getItem('exams_cache_time');
+        
+        // 檢查緩存是否過期（24小時）
+        const now = Date.now();
+        const cacheExpiry = 24 * 60 * 60 * 1000; // 24小時
+        
+        let hasValidCache = false;
+        
+        if (cachedAnn && annCacheTime && (now - parseInt(annCacheTime)) < cacheExpiry) {
+          try {
+            const parsedAnn = JSON.parse(cachedAnn);
+            if (Array.isArray(parsedAnn) && parsedAnn.length > 0) {
+              console.log('使用緩存的公告數據進行初始渲染');
+              setAnnouncements(parsedAnn);
+              hasValidCache = true;
+            }
+          } catch (parseErr) {
+            console.error('解析緩存公告數據時出錯:', parseErr);
+          }
+        }
+        
+        if (cachedExm && exmCacheTime && (now - parseInt(exmCacheTime)) < cacheExpiry) {
+          try {
+            const parsedExm = JSON.parse(cachedExm);
+            if (Array.isArray(parsedExm) && parsedExm.length > 0) {
+              console.log('使用緩存的考試數據進行初始渲染');
+              setExams(parsedExm);
+              hasValidCache = true;
+            }
+          } catch (parseErr) {
+            console.error('解析緩存考試數據時出錯:', parseErr);
+          }
+        }
+        
+        if (hasValidCache) {
+          setLoading(false);
+        }
+        
+        return hasValidCache;
+      } catch (err) {
+        console.error('檢查緩存時出錯:', err);
+        return false;
+      }
+    };
+    
+    // 如果有有效緩存，先顯示緩存數據，然後在後台刷新
+    const hasCache = checkCache();
+    
+    // 無論是否有緩存，都嘗試獲取最新數據
+    setLoading(!hasCache); // 如果沒有緩存，顯示加載狀態
+    setError(null);
+  }, []);
+  
+  // 檢查是否需要顯示加載狀態
+  useEffect(() => {
+    // 如果沒有任何數據，顯示加載狀態
+    if (announcements.length === 0 && exams.length === 0) {
+      setLoading(true);
+    } else {
+      setLoading(false);
+    }
+  }, [announcements.length, exams.length]);
+
+  // 取得公告、課程與考試資訊（只在組件掛載時執行一次）
+  useEffect(() => {
+    // 使用 ref 來追蹤是否已經獲取過數據，避免重複請求
+    let isMounted = true;
+    
     setError(null);
     
-    Promise.all([
-      getAnnouncements().catch(err => {
-        console.error('Error fetching announcements:', err);
-        return [];
-      }),
-      getExams().catch(err => {
-        console.error('Error fetching exams:', err);
-        return [];
-      })
-    ]).then(([ann, exm]) => {
-      setAnnouncements(
-        Array.isArray(ann)
-          ? ann.map(a => ({
-              id: a.id,
-              title: typeof a === 'object' && 'title' in a && typeof a.title === 'string' ? a.title : '',
-              content: typeof a === 'object' && 'content' in a && typeof a.content === 'string' ? a.content : '',
-              contentType: typeof a === 'object' && 'contentType' in a ? a.contentType : undefined,
-              subject: typeof a === 'object' && 'subject' in a ? a.subject : undefined,
-              department: typeof a === 'object' && 'department' in a ? a.department : undefined,
-              links: typeof a === 'object' && 'links' in a && Array.isArray(a.links) ? a.links : undefined,
-              createdAt: typeof a === 'object' && 'createdAt' in a ? a.createdAt : '', // Changed from 'any' to 'string'
-              description: typeof a === 'object' && 'description' in a && typeof a.description === 'string' ? a.description : '',
-            }))
-          : []
-      );
-      setExams(Array.isArray(exm) ? exm : []);
-      setLoading(false);
-    }).catch(err => {
-      console.error('Error in data fetching:', err);
-      setError('載入資料時發生錯誤');
-      setLoading(false);
-    });
-  }, []);
+    // 添加增強的重試機制
+    const fetchData = async (retryCount = 0, maxRetries = 3) => {
+      if (!isMounted) return; // 如果組件已卸載，停止執行
+      
+      try {
+        console.log(`嘗試獲取首頁資料 (嘗試 ${retryCount + 1}/${maxRetries + 1})`);
+        
+        // 使用單獨的 try-catch 塊分別獲取數據，這樣一個失敗不會影響另一個
+        let ann = [];
+        let exm = [];
+        
+        try {
+          ann = await getAnnouncements();
+          console.log(`成功獲取公告數據: ${Array.isArray(ann) ? ann.length : 0} 條記錄`);
+        } catch (annErr) {
+          console.error('獲取公告數據失敗:', annErr);
+          // 不拋出錯誤，而是使用空數組繼續
+        }
+        
+        try {
+          exm = await getExams();
+          console.log(`成功獲取考試數據: ${Array.isArray(exm) ? exm.length : 0} 條記錄`);
+        } catch (exmErr) {
+          console.error('獲取考試數據失敗:', exmErr);
+          // 不拋出錯誤，而是使用空數組繼續
+        }
+        
+        // 如果兩個數據源都失敗且還有重試機會，則拋出錯誤以觸發重試
+        if ((!ann || ann.length === 0) && (!exm || exm.length === 0) && retryCount < maxRetries) {
+          throw new Error('兩個數據源都獲取失敗，將進行重試');
+        }
+        
+        console.log('首頁資料獲取成功');
+        
+        // 處理公告資料
+        const processedAnnouncements = Array.isArray(ann) && ann.length > 0
+          ? ann.map(a => {
+              if (!a || typeof a !== 'object') {
+                console.warn('Invalid announcement data:', a);
+                return null;
+              }
+              return {
+                id: a.id || `temp-${Math.random().toString(36).substring(2, 9)}`,
+                title: typeof a.title === 'string' ? a.title : '',
+                content: typeof a.content === 'string' ? a.content : '',
+                contentType: a.contentType || undefined,
+                subject: a.subject || undefined,
+                department: a.department || undefined,
+                links: Array.isArray(a.links) ? a.links : [],
+                createdAt: a.createdAt ? a.createdAt.toString() : new Date().toISOString(), // 確保 createdAt 是字符串
+                description: typeof a.description === 'string' ? a.description : '',
+              };
+            }).filter(Boolean) // 過濾掉無效的數據
+          : [];
+        
+        setAnnouncements(processedAnnouncements);
+        
+        // 處理考試資料
+        const processedExams = Array.isArray(exm) && exm.length > 0
+          ? exm.map(e => {
+              if (!e || typeof e !== 'object') {
+                console.warn('Invalid exam data:', e);
+                return null;
+              }
+              return {
+                id: e.id || `temp-${Math.random().toString(36).substring(2, 9)}`,
+                name: typeof e.name === 'string' ? e.name : '',
+                startDate: typeof e.startDate === 'string' ? e.startDate : new Date().toISOString().split('T')[0],
+                endDate: typeof e.endDate === 'string' ? e.endDate : new Date().toISOString().split('T')[0],
+                createdAt: e.createdAt ? e.createdAt.toString() : new Date().toISOString(),
+              };
+            }).filter(Boolean) // 過濾掉無效的數據
+          : [];
+        
+        setExams(processedExams);
+        
+        // 將處理後的數據保存到本地緩存
+        try {
+          // 確保只在客戶端執行
+          if (typeof window !== 'undefined') {
+            if (processedAnnouncements.length > 0) {
+              localStorage.setItem('cached_announcements', JSON.stringify(processedAnnouncements));
+              localStorage.setItem('announcements_cache_time', Date.now().toString());
+              console.log('公告數據已緩存到本地存儲');
+            }
+            
+            if (processedExams.length > 0) {
+              localStorage.setItem('cached_exams', JSON.stringify(processedExams));
+              localStorage.setItem('exams_cache_time', Date.now().toString());
+              console.log('考試數據已緩存到本地存儲');
+            }
+          }
+        } catch (cacheErr) {
+          console.error('無法緩存數據到本地存儲:', cacheErr);
+        }
+        setLoading(false);
+      } catch (err) {
+        console.error(`首頁資料獲取錯誤 (嘗試 ${retryCount + 1}/${maxRetries + 1}):`, err);
+        
+        // 如果還有重試次數，則重試
+        if (retryCount < maxRetries) {
+          // 使用指數退避策略，每次重試延遲時間增加
+          const retryDelay = Math.min(1000 * Math.pow(2, retryCount), 10000); // 最大延遲10秒
+          console.log(`將在 ${retryDelay}ms 後重試...`);
+          
+          setTimeout(() => {
+            fetchData(retryCount + 1, maxRetries);
+          }, retryDelay);
+        } else {
+          console.error('已達最大重試次數，無法獲取資料');
+          // 提供更詳細的錯誤信息
+          const errorMessage = err instanceof Error ? err.message : '未知錯誤';
+          setLoading(false);
+          
+          // 嘗試使用本地緩存數據（如果有）
+          try {
+            // 確保只在客戶端執行
+            if (typeof window !== 'undefined') {
+              const cachedAnn = localStorage.getItem('cached_announcements');
+              const cachedExm = localStorage.getItem('cached_exams');
+              const annCacheTime = localStorage.getItem('announcements_cache_time');
+              const exmCacheTime = localStorage.getItem('exams_cache_time');
+              
+              let hasCache = false;
+              
+              if (cachedAnn) {
+                try {
+                  const parsedAnn = JSON.parse(cachedAnn);
+                  if (Array.isArray(parsedAnn) && parsedAnn.length > 0) {
+                    console.log(`使用本地緩存的公告數據（緩存時間：${annCacheTime ? new Date(parseInt(annCacheTime)).toLocaleString() : '未知'}）`);
+                    setAnnouncements(parsedAnn);
+                    hasCache = true;
+                  }
+                } catch (parseErr) {
+                  console.error('解析緩存公告數據時出錯:', parseErr);
+                }
+              }
+              
+              if (cachedExm) {
+                try {
+                  const parsedExm = JSON.parse(cachedExm);
+                  if (Array.isArray(parsedExm) && parsedExm.length > 0) {
+                    console.log(`使用本地緩存的考試數據（緩存時間：${exmCacheTime ? new Date(parseInt(exmCacheTime)).toLocaleString() : '未知'}）`);
+                    setExams(parsedExm);
+                    hasCache = true;
+                  }
+                } catch (parseErr) {
+                  console.error('解析緩存考試數據時出錯:', parseErr);
+                }
+              }
+              
+              if (hasCache) {
+                setError(`使用緩存數據顯示，部分內容可能不是最新。上次更新時間：${new Date(Math.max(
+                  annCacheTime ? parseInt(annCacheTime) : 0,
+                  exmCacheTime ? parseInt(exmCacheTime) : 0
+                )).toLocaleString()}。請檢查網絡連接後重新整理頁面。`);
+              } else {
+                setError(`載入資料時發生錯誤: ${errorMessage}。請檢查網絡連接後重新整理頁面。`);
+              }
+            }
+          } catch (cacheErr) {
+            console.error('無法使用本地緩存:', cacheErr);
+            setError(`載入資料時發生錯誤: ${errorMessage}。無法讀取緩存數據。請檢查網絡連接後重新整理頁面。`);
+          }
+        }
+      }
+    };
+    
+    // 開始獲取資料
+    fetchData();
+    
+    // 清理函數
+    return () => {
+      isMounted = false;
+      console.log('首頁資料獲取組件卸載');
+    };
+  }, []); // 空依賴數組是正確的，因為我們只想在組件掛載時執行一次
 
   // 重置分頁當篩選器改變時
   useEffect(() => {
