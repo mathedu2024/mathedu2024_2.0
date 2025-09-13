@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { SessionData, getSession } from '../utils/session';
+import alerts from '../utils/alerts';
 
 export default function PasswordManager({ session: propSession }: { session?: SessionData }) {
   const [formData, setFormData] = useState({
@@ -9,8 +10,6 @@ export default function PasswordManager({ session: propSession }: { session?: Se
     newPassword: '',
     confirmPassword: '',
   });
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -23,33 +22,29 @@ export default function PasswordManager({ session: propSession }: { session?: Se
       [name]: value
     }));
     // 清除錯誤和成功訊息
-    setError('');
-    setSuccess('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
     setIsLoading(true);
 
     try {
       const session = propSession || getSession();
       if (!session) {
-        setError('請重新登入');
+                        alerts.showError('請重新登入');
         setIsLoading(false);
         return;
       }
 
       // 驗證新密碼
       if (formData.newPassword.length < 6) {
-        setError('新密碼至少需要6個字元');
+        alerts.showError('新密碼至少需要6個字元');
         setIsLoading(false);
         return;
       }
 
       if (formData.newPassword !== formData.confirmPassword) {
-        setError('新密碼與確認密碼不符');
+        alerts.showError('新密碼與確認密碼不符');
         setIsLoading(false);
         return;
       }
@@ -63,7 +58,7 @@ export default function PasswordManager({ session: propSession }: { session?: Se
         await fetch('/api/student/save', { method: 'POST', body: JSON.stringify({ id: session.account, password: formData.newPassword }) });
       }
 
-      setSuccess('密碼修改成功！');
+      alerts.showSuccess('密碼修改成功！');
       setFormData({
         currentPassword: '',
         newPassword: '',
@@ -71,7 +66,7 @@ export default function PasswordManager({ session: propSession }: { session?: Se
       });
     } catch (err) {
       console.error('修改密碼時發生錯誤:', err);
-      setError('修改密碼時發生錯誤，請稍後再試');
+      alerts.showError('修改密碼時發生錯誤，請稍後再試');
     } finally {
       setIsLoading(false);
     }
@@ -190,17 +185,7 @@ export default function PasswordManager({ session: propSession }: { session?: Se
             </div>
           </div>
 
-          {/* 錯誤和成功訊息 */}
-          {error && (
-            <div className="text-red-500 text-center text-sm font-semibold border border-red-200 bg-red-50 py-2 rounded">
-              {error}
-            </div>
-          )}
-          {success && (
-            <div className="text-green-500 text-center text-sm font-semibold border border-green-200 bg-green-50 py-2 rounded">
-              {success}
-            </div>
-          )}
+          
 
           {/* 提交按鈕 */}
           <button

@@ -37,7 +37,7 @@ export default function AnnouncementManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [alert, setAlert] = useState({ open: false, message: '' });
+  const [alert, setAlert] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
 
   useEffect(() => {
     fetchAnnouncements();

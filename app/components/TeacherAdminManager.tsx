@@ -25,7 +25,7 @@ export default function TeacherAdminManager() {
   const [teachers, setTeachers] = useState<AdminTeacher[]>([]);
   const [editingTeacher, setEditingTeacher] = useState<AdminTeacher | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showResetId, setShowResetId] = useState<string | null>(null);
+  
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [alert, setAlert] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
@@ -106,7 +106,7 @@ export default function TeacherAdminManager() {
         body: JSON.stringify({ id: account }),
       });
       setTeachers(teachers => teachers.filter(item => item.account !== account));
-      setAlert({ open: true, message: '帳號已成功刪除' });
+      alerts.showSuccess('帳號已成功刪除');
     } catch {
       setAlert({ open: true, message: '刪除失敗，請稍後再試。' });
     } finally {
@@ -115,10 +115,33 @@ export default function TeacherAdminManager() {
   };
 
   // 密碼復原
-  const handleResetPassword = async (id: string) => {
-    await fetch('/api/admin/update-password', { method: 'POST', body: JSON.stringify({ id, password: DEFAULT_PASSWORD }) });
-    setShowResetId(null);
-    setAlert({ open: true, message: '密碼已復原為預設值' });
+  const handleResetPassword = async (account: string) => {
+    const confirmReset = await alerts.confirm('確定要將密碼復原為預設密碼？');
+    if (!confirmReset) {
+      return;
+    }
+    
+    setIsSubmitting(true);
+    try {
+      const response = await fetch('/api/admin/update-password', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: account, password: DEFAULT_PASSWORD }) 
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || '密碼復原失敗');
+      }
+      
+      setAlert({ open: true, message: '密碼已復原為預設值' });
+    } catch (error) {
+      console.error('密碼復原失敗:', error);
+      setAlert({ open: true, message: `密碼復原失敗: ${error instanceof Error ? error.message : '未知錯誤'}` });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleCancel = () => {
@@ -283,10 +306,11 @@ export default function TeacherAdminManager() {
                           刪除
                         </button>
                         <button 
-                          onClick={() => setShowResetId(item.id)} 
-                          className="text-yellow-600 hover:text-yellow-800 font-medium transition-colors"
+                          onClick={() => handleResetPassword(item.account)} 
+                          disabled={isSubmitting}
+                          className="text-yellow-600 hover:text-yellow-800 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          復原密碼
+                          {isSubmitting ? '處理中...' : '復原密碼'}
                         </button>
                       </div>
                     </div>
@@ -297,29 +321,8 @@ export default function TeacherAdminManager() {
           )}
         </div>
       )}
-      {/* 密碼復原彈窗 */}
-      {showResetId && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-30 z-50">
-          <div className="bg-white p-6 rounded-lg">
-            <div className="mb-4 text-gray-900">確定要將密碼復原為預設密碼？</div>
-            <div className="flex gap-3 justify-end">
-              <button 
-                onClick={() => handleResetPassword(showResetId)} 
-                className="btn-warning px-4 py-2"
-              >
-                確定
-              </button>
-              <button 
-                onClick={() => setShowResetId(null)} 
-                className="btn-secondary px-4 py-2"
-              >
-                取消
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      
       <AlertDialog open={alert.open} message={alert.message} onClose={() => setAlert({ open: false, message: '' })} />
     </div>
   );
-} 
+}

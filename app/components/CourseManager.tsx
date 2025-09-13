@@ -81,7 +81,7 @@ export default function CourseManager({ onProcessingStateChange, userInfo }: Cou
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [allTeachers, setAllTeachers] = useState<Teacher[]>([]);
   const [selectedImage, setSelectedImage] = useState<string>('');
-  const [alert, setAlert] = useState({ open: false, message: '' });
+  const [alert, setAlert] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
   const [selectedGrade] = useState<string>('all');
   const [showArchived] = useState(false);
   const courseImages = useCourseImages();

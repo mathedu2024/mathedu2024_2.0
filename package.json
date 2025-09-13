@@ -16,6 +16,7 @@
     "@types/exceljs": "^0.5.3",
     "@types/react-datepicker": "^6.2.0",
     "axios": "^1.9.0",
+    "bcryptjs": "^3.0.2",
     "chart.js": "^4.5.0",
     "cloudinary": "^2.7.0",
     "cookie": "^1.0.2",

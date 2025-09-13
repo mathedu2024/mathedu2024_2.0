@@ -29,14 +29,15 @@ interface Course {
 export default function StudentManager() {
   const [students, setStudents] = useState<Student[]>([]);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
-  const [alert, setAlert] = useState({ open: false, message: '' });
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGrade, setSelectedGrade] = useState<string>('all');
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
   const [formErrors, setFormErrors] = useState<{ studentId?: string; email?: string }>({});
-  const [showResetId, setShowResetId] = useState<string | null>(null);
+  const [alert, setAlert] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
+  
 
   const grades = ['國一', '國二', '國三', '高一', '高二', '高三'];
 
@@ -198,13 +199,16 @@ export default function StudentManager() {
   };
 
   const handleResetPassword = async (id: string) => {
+    const confirmReset = await alerts.confirm('確定要將密碼復原為預設密碼嗎？');
+    if (!confirmReset) {
+      return;
+    }
     await fetch('/api/student/reset-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id }),
     });
-    setShowResetId(null);
-    setAlert({ open: true, message: '密碼已復原為預設值 abcd1234' });
+    alerts.showSuccess('密碼已復原為預設值');
   };
 
   const filteredStudents = students.filter(student => {
@@ -453,7 +457,7 @@ export default function StudentManager() {
                           刪除
                         </button>
                         <button 
-                          onClick={() => setShowResetId(student.id)} 
+                          onClick={() => handleResetPassword(student.id)} 
                           className="text-yellow-600 hover:text-yellow-800 font-medium transition-colors"
                         >
                           復原密碼
@@ -476,27 +480,7 @@ export default function StudentManager() {
 
       <AlertDialog open={alert.open} message={alert.message} onClose={() => setAlert({ open: false, message: '' })} />
 
-      {showResetId && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-30 z-50">
-          <div className="bg-white p-6 rounded-lg">
-            <div className="mb-4 text-gray-900">確定要將密碼復原為預設密碼？</div>
-            <div className="flex gap-3 justify-end">
-              <button 
-                onClick={() => handleResetPassword(showResetId)} 
-                className="bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 transition-colors"
-              >
-                確定
-              </button>
-              <button 
-                onClick={() => setShowResetId(null)} 
-                className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
-              >
-                取消
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      
     </div>
   );
 } 
