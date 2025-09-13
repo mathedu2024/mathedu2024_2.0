@@ -40,5 +40,18 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Firebase and Google Cloud credentials
 services/serviceAccountKey.json
-.env 
+service-account.json
+service-account.json.json
+*.json.json
+firebase-adminsdk-*.json
+google-services.json
+GoogleService-Info.plist
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local 
