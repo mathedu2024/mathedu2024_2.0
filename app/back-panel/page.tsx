@@ -603,7 +603,7 @@ function BackPanel() {
       <main
         className="flex-1 flex flex-col min-h-0 bg-gray-100"
         style={{
-          paddingLeft: sidebarOpen ? 64 : 256,
+          paddingLeft: isMobile ? 0 : (sidebarOpen ? 64 : 256),
           transition: 'padding-left 0.3s'
         }}
       >

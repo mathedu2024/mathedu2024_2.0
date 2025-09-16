@@ -146,7 +146,7 @@ function StudentPanelContent() {
   const [lessonsPerPage] = useState<number>(8);
 
   // 1. 新增 isMobile 狀態與漢堡選單控制
-  // const isMobile = typeof window !== 'undefined' && window.innerWidth < 768; // 已移除未使用變數
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(true);
 
   // 課程詳細資訊組件
@@ -783,7 +783,7 @@ function StudentPanelContent() {
 
   // 2. 側邊欄響應式與漢堡選單
   return (
-    <div className="flex flex-col h-screen bg-gray-100 font-sans">
+    <div className="flex flex-col h-full bg-gray-100 font-sans">
       <div className="flex flex-1 min-h-0">
         {/* 手機漢堡按鈕 */}
         <button
@@ -815,7 +815,7 @@ function StudentPanelContent() {
         <main
           className="flex-1 min-w-0 p-2 md:p-8 transition-all duration-300 flex justify-center"
           style={{
-            paddingLeft: sidebarOpen ? 64 : 256,
+            paddingLeft: isMobile ? 0 : (sidebarOpen ? 64 : 256),
             transition: 'padding-left 0.3s'
           }}
         >

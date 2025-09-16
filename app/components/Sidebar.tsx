@@ -246,6 +246,20 @@ export default function Sidebar({
               </button>
             ))}
           </nav>
+          {/* 登出按鈕 */}
+          <div className="px-2 pb-2 border-t bg-white">
+            <button
+              onClick={() => { onLogout(); onToggleSidebar(); }}
+              className="flex items-center w-full h-12 px-3 py-2 rounded-lg transition-colors hover:bg-red-50 text-red-600"
+            >
+              <span className="flex items-center justify-center w-8 h-8">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+              </span>
+              <span className="ml-3 text-base">登出</span>
+            </button>
+          </div>
           {/* 關閉按鈕 */}
           <div className="px-2 pb-2 border-t bg-white">
             <button

@@ -1,12 +1,12 @@
 import { db } from './firebase';
-import { collection, getDocs, query, limit } from 'firebase/firestore';
+import { collection, getDocs, query, limit, orderBy } from 'firebase/firestore';
 
 // 公告事項 CRUD
 export const getAnnouncements = async () => {
   try {
     console.log('Fetching announcements from Firestore...');
     const announcementsRef = collection(db, 'announcements');
-    const q = query(announcementsRef, limit(20)); // 限制獲取數量以提高性能
+    const q = query(announcementsRef, orderBy('createdAt', 'desc'), limit(20)); // 限制獲取數量以提高性能
     const snapshot = await getDocs(q);
     
     if (snapshot.empty) {

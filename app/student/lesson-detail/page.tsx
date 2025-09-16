@@ -34,152 +34,7 @@ export default function LessonDetailPage() {
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
 
   useEffect(() => {
-    // 注入 YouTube 限制樣式
-    const styleElement = document.createElement('style');
-    styleElement.textContent = `
-      /* 隱藏 YouTube 播放器的某些元素 */
-      iframe[src*="youtube.com"] {
-        pointer-events: auto;
-      }
-      
-      /* 嘗試隱藏 YouTube 的分享、稍後觀看等按鈕 */
-      .ytp-share-button,
-      .ytp-watch-later-button,
-      .ytp-more-button,
-      .ytp-youtube-button,
-      .ytp-watermark,
-      .ytp-show-cards-title,
-      .ytp-show-cards-icon,
-      .ytp-pause-overlay,
-      .ytp-cued-thumbnail-overlay,
-      .ytp-large-play-button,
-      .ytp-title,
-      .ytp-chrome-top,
-      .ytp-chrome-bottom,
-      .ytp-gradient-top,
-      .ytp-gradient-bottom,
-      .ytp-show-cards-title,
-      .ytp-show-cards-icon,
-      .ytp-cards-button,
-      .ytp-settings-button,
-      .ytp-fullscreen-button,
-      .ytp-remote-button,
-      .ytp-pip-button,
-      .ytp-size-button,
-      .ytp-autonav-toggle-button,
-      .ytp-autonav-endscreen-countdown-container,
-      .ytp-autonav-endscreen-link-container,
-      .ytp-autonav-endscreen-video-info,
-      .ytp-autonav-endscreen-upnext-container,
-      .ytp-autonav-endscreen-upnext-header,
-      .ytp-autonav-endscreen-upnext-title,
-      .ytp-autonav-endscreen-upnext-author,
-      .ytp-autonav-endscreen-upnext-thumbnail,
-      .ytp-autonav-endscreen-upnext-duration,
-      .ytp-autonav-endscreen-upnext-view-count,
-      .ytp-autonav-endscreen-upnext-cta,
-      .ytp-autonav-endscreen-upnext-cta-text,
-      .ytp-autonav-endscreen-upnext-cta-button,
-      .ytp-autonav-endscreen-upnext-cta-button-text,
-      .ytp-autonav-endscreen-upnext-cta-button-icon,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-svg,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-path,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-circle,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-rect,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-polygon,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-line,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-polyline,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-ellipse,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-defs,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-use,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-image,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-clipPath,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-mask,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-pattern,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-filter,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feGaussianBlur,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feOffset,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feMerge,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feMergeNode,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feComposite,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feBlend,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feColorMatrix,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feConvolveMatrix,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feDisplacementMap,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feFlood,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feGaussianBlur,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feImage,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feMerge,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feMorphology,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feOffset,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feSpecularLighting,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feTile,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feTurbulence,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feDistantLight,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-fePointLight,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feSpotLight,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feFuncR,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feFuncG,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feFuncB,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feFuncA,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feComponentTransfer,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feDropShadow,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feFlood,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feGaussianBlur,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feImage,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feMerge,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feMorphology,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feOffset,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feSpecularLighting,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feTile,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feTurbulence,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feDistantLight,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-fePointLight,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feSpotLight,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feFuncR,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feFuncG,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feFuncB,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feFuncA,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feComponentTransfer,
-      .ytp-autonav-endscreen-upnext-cta-button-icon-feDropShadow {
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-      }
-      
-      /* 隱藏 YouTube 播放器外層的分享按鈕 */
-      .ytp-share-button,
-      .ytp-watch-later-button,
-      .ytp-more-button,
-      .ytp-youtube-button {
-        display: none !important;
-        visibility: hidden !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-        width: 0 !important;
-        height: 0 !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        border: none !important;
-        background: none !important;
-      }
-      
-      /* 禁用右鍵選單 */
-      iframe[src*="youtube.com"] {
-        -webkit-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
-        user-select: none;
-        -webkit-touch-callout: none;
-        -webkit-user-drag: none;
-        -khtml-user-drag: none;
-        -moz-user-drag: none;
-        -o-user-drag: none;
-        user-drag: none;
-      }
-    `;
-    document.head.appendChild(styleElement);
+    
 
     // 從 localStorage 獲取課程資訊
     const lessonData = localStorage.getItem('currentLesson');
@@ -231,72 +86,50 @@ export default function LessonDetailPage() {
       setLoading(false);
       setLessonListLoading(false);
     }
-    // 清理函數
-    return () => {
-      if (styleElement.parentNode) {
-        styleElement.parentNode.removeChild(styleElement);
-      }
-    };
+    
   }, [router]);
 
   // 將 YouTube URL 轉換為嵌入 URL
   const getEmbedUrl = (url: string) => {
-    // 檢查 URL 是否為空或無效
     if (!url || typeof url !== 'string' || url.trim() === '') {
-      return null; // 返回 null 而不是空字串
+      return null;
     }
-    
+  
     let videoId = '';
-    
-    if (url.includes('youtube.com/watch?v=')) {
-      videoId = url.split('v=')[1]?.split('&')[0] || '';
-    } else if (url.includes('youtu.be/')) {
-      videoId = url.split('youtu.be/')[1]?.split('?')[0] || '';
+    try {
+      const urlObj = new URL(url);
+      if (urlObj.hostname.includes('youtube.com') && urlObj.searchParams.has('v')) {
+        videoId = urlObj.searchParams.get('v')!;
+      } else if (urlObj.hostname.includes('youtu.be')) {
+        videoId = urlObj.pathname.slice(1);
+      }
+    } catch (_error) {
+      // 如果 URL 無效，則直接返回
+      return url;
     }
-    
+  
     if (videoId) {
-      // 使用最嚴格的參數來限制功能
-      const params = [
-        'rel=0',              // 禁用相關影片
-        'modestbranding=1',   // 隱藏 YouTube logo
-        'showinfo=0',         // 隱藏影片資訊
-        'controls=1',         // 顯示基本控制項
-        'disablekb=1',        // 禁用鍵盤控制
-        'fs=0',               // 禁用全螢幕
-        'iv_load_policy=3',   // 隱藏註解
-        'cc_load_policy=0',   // 隱藏字幕
-        'playsinline=1',      // 在行內播放
-        'origin=' + encodeURIComponent(window.location.origin), // 設置來源
-        'enablejsapi=0',      // 禁用 JavaScript API
-        'widget_referrer=' + encodeURIComponent(window.location.origin), // 設置引用來源
-        'autoplay=0',         // 禁用自動播放
-        'mute=0',             // 不靜音
-        'loop=0',             // 不循環播放
-        'playlist=' + videoId, // 設置播放列表（單一影片）
-        'color=white',        // 設置播放器顏色
-        'theme=light',        // 設置主題
-        'vq=hd720',          // 設置預設畫質
-        'start=0',            // 從開始播放
-        'end=0',              // 播放到結束
-        'wmode=transparent',  // 設置視窗模式
-        'allowfullscreen=0',  // 禁用全螢幕
-        'allowscriptaccess=never', // 禁用腳本訪問
-        'allowtransparency=true',  // 允許透明度
-        'frameborder=0',      // 無邊框
-        'scrolling=no',       // 無滾動
-        'marginwidth=0',      // 無邊距
-        'marginheight=0',     // 無邊距
-        'border=0',           // 無邊框
-        'style=border:0',     // 無邊框樣式
-        'allow=accelerometer; encrypted-media; gyroscope; picture-in-picture', // 限制允許的功能
-        'sandbox=allow-scripts allow-same-origin allow-presentation allow-forms allow-popups allow-popups-to-escape-sandbox', // 沙盒限制
-        'loading=lazy',       // 延遲載入
-        'referrerpolicy=no-referrer' // 無引用來源
-      ];
-      
-      return `https://www.youtube.com/embed/${videoId}?${params.join('&')}`;
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const params = new URLSearchParams({
+        rel: '0',
+        modestbranding: '1',
+        controls: '1',
+        fs: '1',
+        playsinline: '1',
+        enablejsapi: '1',
+        autoplay: '0',
+        mute: '0',
+        loop: '0',
+        color: 'white',
+        theme: 'light',
+        origin: origin,
+        widget_referrer: origin,
+        showinfo: '0',
+        iv_load_policy: '3',
+      });
+      return `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
     }
-    
+  
     return url;
   };
 
@@ -518,9 +351,8 @@ export default function LessonDetailPage() {
                           pointerEvents: 'auto'
                         }}
                         frameBorder="0"
-                        allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                        sandbox="allow-scripts allow-same-origin allow-presentation allow-forms allow-popups allow-popups-to-escape-sandbox"
+                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+                         allowFullScreen
                         loading="lazy"
                         referrerPolicy="no-referrer"
                       />

@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '@/services/firebase-admin';
+import { adminDb } from '../../../../services/firebase-admin';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {

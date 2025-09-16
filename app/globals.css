@@ -18,11 +18,7 @@ html, body {
   -ms-text-size-adjust: 100%;
 }
 
-main {
-  height: calc(100vh - 64px); /* 使用視窗高度減去header高度(h-16 = 64px) */
-  overflow-y: auto; /* 保留主內容區塊滾動 */
-  -webkit-overflow-scrolling: touch; /* 改善移動設備滾動體驗 */
-}
+
 
 /* 響應式斷點系統 */
 /* 手機直向 (320px - 480px) */
