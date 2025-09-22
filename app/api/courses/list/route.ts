@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
       
       const courses = Array.from(allCourses.values());
       console.log(`courses/list API - Found ${courses.length} total courses for teacher ${teacherId}`);
-      console.log('courses/list API - Course IDs:', courses.map(c => c.id));
+      console.log('courses/list API - Courses data:', JSON.stringify(courses, null, 2));
       // 自動補齊所有欄位
       const withDefaults = (course: Record<string, unknown>) => ({
         id: course.id,
@@ -194,4 +194,4 @@ export async function GET() {
     }
     return NextResponse.json({ error: message, stack }, { status: 500 });
   }
-} 
+}

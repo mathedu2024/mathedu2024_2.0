@@ -30,7 +30,11 @@ export async function POST(req: NextRequest) {
     }
     let lessons = lessonsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     if (fallback) lessons = lessons.reverse();
-    return NextResponse.json(lessons);
+
+    // Filter lessons based on isVisibleToStudents
+    const filteredLessons = lessons.filter(lesson => lesson.isVisibleToStudents ?? true); // Default to true if field is missing
+
+    return NextResponse.json(filteredLessons);
   } catch (error: unknown) {
     let message = '查詢失敗';
     if (error instanceof Error) message = error.message;

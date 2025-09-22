@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import LoadingSpinner from './LoadingSpinner';
-import AlertDialog from './AlertDialog';
-import alerts from '../utils/alerts';
+import Swal from 'sweetalert2';
 
 interface AdminTeacher {
   id: string;
@@ -24,11 +23,11 @@ function generateRandomId() {
 export default function TeacherAdminManager() {
   const [teachers, setTeachers] = useState<AdminTeacher[]>([]);
   const [editingTeacher, setEditingTeacher] = useState<AdminTeacher | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   
   const [loading, setLoading] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [alert, setAlert] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
 
   // 取得管理員/老師列表
   useEffect(() => {
@@ -38,8 +37,9 @@ export default function TeacherAdminManager() {
         const res = await fetch('/api/admin/list');
         const adminList: AdminTeacher[] = await res.json();
         setTeachers(adminList);
-      } catch {
-        console.error('Error fetching data');
+      } catch (error) {
+        console.error('Error fetching data', error);
+        Swal.fire('錯誤', '讀取資料失敗，請稍後再試。', 'error');
       }
       setLoading(false);
     };
@@ -50,43 +50,63 @@ export default function TeacherAdminManager() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingTeacher) return;
-    // 帳號格式檢查
-    if (!/^[A-Za-z0-9]+$/.test(editingTeacher.account)) {
-      setAlert({ open: true, message: '帳號僅能包含英文字母(區分大小寫)和數字，不能有空白、標點或其他字元' });
+
+    // Trim whitespace from account and create a clean data object for submission
+    const teacherData = { ...editingTeacher, account: editingTeacher.account.trim() };
+
+    if (!teacherData.account) {
+      Swal.fire({ icon: 'warning', title: '警告', text: '帳號不能為空' });
       return;
     }
+
+    // 帳號格式檢查
+    if (!/^[A-Za-z0-9]+$/.test(teacherData.account)) {
+      Swal.fire({ icon: 'warning', title: '警告', text: '帳號僅能包含英文字母(區分大小寫)和數字，不能有空白、標點或其他字元' });
+      return;
+    }
+    
     setIsSubmitting(true);
     try {
+      const isUpdating = !!teacherData.id;
+
       // 檢查帳號是否重複
       const res = await fetch('/api/admin/list');
       const adminList: AdminTeacher[] = await res.json();
       const isDuplicate = adminList.some((item: AdminTeacher) => {
-        // 若是更新，允許自己
-        if (editingTeacher.id && item.account === editingTeacher.account) return false;
-        return item.account === editingTeacher.account;
+        if (isUpdating && item.id === teacherData.id) {
+          return false;
+        }
+        return item.account === teacherData.account;
       });
+
       if (isDuplicate) {
-        setAlert({ open: true, message: '此帳號已被使用，請更換帳號' });
+        Swal.fire({ icon: 'warning', title: '警告', text: '此帳號已被使用，請更換帳號' });
         setIsSubmitting(false);
         return;
       }
-      // 設定 id 為亂碼
-      const randomId = generateRandomId();
-      const data = { ...editingTeacher, id: randomId, password: DEFAULT_PASSWORD };
-      // 檔名為帳號
-      // 新增或更新都統一呼叫 create-user API
+
+      const data = {
+        ...teacherData,
+        id: isUpdating ? teacherData.id : generateRandomId(),
+        password: isUpdating ? teacherData.password : DEFAULT_PASSWORD,
+      };
+
       await fetch('/api/admin/create-user', { method: 'POST', body: JSON.stringify(data) });
-      // 更新本地 teachers 狀態
-      setTeachers(teachers => {
-        const exists = teachers.some(item => item.account === editingTeacher.account);
-        if (exists) {
-          return teachers.map(item => item.account === editingTeacher.account ? { ...data } : item);
+
+      setTeachers(prevTeachers => {
+        if (isUpdating) {
+          return prevTeachers.map(item => item.id === teacherData.id ? data : item);
         } else {
-          return [...teachers, { ...data }];
-      }
+          return [...prevTeachers, data];
+        }
       });
+      
+      Swal.fire('成功', `帳號 ${data.account} 已成功${isUpdating ? '更新' : '建立'}。`, 'success');
       setEditingTeacher(null);
       setIsEditing(false);
+    } catch (error) {
+      console.error('Submit error:', error);
+      Swal.fire('錯誤', '儲存失敗，請稍後再試。', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -94,10 +114,19 @@ export default function TeacherAdminManager() {
 
   // 刪除
   const handleDelete = async (account: string) => {
-    // Prevent deleting the test account
     if (account === 'test') return;
-    const confirmDelete = await alerts.confirm('確定要刪除此帳號嗎？此操作無法復原！');
-    if (!confirmDelete) return;
+
+    const result = await Swal.fire({
+      title: '請確認',
+      text: '確定要刪除此帳號嗎？此操作無法復原！',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: '確定刪除',
+      cancelButtonText: '取消'
+    });
+
+    if (!result.isConfirmed) return;
+
     setIsSubmitting(true);
     try {
       await fetch('/api/admin/delete', {
@@ -106,9 +135,9 @@ export default function TeacherAdminManager() {
         body: JSON.stringify({ id: account }),
       });
       setTeachers(teachers => teachers.filter(item => item.account !== account));
-      alerts.showSuccess('帳號已成功刪除');
+      Swal.fire('已刪除!', '帳號已成功刪除。', 'success');
     } catch {
-      setAlert({ open: true, message: '刪除失敗，請稍後再試。' });
+      Swal.fire('錯誤', '刪除失敗，請稍後再試。', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -116,17 +145,23 @@ export default function TeacherAdminManager() {
 
   // 密碼復原
   const handleResetPassword = async (account: string) => {
-    const confirmReset = await alerts.confirm('確定要將密碼復原為預設密碼？');
-    if (!confirmReset) {
-      return;
-    }
+    const result = await Swal.fire({
+      title: '請確認',
+      text: '確定要將密碼復原為預設密碼？',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: '確定',
+      cancelButtonText: '取消'
+    });
+
+    if (!result.isConfirmed) return;
     
     setIsSubmitting(true);
     try {
       const response = await fetch('/api/admin/update-password', { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: account, password: DEFAULT_PASSWORD }) 
+        body: JSON.stringify({ id: account.trim(), password: DEFAULT_PASSWORD }) 
       });
       
       const data = await response.json();
@@ -135,10 +170,11 @@ export default function TeacherAdminManager() {
         throw new Error(data.error || '密碼復原失敗');
       }
       
-      setAlert({ open: true, message: '密碼已復原為預設值' });
+      Swal.fire('成功', '密碼已復原為預設值。', 'success');
     } catch (error) {
       console.error('密碼復原失敗:', error);
-      setAlert({ open: true, message: `密碼復原失敗: ${error instanceof Error ? error.message : '未知錯誤'}` });
+      const message = error instanceof Error ? error.message : '未知錯誤';
+      Swal.fire('錯誤', `密碼復原失敗: ${message}`, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -159,6 +195,13 @@ export default function TeacherAdminManager() {
     setIsEditing(true);
   };
 
+  const filteredTeachers = teachers.filter(teacher => {
+    const name = teacher.name || '';
+    const account = teacher.account || '';
+    return name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           account.toLowerCase().includes(searchTerm.toLowerCase());
+  });
+
   return (
     <div className="max-w-6xl mx-auto w-full p-4 h-full flex flex-col">
       <h2 className="text-2xl font-bold mb-6 flex-shrink-0">老師/管理員管理</h2>
@@ -173,16 +216,25 @@ export default function TeacherAdminManager() {
           </div>
         </div>
       </div>
-      <div className="mb-6 flex justify-end">
-        {!isEditing && (
-          <button
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700"
-            onClick={handleAdd}
-          >
-            新增帳號
-          </button>
-        )}
-      </div>
+      {!isEditing && (
+        <div className="bg-white border border-gray-200 p-6 rounded-lg shadow-sm mb-6 flex-shrink-0">
+          <div className="flex flex-col md:flex-row gap-4 items-center">
+            <input
+              type="text"
+              placeholder="搜尋姓名或帳號"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="flex-1 w-full border border-gray-300 p-3 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              onClick={handleAdd}
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 w-full md:w-auto"
+            >
+              新增帳號
+            </button>
+          </div>
+        </div>
+      )}
       {/* 新增/編輯表單 */}
       {isEditing && editingTeacher && (
         <div className="bg-white border border-gray-200 p-6 rounded-lg mb-6">
@@ -274,25 +326,35 @@ export default function TeacherAdminManager() {
               <p className="text-gray-600 ml-4">載入中...</p>
             </div>
           ) : (
-            <div className="space-y-4 flex-1 min-h-0 overflow-y-auto">
-              {teachers.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  <p>尚無帳號資料</p>
-                </div>
-              ) : (
-                teachers.map(item => (
-                  <div key={item.id} className="bg-white border border-gray-200 p-6 rounded-lg">
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-                      <div className="flex-1">
-                        <div className="font-semibold text-lg text-gray-900 mb-2">
-                          {item.name} ({item.account})
-                        </div>
-                        <div className="text-sm text-gray-600 space-y-1">
-                          <p>權限：{Array.isArray(item.roles) ? item.roles.join(' / ') : (item.roles || '')}</p>
-                          {item.note && <p>備註：{item.note}</p>}
-                        </div>
+          <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-x-auto">
+            <table className="w-full text-sm text-left text-gray-500">
+              <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-6 py-3">姓名</th>
+                  <th scope="col" className="px-6 py-3">帳號</th>
+                  <th scope="col" className="px-6 py-3">權限</th>
+                  <th scope="col" className="px-6 py-3">備註</th>
+                  <th scope="col" className="px-6 py-3">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={5} className="text-center py-10">
+                      <div className="flex flex-col items-center gap-2">
+                        <LoadingSpinner size={8} />
+                        <span className="mt-2 text-gray-500">讀取中...</span>
                       </div>
-                      <div className="flex gap-3 mt-4 md:mt-0">
+                    </td>
+                  </tr>
+                ) : filteredTeachers.length > 0 ? filteredTeachers.map(item => (
+                  <tr key={item.id} className="bg-white border-b hover:bg-gray-50">
+                    <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{item.name}</td>
+                    <td className="px-6 py-4">{item.account}</td>
+                    <td className="px-6 py-4">{Array.isArray(item.roles) ? item.roles.join(' / ') : (item.roles || '')}</td>
+                    <td className="px-6 py-4">{item.note}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex gap-3 w-full min-w-[180px]">
                         <button 
                           onClick={() => handleEdit(item)} 
                           className="text-blue-600 hover:text-blue-800 font-medium transition-colors"
@@ -313,16 +375,23 @@ export default function TeacherAdminManager() {
                           {isSubmitting ? '處理中...' : '復原密碼'}
                         </button>
                       </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+                    </td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan={5} className="text-center py-10 text-gray-500">
+                      沒有找到符合條件的資料
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
           )}
         </div>
       )}
       
-      <AlertDialog open={alert.open} message={alert.message} onClose={() => setAlert({ open: false, message: '' })} />
+      
     </div>
   );
 }

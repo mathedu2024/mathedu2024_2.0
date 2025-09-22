@@ -48,18 +48,18 @@ function TeacherPageContent() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-4xl md:text-5xl font-bold text-center mb-12 text-blue-700 tracking-tight drop-shadow-sm">
+      <h1 className="text-4xl md:text-5xl font-bold text-center mb-12 text-blue-600 tracking-tight drop-shadow-sm">
         師資介紹
       </h1>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 px-2 sm:px-4 md:px-0">
         {teachers.map((teacher) => (
           <div
             key={teacher.name}
-            className="bg-white overflow-hidden hover:bg-gray-50 transition-all duration-300 flex flex-col md:block mb-6 md:mb-0 relative"
+            className="bg-white rounded-lg shadow-md hover:shadow-xl overflow-hidden hover:bg-gray-50 transition-all duration-300 flex flex-col md:block mb-6 md:mb-0 relative"
           >
             {/* 圖片區塊 */}
-            <div className="w-full aspect-square relative md:w-1/2 md:aspect-auto md:relative md:float-left md:mr-6 mb-4 md:mb-0">
-              <div className="hidden md:block pt-[100%]" />
+            <div className="w-full relative md:w-1/2 md:relative md:float-left md:mr-6 mb-4 md:mb-0">
+              <div className="block pt-[100%]" />
               <Image
                 src={teacher.photo}
                 alt={teacher.name}

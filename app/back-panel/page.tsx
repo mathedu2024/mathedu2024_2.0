@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, Suspense, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import AnnouncementManager from '../components/AnnouncementManager';
 import ExamDateManager from '../components/ExamDateManager';
@@ -13,6 +13,7 @@ import GradeManager from '../components/GradeManager';
 import { getSession, clearSession } from '../utils/session';
 import type { Course } from '../components/TeacherCourseManager';
 import Sidebar from '../components/Sidebar';
+import { CalendarIcon } from '@heroicons/react/24/outline';
 
 type AdminTab = 'announcements' | 'exam-dates' | 'students' | 'courses' | 'admin-teachers';
 type TeacherTab = 'teacher-courses' | 'teacher-grades' | 'teacher-exams' | 'tutoring';
@@ -35,18 +36,20 @@ function BackPanel() {
   const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 768 : true);
   const [activeTab, setActiveTab] = useState<Tab>(null);
   const [userInfo, setUserInfo] = useState<BackPanelUserInfo | null>(null);
-  const [lastActivity, setLastActivity] = useState<number>(Date.now());
+  const lastActivityRef = useRef<number>(Date.now());
   const [isChildProcessing, setIsChildProcessing] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
   const [adminStats, setAdminStats] = useState({ studentCount: 0, teacherCount: 0, courseCount: 0 });
   const [loading, setLoading] = useState(true);
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
-  const handleActivity = useCallback(() => setLastActivity(Date.now()), []);
+  const handleActivity = useCallback(() => {
+    lastActivityRef.current = Date.now();
+  }, []);
 
   const handleProcessingStateChange = useCallback((isProcessing: boolean) => {
     setIsChildProcessing(isProcessing);
-    if (!isProcessing) setLastActivity(Date.now());
+    if (!isProcessing) lastActivityRef.current = Date.now();
   }, []);
 
   const handleLogout = useCallback(() => {
@@ -57,7 +60,7 @@ function BackPanel() {
   useEffect(() => {
     const checkActivity = () => {
       if (isChildProcessing) return;
-      if (Date.now() - lastActivity > 3 * 60 * 1000) {
+      if (Date.now() - lastActivityRef.current > 3 * 60 * 1000) {
         clearSession();
         router.push('/panel');
       }
@@ -70,7 +73,7 @@ function BackPanel() {
       clearInterval(interval);
       events.forEach(event => window.removeEventListener(event, handleActivity));
     };
-  }, [isChildProcessing, lastActivity, router, handleActivity]);
+  }, [isChildProcessing, router, handleActivity]);
 
   useEffect(() => {
     console.time('back-panel-load');
@@ -133,7 +136,7 @@ function BackPanel() {
     if (userRole === '老師') {
       fetchTeacher();
     } else {
-      const adminUserInfo = { ...session, name: session.name, account: session.account, id: session.id, role: session.role };
+      const adminUserInfo = { ...session, name: session.name, account: session.account, id: session.id, role: userRole };
       console.log('Back Panel - Setting admin userInfo:', adminUserInfo);
       setUserInfo(adminUserInfo);
       setLoading(false);
@@ -193,6 +196,18 @@ function BackPanel() {
     }
   }, [isAdmin]); // Only depend on isAdmin to prevent infinite loops
 
+  const fetchAdminCourses = async () => {
+    const res = await fetch('/api/courses/list', { method: 'GET' });
+    if (res.ok) {
+      const allCourses: Course[] = await res.json();
+      console.log('Fetched admin courses:', allCourses);
+      setCourses(allCourses);
+    } else {
+      console.error('Failed to fetch admin courses');
+      setCourses([]);
+    }
+  };
+
   useEffect(() => {
     if (userInfo?.role === '老師' && userInfo.account) {
 
@@ -207,7 +222,7 @@ function BackPanel() {
         if (res.ok) {
           const data = await res.json();
           courseNames = (data.courses || []).map((str: string) => {
-            const match = str.match(/(.+?)\([^)]*\)$/);
+            const match = str.match(/(.+?)\(([^)]*\))$/);
             return match ? match[1] : str;
           });
         }
@@ -226,16 +241,7 @@ function BackPanel() {
         setCourses(fullCourses as Course[]);
       })();
     } else if (userInfo?.role === '管理員') {
-      // 管理員載入全部課程
-      (async () => {
-        const res = await fetch('/api/courses/list', { method: 'GET' });
-        if (res.ok) {
-          const allCourses: Course[] = await res.json();
-          setCourses(allCourses);
-        } else {
-          setCourses([]);
-        }
-      })();
+      fetchAdminCourses();
     }
   }, [userInfo?.account, userInfo?.id, userInfo?.role]);
 
@@ -252,7 +258,7 @@ function BackPanel() {
       { id: 'teacher-courses', title: '授課課程管理', icon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6l4 2" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12V6a2 2 0 00-2-2H6a2 2 0 00-2 2v6" /></svg> },
       { id: 'teacher-grades', title: '成績管理', icon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg> },
       { id: 'teacher-exams', title: '測驗管理', icon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2a4 4 0 014-4h2" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h.01" /></svg> },
-      { id: 'tutoring', title: '課程輔導', icon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg> },
+      { id: 'tutoring', title: '課程輔導', icon: <CalendarIcon /> },
       { id: 'password', title: '修改密碼', icon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg> },
     ],
   };
@@ -264,7 +270,7 @@ function BackPanel() {
     { id: 'teacher-grades', title: '成績管理', icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>, color: 'green' },
     { id: 'teacher-attendance', title: '點名管理', icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>, color: 'orange', disabled: true },
     { id: 'teacher-exams', title: '測驗管理', icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>, color: 'yellow', disabled: true },
-    { id: 'tutoring', title: '課程輔導', icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>, color: 'purple', disabled: true },
+    { id: 'tutoring', title: '課程輔導', icon: <CalendarIcon />, color: 'purple', disabled: true },
     { id: 'password', title: '修改密碼', icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>, color: 'red' },
   ];
 
@@ -341,7 +347,7 @@ function BackPanel() {
       ] : [
         { title: '授課課程', value: courses.length, color: 'blue', icon: <svg className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6l4 2" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12V6a2 2 0 00-2-2H6a2 2 0 00-2 2v6" /></svg> },
         { title: '成績管理', value: '可管理', color: 'green', icon: <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg> },
-        { title: '輔導預約', value: '未開放', color: 'yellow', icon: <svg className="h-8 w-8 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg> },
+        { title: '輔導預約', value: '未開放', color: 'yellow', icon: <svg className="h-8 w-8 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg> },
         { title: '帳戶設定', value: '可修改', color: 'purple', icon: <svg className="h-8 w-8 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg> },
       ];
       return (
@@ -477,12 +483,11 @@ function BackPanel() {
         return <StudentManager />;
       case 'courses':
         console.log('Rendering CourseManager');
-        return <CourseManager onProcessingStateChange={handleProcessingStateChange} userInfo={userInfo} />;
+        return <CourseManager onProcessingStateChange={handleProcessingStateChange} />;
       case 'admin-teachers':
         return <TeacherAdminManager />;
       case 'password':
-        return <PasswordManager />;
-      case 'teacher-courses':
+        return <PasswordManager apiEndpoint="/api/auth/change-password" />;      case 'teacher-courses':
         console.log('Rendering TeacherCourseManager with userInfo:', normalizedUserInfo, 'courses:', courses);
         return <TeacherCourseManager userInfo={normalizedUserInfo} courses={courses} />;
       case 'teacher-grades':
@@ -580,7 +585,7 @@ function BackPanel() {
   // ];
 
   return (
-    <div className="flex h-screen bg-gray-100 overflow-hidden">
+    <div className="flex h-full bg-gray-100">
       {/* 漢堡按鈕（僅手機顯示，sidebar 關閉時顯示） */}
       {isMobile && !sidebarOpen && (
         <button className="fixed top-16 left-4 z-40 bg-white p-2 rounded-full shadow-lg md:hidden hover:bg-gray-50 transition-colors" onClick={() => setSidebarOpen(true)}>
@@ -600,17 +605,15 @@ function BackPanel() {
         isMobile={isMobile}
       />
 
-      <main
+      <div
         className="flex-1 flex flex-col min-h-0 bg-gray-100"
         style={{
           paddingLeft: isMobile ? 0 : (sidebarOpen ? 64 : 256),
           transition: 'padding-left 0.3s'
         }}
       >
-        <div className="flex-1">
-          {renderContent()}
-        </div>
-      </main>
+        {renderContent()}
+      </div>
     </div>
   );
 }

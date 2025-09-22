@@ -5,6 +5,7 @@ import { Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
 
 import { Modal } from './ui';
+import Dropdown from './ui/Dropdown';
 import LoadingSpinner from './LoadingSpinner';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
@@ -39,6 +40,7 @@ interface StudentGradeViewerProps {
 }
 
 type StudentGradeRow = { studentId: string; regularScores?: Record<string, number>; periodicScores?: Record<string, number>; manualAdjust?: number; };
+
 
 export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerProps) {
   const [courses, setCourses] = useState<CourseInfo[]>([]);
@@ -142,12 +144,12 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
     const avg = (v: number[]) => v.length ? v.reduce((a, b) => a + b, 0) / v.length : 0;
     const byType = (t: string) => Object.entries(student.regularScores || {}).filter(([k]) => gradeData.columns?.[k]?.type === t).map(([,v]) => Number(v)).filter(n => !isNaN(n));
     const bestN = (v: number[], n?: number) => (!n || n <= 0) ? avg(v) : avg([...v].sort((a,b)=>b-a).slice(0, Math.min(n, v.length)));
-    const q = byType('小考成績'); const h = byType('作業成績'); const a = byType('上課態度');
-    const qAvg = (regularDetail?.['平時測驗']?.calcMethod === 'best') ? bestN(q, regularDetail?.['平時測驗']?.n) : avg(q);
-    const hAvg = (regularDetail?.['回家作業']?.calcMethod === 'best') ? bestN(h, regularDetail?.['回家作業']?.n) : avg(h);
+    const q = byType('小考'); const h = byType('作業'); const a = byType('上課態度');
+    const qAvg = (regularDetail?.['小考']?.calcMethod === 'best') ? bestN(q, regularDetail?.['小考']?.n) : avg(q);
+    const hAvg = (regularDetail?.['作業']?.calcMethod === 'best') ? bestN(h, regularDetail?.['作業']?.n) : avg(h);
     const aAvg = (regularDetail?.['上課態度']?.calcMethod === 'best') ? bestN(a, regularDetail?.['上課態度']?.n) : avg(a);
-    const qPct = Number(regularDetail?.['平時測驗']?.percent) || 0;
-    const hPct = Number(regularDetail?.['回家作業']?.percent) || 0;
+    const qPct = Number(regularDetail?.['小考']?.percent) || 0;
+    const hPct = Number(regularDetail?.['作業']?.percent) || 0;
     const aPct = Number(regularDetail?.['上課態度']?.percent) || 0;
     return qAvg * qPct / 100 + hAvg * hPct / 100 + aAvg * aPct / 100;
   };
@@ -155,7 +157,7 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
   const calcRegularDisplay = (student: StudentGradeRow): string => {
     if (!gradeData || !student) return '0.0';
     const weighted = calcRegularScore(student);
-    const totalPercent = (Number(gradeData.totalSetting?.regularDetail?.['平時測驗']?.percent) || 0) + (Number(gradeData.totalSetting?.regularDetail?.['回家作業']?.percent) || 0) + (Number(gradeData.totalSetting?.regularDetail?.['上課態度']?.percent) || 0);
+    const totalPercent = (Number(gradeData.totalSetting?.regularDetail?.['小考']?.percent) || 0) + (Number(gradeData.totalSetting?.regularDetail?.['作業']?.percent) || 0) + (Number(gradeData.totalSetting?.regularDetail?.['上課態度']?.percent) || 0);
     if (!weighted || totalPercent === 0) return '0.0';
     return (weighted / (totalPercent / 100)).toFixed(1);
   };
@@ -237,17 +239,13 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
 
         <div className="mb-6">
         <label className="block text-sm font-medium text-gray-700 mb-2">選擇課程</label>
-        <select className="select-unified w-full md:w-80" value={selectedCourse} onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {setSelectedCourse(e.target.value); setCurrentPage(1);}}>
-        <option value="">請選擇課程</option>
-          {courses.map(course => {
-            const gradeDocId = `${course.name}(${course.code})`;
-            return (
-              <option key={course.id} value={gradeDocId}>
-                {course.name}（{course.code}）
-              </option>
-            );
-          })}
-      </select>
+        <Dropdown
+          value={selectedCourse}
+          onChange={value => {setSelectedCourse(value); setCurrentPage(1);}}
+          options={[{ value: '', label: '請選擇課程' }, ...courses.map(course => ({ value: `${course.name}(${course.code})`, label: `${course.name}（${course.code}）` }))]}
+          placeholder="請選擇課程"
+          className="w-1/3 min-w-[240px]"
+        />
         {error && (
           <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
             <p className="text-red-800 text-sm">{error}</p>

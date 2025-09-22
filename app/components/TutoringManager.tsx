@@ -181,7 +181,7 @@ export default function TutoringManager({ userInfo }: { userInfo: UserInfo | nul
             <h2 className="text-xl font-semibold text-gray-800 mb-2">建立輔導時段</h2>
             <p className="text-gray-600">點擊日期建立輔導時段，學生可以選擇您建立的時段進行預約</p>
           </div>
-          <Calendar userInfo={userInfo} viewMode="teacher" />
+          <Calendar onDateSelect={() => {}} />
         </div>
       )}
 

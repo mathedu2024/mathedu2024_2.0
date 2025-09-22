@@ -1,19 +1,30 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+
 import "react-datepicker/dist/react-datepicker.css";
-import { DragDropContext, Droppable, Draggable, DropResult, DroppableProvided, DraggableProvided } from '@hello-pangea/dnd';
-import AlertDialog from './AlertDialog';
-import alerts from '../utils/alerts';
+import Swal from 'sweetalert2';
 // import DetailModal from './DetailModal'; // 移除未使用的 import
 import LoadingSpinner from './LoadingSpinner';
 import CourseDetailModal from './CourseDetailModal';
+import AlertDialog from './AlertDialog';
+
+import alerts from '../utils/alerts';
+
+import { DragDropContext, Droppable, Draggable, DropResult, DroppableProvided, DraggableProvided } from '@hello-pangea/dnd';
 
 interface UserInfo {
   id: string;
   name: string;
   account: string;
   role: '管理員' | '老師' | '學生';
+}
+
+interface Teacher {
+  id: string;
+  name: string;
+  account: string;
+  uid?: string;
 }
 
 interface TeacherCourseManagerProps {
@@ -61,6 +72,7 @@ interface LessonData {
   order?: number;
   createdAt?: { seconds: number };
   updatedAt?: { seconds: number };
+  isVisibleToStudents: boolean;
 }
 
 interface Student {
@@ -68,6 +80,12 @@ interface Student {
   studentId: string; // 學號
   name: string;
   grade: string;
+}
+
+interface ClassTime {
+  day: string;
+  startTime: string;
+  endTime: string;
 }
 
 // getTeacherNames 改為 fetch('/api/teacher/list')，回傳 Map<string, string>
@@ -92,8 +110,10 @@ const getTeacherNames = async (teacherIds: string[]): Promise<Map<string, string
 // 課堂管理元件（簡易版，僅供新增/顯示課堂資料）
 function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId: string, courseName: string, courseCode: string, onClose: () => void }) {
   const [lessons, setLessons] = useState<LessonData[]>([]);
+  const [initialLessons, setInitialLessons] = useState<LessonData[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingLesson, setEditingLesson] = useState<LessonData | null>(null);
+  const [alertState, setAlertState] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
   // 修改 form 結構
   const [form, setForm] = useState<Omit<LessonData, 'id' | 'order' | 'createdAt' | 'updatedAt'>>({
     title: '',
@@ -109,12 +129,34 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
     examScope: '',
     noExamScope: false,
     notes: '',
+    isVisibleToStudents: true,
   });
   // 明確型別、移除 any、補齊 hooks 依賴
   // 1. useState 明確型別
-  const [alert, setAlert] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
   const [isOrderDirty, setIsOrderDirty] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  const handleLessonVisibilityChange = (lesson: LessonData, isVisible: boolean) => {
+    const updatedLessons = lessons.map(l =>
+      l.id === lesson.id ? { ...l, isVisibleToStudents: isVisible } : l
+    );
+    setLessons(updatedLessons);
+  };
+
+  const isVisibilityDirty = useMemo(() => {
+    if (lessons.length !== initialLessons.length) return true;
+    const initialLessonsMap = new Map(initialLessons.map(l => [l.id, l]));
+    for (const lesson of lessons) {
+      const initialLesson = initialLessonsMap.get(lesson.id);
+      if (!initialLesson || lesson.isVisibleToStudents !== initialLesson.isVisibleToStudents) {
+        return true;
+      }
+    }
+    return false;
+  }, [lessons, initialLessons]);
+
+  const isDirty = isOrderDirty || isVisibilityDirty;
+
   // 2. DropResult, DraggableProvided, DroppableProvided 已正確型別
   // 3. useCallback、useEffect 依賴已補齊
   // 4. 無 any 型別
@@ -129,7 +171,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
       });
       const lessons = await res.json();
       // 前端保險：依 order 欄位排序，若無 order 則用 date
-      setLessons(Array.isArray(lessons)
+      const sortedLessons = Array.isArray(lessons)
         ? lessons.sort((a, b) => {
             const aOrder = typeof a.order === 'number' ? a.order : 9999;
             const bOrder = typeof b.order === 'number' ? b.order : 9999;
@@ -141,9 +183,11 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
             }
             return aOrder - bOrder;
           })
-        : []);
+        : [];
+      setLessons(sortedLessons);
+      setInitialLessons(JSON.parse(JSON.stringify(sortedLessons)));
     } catch {
-      setAlert({ open: true, message: '讀取課堂失敗' });
+      Swal.fire('錯誤', '讀取課堂失敗', 'error');
     } finally {
     }
   }, [courseId]);
@@ -153,35 +197,60 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
     if (courseId) fetchLessons();
   }, [courseId, fetchLessons]);
 
-  // 拖曳排序
   const onDragEnd = (result: DropResult) => {
-    if (!result.destination) return;
-    const reordered = Array.from(lessons);
-    const [removed] = reordered.splice(result.source.index, 1);
-    reordered.splice(result.destination.index, 0, removed);
-    setLessons(reordered);
+    const { source, destination } = result;
+    if (!destination) {
+      return;
+    }
+    const items = Array.from(lessons);
+    const [reorderedItem] = items.splice(source.index, 1);
+    items.splice(destination.index, 0, reorderedItem);
+
+    setLessons(items.map((item, index) => ({ ...item, order: index })));
     setIsOrderDirty(true);
   };
 
-  // 儲存課堂順序
-  const handleSaveOrder = async () => {
+  // 儲存變更
+  const handleSaveChanges = async () => {
+    setIsSubmitting(true);
     try {
-      const res = await fetch('/api/lessons/reorder', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ courseId, order: lessons.map(l => l.id) })
-    });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        setAlert({ open: true, message: data.error || '課堂順序儲存失敗，請重試' });
-        await fetchLessons();
+      const promises = [];
+      if (isOrderDirty) {
+        promises.push(fetch('/api/lessons/reorder', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ courseId, order: lessons.map(l => l.id) })
+        }));
+      }
+
+      if (isVisibilityDirty) {
+        const initialLessonsMap = new Map(initialLessons.map(l => [l.id, l]));
+        for (const lesson of lessons) {
+          const initialLesson = initialLessonsMap.get(lesson.id);
+          if (initialLesson && lesson.isVisibleToStudents !== initialLesson.isVisibleToStudents) {
+            promises.push(fetch('/api/lessons/update', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ courseId, lessonId: lesson.id, isVisibleToStudents: lesson.isVisibleToStudents }),
+            }));
+          }
+        }
+      }
+
+      const results = await Promise.all(promises);
+      const hasError = results.some(res => !res.ok);
+
+      if (hasError) {
+        Swal.fire('錯誤', '部分變更儲存失敗，請重試', 'error');
       } else {
-        setAlert({ open: true, message: '課堂順序已儲存' });
+        Swal.fire('成功', '變更已儲存', 'success');
         setIsOrderDirty(false);
       }
     } catch {
-      setAlert({ open: true, message: '課堂順序儲存失敗，請檢查網路或稍後再試' });
+      Swal.fire('錯誤', '儲存變更失敗，請檢查網路或稍後再試', 'error');
+    } finally {
       await fetchLessons();
+      setIsSubmitting(false);
     }
   };
 
@@ -205,11 +274,11 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ courseId, ...lessonData })
       });
-      setForm({ title: '', date: '', progress: '', attachments: [{ name: '', url: '' }], noAttachment: false, videos: [''], homework: '', noHomework: false, onlineExam: '', noOnlineExam: false, examScope: '', noExamScope: false, notes: '' });
+      setForm({ title: '', date: '', progress: '', attachments: [{ name: '', url: '' }], noAttachment: false, videos: [''], homework: '', noHomework: false, onlineExam: '', noOnlineExam: false, examScope: '', noExamScope: false, notes: '', isVisibleToStudents: true });
       setShowForm(false);
       await fetchLessons();
     } catch {
-      setAlert({ open: true, message: '新增課堂失敗' });
+      Swal.fire('錯誤', '新增課堂失敗', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -254,6 +323,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
       examScope: lesson.examScope || '',
       noExamScope: lesson.noExamScope || false,
       notes: lesson.notes || '',
+      isVisibleToStudents: lesson.isVisibleToStudents,
     });
     setShowForm(false);
   };
@@ -278,10 +348,10 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
         body: JSON.stringify({ courseId, lessonId: editingLesson.id, ...lessonData })
       });
       setEditingLesson(null);
-      setForm({ title: '', date: '', progress: '', attachments: [{ name: '', url: '' }], noAttachment: false, videos: [''], homework: '', noHomework: false, onlineExam: '', noOnlineExam: false, examScope: '', noExamScope: false, notes: '' });
+      setForm({ title: '', date: '', progress: '', attachments: [{ name: '', url: '' }], noAttachment: false, videos: [''], homework: '', noHomework: false, onlineExam: '', noOnlineExam: false, examScope: '', noExamScope: false, notes: '', isVisibleToStudents: true });
       await fetchLessons();
     } catch {
-      setAlert({ open: true, message: '更新課堂失敗' });
+      Swal.fire('錯誤', '更新課堂失敗', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -289,7 +359,8 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
 
   // 刪除功能
   const handleDeleteLesson = async (lessonId: string) => {
-    if (!(await alerts.confirm('確定要刪除此課堂嗎？'))) return;
+    const result = await Swal.fire({ title: '請確認', text: '確定要刪除此課堂嗎？', icon: 'warning', showCancelButton: true });
+    if (!result.isConfirmed) return;
     try {
       await fetch('/api/lessons/delete', {
         method: 'POST',
@@ -298,7 +369,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
       });
       setLessons(lessons.filter(l => l.id !== lessonId));
     } catch {
-      setAlert({ open: true, message: '刪除課堂失敗' });
+      Swal.fire('錯誤', '刪除課堂失敗', 'error');
     }
   };
 
@@ -306,8 +377,9 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex flex-col md:flex-row items-center justify-center pt-16 md:pt-0">
-      <div className="bg-white w-full md:max-w-3xl h-full md:h-[90vh] rounded-xl p-2 md:p-8 overflow-auto relative flex flex-col">
+    <DragDropContext onDragEnd={onDragEnd}>
+    <div className="fixed inset-0 bg-white z-50">
+      <div className="bg-white w-full h-full p-2 md:p-8 overflow-auto">
         {/* 桌面右上角 X 按鈕 */}
         <div className="hidden md:block absolute top-4 right-4">
           <button
@@ -346,12 +418,13 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
               新增課堂
           </button>
           )}
-          {isOrderDirty && (
+          {isDirty && (
             <button
               className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-              onClick={handleSaveOrder}
+              onClick={handleSaveChanges}
+              disabled={isSubmitting}
             >
-              儲存課堂順序
+              {isSubmitting ? '儲存中...' : '儲存變更'}
             </button>
           )}
         </div>
@@ -437,40 +510,63 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
           <h4 className="text-lg font-bold mb-2">課堂清單</h4>
         )}
         {!showForm && !editingLesson && (
-          <DragDropContext onDragEnd={onDragEnd}>
-            <Droppable droppableId="lesson-list">
-              {(provided: DroppableProvided) => (
-                <ul className="divide-y" ref={provided.innerRef} {...provided.droppableProps}>
-                  {lessons.map((lesson, idx) => (
-                    <Draggable key={lesson.id} draggableId={lesson.id} index={idx}>
-                      {(provided: DraggableProvided) => (
-                        <li key={lesson.id} className="py-2 bg-white flex items-center justify-between" ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps}>
-                          <div className="flex flex-col w-full">
-                            <div className="flex items-center w-full">
-                              <div className="font-semibold" title={lesson.title} style={{ flex: 1, minWidth: 0 }}>
-                                第 {idx + 1} 堂：{lesson.title}
-                              </div>
-                            </div>
-                            <div className="text-xs text-gray-400 mt-1">
-                              編輯日期：{formatDateTime(lesson.updatedAt || lesson.createdAt)}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 ml-2 whitespace-nowrap">
-                            <span className="text-gray-500 text-sm min-w-[90px] text-right mr-2">{lesson.date}</span>
-                            {/* 附件按鈕：只顯示純附件（不含影片），點擊彈出 modal */}
-                            {/* 刪除附件按鈕區塊 */}
-                            <button className="text-blue-600 hover:underline px-2" onClick={() => handleEditClick(lesson)}>修改</button>
-                            <button className="text-red-600 hover:underline px-2" onClick={() => handleDeleteLesson(lesson.id)}>刪除</button>
-                          </div>
-                        </li>
-                      )}
-                    </Draggable>
-                  ))}
-                  {provided.placeholder}
-                </ul>
-              )}
-            </Droppable>
-          </DragDropContext>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">堂數</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">課堂標題</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">日期</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">學生可見</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                </tr>
+              </thead>
+              <Droppable droppableId="lesson-list">
+                {(provided: DroppableProvided) => (
+                  <tbody className="bg-white divide-y divide-gray-200" ref={provided.innerRef} {...provided.droppableProps}>
+                    {lessons.map((lesson, idx) => (
+                      <Draggable key={lesson.id} draggableId={lesson.id} index={idx}>
+                        {(provided: DraggableProvided) => (
+                          <tr
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            {...provided.dragHandleProps}
+                            className="hover:bg-gray-50"
+                          >
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              第 {idx + 1} 堂
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {lesson.title}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {lesson.date}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={lesson.isVisibleToStudents ?? true}
+                                  onChange={(e) => handleLessonVisibilityChange(lesson, e.target.checked)}
+                                  className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                              </label>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              <button className="text-blue-600 hover:underline px-2" onClick={() => handleEditClick(lesson)}>修改</button>
+                              <button className="text-red-600 hover:underline px-2" onClick={() => handleDeleteLesson(lesson.id)}>刪除</button>
+                            </td>
+                          </tr>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                  </tbody>
+                )}
+              </Droppable>
+            </table>
+          </div>
         )}
       </div>
       {/* 漢堡按鈕（手機顯示，sidebar 關閉時顯示） */}
@@ -479,8 +575,9 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
           <svg className="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
         </button>
       )}
-      <AlertDialog open={alert.open} message={alert.message} onClose={() => setAlert({ open: false, message: '' })} />
+      <AlertDialog open={alertState.open} message={alertState.message} onClose={() => setAlertState({ open: false, message: '' })} />
     </div>
+    </DragDropContext>
   );
 }
 
@@ -492,14 +589,14 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
   const [error, setError] = useState<string | null>(null);
   const [showCourseDetail, setShowCourseDetail] = useState<Course | null>(null);
   const [showLessonManager, setShowLessonManager] = useState<Course | null>(null);
-  const [showNewCourse, setShowNewCourse] = useState(false);
   const [teacherNamesMap, setTeacherNamesMap] = useState<{ [courseId: string]: string[] }>({});
+  const [studentCounts, setStudentCounts] = useState<{ [courseId: string]: number }>({});
   const [newCourse, setNewCourse] = useState<Partial<Course>>({});
-  const [teachers, setTeachers] = useState<{ id: string; name: string }[]>([]);
-  // 明確型別、移除 any、補齊 hooks 依賴
-  // 1. useState 明確型別
-  const [alert, setAlert] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [showNewCourse, setShowNewCourse] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [isSubmitting, setIsSubmitting] = useState(false);
   // 2. DropResult, DraggableProvided, DroppableProvided 已正確型別
   // 3. useCallback、useEffect 依賴已補齊
   // 4. 無 any 型別
@@ -508,7 +605,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
   const [selectedGrade] = useState('all');
   const [selectedSubject] = useState('all');
 
-  const subjects = ['數學', '理化', '物理', '化學', '生物'];
+  // const subjects = ['數學', '理化', '物理', '化學', '生物'];
 
   // 工具函數：依全形1、半形0.5計算字數，超過35字元截斷加省略號
   // 處理舊資料格式
@@ -568,6 +665,34 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
           newTeacherNamesMap[course.id] = (course.teachers || []).map((id: string) => teacherNameMap[id] || '未知老師');
         });
         setTeacherNamesMap(newTeacherNamesMap);
+
+        // 獲取每個課程的學生人數
+        const studentCountsPromises = allCourses.map(async (course: Course) => {
+          try {
+            const res = await fetch('/api/course-student-list/list', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ courseName: course.name, courseCode: course.code }),
+            });
+            if (res.ok) {
+              const students = await res.json();
+              return { courseId: course.id, count: students.length };
+            }
+          } catch (error) {
+            console.error(`獲取課程 ${course.name} 學生人數時發生錯誤:`, error);
+          }
+          return { courseId: course.id, count: 0 };
+        });
+
+        const studentCountsResults = await Promise.all(studentCountsPromises);
+        const newStudentCounts: { [courseId: string]: number } = {};
+        studentCountsResults.forEach(result => {
+          if (result) {
+            newStudentCounts[result.courseId] = result.count;
+          }
+        });
+        setStudentCounts(newStudentCounts);
+
         setError(null);
       } else {
         const errorText = await res.text();
@@ -616,6 +741,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
         const classData = await classDataRes.json();
         fullCourse.location = classData.location || fullCourse.location;
         fullCourse.description = classData.description || fullCourse.description;
+        fullCourse.liveStreamURL = classData.liveStreamURL || fullCourse.liveStreamURL;
         // 更新顯示的課程資料
         setShowCourseDetail({ ...fullCourse });
       }
@@ -626,6 +752,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
   };
 
   // 3. handleAddCourse 新增成功後呼叫 fetchCourses，並移除 setCourses(prev => ...)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleAddCourse = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -692,7 +819,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
       }
       setShowNewCourse(false);
       setNewCourse({});
-      setAlert({ open: true, message: '課程建立成功！' });
+      alerts.showSuccess('課程建立成功！');
       await fetchCourses(); // 新增後重新載入
       await fetch('/api/courses/classdata', {
         method: 'POST',
@@ -708,7 +835,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
       });
     } catch (err) {
       console.error('新增課程錯誤:', err);
-      setAlert({ open: true, message: `新增課程失敗：${err instanceof Error ? err.message : '請稍後再試'}` });
+      alerts.showError(`新增課程失敗：${err instanceof Error ? err.message : '請稍後再試'}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -801,9 +928,9 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 h-full flex flex-col">
-      <div className="flex justify-between items-center mb-8 flex-shrink-0">
-        <h2 className="text-3xl font-bold" style={{ color: 'rgb(70, 131, 229)' }}>我的授課課程</h2>
+    <div className="max-w-6xl mx-auto w-full p-4 h-full flex flex-col min-h-0">
+      <div className="flex justify-between items-center mb-6 flex-shrink-0">
+        <h2 className="text-2xl font-bold">我的授課課程</h2>
         {userInfo?.role === '管理員' && (
           <button 
             onClick={() => setShowNewCourse(true)}
@@ -848,34 +975,79 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
       {/* 課程卡片清單 */}
       {!loading && filteredCourses.length > 0 && (
         <div className="flex-1 min-h-0 overflow-y-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {filteredCourses.map(course => (
-            <div key={course.id} className="bg-white rounded-lg overflow-hidden hover:bg-gray-50 transition-colors duration-300 flex flex-col sm:flex-row shadow p-6 items-start sm:items-center justify-between">
-              <div className="flex-1 min-w-0">
-                <h3 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2">{course.name}</h3>
-                <div className="text-sm text-gray-500 mb-2">{course.code}</div>
-                <div className="flex items-baseline text-base text-gray-600 mb-2">
-                  <span className="font-medium flex-shrink-0">授課老師：</span>
-                  <span className="truncate text-lg" title={teacherNamesMap[course.id]?.join('、') || '載入中...'}>
-                    {teacherNamesMap[course.id]?.join('、') || '載入中...'}
-                  </span>
-                </div>
-                {course.description && (
-                  <div className="text-gray-700 text-sm mt-2 line-clamp-2">{course.description}</div>
+          <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-x-auto">
+            <table className="w-full text-sm text-left text-gray-500">
+              <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-6 py-3">課程名稱</th>
+                  <th scope="col" className="px-6 py-3">授課老師</th>
+                  <th scope="col" className="px-6 py-3">學生人數</th>
+                  <th scope="col" className="px-6 py-3">上課時間</th>
+                  <th scope="col" className="px-6 py-3">會議室</th>
+                  <th scope="col" className="px-6 py-3">狀態</th>
+                  <th scope="col" className="px-6 py-3">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={6} className="text-center py-10">
+                      <div className="flex flex-col items-center gap-2">
+                        <LoadingSpinner size={8} />
+                        <span className="mt-2 text-gray-500">讀取中...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredCourses.length > 0 ? filteredCourses.map(course => (
+                  <tr key={course.id} className="bg-white border-b hover:bg-gray-50">
+                    <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">
+                      <div>{course.name}</div>
+                      <div className="text-sm text-gray-500">{course.code}</div>
+                    </td>
+                    <td className="px-6 py-4">{teacherNamesMap[course.id]?.join('、') || '載入中...'}</td>
+                    <td className="px-6 py-4">{studentCounts[course.id] ?? 0}</td>
+                    <td className="px-6 py-4">
+                      {(course.classTimes || []).map((ct, index) => (
+                        <div key={index}>{`${(ct as unknown as ClassTime).day} ${(ct as unknown as ClassTime).startTime}-${(ct as unknown as ClassTime).endTime}`}</div>
+                      ))}
+                    </td>
+                    <td className="px-6 py-4">
+                      {(course.teachingMethod === '線上上課' || course.teachingMethod === '實體與線上同步上課') && course.liveStreamURL ? (
+                        <a href={course.liveStreamURL} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                          會議連結
+                        </a>
+                      ) : (
+                        <span>-</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          course.status === '未開課' ? 'bg-gray-100 text-gray-800' :
+                          course.status === '報名中' ? 'bg-green-100 text-green-800' :
+                          course.status === '開課中' ? 'bg-blue-100 text-blue-800' :
+                          course.status === '已額滿' ? 'bg-red-100 text-red-800' :
+                          course.status === '已封存' ? 'bg-gray-200 text-gray-600' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                        {course.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex gap-3">
+                        <button className="btn-primary" onClick={() => setShowLessonManager(course)}>管理課程</button>
+                        <button className="btn-secondary" onClick={() => handleShowCourseDetail(course)}>課程資料</button>
+                      </div>
+                    </td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan={6} className="text-center py-10 text-gray-500">
+                      尚無授課課程
+                    </td>
+                  </tr>
                 )}
-                {/* 手機下方按鈕區塊 */}
-                <div className="flex flex-col gap-2 mt-4 sm:hidden w-full">
-                  <button className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium w-full" onClick={() => setShowLessonManager(course)}>管理課程</button>
-                  <button className="bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition-colors text-sm font-medium w-full" onClick={() => handleShowCourseDetail(course)}>課程資料</button>
-                </div>
-              </div>
-              {/* 桌面右側按鈕區塊 */}
-              <div className="hidden sm:flex gap-2 ml-4">
-                <button className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium" onClick={() => setShowLessonManager(course)}>管理課程</button>
-                <button className="bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition-colors text-sm font-medium" onClick={() => handleShowCourseDetail(course)}>課程資料</button>
-              </div>
-            </div>
-            ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
@@ -890,171 +1062,17 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
       />
       {/* 滿版課堂管理 */}
       {showLessonManager && (
-        <LessonManager 
-          courseId={showLessonManager.id} 
-          courseName={showLessonManager.name}
-          courseCode={showLessonManager.code}
-          onClose={() => setShowLessonManager(null)} 
-        />
+          <LessonManager 
+            courseId={showLessonManager.id} 
+            courseName={showLessonManager.name}
+            courseCode={showLessonManager.code}
+            onClose={() => setShowLessonManager(null)} 
+          />
       )}
       
-      {/* 新增課程表單 */}
-      {showNewCourse && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center">
-          <div className="bg-white w-full max-w-4xl h-[90vh] rounded-xl p-8 overflow-auto relative">
-            <button className="absolute top-4 right-4 text-gray-500 hover:text-gray-800" onClick={() => setShowNewCourse(false)}>
-              <span className="text-2xl">×</span>
-            </button>
-            <h3 className="text-2xl font-bold mb-6">建立新課程</h3>
-            <form onSubmit={handleAddCourse} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">課程名稱 *</label>
-                  <input
-                    type="text"
-                    value={newCourse.name || ''}
-                    onChange={(e) => setNewCourse((prev: Partial<Course>) => ({ ...prev, name: e.target.value }))}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="請輸入課程名稱"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">課程代碼 *</label>
-                  <input
-                    type="text"
-                    value={newCourse.code || ''}
-                    onChange={(e) => setNewCourse((prev: Partial<Course>) => ({ ...prev, code: e.target.value }))}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="請輸入課程代碼"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">科目 *</label>
-                  <select
-                    value={newCourse.subjectTag || ''}
-                    onChange={(e) => setNewCourse((prev: Partial<Course>) => ({ ...prev, subjectTag: e.target.value }))}
-                    className="select-unified w-full p-3"
-                    required
-                  >
-                    <option value="">請選擇科目</option>
-                    {subjects.map(subject => (
-                      <option key={subject} value={subject}>{subject}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">課程性質 *</label>
-                  <select
-                    value={newCourse.courseNature || ''}
-                    onChange={(e) => setNewCourse((prev: Partial<Course>) => ({ ...prev, courseNature: e.target.value }))}
-                    className="select-unified w-full p-3"
-                    required
-                  >
-                    <option value="">請選擇課程性質</option>
-                    <option value="進度課程">進度課程</option>
-                    <option value="升學考試複習">升學考試複習</option>
-                    <option value="檢定/考試訓練班">檢定/考試訓練班</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">授課方式 *</label>
-                  <select
-                    value={newCourse.teachingMethod || ''}
-                    onChange={(e) => setNewCourse((prev: Partial<Course>) => ({ ...prev, teachingMethod: e.target.value }))}
-                    className="select-unified w-full p-3"
-                    required
-                  >
-                    <option value="">請選擇授課方式</option>
-                    <option value="實體上課">實體上課</option>
-                    <option value="線上上課">線上上課</option>
-                    <option value="非同步線上上課">非同步線上上課</option>
-                    <option value="實體與線上同步上課">實體與線上同步上課</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">上課地點</label>
-                  <input
-                    type="text"
-                    value={newCourse.location || ''}
-                    onChange={(e) => setNewCourse((prev: Partial<Course>) => ({ ...prev, location: e.target.value }))}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="請輸入上課地點"
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">年級 *</label>
-                <div className="flex flex-wrap gap-3">
-                  {['國一', '國二', '國三', '高一', '高二', '高三'].map(grade => (
-                    <label key={grade} className="inline-flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={newCourse.gradeTags?.includes(grade) || false}
-                        onChange={(e) => {
-                          const currentGrades = newCourse.gradeTags || [];
-                          const newGrades = e.target.checked
-                            ? [...currentGrades, grade]
-                            : currentGrades.filter((g: string) => g !== grade);
-                          setNewCourse((prev: Partial<Course>) => ({ ...prev, gradeTags: newGrades }));
-                        }}
-                        className="mr-2"
-                      />
-                      {grade}
-                    </label>
-                  ))}
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">課程描述</label>
-                                  <textarea
-                    value={newCourse.description || ''}
-                    onChange={(e) => setNewCourse((prev: Partial<Course>) => ({ ...prev, description: e.target.value }))}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 h-32"
-                    placeholder="請描述課程內容、目標等..."
-                  />
-              </div>
-              
-              <div className="flex justify-end gap-4 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowNewCourse(false)}
-                  className="px-6 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
-                  disabled={isSubmitting}
-                >
-                  取消
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? '建立中...' : '建立課程'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-      
-      <AlertDialog open={alert.open} message={alert.message} onClose={() => setAlert({ open: false, message: '' })} />
+
     </div>
   );
 }
 
-function formatDateTime(ts?: { seconds: number } | string) {
-  if (!ts) return '';
-  if (typeof ts === 'string') {
-    // ISO string
-    const d = new Date(ts);
-    return `${d.getFullYear()}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
-  }
-  if ('seconds' in ts) {
-    const d = new Date(ts.seconds * 1000);
-    return `${d.getFullYear()}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
-  }
-  return '';
-} 
+ 

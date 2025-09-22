@@ -103,29 +103,16 @@ export default function LessonDetailPage() {
       } else if (urlObj.hostname.includes('youtu.be')) {
         videoId = urlObj.pathname.slice(1);
       }
-    } catch (_error) {
+    } catch {
       // 如果 URL 無效，則直接返回
       return url;
     }
   
     if (videoId) {
-      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      // Use a simpler set of parameters to avoid playback issues.
       const params = new URLSearchParams({
         rel: '0',
-        modestbranding: '1',
-        controls: '1',
-        fs: '1',
-        playsinline: '1',
-        enablejsapi: '1',
         autoplay: '0',
-        mute: '0',
-        loop: '0',
-        color: 'white',
-        theme: 'light',
-        origin: origin,
-        widget_referrer: origin,
-        showinfo: '0',
-        iv_load_policy: '3',
       });
       return `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
     }
@@ -148,9 +135,13 @@ export default function LessonDetailPage() {
   };
 
   const handleBack = () => {
-    // 保持課程資訊，不清除 localStorage
-    // 回到學生頁面的課程 tab，保持選中的課程
-    window.location.href = '/student?tab=courses';
+    const urlParams = new URLSearchParams(window.location.search);
+    const returnTo = urlParams.get('returnTo');
+    if (returnTo) {
+      router.push(returnTo);
+    } else {
+      router.push('/student?tab=courses');
+    }
   };
 
   if (loading) {
@@ -214,7 +205,7 @@ export default function LessonDetailPage() {
   }
 
   return (
-    <div className="h-full bg-gray-100 relative">
+    <div className="h-full relative">
       {/* 頂部導航 */}
       <div className="bg-white shadow-sm border-b sticky top-0 z-30">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
@@ -335,6 +326,7 @@ export default function LessonDetailPage() {
                   return (
                     <div style={{ position: 'relative', width: '100%', paddingTop: '56.25%' }}>
                       <iframe
+                        key={`${lesson.id}-${currentVideoIndex}`}
                         src={embedUrl}
                         title={`影片 ${currentVideoIndex + 1}`}
                         style={{
@@ -354,7 +346,7 @@ export default function LessonDetailPage() {
                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
                          allowFullScreen
                         loading="lazy"
-                        referrerPolicy="no-referrer"
+                        referrerPolicy="strict-origin-when-cross-origin"
                       />
                     </div>
                   );

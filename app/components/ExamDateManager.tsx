@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import LoadingSpinner from './LoadingSpinner';
 import AlertDialog from './AlertDialog';
 
 const MAIN_EXAMS = [
@@ -71,51 +72,76 @@ export default function ExamDateManager() {
           <span>載入中...</span>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-6">
-          {editingId
-            ? MAIN_EXAMS.filter(exam => exam.id === editingId).map(exam => {
-                return (
-                  <div key={exam.id} className="bg-white border border-gray-200 p-6 rounded-lg">
-                    <div className="mb-4">
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-x-auto">
+          <table className="w-full text-sm text-left text-gray-500">
+            <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+              <tr>
+                <th scope="col" className="px-6 py-3">考試名稱</th>
+                <th scope="col" className="px-6 py-3">開始日期</th>
+                <th scope="col" className="px-6 py-3">結束日期</th>
+                <th scope="col" className="px-6 py-3">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={4} className="text-center py-10">
+                    <div className="flex flex-col items-center gap-2">
+                      <LoadingSpinner size={8} />
+                      <span className="mt-2 text-gray-500">讀取中...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : MAIN_EXAMS.map(exam => (
+                editingId === exam.id ? (
+                  <tr key={exam.id} className="bg-white border-b">
+                    <td className="px-6 py-4">
                       <input
                         type="text"
-                        className="border border-gray-300 p-3 rounded-lg w-full mb-2"
+                        className="border border-gray-300 p-2 rounded-lg w-full"
                         value={form.name}
                         onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                         placeholder="考試名稱"
                       />
+                    </td>
+                    <td className="px-6 py-4">
                       <input
                         type="date"
-                        className="border border-gray-300 p-3 rounded-lg w-full mb-2"
+                        className="border border-gray-300 p-2 rounded-lg w-full"
                         value={form.startDate}
                         onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))}
                         placeholder="開始日期"
                       />
+                    </td>
+                    <td className="px-6 py-4">
                       <input
                         type="date"
-                        className="border border-gray-300 p-3 rounded-lg w-full"
+                        className="border border-gray-300 p-2 rounded-lg w-full"
                         value={form.endDate}
                         onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))}
                         placeholder="結束日期"
                       />
-                    </div>
-                    <div className="flex gap-3 justify-end">
-                      <button onClick={handleCancel} className="bg-gray-500 text-white px-6 py-2 rounded-lg" disabled={saving}>取消</button>
-                      <button onClick={handleSave} className="bg-blue-600 text-white px-6 py-2 rounded-lg" disabled={saving}>{saving ? '儲存中...' : '儲存'}</button>
-                    </div>
-                  </div>
-                );
-              })
-            : MAIN_EXAMS.map(exam => {
-                return (
-                  <div key={exam.id} className="bg-white border border-gray-200 p-6 rounded-lg">
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">{exam.name}</h3>
-                    <p className="text-gray-600 mb-2">{exams[exam.id]?.startDate ? `開始：${exams[exam.id]?.startDate}` : '尚未設定日期'}</p>
-                    <p className="text-gray-600 mb-4">{exams[exam.id]?.endDate ? `結束：${exams[exam.id]?.endDate}` : ''}</p>
-                    <button onClick={() => handleEdit(exam.id)} className="bg-blue-500 text-white px-4 py-2 rounded">設定</button>
-                  </div>
-                );
-              })}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex gap-3">
+                        <button onClick={handleCancel} className="text-gray-600 hover:text-gray-800 font-medium" disabled={saving}>取消</button>
+                        <button onClick={handleSave} className="text-blue-600 hover:text-blue-800 font-medium" disabled={saving}>{saving ? '儲存中...' : '儲存'}</button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  <tr key={exam.id} className="bg-white border-b hover:bg-gray-50">
+                    <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{exam.name}</td>
+                    <td className="px-6 py-4">{exams[exam.id]?.startDate || '尚未設定'}</td>
+                    <td className="px-6 py-4">{exams[exam.id]?.endDate || '尚未設定'}</td>
+                    <td className="px-6 py-4">
+                      <button onClick={() => handleEdit(exam.id)} className="text-blue-600 hover:text-blue-800 font-medium">設定</button>
+                    </td>
+                  </tr>
+                )
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

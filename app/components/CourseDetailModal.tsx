@@ -287,6 +287,9 @@ export default function CourseDetailModal({
                 <div><h4 className="font-semibold text-gray-900 mb-1">適用年級</h4><p>{getGradeTags((course as Course).gradeTags)}</p></div>
                 <div><h4 className="font-semibold text-gray-900 mb-1">授課方式</h4><p>{(course as Course).teachingMethod ?? '未設定'}</p></div>
                 {(course as Course).location && (<div><h4 className="font-semibold text-gray-900 mb-1">上課地點</h4><p>{(course as Course).location}</p></div>)}
+                {((course as Course).teachingMethod === '線上上課' || (course as Course).teachingMethod === '實體與線上同步上課') && (course as Course).liveStreamURL && (
+                  <div className="md:col-span-2"><h4 className="font-semibold text-gray-900 mb-1">會議室連結</h4><a href={(course as Course).liveStreamURL} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">點擊加入</a></div>
+                )}
               </div>
             )}
           </div>

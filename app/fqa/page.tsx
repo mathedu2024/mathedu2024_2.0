@@ -75,7 +75,7 @@ export default function FqaPage() {
   return (
     <div className="bg-gray-100 p-8">
       <div className="max-w-4xl mx-auto pb-8">
-        <h1 className="text-4xl font-bold text-center text-blue-600 mb-12">常見問題</h1>
+        <h1 className="text-4xl md:text-5xl font-bold text-center text-blue-600 tracking-tight drop-shadow-sm mb-12">常見問題</h1>
         <div className="space-y-4">
           {fqaData.map((item, index) => (
             <div key={index} className="bg-white rounded-xl shadow-sm overflow-hidden">

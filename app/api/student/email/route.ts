@@ -3,9 +3,9 @@ import { adminDb } from '@/services/firebase-admin';
 
 export async function POST(req: NextRequest) {
   try {
-    const { account } = await req.json();
-    if (!account) return NextResponse.json({ error: 'Missing account' }, { status: 400 });
-    const snapshot = await adminDb.collection('student_data').where('account', '==', account).get();
+    const { studentID } = await req.json();
+    if (!studentID) return NextResponse.json({ error: 'Missing studentID' }, { status: 400 });
+    const snapshot = await adminDb.collection('student_data').where('studentID', '==', studentID).get();
     if (snapshot.empty) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     const data = snapshot.docs[0].data();
     return NextResponse.json({ email: data.email || '' });

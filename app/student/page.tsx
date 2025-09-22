@@ -11,6 +11,7 @@ import StudentTutoringHistory from '../components/StudentTutoringHistory';
 import { BookOpenIcon, ClipboardDocumentListIcon, CheckCircleIcon, PencilIcon, CalendarIcon, KeyIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Sidebar from '../components/Sidebar';
+import Dropdown from '../components/ui/Dropdown';
 
 interface StudentFeature {
   id: string;
@@ -107,7 +108,7 @@ interface Lesson {
 export default function StudentPanel() {
   return (
     <SecureRoute requiredRole="student">
-      <Suspense fallback={<div className="flex h-screen bg-gray-100 items-center justify-center">
+      <Suspense fallback={<div className="flex h-screen items-center justify-center">
         <LoadingSpinner />
       </div>}>
         <div>
@@ -170,7 +171,8 @@ function StudentPanelContent() {
                 lessonIndex: index + 1
               };
               localStorage.setItem('currentLesson', JSON.stringify(lessonData));
-              window.location.href = '/student/lesson-detail';
+              const currentUrl = window.location.pathname + window.location.search;
+              router.push(`/student/lesson-detail?returnTo=${encodeURIComponent(currentUrl)}`);
             }}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
           >
@@ -515,7 +517,7 @@ function StudentPanelContent() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-100">
+      <div className="flex h-screen items-center justify-center">
         <LoadingSpinner />
       </div>
     );
@@ -523,7 +525,7 @@ function StudentPanelContent() {
 
   if (!studentInfo) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-100">
+      <div className="flex h-screen items-center justify-center">
         <div className="text-gray-500">找不到學生資料，請重新登入。</div>
       </div>
     );
@@ -549,11 +551,7 @@ function StudentPanelContent() {
       case 'grades':
         return <StudentGradeViewer studentInfo={studentInfo} />;
       case 'change-password':
-        return (
-          <div className="max-w-2xl mx-auto w-full">
-            <PasswordManager />
-          </div>
-        );
+        return <PasswordManager apiEndpoint="/api/student/change-password" />;
       case 'courses': {
         // 下拉選單選課 + 詳細資料
         return (
@@ -574,21 +572,15 @@ function StudentPanelContent() {
               <>
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">選擇課程</label>
-                  <select
-                    className="select-unified w-full md:w-80"
+                  <Dropdown
                     value={selectedCourse ? selectedCourse.id : ''}
-                    onChange={e => {
-                      const course = courses.find(c => c.id === e.target.value);
+                    onChange={value => {
+                      const course = courses.find(c => c.id === value);
                       setSelectedCourse(course || null);
                     }}
-                  >
-                    <option value="">請選擇課程</option>
-                    {courses.map(course => (
-                      <option key={course.id} value={course.id}>
-                        {course.name}（{course.code}）
-                      </option>
-                    ))}
-                  </select>
+                    options={[{ value: '', label: '請選擇課程' }, ...courses.map(course => ({ value: course.id, label: `${course.name}（${course.code}）` }))]}
+                    placeholder="請選擇課程"
+                                        className="w-1/3 min-w-[240px] pr-20"                   />
                 </div>
                 {selectedCourse && (
                   <>
@@ -783,7 +775,7 @@ function StudentPanelContent() {
 
   // 2. 側邊欄響應式與漢堡選單
   return (
-    <div className="flex flex-col h-full bg-gray-100 font-sans">
+    <div className="flex flex-col h-full font-sans">
       <div className="flex flex-1 min-h-0">
         {/* 手機漢堡按鈕 */}
         <button

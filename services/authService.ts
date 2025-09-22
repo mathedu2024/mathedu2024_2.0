@@ -48,7 +48,8 @@ const sendCacheStats = () => {
 // 定义 User 类型
 interface User {
   id?: string;
-  account: string;
+  account?: string;
+  studentID?: string;
   password: string;
   role: string;
   [key: string]: any;
@@ -135,8 +136,8 @@ export const validateStudentLogin = async (account: string, password: string) =>
     
     // 查詢 users 集合中的學生帳號
     const userQuery = query(
-      collection(db, 'users'),
-      where('account', '==', account.trim()),
+      collection(db, 'student_data'),
+      where('studentID', '==', account.trim()),
       where('role', '==', 'student')
     );
     const userDocSnapPromise = getDocs(userQuery);
@@ -152,6 +153,9 @@ export const validateStudentLogin = async (account: string, password: string) =>
     
     const userData = userDocSnap.docs[0].data() as User;
     userData.id = userDocSnap.docs[0].id; // 確保 userInfo.id 是 document id
+    if (userData.studentID) {
+      userData.account = userData.studentID; // Ensure account is set for consistency
+    }
     
     // 快取用戶資料（包含密碼用於驗證）
     authCache.set(cacheKey, {

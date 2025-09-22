@@ -2,10 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import LoadingSpinner from './LoadingSpinner';
-import AlertDialog from './AlertDialog';
 import alerts from '../utils/alerts';
-import { Listbox } from '@headlessui/react';
-import { ChevronUpDownIcon } from '@heroicons/react/20/solid';
+import Dropdown from './ui/Dropdown';
 
 interface Link {
   name: string;
@@ -18,11 +16,40 @@ interface Announcement {
   content: string;
   contentType?: '公告事項' | '課程資訊';
   subject?: '數學' | '理化' | '物理' | '化學' | '生物';
-  department?: '高中部' | '國中部';
+  grade?: '國一' | '國二' | '國三' | '高一' | '高二' | '高三' | '職一' | '職二' | '職三' | '大一' | '進修';
   links?: Link[];
   createdAt?: Date | { toDate: () => Date } | string | number | undefined;
   updatedAt?: Date | { toDate: () => Date } | string | number | undefined;
 }
+
+const contentTypeOptions = [
+  { value: '公告事項', label: '公告事項' },
+  { value: '課程資訊', label: '課程資訊' },
+];
+
+const subjectOptions = [
+  { value: '', label: '全部科目' },
+  { value: '數學', label: '數學' },
+  { value: '理化', label: '理化' },
+  { value: '物理', label: '物理' },
+  { value: '化學', label: '化學' },
+  { value: '生物', label: '生物' },
+];
+
+const gradeOptions = [
+  { value: '', label: '全部年級' },
+  { value: '國一', label: '國一' },
+  { value: '國二', label: '國二' },
+  { value: '國三', label: '國三' },
+  { value: '高一', label: '高一' },
+  { value: '高二', label: '高二' },
+  { value: '高三', label: '高三' },
+  { value: '職一', label: '職一' },
+  { value: '職二', label: '職二' },
+  { value: '職三', label: '職三' },
+  { value: '大一', label: '大一' },
+  { value: '進修', label: '進修' },
+];
 
 export default function AnnouncementManager() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
@@ -31,13 +58,16 @@ export default function AnnouncementManager() {
     content: '',
     contentType: '公告事項',
     subject: undefined,
-    department: undefined,
+    grade: undefined,
     links: []
   });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [alert, setAlert] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
+  const [selectedContentType, setSelectedContentType] = useState<string>('全部');
+  const [selectedSubject, setSelectedSubject] = useState<string>('全部');
+  const [selectedGrade, setSelectedGrade] = useState<string>('全部');
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     fetchAnnouncements();
@@ -60,7 +90,7 @@ export default function AnnouncementManager() {
       setAnnouncements(data as Announcement[]);
     } catch (error) {
       console.error('Error fetching announcements:', error);
-      setAlert({ open: true, message: '載入公告失敗' });
+      alerts.showError('載入公告失敗');
     }
     setLoading(false);
   }
@@ -68,7 +98,7 @@ export default function AnnouncementManager() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.title || !form.content) {
-      setAlert({ open: true, message: '標題和內容為必填項目' });
+      alerts.showWarning('標題和內容為必填項目');
       return;
     }
 
@@ -79,7 +109,7 @@ export default function AnnouncementManager() {
         content: form.content,
         contentType: form.contentType,
         subject: form.subject,
-        department: form.department,
+        grade: form.grade,
         links: form.links || []
       };
 
@@ -92,7 +122,7 @@ export default function AnnouncementManager() {
         });
         
         if (response.ok) {
-          setAlert({ open: true, message: '公告更新成功' });
+          alerts.showSuccess('公告更新成功');
           // 立即更新本地狀態以確保同步
           setAnnouncements(prev => prev.map(ann => 
             ann.id === editingId 
@@ -101,7 +131,7 @@ export default function AnnouncementManager() {
           ));
         } else {
           const errorData = await response.json();
-          setAlert({ open: true, message: `更新失敗: ${errorData.error || '未知錯誤'}` });
+          alerts.showError(`更新失敗: ${errorData.error || '未知錯誤'}`);
           return;
         }
       } else {
@@ -113,7 +143,7 @@ export default function AnnouncementManager() {
         
         if (response.ok) {
           const result = await response.json();
-          setAlert({ open: true, message: '公告建立成功' });
+          alerts.showSuccess('公告建立成功');
           // 立即添加新公告到本地狀態
           const newAnnouncement = {
             id: result.id,
@@ -124,7 +154,7 @@ export default function AnnouncementManager() {
           setAnnouncements(prev => [newAnnouncement, ...prev]);
         } else {
           const errorData = await response.json();
-          setAlert({ open: true, message: `建立失敗: ${errorData.error || '未知錯誤'}` });
+          alerts.showError(`建立失敗: ${errorData.error || '未知錯誤'}`);
           return;
         }
       }
@@ -136,7 +166,7 @@ export default function AnnouncementManager() {
       }, 500);
     } catch (error) {
       console.error('Error submitting form:', error);
-      setAlert({ open: true, message: '操作失敗，請檢查網路連線' });
+      alerts.showError('操作失敗，請檢查網路連線');
     }
     setLoading(false);
   }
@@ -153,7 +183,7 @@ export default function AnnouncementManager() {
       });
 
       if (res.ok) {
-        setAlert({ open: true, message: '公告刪除成功' });
+        alerts.showSuccess('公告刪除成功');
         // 立即從本地狀態移除以確保同步
         setAnnouncements(prev => prev.filter(ann => ann.id !== id));
         // 延遲重新載入以確保資料庫更新完成
@@ -162,11 +192,11 @@ export default function AnnouncementManager() {
         }, 500);
       } else {
         const errorData = await res.json();
-        setAlert({ open: true, message: `刪除失敗: ${errorData.error || '未知錯誤'}` });
+        alerts.showError(`刪除失敗: ${errorData.error || '未知錯誤'}`);
       }
     } catch (error) {
       console.error('Error deleting announcement:', error);
-      setAlert({ open: true, message: '刪除失敗，請檢查網路連線' });
+      alerts.showError('刪除失敗，請檢查網路連線');
     }
     setLoading(false);
   }
@@ -177,7 +207,7 @@ export default function AnnouncementManager() {
       content: announcement.content,
       contentType: announcement.contentType,
       subject: announcement.subject,
-      department: announcement.department,
+      grade: announcement.grade,
       links: announcement.links || []
     });
     setEditingId(announcement.id);
@@ -194,7 +224,7 @@ export default function AnnouncementManager() {
       content: '',
       contentType: '公告事項',
       subject: undefined,
-      department: undefined,
+      grade: undefined,
       links: []
     });
     setEditingId(null);
@@ -224,38 +254,100 @@ export default function AnnouncementManager() {
     }));
   }
 
-  function getCreatedAt(item: Announcement) {
-    const { createdAt } = item;
-    if (!createdAt) return '';
-    if (
-      typeof createdAt === 'object' &&
-      createdAt !== null &&
-      'toDate' in createdAt &&
-      typeof (createdAt as { toDate?: unknown }).toDate === 'function'
-    ) {
-      return (createdAt as { toDate: () => Date }).toDate().toLocaleString();
+  const filteredAnnouncements = announcements.filter(announcement => {
+    const contentTypeMatch = selectedContentType === '全部' || announcement.contentType === selectedContentType;
+    const subjectMatch = selectedSubject === '全部' || announcement.subject === selectedSubject;
+    const gradeMatch = selectedGrade === '全部' || announcement.grade === selectedGrade;
+    const searchTermMatch = !searchTerm ||
+      announcement.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      announcement.content.toLowerCase().includes(searchTerm.toLowerCase());
+    return contentTypeMatch && subjectMatch && gradeMatch && searchTermMatch;
+  });
+
+  function formatDate(dateValue: Date | { toDate: () => Date } | string | number | undefined) {
+    if (!dateValue) return '';
+    
+    let date: Date;
+    if (dateValue instanceof Date) {
+      date = dateValue;
+    } else if (typeof dateValue === 'object' && dateValue !== null && 'toDate' in dateValue && typeof (dateValue as { toDate: () => Date }).toDate === 'function') {
+      // This path is for actual Firestore Timestamp objects with a toDate method
+      date = (dateValue as { toDate: () => Date }).toDate();
+    } else if (typeof dateValue === 'object' && dateValue !== null && '_seconds' in dateValue && '_nanoseconds' in dateValue) {
+      // This path is for plain objects that represent Firestore Timestamps after JSON serialization/deserialization
+      date = new Date((dateValue as { _seconds: number, _nanoseconds: number })._seconds * 1000 + (dateValue as { _seconds: number, _nanoseconds: number })._nanoseconds / 1_000_000);
     }
-    if (typeof createdAt === 'string' || typeof createdAt === 'number') {
-      return new Date(createdAt).toLocaleString();
+    else {
+      date = new Date(dateValue as string | number);
     }
-    if (createdAt instanceof Date) {
-      return createdAt.toLocaleString();
+
+    if (isNaN(date.getTime())) {
+      return ''; // Invalid date
     }
-    return '';
+
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const seconds = date.getSeconds().toString().padStart(2, '0');
+
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
   }
 
   return (
-    <div className="max-w-6xl mx-auto w-full p-4 h-full flex flex-col">
-      <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8 flex flex-col md:flex-row gap-2 md:gap-4 items-start md:items-center justify-between mb-6 min-w-0 flex-shrink-0">
-        <h2 className="text-2xl font-bold">公告管理</h2>
-        {!isEditing && (
-          <button
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700"
-            onClick={() => setIsEditing(true)}
-          >
-            建立公告
-          </button>
-        )}
+    <div className="max-w-6xl mx-auto w-full p-4 h-full flex flex-col min-h-0">
+      <h2 className="text-2xl font-bold mb-6 flex-shrink-0">公告管理</h2>
+      <div className="bg-white border border-gray-200 p-6 rounded-lg shadow-sm mb-6 flex-shrink-0">
+        <div className="flex flex-col md:flex-row gap-4 items-center">
+          <Dropdown
+            value={selectedContentType}
+            onChange={setSelectedContentType}
+            options={[{ value: '全部', label: '全部類型' }, ...contentTypeOptions]}
+            placeholder="全部類型"
+            className="w-full md:w-48"
+          />
+          <Dropdown
+            value={selectedSubject}
+            onChange={setSelectedSubject}
+            options={[{ value: '全部', label: '全部科目' }, ...subjectOptions.filter(o => o.value !== '')]}
+            placeholder="全部科目"
+            className="w-full md:w-48"
+          />
+          <Dropdown
+            value={selectedGrade}
+            onChange={setSelectedGrade}
+            options={[{ value: '全部', label: '全部年級' }, ...gradeOptions.filter(o => o.value !== '')]}
+            placeholder="全部年級"
+            className="w-full md:w-48"
+          />
+          <input
+            type="text"
+            placeholder="搜尋公告標題或內容..."
+            className="w-full md:w-64 p-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          {!isEditing && (
+            <button
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 whitespace-nowrap"
+              onClick={() => {
+                setEditingId(null);
+                setForm({
+                  title: '',
+                  content: '',
+                  contentType: '公告事項',
+                  subject: undefined,
+                  grade: undefined,
+                  links: []
+                });
+                setIsEditing(true);
+              }}
+            >
+              建立公告
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 表單區域 */}
@@ -281,53 +373,33 @@ export default function AnnouncementManager() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">公告內容</label>
-                <Listbox value={form.contentType} onChange={val => setForm(prev => ({ ...prev, contentType: val }))}>
-                  <div className="relative">
-                    <Listbox.Button className="select-unified min-w-[240px] md:min-w-[300px] max-w-full pr-12 flex items-center justify-between">
-                      <span className="truncate">{form.contentType || '全部類別'}</span>
-                      <ChevronUpDownIcon className="w-5 h-5 text-gray-400 absolute right-3 pointer-events-none" />
-                    </Listbox.Button>
-                    <Listbox.Options className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto focus:outline-none">
-                      <Listbox.Option value="公告事項" className={({ active }) => `cursor-pointer select-none relative py-2 pl-4 pr-10 ${active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'}`}>公告事項</Listbox.Option>
-                      <Listbox.Option value="課程資訊" className={({ active }) => `cursor-pointer select-none relative py-2 pl-4 pr-10 ${active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'}`}>課程資訊</Listbox.Option>
-                    </Listbox.Options>
-                  </div>
-                </Listbox>
+                <Dropdown
+                  value={form.contentType || ''}
+                  onChange={val => setForm(prev => ({ ...prev, contentType: val as '公告事項' | '課程資訊' }))}
+                  options={contentTypeOptions}
+                  placeholder="全部類別"
+                  className="min-w-[240px] md:min-w-[300px] max-w-full"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">科目</label>
-                <Listbox value={form.subject ?? ''} onChange={val => setForm(prev => ({ ...prev, subject: val === '' ? undefined : val as '數學' | '理化' | '物理' | '化學' | '生物' }))}>
-                  <div className="relative">
-                    <Listbox.Button className="select-unified min-w-[240px] md:min-w-[300px] max-w-full pr-12 flex items-center justify-between">
-                      <span className="truncate">{form.subject || '全部科目'}</span>
-                      <ChevronUpDownIcon className="w-5 h-5 text-gray-400 absolute right-3 pointer-events-none" />
-                    </Listbox.Button>
-                    <Listbox.Options className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto focus:outline-none">
-                      <Listbox.Option value="" className={({ active }) => `cursor-pointer select-none relative py-2 pl-4 pr-10 ${active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'}`}>全部科目</Listbox.Option>
-                      <Listbox.Option value="數學" className={({ active }) => `cursor-pointer select-none relative py-2 pl-4 pr-10 ${active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'}`}>數學</Listbox.Option>
-                      <Listbox.Option value="理化" className={({ active }) => `cursor-pointer select-none relative py-2 pl-4 pr-10 ${active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'}`}>理化</Listbox.Option>
-                      <Listbox.Option value="物理" className={({ active }) => `cursor-pointer select-none relative py-2 pl-4 pr-10 ${active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'}`}>物理</Listbox.Option>
-                      <Listbox.Option value="化學" className={({ active }) => `cursor-pointer select-none relative py-2 pl-4 pr-10 ${active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'}`}>化學</Listbox.Option>
-                      <Listbox.Option value="生物" className={({ active }) => `cursor-pointer select-none relative py-2 pl-4 pr-10 ${active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'}`}>生物</Listbox.Option>
-                    </Listbox.Options>
-                  </div>
-                </Listbox>
+                <Dropdown
+                  value={form.subject || ''}
+                  onChange={val => setForm(prev => ({ ...prev, subject: val === '' ? undefined : val as '數學' | '理化' | '物理' | '化學' | '生物' }))}
+                  options={subjectOptions}
+                  placeholder="全部科目"
+                  className="min-w-[240px] md:min-w-[300px] max-w-full"
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">部門</label>
-                <Listbox value={form.department ?? ''} onChange={val => setForm(prev => ({ ...prev, department: val === '' ? undefined : val as '高中部' | '國中部' }))}>
-                  <div className="relative">
-                    <Listbox.Button className="select-unified min-w-[240px] md:min-w-[300px] max-w-full pr-12 flex items-center justify-between">
-                      <span className="truncate">{form.department || '全部部門'}</span>
-                      <ChevronUpDownIcon className="w-5 h-5 text-gray-400 absolute right-3 pointer-events-none" />
-                    </Listbox.Button>
-                    <Listbox.Options className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto focus:outline-none">
-                      <Listbox.Option value="" className={({ active }) => `cursor-pointer select-none relative py-2 pl-4 pr-10 ${active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'}`}>全部部門</Listbox.Option>
-                      <Listbox.Option value="高中部" className={({ active }) => `cursor-pointer select-none relative py-2 pl-4 pr-10 ${active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'}`}>高中部</Listbox.Option>
-                      <Listbox.Option value="國中部" className={({ active }) => `cursor-pointer select-none relative py-2 pl-4 pr-10 ${active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'}`}>國中部</Listbox.Option>
-                    </Listbox.Options>
-                  </div>
-                </Listbox>
+                <label className="block text-sm font-medium text-gray-700 mb-2">年級</label>
+                <Dropdown
+                  value={form.grade || ''}
+                  onChange={val => setForm(prev => ({ ...prev, grade: val === '' ? undefined : val as '國一' | '國二' | '國三' | '高一' | '高二' | '高三' | '職一' | '職二' | '職三' | '大一' | '進修' }))}
+                  options={gradeOptions}
+                  placeholder="全部年級"
+                  className="min-w-[240px] md:min-w-[300px] max-w-full"
+                />
               </div>
             </div>
 
@@ -407,72 +479,37 @@ export default function AnnouncementManager() {
 
       {/* 列表區域 */}
       {!isEditing && (
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          {loading ? (
-            <div className="flex justify-center items-center py-12">
-              <LoadingSpinner size={12} />
-              <p className="text-gray-600 ml-4">載入中...</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {announcements.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  <p>尚無公告</p>
-                </div>
-              ) : (
-                announcements.map(announcement => (
-                  <div key={announcement.id} className="bg-white border border-gray-200 p-6 rounded-lg">
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex-1">
-                        <div className="font-semibold text-lg text-gray-900 mb-2">{announcement.title}</div>
-                        <div className="flex flex-wrap gap-2 mb-2">
-                          {announcement.contentType && (
-                            <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                              {announcement.contentType}
-                            </span>
-                          )}
-                          {announcement.subject && (
-                            <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
-                              {announcement.subject}
-                            </span>
-                          )}
-                          {announcement.department && (
-                            <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full">
-                              {announcement.department}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-xs text-gray-500 ml-4">
-                        {getCreatedAt(announcement)}
-                      </div>
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-x-auto">
+          <table className="w-full text-sm text-left text-gray-500">
+            <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+              <tr>
+                <th scope="col" className="px-6 py-3">標題</th>
+                <th scope="col" className="px-6 py-3">類型</th>
+                <th scope="col" className="px-6 py-3">科目</th>
+                <th scope="col" className="px-6 py-3">年級</th>
+                <th scope="col" className="px-6 py-3">最後更新時間</th>
+                <th scope="col" className="px-6 py-3">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="text-center py-10">
+                    <div className="flex flex-col items-center gap-2">
+                      <LoadingSpinner size={8} />
+                      <span className="mt-2 text-gray-500">讀取中...</span>
                     </div>
-                    
-                    <div className="text-gray-700 whitespace-pre-line mb-4">
-                      {announcement.content}
-                    </div>
-
-                    {/* 連結顯示 */}
-                    {announcement.links && announcement.links.length > 0 && (
-                      <div className="mb-4">
-                        <div className="text-sm font-medium text-gray-700 mb-2">相關連結：</div>
-                        <div className="flex flex-wrap gap-2">
-                          {announcement.links.map((link, index) => (
-                            <a
-                              key={index}
-                              href={link.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-block bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
-                            >
-                              {link.name}
-                            </a>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex gap-3">
+                  </td>
+                </tr>
+              ) : filteredAnnouncements.length > 0 ? filteredAnnouncements.map(announcement => (
+                <tr key={announcement.id} className="bg-white border-b hover:bg-gray-50">
+                  <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{announcement.title}</td>
+                  <td className="px-6 py-4">{announcement.contentType}</td>
+                  <td className="px-6 py-4">{announcement.subject}</td>
+                  <td className="px-6 py-4">{announcement.grade}</td>
+                  <td className="px-6 py-4">{formatDate(announcement.updatedAt)}</td>
+                  <td className="px-6 py-4">
+                    <div className="flex gap-3 w-full">
                       <button
                         className="text-blue-600 hover:text-blue-800 font-medium"
                         onClick={() => handleEdit(announcement)}
@@ -486,19 +523,21 @@ export default function AnnouncementManager() {
                         刪除
                       </button>
                     </div>
-                  </div>
-                ))
+                  </td>
+                </tr>
+              )) : (
+                <tr>
+                  <td colSpan={6} className="text-center py-10 text-gray-500">
+                    尚無公告
+                  </td>
+                </tr>
               )}
-            </div>
-          )}
+            </tbody>
+          </table>
         </div>
       )}
 
-      <AlertDialog 
-        open={alert.open} 
-        message={alert.message} 
-        onClose={() => setAlert({ open: false, message: '' })} 
-      />
+      
     </div>
   );
 } 

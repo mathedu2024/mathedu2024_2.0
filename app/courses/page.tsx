@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Image from 'next/image';
+import Dropdown from '../components/ui/Dropdown';
 
 interface Course {
   id: string;
@@ -44,7 +45,7 @@ export default function CoursesPage() {
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
 
   // 篩選選項
-  const grades = ['國一', '國二', '國三', '高一', '高二', '高三'];
+  const grades = ['國一', '國二', '國三', '高一', '高二', '高三', '職一', '職二', '職三', '大一', '進修'];
   const subjects = ['數學', '理化', '物理', '化學', '生物'];
   const courseNatures = ['進度課程', '升學考試複習', '檢定/考試訓練班'];
   const statuses = ['未開課', '報名中', '開課中', '已額滿', '已結束'];
@@ -147,7 +148,7 @@ export default function CoursesPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-4xl font-bold text-center mb-12" style={{ color: 'rgb(70, 131, 229)' }}>
+      <h1 className="text-4xl md:text-5xl font-bold text-center mb-12 text-blue-600 tracking-tight drop-shadow-sm">
         課程介紹
       </h1>
 
@@ -160,58 +161,46 @@ export default function CoursesPage() {
             {/* 年級篩選 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">年級</label>
-              <select
+              <Dropdown
                 value={selectedGrade}
-                onChange={(e) => setSelectedGrade(e.target.value)}
-                className="select-unified w-full p-2 rounded-md"
-              >
-                <option value="all">全部年級</option>
-                {grades.map(grade => (
-                  <option key={grade} value={grade}>{grade}</option>
-                ))}
-              </select>
+                onChange={setSelectedGrade}
+                options={[{ value: 'all', label: '全部年級' }, ...grades.map(grade => ({ value: grade, label: grade }))]}
+                placeholder="全部年級"
+                className="w-full"
+              />
             </div>
             {/* 科目篩選 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">科目</label>
-              <select
+              <Dropdown
                 value={selectedSubject}
-                onChange={(e) => setSelectedSubject(e.target.value)}
-                className="select-unified w-full p-2 rounded-md"
-              >
-                <option value="all">全部科目</option>
-                {subjects.map(subject => (
-                  <option key={subject} value={subject}>{subject}</option>
-                ))}
-              </select>
+                onChange={setSelectedSubject}
+                options={[{ value: 'all', label: '全部科目' }, ...subjects.map(subject => ({ value: subject, label: subject }))]}
+                placeholder="全部科目"
+                className="w-full"
+              />
             </div>
             {/* 課程性質篩選 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">課程性質</label>
-              <select
+              <Dropdown
                 value={selectedNature}
-                onChange={(e) => setSelectedNature(e.target.value)}
-                className="select-unified w-full p-2 rounded-md"
-              >
-                <option value="all">全部性質</option>
-                {courseNatures.map(nature => (
-                  <option key={nature} value={nature}>{nature}</option>
-                ))}
-              </select>
+                onChange={setSelectedNature}
+                options={[{ value: 'all', label: '全部性質' }, ...courseNatures.map(nature => ({ value: nature, label: nature }))]}
+                placeholder="全部性質"
+                className="w-full"
+              />
             </div>
             {/* 課程狀態篩選 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">課程狀態</label>
-              <select
+              <Dropdown
                 value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="select-unified w-full p-2 rounded-md"
-              >
-                <option value="all">全部狀態</option>
-                {statuses.map(status => (
-                  <option key={status} value={status}>{status}</option>
-                ))}
-              </select>
+                onChange={setSelectedStatus}
+                options={[{ value: 'all', label: '全部狀態' }, ...statuses.map(status => ({ value: status, label: status }))]}
+                placeholder="全部狀態"
+                className="w-full"
+              />
             </div>
             {/* 清除篩選按鈕 */}
             <div className="flex items-end">
@@ -235,58 +224,46 @@ export default function CoursesPage() {
           {/* 年級篩選 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">年級</label>
-            <select
+            <Dropdown
               value={selectedGrade}
-              onChange={(e) => setSelectedGrade(e.target.value)}
-              className="select-unified w-full p-2 rounded-md"
-            >
-              <option value="all">全部年級</option>
-              {grades.map(grade => (
-                <option key={grade} value={grade}>{grade}</option>
-              ))}
-            </select>
+              onChange={setSelectedGrade}
+              options={[{ value: 'all', label: '全部年級' }, ...grades.map(grade => ({ value: grade, label: grade }))]}
+              placeholder="全部年級"
+              className="w-full"
+            />
           </div>
           {/* 科目篩選 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">科目</label>
-            <select
+            <Dropdown
               value={selectedSubject}
-              onChange={(e) => setSelectedSubject(e.target.value)}
-              className="select-unified w-full p-2 rounded-md"
-            >
-              <option value="all">全部科目</option>
-              {subjects.map(subject => (
-                <option key={subject} value={subject}>{subject}</option>
-              ))}
-            </select>
+              onChange={setSelectedSubject}
+              options={[{ value: 'all', label: '全部科目' }, ...subjects.map(subject => ({ value: subject, label: subject }))]}
+              placeholder="全部科目"
+              className="w-full"
+            />
           </div>
           {/* 課程性質篩選 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">課程性質</label>
-            <select
+            <Dropdown
               value={selectedNature}
-              onChange={(e) => setSelectedNature(e.target.value)}
-              className="select-unified w-full p-2 rounded-md"
-            >
-              <option value="all">全部性質</option>
-              {courseNatures.map(nature => (
-                <option key={nature} value={nature}>{nature}</option>
-              ))}
-            </select>
+              onChange={setSelectedNature}
+              options={[{ value: 'all', label: '全部性質' }, ...courseNatures.map(nature => ({ value: nature, label: nature }))]}
+              placeholder="全部性質"
+              className="w-full"
+            />
           </div>
           {/* 課程狀態篩選 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">課程狀態</label>
-            <select
+            <Dropdown
               value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="select-unified w-full p-2 rounded-md"
-            >
-              <option value="all">全部狀態</option>
-              {statuses.map(status => (
-                <option key={status} value={status}>{status}</option>
-              ))}
-            </select>
+              onChange={setSelectedStatus}
+              options={[{ value: 'all', label: '全部狀態' }, ...statuses.map(status => ({ value: status, label: status }))]}
+              placeholder="全部狀態"
+              className="w-full"
+            />
           </div>
           {/* 清除篩選按鈕 */}
           <div className="flex items-end">
@@ -326,10 +303,10 @@ export default function CoursesPage() {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 px-2 sm:px-4 md:px-0">
             {filteredCourses.map((course) => (
-              <div key={course.id} className="bg-white overflow-hidden hover:bg-gray-50 transition-all duration-300 flex flex-col md:block mb-6 md:mb-0 relative">
+              <div key={course.id} className="bg-white rounded-lg shadow-md hover:shadow-xl overflow-hidden hover:bg-gray-50 transition-all duration-300 flex flex-col md:block mb-6 md:mb-0 relative">
                 {/* 圖片區塊 */}
-                <div className="w-full aspect-square relative md:w-1/2 md:aspect-auto md:relative md:float-left md:mr-6 mb-4 md:mb-0">
-                  <div className="hidden md:block pt-[100%]" />
+                <div className="w-full relative md:w-1/2 md:relative md:float-left md:mr-6 mb-4 md:mb-0">
+                  <div className="block pt-[100%]" />
                   {course.coverImageURL ? (
                     <Image
                       src={course.coverImageURL}

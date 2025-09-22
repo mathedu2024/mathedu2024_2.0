@@ -1,202 +1,145 @@
 'use client';
 
 import React, { useState } from 'react';
-import { SessionData, getSession } from '../utils/session';
-import alerts from '../utils/alerts';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import Input from '@/components/ui/Input';
+import Button from '@/components/ui/Button';
+import Swal from 'sweetalert2';
 
-export default function PasswordManager({ session: propSession }: { session?: SessionData }) {
-  const [formData, setFormData] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: '',
-  });
+const formSchema = z.object({
+  currentPassword: z.string().min(1, '請輸入目前密碼'),
+  newPassword: z.string().min(6, '新密碼至少需要6個字元'),
+  confirmNewPassword: z.string().min(6, '請確認新密碼'),
+}).refine((data) => data.newPassword === data.confirmNewPassword, {
+  message: '新密碼與確認密碼不符',
+  path: ['confirmNewPassword'],
+});
+
+type PasswordManagerProps = {
+  onPasswordChangeSuccess?: () => void;
+  apiEndpoint?: string; // New prop for API endpoint
+};
+
+function PasswordManager({ onPasswordChangeSuccess, apiEndpoint = '/api/student/change-password' }: PasswordManagerProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    // 清除錯誤和成功訊息
-  };
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      currentPassword: '',
+      newPassword: '',
+      confirmNewPassword: '',
+    },
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
-
     try {
-      const session = propSession || getSession();
-      if (!session) {
-                        alerts.showError('請重新登入');
-        setIsLoading(false);
-        return;
-      }
-
-      // 驗證新密碼
-      if (formData.newPassword.length < 6) {
-        alerts.showError('新密碼至少需要6個字元');
-        setIsLoading(false);
-        return;
-      }
-
-      if (formData.newPassword !== formData.confirmPassword) {
-        alerts.showError('新密碼與確認密碼不符');
-        setIsLoading(false);
-        return;
-      }
-
-      // 驗證當前密碼
-      const adminRoles = ['admin', '管理員', 'teacher', '老師'];
-      const role = Array.isArray(session.role) ? session.role[0] : session.role;
-      if (adminRoles.includes(role)) {
-        await fetch('/api/admin/update-password', { method: 'POST', body: JSON.stringify({ id: session.account, password: formData.newPassword }) });
-      } else {
-        await fetch('/api/student/save', { method: 'POST', body: JSON.stringify({ id: session.account, password: formData.newPassword }) });
-      }
-
-      alerts.showSuccess('密碼修改成功！');
-      setFormData({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: '',
+      const response = await fetch(apiEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(values),
       });
-    } catch (err) {
-      console.error('修改密碼時發生錯誤:', err);
-      alerts.showError('修改密碼時發生錯誤，請稍後再試');
+
+      const data = await response.json();
+
+      if (response.ok) {
+        Swal.fire({
+          title: '成功!',
+          text: '密碼修改成功',
+          icon: 'success',
+          confirmButtonText: '好'
+        });
+        form.reset();
+        onPasswordChangeSuccess?.();
+      } else {
+        Swal.fire({
+          title: '錯誤',
+          text: data.message || '請檢查您輸入的密碼是否正確。',
+          icon: 'error',
+          confirmButtonText: '好'
+        });
+      }
+    } catch (error) {
+      console.error('密碼修改錯誤:', error);
+      Swal.fire({
+        title: '錯誤',
+        text: '修改密碼時發生錯誤，請稍後再試。',
+        icon: 'error',
+        confirmButtonText: '好'
+      });
     } finally {
       setIsLoading(false);
     }
-  };
+  }
 
   return (
-    <div className="max-w-2xl mx-auto w-full">
-      <h2 className="text-2xl font-bold mb-6">修改密碼</h2>
-      
-      <div className="bg-white border border-gray-200 p-6 rounded-lg">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* 當前密碼 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              當前密碼 *
-            </label>
-            <div className="relative">
-              <input
-                type={showCurrentPassword ? 'text' : 'password'}
+    <div className="max-w-2xl mx-auto w-full p-4 h-full flex flex-col">
+      <h2 className="text-2xl font-bold mb-6 flex-shrink-0">修改密碼</h2>
+      <div className="w-full">
+        <div className="bg-white border border-gray-200 p-6 rounded-lg">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                control={form.control}
                 name="currentPassword"
-                value={formData.currentPassword}
-                onChange={handleChange}
-                className="w-full border border-gray-300 p-3 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-600 focus:outline-none"
-                tabIndex={-1}
-              >
-                {showCurrentPassword ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12.001C3.226 16.273 7.24 19.5 12 19.5c1.658 0 3.237-.336 4.646-.94M21 12.001c-.362-1.007-.893-1.957-1.573-2.803M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
-                  </svg>
-                ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12s3.75-7.5 9.75-7.5 9.75 7.5 9.75 7.5-3.75 7.5-9.75 7.5S2.25 12 2.25 12z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>目前密碼</FormLabel>
+                    <FormControl>
+                      <Input type="password" value={field.value} onChange={field.onChange} onBlur={field.onBlur} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )}
-              </button>
-            </div>
-          </div>
-
-          {/* 新密碼 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              新密碼 *
-            </label>
-            <div className="relative">
-              <input
-                type={showNewPassword ? 'text' : 'password'}
+              />
+              <FormField
+                control={form.control}
                 name="newPassword"
-                value={formData.newPassword}
-                onChange={handleChange}
-                className="w-full border border-gray-300 p-3 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
-                required
-                minLength={6}
-              />
-              <button
-                type="button"
-                onClick={() => setShowNewPassword(!showNewPassword)}
-                className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-600 focus:outline-none"
-                tabIndex={-1}
-              >
-                {showNewPassword ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12.001C3.226 16.273 7.24 19.5 12 19.5c1.658 0 3.237-.336 4.646-.94M21 12.001c-.362-1.007-.893-1.957-1.573-2.803M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
-                  </svg>
-                ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12s3.75-7.5 9.75-7.5 9.75 7.5 9.75 7.5-3.75 7.5-9.75 7.5S2.25 12 2.25 12z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>新密碼</FormLabel>
+                    <FormControl>
+                      <Input type="password" value={field.value} onChange={field.onChange} onBlur={field.onBlur} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )}
-              </button>
-            </div>
-            <p className="text-sm text-gray-500 mt-1">密碼至少需要6個字元</p>
-          </div>
-
-          {/* 確認新密碼 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              確認新密碼 *
-            </label>
-            <div className="relative">
-              <input
-                type={showConfirmPassword ? 'text' : 'password'}
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                className="w-full border border-gray-300 p-3 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
-                required
               />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-600 focus:outline-none"
-                tabIndex={-1}
-              >
-                {showConfirmPassword ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12.001C3.226 16.273 7.24 19.5 12 19.5c1.658 0 3.237-.336 4.646-.94M21 12.001c-.362-1.007-.893-1.957-1.573-2.803M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
-                  </svg>
-                ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12s3.75-7.5 9.75-7.5 9.75 7.5 9.75 7.5-3.75 7.5-9.75 7.5S2.25 12 2.25 12z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
+              <FormField
+                control={form.control}
+                name="confirmNewPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>確認新密碼</FormLabel>
+                    <FormControl>
+                      <Input type="password" value={field.value} onChange={field.onChange} onBlur={field.onBlur} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )}
-              </button>
-            </div>
-          </div>
-
-          
-
-          {/* 提交按鈕 */}
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full py-3 btn-primary text-lg"
-          >
-            {isLoading ? '修改中...' : '修改密碼'}
-          </button>
-        </form>
+              />
+              <Button type="submit" className="w-full" loading={isLoading}>
+                修改密碼
+              </Button>
+            </form>
+          </Form>
+        </div>
       </div>
     </div>
   );
-} 
+}
+
+export default PasswordManager;

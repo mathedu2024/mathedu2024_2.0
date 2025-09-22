@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { setSession } from '../utils/session';
-import alerts from '../utils/alerts';
 import LoadingSpinner from '../components/LoadingSpinner';
+import Dropdown from '../components/ui/Dropdown';
+
 
 export default function PanelLoginPage() {
   const router = useRouter();
@@ -20,6 +21,12 @@ export default function PanelLoginPage() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
+
+  const handleRoleChange = (value: string) => {
+    setFormData({ ...formData, role: value });
+  };
+
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,18 +101,8 @@ export default function PanelLoginPage() {
       const message = err instanceof Error ? err.message : '發生未知錯誤';
       setError(message);
       
-      // 根據錯誤類型顯示對應的 SweetAlert2 對話框
-      if (message.includes('Invalid password') || message.includes('密碼')) {
-        alerts.showPasswordError();
-      } else if (message.includes('Account not found') || message.includes('查無') || message.includes('not found')) {
-        alerts.showAccountNotFound();
-      } else if (message.includes('學生帳號請由學生登入頁面登入')) {
-        alerts.showError(message);
-      } else if (message.includes('伺服器錯誤') || message.includes('伺服器回傳格式錯誤')) {
-        alerts.showErrorCode('500');
-      } else {
-        alerts.showError(message);
-      }
+      // The error is already set and will be displayed on the page.
+      // The SweetAlert2 dialogs are removed to make the error more visible.
     } finally {
       setIsLoading(false);
     }
@@ -133,16 +130,13 @@ export default function PanelLoginPage() {
               <label htmlFor="role" className="block text-base font-medium text-gray-700 mb-2">
                 身分
               </label>
-              <select
-                id="role"
-                name="role"
+              <Dropdown
                 value={formData.role}
-                onChange={handleChange}
-                className="block w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-              >
-                <option value="teacher">老師</option>
-                <option value="admin">管理員</option>
-              </select>
+                onChange={handleRoleChange}
+                options={[{ value: 'teacher', label: '老師' }, { value: 'admin', label: '管理員' }]} 
+                placeholder="請選擇身分"
+                className="w-full"
+              />
             </div>
             
             <div>

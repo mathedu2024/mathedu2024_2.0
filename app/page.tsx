@@ -5,8 +5,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { getAnnouncements } from '../services/announcementService';
 import { getExams, Exam } from '../services/examService';
-import { Listbox } from '@headlessui/react';
-import { ChevronUpDownIcon } from '@heroicons/react/20/solid';
+import Dropdown from './components/ui/Dropdown';
 import Footer from './components/Footer';
 import LoadingSpinner from './components/LoadingSpinner';
 
@@ -21,11 +20,41 @@ interface Announcement {
   content: string;
   contentType?: '公告事項' | '課程資訊';
   subject?: '數學' | '理化' | '物理' | '化學' | '生物';
-  department?: '高中部' | '國中部';
+  grade?: '國一' | '國二' | '國三' | '高一' | '高二' | '高三' | '職一' | '職二' | '職三' | '大一' | '進修';
   links?: Link[];
   createdAt: string; // Changed from 'any' to 'string'
   description: string;
 }
+
+const contentTypeOptions = [
+  { value: '全部', label: '全部類型' },
+  { value: '公告事項', label: '公告事項' },
+  { value: '課程資訊', label: '課程資訊' },
+];
+
+const subjectOptions = [
+  { value: '全部', label: '全部科目' },
+  { value: '數學', label: '數學' },
+  { value: '理化', label: '理化' },
+  { value: '物理', label: '物理' },
+  { value: '化學', label: '化學' },
+  { value: '生物', label: '生物' },
+];
+
+const gradeOptions = [
+  { value: '全部', label: '全部年級' },
+  { value: '國一', label: '國一' },
+  { value: '國二', label: '國二' },
+  { value: '國三', label: '國三' },
+  { value: '高一', label: '高一' },
+  { value: '高二', label: '高二' },
+  { value: '高三', label: '高三' },
+  { value: '職一', label: '職一' },
+  { value: '職二', label: '職二' },
+  { value: '職三', label: '職三' },
+  { value: '大一', label: '大一' },
+  { value: '進修', label: '進修' },
+];
 
 // Removed unused getHomePageData function
 
@@ -67,7 +96,7 @@ export default function Home() {
   // 篩選器狀態
   const [selectedContentType, setSelectedContentType] = useState<string>('全部');
   const [selectedSubject, setSelectedSubject] = useState<string>('全部');
-  const [selectedDepartment, setSelectedDepartment] = useState<string>('全部');
+  const [selectedGrade, setSelectedGrade] = useState<string>('全部');
 
   // 篩選後的公告
   const filteredAnnouncements = announcements
@@ -81,8 +110,8 @@ export default function Home() {
     .filter(announcement => {
       const contentTypeMatch = selectedContentType === '全部' || announcement.contentType === selectedContentType;
       const subjectMatch = selectedSubject === '全部' || announcement.subject === selectedSubject;
-      const departmentMatch = selectedDepartment === '全部' || announcement.department === selectedDepartment;
-      return contentTypeMatch && subjectMatch && departmentMatch;
+      const gradeMatch = selectedGrade === '全部' || announcement.grade === selectedGrade;
+      return contentTypeMatch && subjectMatch && gradeMatch;
     });
 
   // 更新倒數天數
@@ -225,7 +254,7 @@ export default function Home() {
                 content: typeof a.content === 'string' ? a.content : '',
                 contentType: a.contentType || undefined,
                 subject: a.subject || undefined,
-                department: a.department || undefined,
+                grade: a.grade || undefined,
                 links: Array.isArray(a.links) ? a.links : [],
                 createdAt: a.createdAt ? a.createdAt.toString() : new Date().toISOString(), // 確保 createdAt 是字符串
                 description: typeof a.description === 'string' ? a.description : '',
@@ -359,7 +388,7 @@ export default function Home() {
   // 重置分頁當篩選器改變時
   useEffect(() => {
     setAnnouncementPage(1);
-  }, [selectedContentType, selectedSubject, selectedDepartment]);
+  }, [selectedContentType, selectedSubject, selectedGrade]);
 
   // 如果發生錯誤，顯示錯誤訊息
   if (error) {
@@ -438,54 +467,33 @@ export default function Home() {
               <div className="flex flex-col gap-2 w-full md:flex-row md:gap-4 md:w-auto md:items-center">
                 {/* 篩選器1 */}
                 <div className="w-full md:w-auto">
-                  <Listbox value={selectedContentType} onChange={setSelectedContentType}>
-                    <div className="relative">
-                      <Listbox.Button className="select-unified min-w-[240px] md:min-w-[300px] max-w-full pr-12 flex items-center justify-between">
-                        <span className="truncate">{selectedContentType || '全部類型'}</span>
-                        <ChevronUpDownIcon className="w-5 h-5 text-gray-400 absolute right-3 pointer-events-none" />
-                      </Listbox.Button>
-                      <Listbox.Options className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto focus:outline-none">
-                        <Listbox.Option value="全部" className={({ active }) => `cursor-pointer select-none relative py-2 pl-4 pr-10 ${active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'}`}>全部類型</Listbox.Option>
-                        <Listbox.Option value="公告事項" className={({ active }) => `cursor-pointer select-none relative py-2 pl-4 pr-10 ${active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'}`}>公告事項</Listbox.Option>
-                        <Listbox.Option value="課程資訊" className={({ active }) => `cursor-pointer select-none relative py-2 pl-4 pr-10 ${active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'}`}>課程資訊</Listbox.Option>
-                      </Listbox.Options>
-                    </div>
-                  </Listbox>
+                  <Dropdown
+                    value={selectedContentType}
+                    onChange={setSelectedContentType}
+                    options={contentTypeOptions}
+                    placeholder="全部類型"
+                    className="min-w-[240px] md:min-w-[300px] max-w-full"
+                  />
                 </div>
                 {/* 篩選器2 */}
                 <div className="w-full md:w-auto">
-                  <Listbox value={selectedSubject} onChange={setSelectedSubject}>
-                    <div className="relative">
-                      <Listbox.Button className="select-unified min-w-[240px] md:min-w-[300px] max-w-full pr-12 flex items-center justify-between">
-                        <span className="truncate">{selectedSubject || '全部科目'}</span>
-                        <ChevronUpDownIcon className="w-5 h-5 text-gray-400 absolute right-3 pointer-events-none" />
-                      </Listbox.Button>
-                      <Listbox.Options className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto focus:outline-none">
-                        <Listbox.Option value="全部" className={({ active }) => `cursor-pointer select-none relative py-2 pl-4 pr-10 ${active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'}`}>全部科目</Listbox.Option>
-                        <Listbox.Option value="數學" className={({ active }) => `cursor-pointer select-none relative py-2 pl-4 pr-10 ${active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'}`}>數學</Listbox.Option>
-                        <Listbox.Option value="理化" className={({ active }) => `cursor-pointer select-none relative py-2 pl-4 pr-10 ${active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'}`}>理化</Listbox.Option>
-                        <Listbox.Option value="物理" className={({ active }) => `cursor-pointer select-none relative py-2 pl-4 pr-10 ${active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'}`}>物理</Listbox.Option>
-                        <Listbox.Option value="化學" className={({ active }) => `cursor-pointer select-none relative py-2 pl-4 pr-10 ${active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'}`}>化學</Listbox.Option>
-                        <Listbox.Option value="生物" className={({ active }) => `cursor-pointer select-none relative py-2 pl-4 pr-10 ${active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'}`}>生物</Listbox.Option>
-                      </Listbox.Options>
-                    </div>
-                  </Listbox>
+                  <Dropdown
+                    value={selectedSubject}
+                    onChange={setSelectedSubject}
+                    options={subjectOptions}
+                    placeholder="全部科目"
+                    className="min-w-[240px] md:min-w-[300px] max-w-full"
+                  />
                 </div>
                 {/* 篩選器3 */}
                 <div className="w-full md:w-auto">
-                  <Listbox value={selectedDepartment} onChange={setSelectedDepartment}>
-                    <div className="relative">
-                      <Listbox.Button className="select-unified min-w-[240px] md:min-w-[300px] max-w-full pr-12 flex items-center justify-between">
-                        <span className="truncate">{selectedDepartment || '全部部門'}</span>
-                        <ChevronUpDownIcon className="w-5 h-5 text-gray-400 absolute right-3 pointer-events-none" />
-                      </Listbox.Button>
-                      <Listbox.Options className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto focus:outline-none">
-                        <Listbox.Option value="全部" className={({ active }) => `cursor-pointer select-none relative py-2 pl-4 pr-10 ${active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'}`}>全部部門</Listbox.Option>
-                        <Listbox.Option value="高中部" className={({ active }) => `cursor-pointer select-none relative py-2 pl-4 pr-10 ${active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'}`}>高中部</Listbox.Option>
-                        <Listbox.Option value="國中部" className={({ active }) => `cursor-pointer select-none relative py-2 pl-4 pr-10 ${active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'}`}>國中部</Listbox.Option>
-                      </Listbox.Options>
-                    </div>
-                  </Listbox>
+                  <Dropdown
+                    value={selectedGrade}
+                    onChange={setSelectedGrade}
+                    options={gradeOptions}
+                    placeholder="全部年級"
+                    className="min-w-[240px] md:min-w-[300px] max-w-full"
+                  />
                 </div>
               </div>
             </div>
@@ -528,9 +536,9 @@ export default function Home() {
                             {announcement.subject}
                           </span>
                         )}
-                        {announcement.department && (
+                        {announcement.grade && (
                           <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs sm:text-sm rounded-full">
-                            {announcement.department}
+                            {announcement.grade}
                           </span>
                         )}
                       </div>

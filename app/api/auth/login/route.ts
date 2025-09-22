@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     const cleanPassword = password ? password.trim() : '';
 
     if (!cleanAccount || !cleanPassword || !loginType) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
 
     console.log(`API - Attempting login for account: ${cleanAccount} with loginType: ${loginType}`);
@@ -25,35 +25,42 @@ export async function POST(req: NextRequest) {
 
     if (querySnapshot.empty) {
       console.log('API - User not found');
-      return NextResponse.json({ error: 'Account not found' }, { status: 401 });
+      return NextResponse.json({ error: 'Account not found' }, { status: 401, headers: { 'Content-Type': 'application/json' } });
     }
 
     const userDoc = querySnapshot.docs[0];
     const userData = userDoc.data();
-    const userRole = userData.role || (loginType === 'student' ? 'student' : userData.roles);
 
-    // Role Validation
-    if (loginType !== 'student' && !userRole.includes(loginType)) {
-        console.log(`API - Role mismatch. User role: ${userRole}, attempted: ${loginType}`);
-        return NextResponse.json({ error: 'Role mismatch' }, { status: 403 });
+    // --- Defensive Role Validation ---
+    let roles = [];
+    if (loginType === 'student') {
+        roles = ['student'];
+    } else if (userData.roles && Array.isArray(userData.roles)) {
+        roles = userData.roles;
+    } else if (userData.role && typeof userData.role === 'string') {
+        roles = [userData.role];
     }
 
-    // Password Validation - 使用明文密碼比較
+    if (roles.length === 0) {
+        console.log(`API - [VALIDATION] Login failed for ${cleanAccount}: No valid role found.`);
+        return NextResponse.json({ error: 'User has no assigned role' }, { status: 403, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    if (!roles.includes(loginType)) {
+        console.log(`API - [VALIDATION] Role mismatch. User roles: ${roles}, attempted: ${loginType}`);
+        return NextResponse.json({ error: 'Role mismatch' }, { status: 403, headers: { 'Content-Type': 'application/json' } });
+    }
+    
+    const userRole = roles; // For use in token + response
+    // --- End Role Validation ---
+
+    // Password Validation - Plain text comparison
     const storedPassword = userData.password;
-    let passwordIsValid = false;
-
-    console.log('API - Performing password validation...');
-    console.log('API - Using plain text password comparison.');
-    if (cleanPassword === storedPassword) {
-      passwordIsValid = true;
-      console.log('API - Password matches.');
-    } else {
-      console.log('API - Password does not match.');
-    }
+    const passwordIsValid = cleanPassword === storedPassword;
 
     if (!passwordIsValid) {
       console.log('API - Invalid password');
-      return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
+      return NextResponse.json({ error: 'Invalid password' }, { status: 401, headers: { 'Content-Type': 'application/json' } });
     }
 
     console.log('API - Password correct, processing...');
@@ -67,7 +74,8 @@ export async function POST(req: NextRequest) {
     // Ensure user exists in Firebase Auth
     try {
         await auth.getUser(uid);
-    } catch (error) {
+    } catch (e) {
+        const error = e as { code?: string };
         // If user does not exist in Firebase Auth, create it
         if (error.code === 'auth/user-not-found') {
             console.log(`API - User ${uid} not found in Firebase Auth. Creating...`);
@@ -79,7 +87,7 @@ export async function POST(req: NextRequest) {
                 displayName: userData.name,
             });
         } else {
-            throw error; // Re-throw other auth errors
+            throw e; // Re-throw other auth errors
         }
     }
 
@@ -117,6 +125,6 @@ export async function POST(req: NextRequest) {
     console.error(error);
     console.error('------------------------------------');
     const message = error instanceof Error ? error.message : 'Login failed';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: message }, { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 }

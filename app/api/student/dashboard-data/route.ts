@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     const userId = session?.id;
     const userRole = session?.role;
 
-    if (!userId || userRole !== 'student') {
+    if (!userId || !userRole.includes('student')) {
       return NextResponse.json({ error: 'Forbidden: Invalid role or missing user ID' }, { status: 403 });
     }
 

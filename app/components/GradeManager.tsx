@@ -3,8 +3,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as ExcelJS from 'exceljs';
 import CourseDetailModal from './CourseDetailModal';
-import alerts from '../utils/alerts';
+import Swal from 'sweetalert2';
 import { Modal } from './ui';
+import Dropdown from './ui/Dropdown';
+import LoadingSpinner from './LoadingSpinner';
 
 
 interface UserInfo {
@@ -46,7 +48,7 @@ interface PercentileStatistics {
 }
 
 // 型別定義
-type RegularType = '平時測驗' | '回家作業' | '上課態度';
+type RegularType = '小考' | '作業' | '上課態度';
 
 type RegularScoreSetting = {
   type: RegularType;
@@ -99,18 +101,7 @@ async function saveGrades(courseName: string, courseCode: string, gradeData: unk
   if (!res.ok) throw new Error('成績儲存失敗');
 }
 
-async function getGrades(courseName: string, courseCode: string) {
-  const res = await fetch('/api/grades/list', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ courseKeys: [`${courseName}(${courseCode})`] }),
-  });
-  if (res.ok) {
-    const data = await res.json();
-    return data[`${courseName}(${courseCode})`];
-  }
-  return null;
-}
+
 
 // 恢復 DEFAULT_REGULAR_COLUMNS
 const DEFAULT_REGULAR_COLUMNS = 10;
@@ -183,7 +174,6 @@ function getTaiwanPercentileLevels(scores: number[]): PercentileStatistics {
 }
 
 export default function GradeManager({ userInfo }: GradeManagerProps) {
-  console.log('GradeManager - Received userInfo:', userInfo);
   const [selectedCourse, setSelectedCourse] = useState<string>('');
   const [selectedCourseName, setSelectedCourseName] = useState('');
   const [selectedCourseCode, setSelectedCourseCode] = useState('');
@@ -192,8 +182,8 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
   const [selectedTab, setSelectedTab] = useState<'regular' | 'periodic' | 'total'>('regular');
   const [regularColumns, setRegularColumns] = useState<number>(DEFAULT_REGULAR_COLUMNS);
   const [regularSettings, setRegularSettings] = useState<RegularScoreSetting[]>([
-    { type: '平時測驗', percent: 40, calcMethod: '平均', n: undefined },
-    { type: '回家作業', percent: 40, calcMethod: '平均', n: undefined },
+    { type: '小考', percent: 40, calcMethod: '平均', n: undefined },
+    { type: '作業', percent: 40, calcMethod: '平均', n: undefined },
     { type: '上課態度', percent: 20, calcMethod: '平均', n: undefined },
   ]);
   const [periodicScores, setPeriodicScores] = useState<PeriodicScoreName[]>(['第一次定期評量', '第二次定期評量', '期末評量']);
@@ -202,8 +192,8 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
     periodicPercent: 40,
     manualAdjust: 0,
     regularDetail: {
-      '平時測驗': { percent: 40, calcMethod: '平均' },
-      '回家作業': { percent: 40, calcMethod: '平均' },
+      '小考': { percent: 40, calcMethod: '平均' },
+      '作業': { percent: 40, calcMethod: '平均' },
       '上課態度': { percent: 20, calcMethod: '平均' },
     },
   });
@@ -229,15 +219,18 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
   const [attitudeBestCount, setAttitudeBestCount] = useState<number>(3);
   const [periodicEnabled, setPeriodicEnabled] = useState<boolean[]>([true, true, true]); // [第一次, 第二次, 期末]
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
-  const [showLeaveConfirm, setShowLeaveConfirm] = useState<boolean>(false);
-  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   const [showCourseDetail, setShowCourseDetail] = useState<{ id: string; name: string; code: string } | null>(null);
   const [teachers, setTeachers] = useState<{ id: string; name: string }[]>([]);
   const [isDistributionModalOpen, setIsDistributionModalOpen] = useState(false);
   const [distributionData, setDistributionData] = useState<DistributionData | null>(null);
-  const [selectedColumnForChart, setSelectedColumnForChart] = useState<ColumnDetail | null>(null);
+  const [courseStats, setCourseStats] = useState<Record<string, { studentCount: number; examStatus: Record<PeriodicScoreName, boolean> }>>({});
+  const [isCourseListLoading, setIsCourseListLoading] = useState(false);
+  const [isGradeDataLoading, setIsGradeDataLoading] = useState(false);
+  const [loadingCourseId, setLoadingCourseId] = useState<string | null>(null);
 
-  const handleShowDistribution = (colIdx: number) => {
+
+  const handleShowSettings = (colIdx: number) => {
+    setEditingColumn(colIdx);
     const scores = students.map(s => s.regularScores?.[colIdx]).filter(score => typeof score === 'number' && !isNaN(score)) as number[];
     const stats = getTaiwanPercentileLevels(scores);
     const distribution = [
@@ -257,7 +250,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
         else distribution[5].count++;
     });
     setDistributionData({ statistics: stats, distribution });
-    setSelectedColumnForChart(columnDetails[colIdx]);
+    
     setIsDistributionModalOpen(true);
   };
 
@@ -272,36 +265,33 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
       if (hasUnsavedChanges) {
         e.preventDefault();
         e.returnValue = '您有未儲存的變更，確定要離開嗎？';
-        return '您有未儲存的變更，確定要離開嗎？';
       }
     };
+
+    const handlePopState = async () => {
+      if (hasUnsavedChanges) {
+        const result = await Swal.fire({
+          title: '請確認',
+          text: '您有未儲存的變更，確定要離開嗎？',
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: '確定離開',
+          cancelButtonText: '取消'
+        });
+        if (!result.isConfirmed) {
+          window.history.pushState(null, '', window.location.href);
+        }
+      }
+    };
+
     window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('popstate', handlePopState);
+    };
   }, [hasUnsavedChanges]);
-
-  // 處理導航離開
-  // const handleNavigation = (url: string) => {
-  //   if (hasUnsavedChanges) {
-  //     setShowLeaveConfirm(true);
-  //     setPendingNavigation(url);
-  //   } else {
-  //     window.location.href = url;
-  //   }
-  // };
-
-  // 確認離開
-  const confirmLeave = () => {
-    setShowLeaveConfirm(false);
-    if (pendingNavigation) {
-      window.location.href = pendingNavigation;
-    }
-  };
-
-  // 取消離開
-  const cancelLeave = () => {
-    setShowLeaveConfirm(false);
-    setPendingNavigation(null);
-  };
 
   // 獲取老師資料
   const fetchTeachers = async () => {
@@ -311,8 +301,8 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
         const teachersData = await res.json();
         setTeachers(teachersData);
       }
-    } catch (error) {
-      console.error('獲取老師資料時發生錯誤:', error);
+    } catch (_error) {
+      console.error('獲取老師資料時發生錯誤:', _error);
     }
   };
 
@@ -322,20 +312,62 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
       return;
     }
     (async () => {
-      console.log('GradeManager - Fetching courses for teacher:', userInfo.id);
-      // 改為呼叫 /api/courses/list 並過濾老師授課課程
-      const resCourses = await fetch('/api/courses/list');
-      const allCourses = await resCourses.json();
-      console.log('GradeManager - All courses:', allCourses.length);
-      // 假設老師授課課程 id 在 userInfo.courses 或 userInfo.id
-      // 若有老師課程清單 API 可改用
-      const teacherCourses = allCourses.filter((c: { teachers?: string[] }) => Array.isArray(c.teachers) && c.teachers.includes(userInfo.id));
-      console.log('GradeManager - Teacher courses:', teacherCourses.length);
-      setCourses(teacherCourses);
-    })().catch((error: unknown) => {
-      console.error('載入課程資料時發生錯誤:', error);
-      alerts.showError(error instanceof Error ? error.message : String(error));
-    });
+      setIsCourseListLoading(true);
+      try {
+        const resCourses = await fetch('/api/courses/list');
+        const allCourses = await resCourses.json();
+        if (!Array.isArray(allCourses)) {
+          throw new Error('課程資料格式錯誤');
+        }
+        const teacherCourses = allCourses.filter((c: { teachers?: string[], name?: string, code?: string }) => Array.isArray(c.teachers) && c.teachers.includes(userInfo.id) && c.name && c.code);
+        setCourses(teacherCourses);
+
+        const courseStatsPromises = teacherCourses.map(async (course) => {
+          const studentRes = await fetch(`/api/course-student-list/list`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ courseName: course.name, courseCode: course.code }),
+          });
+          const studentList = await studentRes.json();
+          if (!Array.isArray(studentList)) {
+            throw new Error('學生資料格式錯誤');
+          }
+          const studentCount = studentList.length;
+
+          const gradeRes = await fetch('/api/grades/list', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ courseKeys: [`${course.name}(${course.code})`] }),
+          });
+          const gradeData = (await gradeRes.json())[`${course.name}(${course.code})`];
+          const examStatus = {
+            '第一次定期評量': false,
+            '第二次定期評量': false,
+            '期末評量': false,
+          };
+          if (gradeData && gradeData.students) {
+            for (const student of gradeData.students) {
+              if (student.periodicScores?.['第一次定期評量'] !== undefined) examStatus['第一次定期評量'] = true;
+              if (student.periodicScores?.['第二次定期評量'] !== undefined) examStatus['第二次定期評量'] = true;
+              if (student.periodicScores?.['期末評量'] !== undefined) examStatus['期末評量'] = true;
+            }
+          }
+          return { courseId: course.id, studentCount, examStatus };
+        });
+
+        const courseStatsResults = await Promise.all(courseStatsPromises);
+        const newCourseStats: Record<string, { studentCount: number; examStatus: Record<PeriodicScoreName, boolean> }> = {};
+        courseStatsResults.forEach(stat => {
+          newCourseStats[stat.courseId] = { studentCount: stat.studentCount, examStatus: stat.examStatus };
+        });
+        setCourseStats(newCourseStats);
+      } catch (_error: unknown) {
+        console.error('載入課程資料時發生錯誤:', _error);
+        Swal.fire('錯誤', _error instanceof Error ? _error.message : String(_error), 'error');
+      } finally {
+        setIsCourseListLoading(false);
+      }
+    })()
   }, [userInfo]);
 
   // 獲取老師資料
@@ -347,104 +379,113 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
     if (selectedCourseName && selectedCourseCode) {
       // 載入學生列表
       (async () => {
-        const res = await fetch('/api/course-student-list/list', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ courseName: selectedCourseName, courseCode: selectedCourseCode }),
-        });
-        const studentList = await res.json();
-        const initialStudents = studentList.map((stu: { studentId: string; name: string; grade: string }) => ({
-          id: stu.studentId,
-          studentId: stu.studentId,
-          name: stu.name,
-          grade: stu.grade,
-          regularScores: {},
-          periodicScores: {},
-          totalScore: 0,
-          manualAdjust: 0,
-        }));
-
-        // 載入現有成績資料
-        const courseKey = `${selectedCourseName}(${selectedCourseCode})`;
-        const resGrades = await fetch('/api/grades/list', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ courseKeys: [courseKey] }),
-        });
-        const gradesResult = await resGrades.json();
-        const gradeData = gradesResult[courseKey];
-
-        if (gradeData && gradeData.students) {
-          const gradeDataStudentsMap = new Map(gradeData.students.map((s: StudentGradeRow) => [s.studentId, s]));
-          const mergedStudents = initialStudents.map((s: StudentGradeRow) => {
-            const savedStudentData = gradeDataStudentsMap.get(s.studentId);
-            return savedStudentData ? { ...s, ...(savedStudentData as StudentGradeRow) } : s;
+        setIsGradeDataLoading(true);
+        try {
+          const res = await fetch('/api/course-student-list/list', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ courseName: selectedCourseName, courseCode: selectedCourseCode }),
           });
-          setStudents(mergedStudents);
-        } else {
-          setStudents(initialStudents);
-        }
-        
-        if (gradeData) {
-          if (gradeData.columns) {
-            setColumnDetails(gradeData.columns);
+          const studentList = await res.json();
+          if (!Array.isArray(studentList)) {
+            throw new Error('學生資料格式錯誤');
           }
-          if (gradeData.regularSettings) {
-            setRegularSettings(gradeData.regularSettings);
-          }
-          if (gradeData.periodicScores) {
-            setPeriodicScores(gradeData.periodicScores);
-          }
-          if (gradeData.totalSetting) {
-            setTotalSetting({
-              ...gradeData.totalSetting,
-              regularPercent: gradeData.totalSetting.regularPercent ?? 60,
-              periodicPercent: gradeData.totalSetting.periodicPercent ?? 40,
-              manualAdjust: gradeData.totalSetting.manualAdjust ?? 0,
-              regularDetail: gradeData.totalSetting.regularDetail ?? {
-                '平時測驗': { percent: 40, calcMethod: '平均' },
-            '回家作業': { percent: 40, calcMethod: '平均' },
-            '上課態度': { percent: 20, calcMethod: '平均' },
-              }
+          const initialStudents = studentList.map((stu: { studentId: string; name: string; grade: string }) => ({
+            id: stu.studentId,
+            studentId: stu.studentId,
+            name: stu.name,
+            grade: stu.grade,
+            regularScores: {},
+            periodicScores: {},
+            totalScore: 0,
+            manualAdjust: 0,
+          }));
+
+          // 載入現有成績資料
+          const courseKey = `${selectedCourseName}(${selectedCourseCode})`;
+          const resGrades = await fetch('/api/grades/list', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ courseKeys: [courseKey] }),
+          });
+          const gradesResult = await resGrades.json();
+          const gradeData = gradesResult ? gradesResult[courseKey] : null;
+
+          if (gradeData && Array.isArray(gradeData.students)) {
+            const gradeDataStudentsMap = new Map(gradeData.students.map((s: StudentGradeRow) => [s.studentId, s]));
+            const mergedStudents = initialStudents.map((s: StudentGradeRow) => {
+              const savedStudentData = gradeDataStudentsMap.get(s.studentId);
+              return savedStudentData ? { ...s, ...(savedStudentData as StudentGradeRow) } : s;
             });
-            // 同步 percentQuiz/percentHomework/percentAttitude
-            setPercentQuizRaw(String(gradeData.totalSetting.regularDetail?.['平時測驗']?.percent ?? '40'));
-            setPercentHomeworkRaw(String(gradeData.totalSetting.regularDetail?.['回家作業']?.percent ?? '40'));
-            setPercentAttitudeRaw(String(gradeData.totalSetting.regularDetail?.['上課態度']?.percent ?? '20'));
+            setStudents(mergedStudents);
+          } else {
+            setStudents(initialStudents);
+          }
+          
+          if (gradeData) {
+            if (gradeData.columns) {
+              setColumnDetails(gradeData.columns);
+            }
+            if (gradeData.regularSettings) {
+              setRegularSettings(gradeData.regularSettings);
+            }
+            if (gradeData.periodicScores) {
+              setPeriodicScores(gradeData.periodicScores);
+            }
+            if (gradeData.totalSetting) {
+              setTotalSetting({
+                ...gradeData.totalSetting,
+                regularPercent: gradeData.totalSetting.regularPercent ?? 60,
+                periodicPercent: gradeData.totalSetting.periodicPercent ?? 40,
+                manualAdjust: gradeData.totalSetting.manualAdjust ?? 0,
+                regularDetail: gradeData.totalSetting.regularDetail ?? {
+                  '小考': { percent: 40, calcMethod: '平均' },
+              '作業': { percent: 40, calcMethod: '平均' },
+              '上課態度': { percent: 20, calcMethod: '平均' },
+                }
+              });
+              // 同步 percentQuiz/percentHomework/percentAttitude
+              setPercentQuizRaw(String(gradeData.totalSetting.regularDetail?.['小考']?.percent ?? '40'));
+              setPercentHomeworkRaw(String(gradeData.totalSetting.regularDetail?.['作業']?.percent ?? '40'));
+              setPercentAttitudeRaw(String(gradeData.totalSetting.regularDetail?.['上課態度']?.percent ?? '20'));
+            } else {
+              setTotalSetting({
+                regularPercent: 60,
+                periodicPercent: 40,
+                manualAdjust: 0,
+                regularDetail: {
+                  '小考': { percent: 40, calcMethod: '平均' },
+                  '作業': { percent: 40, calcMethod: '平均' },
+                  '上課態度': { percent: 20, calcMethod: '平均' },
+                }
+              });
+              setPercentQuizRaw('40');
+              setPercentHomeworkRaw('40');
+              setPercentAttitudeRaw('20');
+            }
           } else {
             setTotalSetting({
               regularPercent: 60,
               periodicPercent: 40,
               manualAdjust: 0,
               regularDetail: {
-                '平時測驗': { percent: 40, calcMethod: '平均' },
-                '回家作業': { percent: 40, calcMethod: '平均' },
-                '上課態度': { percent: 20, calcMethod: '平均' },
+                '小考': { percent: 20, calcMethod: '平均' },
+                '作業': { percent: 10, calcMethod: '平均' },
+                '上課態度': { percent: 10, calcMethod: '平均' },
               }
             });
-            setPercentQuizRaw('40');
-            setPercentHomeworkRaw('40');
-            setPercentAttitudeRaw('20');
+            setPercentQuizRaw('20');
+            setPercentHomeworkRaw('10');
+            setPercentAttitudeRaw('10');
           }
-        } else {
-          setTotalSetting({
-            regularPercent: 60,
-            periodicPercent: 40,
-            manualAdjust: 0,
-            regularDetail: {
-              '平時測驗': { percent: 20, calcMethod: '平均' },
-              '回家作業': { percent: 10, calcMethod: '平均' },
-              '上課態度': { percent: 10, calcMethod: '平均' },
-            }
-          });
-          setPercentQuizRaw('20');
-          setPercentHomeworkRaw('10');
-          setPercentAttitudeRaw('10');
+        } catch (error: unknown) {
+          console.error('載入成績資料時發生錯誤:', error);
+          Swal.fire('錯誤', error instanceof Error ? error.message : String(error), 'error');
+        } finally {
+          setIsGradeDataLoading(false);
+          setLoadingCourseId(null);
         }
-      })().catch((error: unknown) => {
-        console.error('載入成績資料時發生錯誤:', error);
-        alerts.showError(error instanceof Error ? error.message : String(error));
-      });
+      })();
     } else {
       setStudents([]);
       setTotalSetting({
@@ -452,8 +493,8 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
         periodicPercent: 40,
         manualAdjust: 0,
         regularDetail: {
-          '平時測驗': { percent: 20, calcMethod: '平均' },
-          '回家作業': { percent: 10, calcMethod: '平均' },
+          '小考': { percent: 20, calcMethod: '平均' },
+          '作業': { percent: 10, calcMethod: '平均' },
           '上課態度': { percent: 10, calcMethod: '平均' },
         }
       });
@@ -466,10 +507,9 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
   // handleSave: 儲存時同步 periodicEnabled
   const handleSave = async () => {
     if (!selectedCourseName || !selectedCourseCode) {
-      alerts.showWarning('請先選擇課程');
+      Swal.fire('警告', '請先選擇課程', 'warning');
       return;
     }
-    const periodicNames: PeriodicScoreName[] = ['第一次定期評量', '第二次定期評量', '期末評量'];
     const periodicEnabledObj: { [name in PeriodicScoreName]: boolean } = {
       '第一次定期評量': !!periodicEnabled[0],
       '第二次定期評量': !!periodicEnabled[1],
@@ -480,12 +520,12 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
       regularPercent: percentRegular,
       periodicPercent: percentPeriodic,
       regularDetail: {
-        '平時測驗': {
-          ...(totalSetting.regularDetail['平時測驗'] || {}),
+        '小考': {
+          ...(totalSetting.regularDetail['小考'] || {}),
           percent: percentQuiz
         },
-        '回家作業': {
-          ...(totalSetting.regularDetail['回家作業'] || {}),
+        '作業': {
+          ...(totalSetting.regularDetail['作業'] || {}),
           percent: percentHomework
         },
         '上課態度': {
@@ -508,27 +548,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
       };
       const cleanedGradeData = removeUndefinedDeep(gradeData);
       await saveGrades(selectedCourseName, selectedCourseCode, cleanedGradeData);
-      // 儲存後自動重新讀取最新資料
-      const latestGradeData = await getGrades(selectedCourseName, selectedCourseCode);
-      if (latestGradeData && latestGradeData.totalSetting) {
-        setTotalSetting({
-          ...latestGradeData.totalSetting,
-          regularPercent: latestGradeData.totalSetting.regularPercent ?? 60,
-          periodicPercent: latestGradeData.totalSetting.periodicPercent ?? 40,
-          manualAdjust: latestGradeData.totalSetting.manualAdjust ?? 0,
-          regularDetail: latestGradeData.totalSetting.regularDetail ?? {
-            '平時測驗': { percent: 40, calcMethod: '平均' },
-            '回家作業': { percent: 40, calcMethod: '平均' },
-            '上課態度': { percent: 20, calcMethod: '平均' },
-          },
-          periodicEnabled: latestGradeData.totalSetting.periodicEnabled || periodicEnabledObj
-        });
-        // 讀取時同步 periodicEnabled 狀態
-        if (latestGradeData.totalSetting.periodicEnabled) {
-          setPeriodicEnabled(periodicNames.map(name => !!latestGradeData.totalSetting.periodicEnabled?.[name]));
-        }
-      }
-      alerts.showSuccess('成績已儲存！');
+      Swal.fire('成功', '成績已儲存！', 'success');
     } finally {
       setIsSaving(false);
     }
@@ -536,140 +556,96 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
 
   const handleExport = () => {
     if (!selectedCourseName || !selectedCourseCode || students.length === 0) {
-      alerts.showWarning('請先選擇課程且有學生資料');
+      Swal.fire('警告', '請先選擇課程且有學生資料', 'warning');
       return;
     }
 
-    // 創建Excel工作簿
     const workbook = new ExcelJS.Workbook();
-    
-    // 平時成績工作表
-    const regularSheet = workbook.addWorksheet('平時成績');
-    regularSheet.columns = [
-      { header: '學號', key: 'studentId', width: 15 },
-      { header: '姓名', key: 'name', width: 15 },
-      ...Array.from({ length: regularColumns }).map((_, idx) => {
-        const detail: ColumnDetail = columnDetails[idx] || { type: '', name: '', date: '' };
-        let displayName = '';
-        if (detail.type === '作業成績') {
-          const count = Array.from({ length: idx + 1 }).filter((_, i) => (columnDetails[i]?.type) === '作業成績').length;
-          displayName = `作業${count}`;
-        } else if (detail.type === '上課態度') {
-          const count = Array.from({ length: idx + 1 }).filter((_, i) => (columnDetails[i]?.type) === '上課態度').length;
-          displayName = `上課${count}`;
-        } else if (detail.type === '小考成績') {
-          const count = Array.from({ length: idx + 1 }).filter((_, i) => (columnDetails[i]?.type) === '小考成績').length;
-          displayName = `小考${count}`;
-        } else {
-          displayName = detail.name?.trim() ? detail.name : `成績${idx + 1}`;
-        }
-        return { header: displayName, key: `regular${idx}`, width: 12 };
-      })
-    ];
-    
-    students.forEach(student => {
-      const row: Record<string, string | number> = {
-        studentId: student.studentId,
-        name: student.name
-      };
-      Array.from({ length: regularColumns }).forEach((_, idx) => {
-        row[`regular${idx}`] = student.regularScores?.[idx] || '';
-      });
-      regularSheet.addRow(row);
-    });
+    const worksheet = workbook.addWorksheet(`${selectedCourseName} 成績`);
 
-    // 定期評量工作表
-    const periodicSheet = workbook.addWorksheet('定期評量');
-    periodicSheet.columns = [
+    // Define columns
+    const columns: Partial<ExcelJS.Column>[] = [
       { header: '學號', key: 'studentId', width: 15 },
       { header: '姓名', key: 'name', width: 15 },
-      ...periodicScores.map(scoreName => ({
-        header: scoreName,
-        key: scoreName,
-        width: 15
-      }))
     ];
-    
+
+    // Add regular score columns
+    const regularScoreColumns: Partial<ExcelJS.Column>[] = [];
+    for (let i = 0; i < regularColumns; i++) {
+      const detail = columnDetails[i];
+      let displayName = `成績${i + 1}`;
+      if (detail && detail.type) {
+        const count = Array.from({ length: i + 1 }).filter((_, k) => (columnDetails[k]?.type) === detail.type).length;
+        displayName = `${detail.type}${count}`;
+      }
+      if (detail.name && detail.name.trim() !== '') {
+        displayName = detail.name;
+      }
+      regularScoreColumns.push({ header: displayName, key: `regular${i}`, width: 12 });
+    }
+
+    // Add periodic score columns
+    const periodicScoreColumns: Partial<ExcelJS.Column>[] = periodicScores.map(scoreName => ({
+        header: scoreName, key: scoreName, width: 15
+    }));
+
+    const totalScoreColumns: Partial<ExcelJS.Column>[] = [
+        { header: '總成績', key: 'totalScore', width: 10 },
+        { header: '備註', key: 'remark', width: 20 },
+    ];
+
+    worksheet.columns = [...columns, ...regularScoreColumns, ...periodicScoreColumns, ...totalScoreColumns];
+
+    // Add rows
     students.forEach(student => {
-      const row: Record<string, string | number> = {
+      const row: Record<string, string | number | undefined> = {
         studentId: student.studentId,
-        name: student.name
+        name: student.name,
+        remark: student.remark || '',
       };
+      
+      // regular scores
+      for (let i = 0; i < regularColumns; i++) {
+        row[`regular${i}`] = student.regularScores[i] ?? '';
+      }
+      
+      // periodic scores
       periodicScores.forEach(scoreName => {
-        row[scoreName] = student.periodicScores?.[scoreName] || '';
+        row[scoreName] = student.periodicScores[scoreName] ?? '';
       });
-      periodicSheet.addRow(row);
-    });
 
-    // 總成績工作表
-    const totalSheet = workbook.addWorksheet('總成績');
-    totalSheet.columns = [
-      { header: '學號', key: 'studentId', width: 15 },
-      { header: '姓名', key: 'name', width: 15 },
-      { header: '平時成績', key: 'regularScore', width: 15 },
-      { header: '期中評量', key: 'midScore', width: 15 },
-      { header: '期末評量', key: 'finalScore', width: 15 },
-      { header: '特殊加分', key: 'manualAdjust', width: 15 },
-      { header: '總成績', key: 'totalScore', width: 15 }
-    ];
-    
-    students.forEach(student => {
-      // 平時成績計算
+      // total score
       const { weighted: regularScore } = calcRegularScore(student);
-      // 定期評量
-      const first = student.periodicScores?.['第一次定期評量'] ?? 0;
-      const second = student.periodicScores?.['第二次定期評量'] ?? 0;
-      const final = student.periodicScores?.['期末評量'] ?? 0;
-      const midAvg = (Number(first) + Number(second)) / 2;
-      // 特殊加分
-      const manualAdjust = typeof student.manualAdjust === 'number' ? student.manualAdjust : 0;
-      // 平時成績顯示：現有平時成績數據 / (平時成績總%/100)
-      const percentRegularNum = typeof totalSetting.regularPercent === 'number' && !isNaN(totalSetting.regularPercent) ? totalSetting.regularPercent : 0;
-      const percentPeriodicNum = typeof totalSetting.periodicPercent === 'number' && !isNaN(totalSetting.periodicPercent) ? totalSetting.periodicPercent : 0;
-      const manualAdjustNum = typeof manualAdjust === 'number' && !isNaN(manualAdjust) ? manualAdjust : 0;
-      // 匯出時用 totalSetting.periodicEnabled
-      const periodicEnabledObj = totalSetting.periodicEnabled || {
-        '第一次定期評量': true,
-        '第二次定期評量': true,
-        '期末評量': true,
-      };
-      const periodicNames = ['第一次定期評量', '第二次定期評量', '期末評量'];
-      const enabledPeriodic = periodicNames.filter(name => periodicEnabledObj[name as PeriodicScoreName]);
+      const periodicEnabledObj = totalSetting.periodicEnabled || {};
+      const enabledPeriodic = periodicScores.filter(name => periodicEnabledObj[name as PeriodicScoreName]);
       const periodicVals: number[] = enabledPeriodic.map(name => {
         const v = student.periodicScores?.[name as PeriodicScoreName];
         return typeof v === 'number' && !isNaN(v) ? v : 0;
       });
-      const periodicAvgNum = enabledPeriodic.length > 0 ? (periodicVals as number[]).reduce((a, b) => a + b, 0) / enabledPeriodic.length : 0;
-      const total = Math.round(
-        regularScore * percentRegularNum / 100 +
-        periodicAvgNum * percentPeriodicNum / 100 +
+      const periodicAvgNum = enabledPeriodic.length > 0 ? periodicVals.reduce((a, b) => a + b, 0) / enabledPeriodic.length : 0;
+      const manualAdjustNum = typeof student.manualAdjust === 'number' && !isNaN(student.manualAdjust) ? student.manualAdjust : 0;
+      
+      row.totalScore = Math.round(
+        regularScore * (totalSetting.regularPercent / 100) +
+        periodicAvgNum * (totalSetting.periodicPercent / 100) +
         manualAdjustNum
       );
-      totalSheet.addRow({
-        studentId: student.studentId,
-        name: student.name,
-        regularScore,
-        midScore: Math.round(midAvg),
-        finalScore: final,
-        manualAdjust,
-        totalScore: total
-      });
+
+      worksheet.addRow(row);
     });
 
-    // 下載Excel檔案
     workbook.xlsx.writeBuffer().then((buffer: ArrayBuffer) => {
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${selectedCourseName}(${selectedCourseCode})_成績資料_${new Date().toISOString().split('T')[0]}.xlsx`;
+      a.download = `${selectedCourseName}_${selectedCourseCode}_成績.xlsx`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
       
-      // 顯示匯出成功動畫對話框
-      alerts.showSuccess('成績資料匯出成功！', {
+      Swal.fire({
         title: '匯出完成',
         text: 'Excel 檔案已下載到您的電腦',
         icon: 'success',
@@ -689,14 +665,14 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
 
   const handleImport = () => {
     // TODO: import from CSV/Excel
-    alerts.showInfo('匯入功能尚未實作');
+    Swal.fire('提示', '匯入功能尚未實作', 'info');
   };
 
   // 輔助函數：平時成績計算
   function calcRegularScore(stu: StudentGradeRow): { quizAvg: number; homeworkAvg: number; attitudeAvg: number; weighted: number } {
     // 小考
     const quizScores = Object.entries(stu.regularScores || {})
-      .filter(([idx]) => columnDetails[Number(idx)]?.type === '小考成績')
+      .filter(([idx]) => columnDetails[Number(idx)]?.type === '小考')
       .map(([, v]) => typeof v === 'number' ? v : undefined)
       .filter(v => typeof v === 'number') as number[];
     let quizAvg = 0;
@@ -711,7 +687,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
     }
     // 作業
     const homeworkScores = Object.entries(stu.regularScores || {})
-      .filter(([idx]) => columnDetails[Number(idx)]?.type === '作業成績')
+      .filter(([idx]) => columnDetails[Number(idx)]?.type === '作業')
       .map(([, v]) => typeof v === 'number' ? v : undefined)
       .filter(v => typeof v === 'number') as number[];
     let homeworkAvg = 0;
@@ -755,6 +731,10 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
   // 處理課程詳細資訊顯示
   const handleShowCourseDetail = (course: { id: string; name: string; code: string }) => {
     setShowCourseDetail(course);
+  };
+
+  const handleAddColumn = () => {
+    setRegularColumns(prev => prev + 1);
   };
 
   // 處理刪除課程欄位
@@ -804,31 +784,91 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
   // 讀取時初始化 periodicEnabled 狀態
   useEffect(() => {
     if (totalSetting && totalSetting.periodicEnabled) {
-      const periodicNames: PeriodicScoreName[] = ['第一次定期評量', '第二次定期評量', '期末評量'];
-      setPeriodicEnabled(periodicNames.map(name => !!totalSetting.periodicEnabled?.[name]));
+      const PERIODIC_SCORE_NAMES: PeriodicScoreName[] = ['第一次定期評量', '第二次定期評量', '期末評量'];
+      setPeriodicEnabled(PERIODIC_SCORE_NAMES.map(name => !!totalSetting.periodicEnabled?.[name]));
     }
   }, [totalSetting]);
+
+  if (isCourseListLoading) {
+    return (
+      <div className="flex items-center justify-center p-4 md:p-8 h-full bg-gray-100">
+        <div className="loading-spinner h-12 w-12"></div>
+        <span className="ml-4 text-blue-600 text-lg md:text-xl font-semibold">成績資料載入中...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto w-full p-4 h-full flex flex-col">
       <h2 className="text-2xl font-bold mb-6 flex-shrink-0">成績資料管理</h2>
-      <div className="mb-4 flex flex-col md:flex-row md:items-center gap-4">
-        <select
-          className="select-unified w-full md:w-64"
-          value={selectedCourse}
-          onChange={e => {
-            setSelectedCourse(e.target.value);
-            const course = courses.find(c => c.id === e.target.value);
-            setSelectedCourseName(course?.name || '');
-            setSelectedCourseCode(course?.code || '');
-          }}
-        >
-          <option value="">請選擇課程</option>
-          {courses.map(course => (
-            <option key={course.id} value={course.id}>{course.name}（{course.code}）</option>
-          ))}
-        </select>
-      </div>
+      {!selectedCourse ? (
+        <div className="overflow-x-auto">
+          <table className="min-w-full bg-white">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">課程</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">學生人數</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">第一次段考</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">第二次段考</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">期末考</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {courses.map(course => (
+                <tr key={course.id}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="font-medium">{course.name}</div>
+                    <div className="text-sm text-gray-500">{course.code}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">{courseStats[course.id]?.studentCount ?? '...'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    {courseStats[course.id]?.examStatus['第一次定期評量'] ? '已上傳' : '未上傳'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    {courseStats[course.id]?.examStatus['第二次定期評量'] ? '已上傳' : '未上傳'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    {courseStats[course.id]?.examStatus['期末評量'] ? '已上傳' : '未上傳'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <button
+                      className="btn-primary"
+                      disabled={isGradeDataLoading}
+                      onClick={() => {
+                        setIsGradeDataLoading(true);
+                        setLoadingCourseId(course.id);
+                        setSelectedCourse(course.id);
+                        setSelectedCourseName(course.name);
+                        setSelectedCourseCode(course.code);
+                      }}
+                    >
+                      {isGradeDataLoading && loadingCourseId === course.id ? (
+                        <LoadingSpinner size={20} color="white" />
+                      ) : (
+                        '管理成績'
+                      )}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="mb-4">
+          <button
+            className="btn-secondary"
+            onClick={() => {
+              setSelectedCourse('');
+              setSelectedCourseName('');
+              setSelectedCourseCode('');
+            }}
+          >
+            返回課程列表
+          </button>
+        </div>
+      )}
       {(userInfo && courses.length === 0) && (
         <div className="text-red-500 mb-4">尚未設定授課課程，請聯絡管理員。</div>
       )}
@@ -852,6 +892,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                 <button className="btn-primary min-w-[110px] flex-shrink-0" onClick={handleExport}>匯出成績</button>
                 <button className="btn-success min-w-[110px] flex-shrink-0" onClick={handleImport}>匯入成績</button>
                 <button className="btn-warning min-w-[110px] flex-shrink-0" onClick={openPercentModal}>百分比調整</button>
+                <button type="button" className="btn-info min-w-[110px] flex-shrink-0" onClick={handleAddColumn}>增加欄位</button>
                 <button
                   className="btn-danger min-w-[110px] flex-shrink-0"
                   onClick={handleSave}
@@ -868,14 +909,14 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                         const detail = columnDetails[idx];
                         // 依 type 與同類型順序命名
                         let displayName = '';
-                        if (detail?.type === '回家作業') {
-                          const count = Array.from({ length: idx + 1 }).filter((_, i) => (columnDetails[i]?.type) === '回家作業').length;
+                        if (detail?.type === '作業') {
+                          const count = Array.from({ length: idx + 1 }).filter((_, i) => (columnDetails[i]?.type) === '作業').length;
                           displayName = `作業${count}`;
                         } else if (detail?.type === '上課態度') {
                           const count = Array.from({ length: idx + 1 }).filter((_, i) => (columnDetails[i]?.type) === '上課態度').length;
-                          displayName = `態度${count}`;
-                        } else if (detail?.type === '小考成績') {
-                          const count = Array.from({ length: idx + 1 }).filter((_, i) => (columnDetails[i]?.type) === '小考成績').length;
+                          displayName = `上課態度${count}`;
+                        } else if (detail?.type === '小考') {
+                          const count = Array.from({ length: idx + 1 }).filter((_, i) => (columnDetails[i]?.type) === '小考').length;
                           displayName = `小考${count}`;
                         } else {
                           displayName = detail?.name?.trim() ? detail.name : `成績${idx + 1}`;
@@ -887,8 +928,8 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                               <button
                                 className="mt-1 text-blue-500 hover:text-blue-700 text-xs border border-blue-400 rounded px-2 py-0.5"
                                 type="button"
-                                onClick={() => handleShowDistribution(idx)}
-                              >成績分布</button>
+                                onClick={() => handleShowSettings(idx)}
+                              >成績設定</button>
                             </div>
                           </th>
                         );
@@ -1154,8 +1195,8 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                         '第二次定期評量': true,
                         '期末評量': true,
                       };
-                      const periodicNames = ['第一次定期評量', '第二次定期評量', '期末評量'];
-                      const enabledPeriodic = periodicNames.filter(name => periodicEnabledObj[name as PeriodicScoreName]);
+                      const PERIODIC_SCORE_NAMES = ['第一次定期評量', '第二次定期評量', '期末評量'];
+                      const enabledPeriodic = PERIODIC_SCORE_NAMES.filter(name => periodicEnabledObj[name as PeriodicScoreName]);
                       const periodicVals: number[] = enabledPeriodic.map(name => {
                         const v = stu.periodicScores?.[name as PeriodicScoreName];
                         return typeof v === 'number' && !isNaN(v) ? v : 0;
@@ -1212,8 +1253,8 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
               </div>
               {/* 在總成績表格上方顯示公式 */}
               <div className="mb-2 text-sm text-gray-600 font-mono">
-                總成績 = 小考({totalSetting.regularDetail['平時測驗']?.percent ?? 0}%)
-                + 作業({totalSetting.regularDetail['回家作業']?.percent ?? 0}%)
+                總成績 = 小考({totalSetting.regularDetail['小考']?.percent ?? 0}%)
+                + 作業({totalSetting.regularDetail['作業']?.percent ?? 0}%)
                 + 上課態度({totalSetting.regularDetail['上課態度']?.percent ?? 0}%)
                 + 定期評量({totalSetting.periodicPercent ?? 0}%)
               </div>
@@ -1301,7 +1342,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
       
       {/* 小考採計模式 */}
       <div className="border rounded-lg p-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">小考成績採計（共{Object.values(columnDetails).filter(col=>col.type==='小考成績').length}筆）</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">小考成績採計（共{Object.values(columnDetails).filter(col=>col.type==='小考').length}筆）</label>
         <div className="space-y-2">
           <label className="flex items-center">
             <input
@@ -1331,12 +1372,12 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
               <input
                 type="number"
                 min="1"
-                max={Object.values(columnDetails).filter(col=>col.type==='小考成績').length}
+                max={Object.values(columnDetails).filter(col=>col.type==='小考').length}
                 value={quizBestCount}
-                onChange={e => setQuizBestCount(Math.min(Number(e.target.value), Object.values(columnDetails).filter(col=>col.type==='小考成績').length))}
+                onChange={e => setQuizBestCount(Math.min(Number(e.target.value), Object.values(columnDetails).filter(col=>col.type==='小考').length))}
                 className="w-20 border border-gray-300 p-1 rounded"
               />
-              {quizBestCount > Object.values(columnDetails).filter(col=>col.type==='小考成績').length && (
+              {quizBestCount > Object.values(columnDetails).filter(col=>col.type==='小考').length && (
                 <div className="text-red-500 text-sm mt-1">⚠️ 採計次數不可大於資料數</div>
               )}
             </div>
@@ -1346,7 +1387,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
 
       {/* 作業採計模式 */}
       <div className="border rounded-lg p-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">作業成績採計（共{Object.values(columnDetails).filter(col=>col.type==='作業成績').length}筆）</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">作業成績採計（共{Object.values(columnDetails).filter(col=>col.type==='作業').length}筆）</label>
         <div className="space-y-2">
           <label className="flex items-center">
             <input
@@ -1376,12 +1417,12 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
               <input
                 type="number"
                 min="1"
-                max={Object.values(columnDetails).filter(col=>col.type==='作業成績').length}
+                max={Object.values(columnDetails).filter(col=>col.type==='作業').length}
                 value={homeworkBestCount}
-                onChange={e => setHomeworkBestCount(Math.min(Number(e.target.value), Object.values(columnDetails).filter(col=>col.type==='作業成績').length))}
+                onChange={e => setHomeworkBestCount(Math.min(Number(e.target.value), Object.values(columnDetails).filter(col=>col.type==='作業').length))}
                 className="w-20 border border-gray-300 p-1 rounded"
               />
-              {homeworkBestCount > Object.values(columnDetails).filter(col=>col.type==='作業成績').length && (
+              {homeworkBestCount > Object.values(columnDetails).filter(col=>col.type==='作業').length && (
                 <div className="text-red-500 text-sm mt-1">⚠️ 採計次數不可大於資料數</div>
               )}
             </div>
@@ -1480,35 +1521,66 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
   </div>
 </Modal>
           {/* 離開確認彈窗 */}
-          {showLeaveConfirm && (
-            <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-              <div className="bg-white rounded-lg shadow-lg p-6 min-w-[400px] w-[400px]">
-                <div className="mb-4 font-bold text-lg text-center">確認離開</div>
-                <div className="mb-4 text-center">
-                  您有未儲存的變更，確定要離開嗎？
-                </div>
-                <div className="flex justify-center gap-4 mt-4">
-                  <button
-                    className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 min-w-[110px]"
-                    onClick={confirmLeave}
-                  >確定離開</button>
-                  <button
-                    className="bg-gray-400 text-white px-4 py-2 rounded hover:bg-gray-500 min-w-[110px]"
-                    onClick={cancelLeave}
-                  >取消</button>
-                </div>
-              </div>
-            </div>
-          )}
+          
 
-          {isDistributionModalOpen && distributionData && selectedColumnForChart && (
+          {isDistributionModalOpen && distributionData && editingColumn !== null && (
             <Modal
               open={isDistributionModalOpen}
-              onClose={() => setIsDistributionModalOpen(false)}
-              title={`${selectedColumnForChart.name} - 成績詳細資料`}
+              onClose={() => {
+                setIsDistributionModalOpen(false);
+                setEditingColumn(null);
+              }}
+              title="成績設定"
               size="lg"
             >
               <div className="space-y-6">
+                {/* Settings Form */}
+                <div>
+                  <h5 className="font-semibold mb-3">成績設定</h5>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">成績名稱</label>
+                      <input
+                        type="text"
+                        value={columnDetails[editingColumn]?.name || ''}
+                        onChange={(e) => {
+                          const newDetails = { ...columnDetails };
+                          newDetails[editingColumn] = { ...(newDetails[editingColumn] || { type: '', name: '', date: '' }), name: e.target.value };
+                          setColumnDetails(newDetails);
+                        }}
+                        className="w-full border border-gray-300 p-2 rounded-lg"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">測驗日期</label>
+                      <input
+                        type="date"
+                        value={columnDetails[editingColumn]?.date || ''}
+                        onChange={(e) => {
+                          const newDetails = { ...columnDetails };
+                          newDetails[editingColumn] = { ...(newDetails[editingColumn] || { type: '', name: '', date: '' }), date: e.target.value };
+                          setColumnDetails(newDetails);
+                        }}
+                        className="w-full border border-gray-300 p-2 rounded-lg"
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">成績形式</label>
+                      <Dropdown
+                        value={columnDetails[editingColumn]?.type || ''}
+                        onChange={(value) => {
+                          const newDetails = { ...columnDetails };
+                          newDetails[editingColumn] = { ...(newDetails[editingColumn] || { type: '', name: '', date: '' }), type: value };
+                          setColumnDetails(newDetails);
+                        }}
+                        options={[{ value: '', label: '請選擇' }, { value: '小考', label: '小考' }, { value: '作業', label: '作業' }, { value: '上課態度', label: '上課態度' }]}
+                        placeholder="請選擇"
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 {/* 五標表格 */}
                 <div>
                   <h5 className="font-semibold mb-3">五標統計</h5>

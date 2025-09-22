@@ -396,8 +396,6 @@ export default function TutoringRequest({ userInfo }: { userInfo: UserInfo | nul
       {!formData.timeSlotId && (
         <div className="mb-8">
           <Calendar 
-            userInfo={userInfo} 
-            viewMode="student" 
             onDateSelect={handleDateSelect}
           />
         </div>

@@ -22,18 +22,21 @@
       "@/*": ["./app/*"],
       "@/components/*": ["./app/components/*"],
       "@/components/ui/*": ["./app/components/ui/*"],
+      "@/lib/*": ["./lib/*"],
       "@/utils/*": ["./app/utils/*"],
       "@/services/*": ["./services/*"]
     },
     "baseUrl": ".",
     "allowSyntheticDefaultImports": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "typeRoots": ["./node_modules/@types", "./types"]
   },
   "include": [
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    "types/**/*.d.ts"
   ],
   "exclude": [
     "node_modules"
