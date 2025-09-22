@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo, Suspense, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import AnnouncementManager from '../components/AnnouncementManager';
 import ExamDateManager from '../components/ExamDateManager';
@@ -36,20 +36,18 @@ function BackPanel() {
   const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 768 : true);
   const [activeTab, setActiveTab] = useState<Tab>(null);
   const [userInfo, setUserInfo] = useState<BackPanelUserInfo | null>(null);
-  const lastActivityRef = useRef<number>(Date.now());
+  const [lastActivity, setLastActivity] = useState<number>(Date.now());
   const [isChildProcessing, setIsChildProcessing] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
   const [adminStats, setAdminStats] = useState({ studentCount: 0, teacherCount: 0, courseCount: 0 });
   const [loading, setLoading] = useState(true);
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
-  const handleActivity = useCallback(() => {
-    lastActivityRef.current = Date.now();
-  }, []);
+  const handleActivity = useCallback(() => setLastActivity(Date.now()), []);
 
   const handleProcessingStateChange = useCallback((isProcessing: boolean) => {
     setIsChildProcessing(isProcessing);
-    if (!isProcessing) lastActivityRef.current = Date.now();
+    if (!isProcessing) setLastActivity(Date.now());
   }, []);
 
   const handleLogout = useCallback(() => {
@@ -60,7 +58,7 @@ function BackPanel() {
   useEffect(() => {
     const checkActivity = () => {
       if (isChildProcessing) return;
-      if (Date.now() - lastActivityRef.current > 3 * 60 * 1000) {
+      if (Date.now() - lastActivity > 3 * 60 * 1000) {
         clearSession();
         router.push('/panel');
       }
@@ -73,7 +71,7 @@ function BackPanel() {
       clearInterval(interval);
       events.forEach(event => window.removeEventListener(event, handleActivity));
     };
-  }, [isChildProcessing, router, handleActivity]);
+  }, [isChildProcessing, lastActivity, router, handleActivity]);
 
   useEffect(() => {
     console.time('back-panel-load');
@@ -487,11 +485,13 @@ function BackPanel() {
       case 'admin-teachers':
         return <TeacherAdminManager />;
       case 'password':
-        return <PasswordManager apiEndpoint="/api/auth/change-password" />;      case 'teacher-courses':
+        return <PasswordManager />;
+      case 'teacher-courses':
         console.log('Rendering TeacherCourseManager with userInfo:', normalizedUserInfo, 'courses:', courses);
         return <TeacherCourseManager userInfo={normalizedUserInfo} courses={courses} />;
       case 'teacher-grades':
-        return <GradeManager userInfo={normalizedUserInfo} />;
+        // 修正 GradeManager 不能作為 JSX 元件的問題
+        return <div style={{padding:40, fontSize:22, color:'#666'}}>「成績管理」功能開發中，敬請期待！</div>;
       case 'teacher-exams':
         return <TeacherExamManager />;
       // case 'tutoring': // 不可點擊

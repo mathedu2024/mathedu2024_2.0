@@ -598,13 +598,11 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
 
     // Add rows
     students.forEach(student => {
-      const row: Record<string, string | number | undefined> = {
-        studentId: student.studentId,
-        name: student.name,
-        remark: student.remark || '',
-      };
-      
-      // regular scores
+        const row: { [key: string]: any } = {
+          studentId: student.studentId,
+          name: student.name,
+          remark: student.remark || '',
+        };
       for (let i = 0; i < regularColumns; i++) {
         row[`regular${i}`] = student.regularScores[i] ?? '';
       }
