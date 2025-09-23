@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 import "react-datepicker/dist/react-datepicker.css";
 import Swal from 'sweetalert2';
@@ -72,7 +72,6 @@ interface LessonData {
   order?: number;
   createdAt?: { seconds: number };
   updatedAt?: { seconds: number };
-  isVisibleToStudents: boolean;
 }
 
 interface Student {
@@ -110,7 +109,6 @@ const getTeacherNames = async (teacherIds: string[]): Promise<Map<string, string
 // 課堂管理元件（簡易版，僅供新增/顯示課堂資料）
 function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId: string, courseName: string, courseCode: string, onClose: () => void }) {
   const [lessons, setLessons] = useState<LessonData[]>([]);
-  const [initialLessons, setInitialLessons] = useState<LessonData[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingLesson, setEditingLesson] = useState<LessonData | null>(null);
   const [alertState, setAlertState] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
@@ -129,33 +127,13 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
     examScope: '',
     noExamScope: false,
     notes: '',
-    isVisibleToStudents: true,
   });
   // 明確型別、移除 any、補齊 hooks 依賴
   // 1. useState 明確型別
   const [isOrderDirty, setIsOrderDirty] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  const handleLessonVisibilityChange = (lesson: LessonData, isVisible: boolean) => {
-    const updatedLessons = lessons.map(l =>
-      l.id === lesson.id ? { ...l, isVisibleToStudents: isVisible } : l
-    );
-    setLessons(updatedLessons);
-  };
 
-  const isVisibilityDirty = useMemo(() => {
-    if (lessons.length !== initialLessons.length) return true;
-    const initialLessonsMap = new Map(initialLessons.map(l => [l.id, l]));
-    for (const lesson of lessons) {
-      const initialLesson = initialLessonsMap.get(lesson.id);
-      if (!initialLesson || lesson.isVisibleToStudents !== initialLesson.isVisibleToStudents) {
-        return true;
-      }
-    }
-    return false;
-  }, [lessons, initialLessons]);
-
-  const isDirty = isOrderDirty || isVisibilityDirty;
 
   // 2. DropResult, DraggableProvided, DroppableProvided 已正確型別
   // 3. useCallback、useEffect 依賴已補齊
@@ -185,7 +163,6 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
           })
         : [];
       setLessons(sortedLessons);
-      setInitialLessons(JSON.parse(JSON.stringify(sortedLessons)));
     } catch {
       Swal.fire('錯誤', '讀取課堂失敗', 'error');
     } finally {
@@ -221,20 +198,6 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ courseId, order: lessons.map(l => l.id) })
         }));
-      }
-
-      if (isVisibilityDirty) {
-        const initialLessonsMap = new Map(initialLessons.map(l => [l.id, l]));
-        for (const lesson of lessons) {
-          const initialLesson = initialLessonsMap.get(lesson.id);
-          if (initialLesson && lesson.isVisibleToStudents !== initialLesson.isVisibleToStudents) {
-            promises.push(fetch('/api/lessons/update', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ courseId, lessonId: lesson.id, isVisibleToStudents: lesson.isVisibleToStudents }),
-            }));
-          }
-        }
       }
 
       const results = await Promise.all(promises);
@@ -274,7 +237,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ courseId, ...lessonData })
       });
-      setForm({ title: '', date: '', progress: '', attachments: [{ name: '', url: '' }], noAttachment: false, videos: [''], homework: '', noHomework: false, onlineExam: '', noOnlineExam: false, examScope: '', noExamScope: false, notes: '', isVisibleToStudents: true });
+      setForm({ title: '', date: '', progress: '', attachments: [{ name: '', url: '' }], noAttachment: false, videos: [''], homework: '', noHomework: false, onlineExam: '', noOnlineExam: false, examScope: '', noExamScope: false, notes: '' });
       setShowForm(false);
       await fetchLessons();
     } catch {
@@ -323,7 +286,6 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
       examScope: lesson.examScope || '',
       noExamScope: lesson.noExamScope || false,
       notes: lesson.notes || '',
-      isVisibleToStudents: lesson.isVisibleToStudents,
     });
     setShowForm(false);
   };
@@ -348,7 +310,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
         body: JSON.stringify({ courseId, lessonId: editingLesson.id, ...lessonData })
       });
       setEditingLesson(null);
-      setForm({ title: '', date: '', progress: '', attachments: [{ name: '', url: '' }], noAttachment: false, videos: [''], homework: '', noHomework: false, onlineExam: '', noOnlineExam: false, examScope: '', noExamScope: false, notes: '', isVisibleToStudents: true });
+      setForm({ title: '', date: '', progress: '', attachments: [{ name: '', url: '' }], noAttachment: false, videos: [''], homework: '', noHomework: false, onlineExam: '', noOnlineExam: false, examScope: '', noExamScope: false, notes: '' });
       await fetchLessons();
     } catch {
       Swal.fire('錯誤', '更新課堂失敗', 'error');
@@ -418,7 +380,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
               新增課堂
           </button>
           )}
-          {isDirty && (
+          {isOrderDirty && (
             <button
               className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
               onClick={handleSaveChanges}
@@ -517,7 +479,6 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">堂數</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">課堂標題</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">日期</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">學生可見</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
                 </tr>
               </thead>
@@ -542,18 +503,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                               {lesson.date}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={lesson.isVisibleToStudents ?? true}
-                                  onChange={(e) => handleLessonVisibilityChange(lesson, e.target.checked)}
-                                  className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-                              </label>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <td className="px-6 py-4 whitespace-nowrap text-left text-sm font-medium">
                               <button className="text-blue-600 hover:underline px-2" onClick={() => handleEditClick(lesson)}>修改</button>
                               <button className="text-red-600 hover:underline px-2" onClick={() => handleDeleteLesson(lesson.id)}>刪除</button>
                             </td>

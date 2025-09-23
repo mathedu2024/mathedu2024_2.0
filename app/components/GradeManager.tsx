@@ -670,9 +670,12 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
   function calcRegularScore(stu: StudentGradeRow): { quizAvg: number; homeworkAvg: number; attitudeAvg: number; weighted: number } {
     // 小考
     const quizScores = Object.entries(stu.regularScores || {})
-      .filter(([idx]) => columnDetails[Number(idx)]?.type === '小考')
+      .filter(([idx]) => {
+        const detail: ColumnDetail | undefined = columnDetails[Number(idx)];
+        return detail?.type === '小考';
+      })
       .map(([, v]) => typeof v === 'number' ? v : undefined)
-      .filter(v => typeof v === 'number') as number[];
+      .filter((v): v is number => typeof v === 'number');
     let quizAvg = 0;
     if (quizScores.length > 0) {
       if (quizMode === 'all') {
@@ -685,9 +688,12 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
     }
     // 作業
     const homeworkScores = Object.entries(stu.regularScores || {})
-      .filter(([idx]) => columnDetails[Number(idx)]?.type === '作業')
+      .filter(([idx]) => {
+        const detail: ColumnDetail | undefined = columnDetails[Number(idx)];
+        return detail?.type === '作業';
+      })
       .map(([, v]) => typeof v === 'number' ? v : undefined)
-      .filter(v => typeof v === 'number') as number[];
+      .filter((v): v is number => typeof v === 'number');
     let homeworkAvg = 0;
     if (homeworkScores.length > 0) {
       if (homeworkMode === 'all') {
@@ -700,9 +706,12 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
     }
     // 上課態度
     const attitudeScores = Object.entries(stu.regularScores || {})
-      .filter(([idx]) => columnDetails[Number(idx)]?.type === '上課態度')
+      .filter(([idx]) => {
+        const detail: ColumnDetail | undefined = columnDetails[Number(idx)];
+        return detail?.type === '上課態度';
+      })
       .map(([, v]) => typeof v === 'number' ? v : undefined)
-      .filter(v => typeof v === 'number') as number[];
+      .filter((v): v is number => typeof v === 'number');
     let attitudeAvg = 0;
     if (attitudeScores.length > 0) {
       if (attitudeMode === 'all') {
@@ -1222,16 +1231,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                               max={5}
                               step={1}
                               value={manualAdjust}
-                              onChange={e => {
-                                let v = Number(e.target.value);
-                                if (isNaN(v)) v = 0;
-                                if (v > 5) v = 5;
-                                if (v < -5) v = -5;
-                                setStudents(prev => prev.map(s =>
-                                  s.id === stu.id ? { ...s, manualAdjust: v } : s
-                                ));
-                              }}
-                              onBlur={e => {
+                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                                 let v = Number(e.target.value);
                                 if (isNaN(v)) v = 0;
                                 if (v > 5) v = 5;
@@ -1259,7 +1259,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
             </div>
           )}
           {/* 2. 百分比調整 Modal 內容重構 */}
-          <Modal
+                    <Modal
   open={showPercentModal}
   onClose={() => setShowPercentModal(false)}
   title="百分比調整"
@@ -1340,7 +1340,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
       
       {/* 小考採計模式 */}
       <div className="border rounded-lg p-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">小考成績採計（共{Object.values(columnDetails).filter(col=>col.type==='小考').length}筆）</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">小考成績採計（共{Object.values(columnDetails).filter((col: ColumnDetail)=>col.type==='小考').length}筆）</label>
         <div className="space-y-2">
           <label className="flex items-center">
             <input
@@ -1370,12 +1370,12 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
               <input
                 type="number"
                 min="1"
-                max={Object.values(columnDetails).filter(col=>col.type==='小考').length}
+                max={Object.values(columnDetails).filter((col: ColumnDetail)=>col.type==='小考').length}
                 value={quizBestCount}
-                onChange={e => setQuizBestCount(Math.min(Number(e.target.value), Object.values(columnDetails).filter(col=>col.type==='小考').length))}
+                onChange={e => setQuizBestCount(Math.min(Number(e.target.value), Object.values(columnDetails).filter((col: ColumnDetail)=>col.type==='小考').length))}
                 className="w-20 border border-gray-300 p-1 rounded"
               />
-              {quizBestCount > Object.values(columnDetails).filter(col=>col.type==='小考').length && (
+              {quizBestCount > Object.values(columnDetails).filter((col: ColumnDetail)=>col.type==='小考').length && (
                 <div className="text-red-500 text-sm mt-1">⚠️ 採計次數不可大於資料數</div>
               )}
             </div>
@@ -1385,7 +1385,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
 
       {/* 作業採計模式 */}
       <div className="border rounded-lg p-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">作業成績採計（共{Object.values(columnDetails).filter(col=>col.type==='作業').length}筆）</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">作業成績採計（共{Object.values(columnDetails).filter((col: ColumnDetail)=>col.type==='作業').length}筆）</label>
         <div className="space-y-2">
           <label className="flex items-center">
             <input
@@ -1415,12 +1415,12 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
               <input
                 type="number"
                 min="1"
-                max={Object.values(columnDetails).filter(col=>col.type==='作業').length}
+                max={Object.values(columnDetails).filter((col: ColumnDetail)=>col.type==='作業').length}
                 value={homeworkBestCount}
-                onChange={e => setHomeworkBestCount(Math.min(Number(e.target.value), Object.values(columnDetails).filter(col=>col.type==='作業').length))}
+                onChange={e => setHomeworkBestCount(Math.min(Number(e.target.value), Object.values(columnDetails).filter((col: ColumnDetail)=>col.type==='作業').length))}
                 className="w-20 border border-gray-300 p-1 rounded"
               />
-              {homeworkBestCount > Object.values(columnDetails).filter(col=>col.type==='作業').length && (
+              {homeworkBestCount > Object.values(columnDetails).filter((col: ColumnDetail)=>col.type==='作業').length && (
                 <div className="text-red-500 text-sm mt-1">⚠️ 採計次數不可大於資料數</div>
               )}
             </div>
@@ -1430,7 +1430,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
 
       {/* 上課態度採計模式 */}
       <div className="border rounded-lg p-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">上課態度採計（共{Object.values(columnDetails).filter(col=>col.type==='上課態度').length}筆）</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">上課態度採計（共{Object.values(columnDetails).filter((col: ColumnDetail)=>col.type==='上課態度').length}筆）</label>
         <div className="space-y-2">
           <label className="flex items-center">
             <input
@@ -1460,12 +1460,12 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
               <input
                 type="number"
                 min="1"
-                max={Object.values(columnDetails).filter(col=>col.type==='上課態度').length}
+                max={Object.values(columnDetails).filter((col: ColumnDetail)=>col.type==='上課態度').length}
                 value={attitudeBestCount}
-                onChange={e => setAttitudeBestCount(Math.min(Number(e.target.value), Object.values(columnDetails).filter(col=>col.type==='上課態度').length))}
+                onChange={e => setAttitudeBestCount(Math.min(Number(e.target.value), Object.values(columnDetails).filter((col: ColumnDetail)=>col.type==='上課態度').length))}
                 className="w-20 border border-gray-300 p-1 rounded"
               />
-              {attitudeBestCount > Object.values(columnDetails).filter(col=>col.type==='上課態度').length && (
+              {attitudeBestCount > Object.values(columnDetails).filter((col: ColumnDetail)=>col.type==='上課態度').length && (
                 <div className="text-red-500 text-sm mt-1">⚠️ 採計次數不可大於資料數</div>
               )}
             </div>
@@ -1517,8 +1517,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
       </button>
     </div>
   </div>
-</Modal>
-          {/* 離開確認彈窗 */}
+</Modal>          {/* 離開確認彈窗 */}
           
 
           {isDistributionModalOpen && distributionData && editingColumn !== null && (

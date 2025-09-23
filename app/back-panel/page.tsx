@@ -452,14 +452,16 @@ function BackPanel() {
   };
 
   // 傳遞給子元件時，將 role 正規化為 '管理員' | '老師' | '學生'
-  const normalizedUserInfo = userInfo
-    ? {
-        ...userInfo,
-        role: (Array.isArray(userInfo.role)
-          ? (userInfo.role.includes('admin') ? '管理員' : userInfo.role.includes('teacher') ? '老師' : '學生')
-          : userInfo.role === 'admin' ? '管理員' : userInfo.role === 'teacher' ? '老師' : '學生') as '管理員' | '老師' | '學生',
-      }
-    : null;
+  const normalizedUserInfo = useMemo(() => (
+    userInfo
+      ? {
+          ...userInfo,
+          role: (Array.isArray(userInfo.role)
+            ? (userInfo.role.includes('admin') ? '管理員' : userInfo.role.includes('teacher') ? '老師' : '學生')
+            : userInfo.role === 'admin' ? '管理員' : userInfo.role === 'teacher' ? '老師' : '學生') as '管理員' | '老師' | '學生',
+        }
+      : null
+  ), [userInfo]);
 
   const renderContent = () => {
     console.log('renderContent - activeTab:', activeTab, 'userInfo:', !!userInfo);
@@ -485,13 +487,12 @@ function BackPanel() {
       case 'admin-teachers':
         return <TeacherAdminManager />;
       case 'password':
-        return <PasswordManager />;
+        return <PasswordManager apiEndpoint='/api/auth/change-password' />;
       case 'teacher-courses':
         console.log('Rendering TeacherCourseManager with userInfo:', normalizedUserInfo, 'courses:', courses);
         return <TeacherCourseManager userInfo={normalizedUserInfo} courses={courses} />;
       case 'teacher-grades':
-        // 修正 GradeManager 不能作為 JSX 元件的問題
-        return <div style={{padding:40, fontSize:22, color:'#666'}}>「成績管理」功能開發中，敬請期待！</div>;
+        return <GradeManager userInfo={normalizedUserInfo} />;
       case 'teacher-exams':
         return <TeacherExamManager />;
       // case 'tutoring': // 不可點擊
