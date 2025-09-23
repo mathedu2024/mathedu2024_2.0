@@ -598,7 +598,14 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
 
     // Add rows
     students.forEach(student => {
-        const row: { [key: string]: any } = {
+        interface ExcelRow {
+  studentId: string;
+  name: string;
+  remark: string;
+  [key: string]: string | number | undefined;
+}
+
+    const row: ExcelRow = {
           studentId: student.studentId,
           name: student.name,
           remark: student.remark || '',
