@@ -7,7 +7,6 @@ import alerts from '../utils/alerts';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function StudentLoginPage() {
-  // Removed unused router variable
   const [formData, setFormData] = useState({
     account: '', // This will be treated as account
     password: '',
@@ -60,7 +59,7 @@ export default function StudentLoginPage() {
       }
       
       setSession({
-        id: data.id,
+        id: data.id, // Corrected: The API returns the ID in the 'id' field
         name: data.name,
         role: 'student',
         account: formData.account,

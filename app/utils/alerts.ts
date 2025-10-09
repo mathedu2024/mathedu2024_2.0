@@ -19,7 +19,8 @@ const commonConfig = {
 export const showSuccess = (message: string, options: SweetAlertOptions = {}) => {
 	return Swal.fire({
 		icon: 'success',
-		title: message,
+		title: '成功',
+		text: message,
 		...commonConfig,
 		...options,
 	});

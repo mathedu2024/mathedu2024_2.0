@@ -350,4 +350,14 @@ export const resetCacheStats = () => {
 // 手動觸發預載入
 export const triggerPreload = () => {
   preloadUserData();
-}; 
+};
+
+export const authService = {
+  preloadUserData,
+  validateStudentLogin,
+  validateTeacherLogin,
+  clearAuthCache,
+  getCacheStats,
+  resetCacheStats,
+  triggerPreload,
+};

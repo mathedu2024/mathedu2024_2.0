@@ -1,3 +1,4 @@
+import Script from "next/script";
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
@@ -26,6 +27,13 @@ export default function RootLayout({
         <link rel="icon" href="/learn.png" type="image/x-icon" />
         <link rel="shortcut icon" href="/learn.png" type="image/png" />
         <link rel="apple-touch-icon" href="/learn.png" />
+        <Script
+          src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"
+          strategy="beforeInteractive"
+        />
+        <Script id="emailjs-init" strategy="beforeInteractive">
+          {`emailjs.init("Oxm7lO3VyhQ4vxUTW");`}
+        </Script>
       </head>
       <body className={`${geistFont.className} flex flex-col bg-gray-100`}>
         <Navigation />

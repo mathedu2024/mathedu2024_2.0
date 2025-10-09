@@ -502,7 +502,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                 <label className="block text-sm font-medium text-gray-700">授課老師 *</label>
                                 {editingCourse && (
                                     <MultiSelectDropdown
-                                        options={allTeachers.map(t => ({ id: t.id, name: t.name }))}
+                                        options={allTeachers.map(t => ({ label: t.name, value: t.id }))}
                                         selectedOptions={editingCourse.teachers || []}
                                         onChange={(selected) => {
                                             setEditingCourse((prev) => (prev ? { ...prev, teachers: selected } : null))

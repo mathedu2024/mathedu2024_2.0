@@ -17,6 +17,8 @@ export async function POST(req: NextRequest) {
 
     console.log(`API - Attempting login for account: ${cleanAccount} with loginType: ${loginType}`);
 
+    // CRITICAL PERFORMANCE NOTE: For faster login performance, create a Firestore index on the 'account' field
+    // for both the 'student_data' and 'users' collections. Without this index, login times will be slow.
     const userQuery = loginType === 'student'
       ? db.collection('student_data').where('account', '==', cleanAccount)
       : db.collection('users').where('account', '==', cleanAccount);
@@ -24,12 +26,14 @@ export async function POST(req: NextRequest) {
     const querySnapshot = await userQuery.get();
 
     if (querySnapshot.empty) {
-      console.log('API - User not found');
-      return NextResponse.json({ error: 'Account not found' }, { status: 401, headers: { 'Content-Type': 'application/json' } });
+      console.log('API - User not found for account:', cleanAccount);
+      return NextResponse.json({ error: '帳號不存在或輸入錯誤' }, { status: 401, headers: { 'Content-Type': 'application/json' } });
     }
 
+    console.log('API - User found, processing...');
     const userDoc = querySnapshot.docs[0];
     const userData = userDoc.data();
+    console.log('API - User data:', userData);
 
     // --- Defensive Role Validation ---
     let roles = [];
@@ -40,6 +44,7 @@ export async function POST(req: NextRequest) {
     } else if (userData.role && typeof userData.role === 'string') {
         roles = [userData.role];
     }
+    console.log('API - User roles identified:', roles);
 
     if (roles.length === 0) {
         console.log(`API - [VALIDATION] Login failed for ${cleanAccount}: No valid role found.`);
@@ -52,15 +57,18 @@ export async function POST(req: NextRequest) {
     }
     
     const userRole = roles; // For use in token + response
+    console.log('API - Role validation successful.');
     // --- End Role Validation ---
 
-    // Password Validation - Plain text comparison
-    const storedPassword = userData.password;
-    const passwordIsValid = cleanPassword === storedPassword;
+    // CRITICAL SECURITY WARNING: All user passwords in the database are currently stored in plain text.
+    // This is a major security vulnerability. You MUST migrate all passwords to be hashed with bcrypt
+    // as soon as possible. The current plain-text comparison is a temporary measure to restore login functionality.
+    const passwordIsValid = cleanPassword === userData.password;
+    console.log('API - Password validation result (plain text):', passwordIsValid);
 
     if (!passwordIsValid) {
       console.log('API - Invalid password');
-      return NextResponse.json({ error: 'Invalid password' }, { status: 401, headers: { 'Content-Type': 'application/json' } });
+      return NextResponse.json({ error: '密碼錯誤' }, { status: 401, headers: { 'Content-Type': 'application/json' } });
     }
 
     console.log('API - Password correct, processing...');

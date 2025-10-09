@@ -7,9 +7,7 @@ module.exports = {
   ],
   theme: {
     extend: {
-      fontFamily: {
-        sans: ['Microsoft JhengHei', 'sans-serif'],
-      },
+
       screens: {
         'xs': '480px',
         'sm': '640px',

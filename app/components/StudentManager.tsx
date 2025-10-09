@@ -358,7 +358,7 @@ export default function StudentManager() {
                  <div className="md:col-span-2">
                    <label className="block text-sm font-medium text-gray-700 mb-2">選修課程</label>
                    <MultiSelectDropdown
-                     options={courses}
+                     options={courses.map(course => ({ label: `${course.name} (${course.code})`, value: course.id }))}
                      selectedOptions={editingStudent.enrolledCourses}
                      onChange={(selected) => setEditingStudent(prev => prev ? { ...prev, enrolledCourses: selected } : null)}
                      placeholder="選擇學生選修的課程..."

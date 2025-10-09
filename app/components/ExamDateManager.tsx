@@ -16,7 +16,7 @@ export default function ExamDateManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', startDate: '', endDate: '' });
   const [saving, setSaving] = useState(false);
-  const [alertOpen, setAlertOpen] = useState(false);
+  const [alert, setAlert] = useState<{ message: string; type: 'success' | 'error' | 'info' | 'warning' | null }>({ message: '', type: null });
   const [loading, setLoading] = useState(true);
 
   async function fetchExams() {
@@ -56,7 +56,7 @@ export default function ExamDateManager() {
       await fetchExams();
       setEditingId(null);
       setForm({ name: '', startDate: '', endDate: '' });
-      setAlertOpen(true);
+      setAlert({ message: '更新成功！', type: 'success' });
     } catch (e) {
       console.error('儲存考試日期失敗:', e);
     }
@@ -66,7 +66,13 @@ export default function ExamDateManager() {
   return (
     <div className="max-w-4xl mx-auto w-full p-4 h-full flex flex-col">
       <h2 className="text-2xl font-bold mb-6 flex-shrink-0">考試日期管理</h2>
-      <AlertDialog open={alertOpen} message="更新成功！" onClose={() => setAlertOpen(false)} />
+      {alert.message && (
+        <AlertDialog
+          message={alert.message}
+          type={alert.type}
+          onClose={() => setAlert({ message: '', type: null })}
+        />
+      )}
       {loading ? (
         <div className="flex justify-center items-center py-12">
           <span>載入中...</span>

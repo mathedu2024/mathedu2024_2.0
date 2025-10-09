@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { ChevronUpDownIcon } from '@heroicons/react/20/solid';
 
 interface Option {
-  id: string;
-  name: string;
+  label: string;
+  value: string;
 }
 
 interface MultiSelectDropdownProps {
@@ -12,6 +13,8 @@ interface MultiSelectDropdownProps {
   selectedOptions: string[];
   onChange: (selected: string[]) => void;
   placeholder?: string;
+  className?: string;
+  label?: string;
 }
 
 export default function MultiSelectDropdown({
@@ -19,19 +22,15 @@ export default function MultiSelectDropdown({
   selectedOptions,
   onChange,
   placeholder = "請選擇...",
+  className = '',
 }: MultiSelectDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const handleToggleOption = (optionId: string) => {
-    const newSelected = selectedOptions.includes(optionId)
-      ? selectedOptions.filter(id => id !== optionId)
-      : [...selectedOptions, optionId];
-    onChange(newSelected);
-  };
-
-  const handleRemoveOption = (optionId: string) => {
-    const newSelected = selectedOptions.filter(id => id !== optionId);
+  const handleToggleOption = (optionValue: string) => {
+    const newSelected = selectedOptions.includes(optionValue)
+      ? selectedOptions.filter(value => value !== optionValue)
+      : [...selectedOptions, optionValue];
     onChange(newSelected);
   };
 
@@ -47,47 +46,36 @@ export default function MultiSelectDropdown({
     };
   }, []);
   
-  const selectedItems = options.filter(opt => selectedOptions.includes(opt.id));
+  const selectedItems = options.filter(opt => selectedOptions.includes(opt.value));
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <div className="select-unified min-h-[42px]">
-        <div className="flex flex-wrap gap-2 mb-2">
-          {selectedItems.map(item => (
-            <div key={item.id} className="bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-1 rounded-full flex items-center gap-2">
-              <span>{item.name}</span>
-              <button
-                type="button"
-                onClick={() => handleRemoveOption(item.id)}
-                className="text-blue-800 hover:text-blue-900"
-              >
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </button>
-            </div>
-          ))}
-        </div>
-        <button
-          type="button"
-          onClick={() => setIsOpen(!isOpen)}
-          className="w-full text-left"
-        >
-          {placeholder}
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`select-unified min-h-[42px] pr-16 flex items-center justify-between ${className}`}
+      >
+        <span className="truncate">
+          {selectedItems.length === 0
+            ? placeholder
+            : selectedItems.length === 1
+            ? selectedItems[0].label
+            : `${selectedItems.length} 個已選擇`}
+        </span>
+        <ChevronUpDownIcon className="w-5 h-5 text-gray-400 absolute right-3 pointer-events-none" />
+      </button>
 
       {isOpen && (
-        <div style={{zIndex: 9999, position: 'fixed', left: dropdownRef.current?.getBoundingClientRect().left, top: dropdownRef.current?.getBoundingClientRect().bottom, width: dropdownRef.current?.offsetWidth}} className="bg-white border rounded-md max-h-60 overflow-auto shadow-xl">
-          {options.map(option => (
+        <div style={{ minWidth: dropdownRef.current?.offsetWidth || 200 }} className="absolute z-10 mt-1 w-full max-w-xs bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto focus:outline-none">
+          {options.map((option) => (
             <div
-              key={option.id}
-              onClick={() => handleToggleOption(option.id)}
-              className={`p-2 cursor-pointer hover:bg-gray-100 flex items-center justify-between ${selectedOptions.includes(option.id) ? 'bg-blue-50' : ''}`}
+              key={option.value}
+              onClick={() => handleToggleOption(option.value)}
+              className={`cursor-pointer select-none flex items-center justify-between py-2 pl-4 pr-4 ${selectedOptions.includes(option.value) ? 'bg-blue-100 text-blue-900' : 'text-gray-900'}`}
             >
-              <span>{option.name}</span>
-              {selectedOptions.includes(option.id) && (
-                <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+              <span>{option.label}</span>
+              {selectedOptions.includes(option.value) && (
+                <svg className="w-5 h-5 text-blue-600 ml-2" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                 </svg>
               )}

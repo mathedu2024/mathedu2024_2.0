@@ -111,7 +111,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
   const [lessons, setLessons] = useState<LessonData[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingLesson, setEditingLesson] = useState<LessonData | null>(null);
-  const [alertState, setAlertState] = useState<{ open: boolean; message: string }>({ open: false, message: '' });
+  const [alert, setAlert] = useState<{ message: string; type: 'success' | 'error' | 'info' | 'warning' | null }>({ message: '', type: null });
   // 修改 form 結構
   const [form, setForm] = useState<Omit<LessonData, 'id' | 'order' | 'createdAt' | 'updatedAt'>>({
     title: '',
@@ -525,7 +525,13 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
           <svg className="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
         </button>
       )}
-      <AlertDialog open={alertState.open} message={alertState.message} onClose={() => setAlertState({ open: false, message: '' })} />
+            {alert.message && (
+        <AlertDialog
+          message={alert.message}
+          type={alert.type}
+          onClose={() => setAlert({ message: '', type: null })}
+        />
+      )}
     </div>
     </DragDropContext>
   );

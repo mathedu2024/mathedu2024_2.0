@@ -3,11 +3,30 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/services/firebase-admin';
 import { parse as parseCookie } from 'cookie';
 
+interface ClassTime {
+  day: string;
+  startTime: string;
+  endTime: string;
+}
+
 interface CourseInfo {
   id: string;
   name: string;
   code: string;
   teacherName?: string;
+  status: string;
+  gradeTags: string[];
+  subjectTag: string;
+  startDate: string;
+  endDate: string;
+  teachers: string[];
+  description: string;
+  teachingMethod: string;
+  courseNature: string;
+  location?: string;
+  liveStreamURL?: string;
+  coverImageURL?: string;
+  classTimes?: ClassTime[];
 }
 
 type StudentGradeRow = { studentId: string; regularScores?: Record<string, number>; periodicScores?: Record<string, number>; manualAdjust?: number; };
@@ -77,6 +96,19 @@ async function fetchCourseData(studentId: string, enrolledCourses: string[]) {
             id: doc.id,
             name: data.name,
             code: data.code,
+            status: data.status,
+            gradeTags: data.gradeTags,
+            subjectTag: data.subjectTag,
+            startDate: data.startDate,
+            endDate: data.endDate,
+            teachers: data.teachers,
+            description: data.description,
+            teachingMethod: data.teachingMethod,
+            courseNature: data.courseNature,
+            location: data.location,
+            liveStreamURL: data.liveStreamURL,
+            coverImageURL: data.coverImageURL,
+            classTimes: data.classTimes,
         });
         if (data.teachers && data.teachers.length > 0) {
             teacherIds.add(data.teachers[0]);

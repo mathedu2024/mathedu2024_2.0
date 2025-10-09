@@ -401,114 +401,116 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
         title={`${selectedGradeForChart?.name} - 成績詳細資料`}
         size="lg"
       >
-        {selectedGradeForChart && distributionData && (
-          <div className="space-y-6">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h5 className="font-semibold text-blue-800 mb-2">您的分數</h5>
-              <div className="text-3xl font-bold text-blue-600">
-                {selectedGradeForChart.score ?? '未評分'}
-              </div>
-            </div>
+        {selectedGradeForChart && distributionData && (() => {
+          const studentScore = selectedGradeForChart.score;
 
-            <div>
-              <h5 className="font-semibold mb-3">五標統計</h5>
-              <div className="overflow-x-auto">
-                <table className="min-w-full border border-gray-200 rounded-lg">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-700 border-b">項目</th>
-                      <th className="px-4 py-2 text-center text-sm font-medium text-gray-700 border-b">分數</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td className="px-4 py-2 text-sm text-gray-900 border-b">頂標</td>
-                      <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 border-b">
-                        {distributionData.statistics.頂標 ?? '-'}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="px-4 py-2 text-sm text-gray-900 border-b">前標</td>
-                      <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 border-b">
-                        {distributionData.statistics.前標 ?? '-'}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="px-4 py-2 text-sm text-gray-900 border-b">均標</td>
-                      <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 border-b">
-                        {distributionData.statistics.均標 ?? '-'}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="px-4 py-2 text-sm text-gray-900 border-b">後標</td>
-                      <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 border-b">
-                        {distributionData.statistics.後標 ?? '-'}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="px-4 py-2 text-sm text-gray-900 border-b">底標</td>
-                      <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 border-b">
-                        {distributionData.statistics.底標 ?? '-'}
-                      </td>
-                    </tr>
-                    <tr className="bg-gray-50">
-                      <td className="px-4 py-2 text-sm font-medium text-gray-900">平均</td>
-                      <td className="px-4 py-2 text-center text-sm font-bold text-gray-900">
-                        {distributionData.statistics.平均 ?? '-'}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
+          const getFivePointInterval = (score: number, stats: DistributionData['statistics']): string => {
+            if (score === undefined || score === null) return '';
+            if (score >= (stats.頂標 ?? Infinity)) return '頂標';
+            if (score >= (stats.前標 ?? Infinity)) return '前標';
+            if (score >= (stats.均標 ?? Infinity)) return '均標';
+            if (score >= (stats.後標 ?? Infinity)) return '後標';
+            if (score >= (stats.底標 ?? -Infinity)) return '底標';
+            return '未達底標';
+          };
 
-            <div>
-              <h5 className="font-semibold mb-3">成績分布</h5>
-              <div className="overflow-x-auto">
-                <table className="min-w-full border border-gray-200 rounded-lg">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-700 border-b">分數區間</th>
-                      <th className="px-4 py-2 text-center text-sm font-medium text-gray-700 border-b">人數</th>
-                      <th className="px-4 py-2 text-center text-sm font-medium text-gray-700 border-b">長條圖</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {distributionData.distribution.map((d: { range: string; count: number }, index: number) => (
-                      <tr key={index}>
-                        <td className="px-4 py-2 text-sm text-gray-900 border-b">{d.range}</td>
-                        <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 border-b">
-                          {d.count}
-                        </td>
-                        <td className="px-4 py-2 border-b">
-                          <div className="flex items-center">
-                            <div className="w-20 bg-gray-200 rounded-full h-2 mr-2">
-                              <div 
-                                className="bg-blue-600 h-2 rounded-full" 
-                                style={{ 
-                                  width: `${Math.max(5, (d.count / Math.max(...distributionData.distribution.map((item: { range: string; count: number }) => item.count))) * 100)}%` 
-                                }}
-                              ></div>
-                            </div>
-                            <span className="text-xs text-gray-500">
-                              {Math.round((d.count / distributionData.distribution.reduce((sum: number, item: { range: string; count: number }) => sum + item.count, 0)) * 100)}%
-                            </span>
-                          </div>
-                        </td>
+          const isScoreInDistributionRange = (score: number | undefined, range: string): boolean => {
+            if (score === undefined || score === null) return false;
+            switch (range) {
+              case '90-100': return score >= 90 && score <= 100;
+              case '80-89': return score >= 80 && score < 90;
+              case '70-79': return score >= 70 && score < 80;
+              case '60-69': return score >= 60 && score < 70;
+              case '50-59': return score >= 50 && score < 60;
+              case '<50': return score < 50;
+              default: return false;
+            }
+          };
+
+          const fivePointInterval = studentScore !== undefined ? getFivePointInterval(studentScore, distributionData.statistics) : '';
+
+          return (
+            <div className="space-y-6">
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h5 className="font-semibold text-blue-800 mb-2">您的分數</h5>
+                <div className="text-3xl font-bold text-blue-600">
+                  {selectedGradeForChart.score ?? '未評分'}
+                </div>
+              </div>
+
+              <div>
+                <h5 className="font-semibold mb-3">五標統計</h5>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full border border-gray-200 rounded-lg">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-sm font-medium text-gray-700 border-b">項目</th>
+                        <th className="px-4 py-2 text-center text-sm font-medium text-gray-700 border-b">分數</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      <tr className={fivePointInterval === '頂標' ? 'bg-blue-100' : ''}>
+                        <td className="px-4 py-2 text-sm text-gray-900 border-b">頂標</td>
+                        <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 border-b">{distributionData.statistics.頂標 ?? '-'}</td>
+                      </tr>
+                      <tr className={fivePointInterval === '前標' ? 'bg-blue-100' : ''}>
+                        <td className="px-4 py-2 text-sm text-gray-900 border-b">前標</td>
+                        <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 border-b">{distributionData.statistics.前標 ?? '-'}</td>
+                      </tr>
+                      <tr className={fivePointInterval === '均標' ? 'bg-blue-100' : ''}>
+                        <td className="px-4 py-2 text-sm text-gray-900 border-b">均標</td>
+                        <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 border-b">{distributionData.statistics.均標 ?? '-'}</td>
+                      </tr>
+                      <tr className={fivePointInterval === '後標' ? 'bg-blue-100' : ''}>
+                        <td className="px-4 py-2 text-sm text-gray-900 border-b">後標</td>
+                        <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 border-b">{distributionData.statistics.後標 ?? '-'}</td>
+                      </tr>
+                      <tr className={fivePointInterval === '底標' ? 'bg-blue-100' : ''}>
+                        <td className="px-4 py-2 text-sm text-gray-900 border-b">底標</td>
+                        <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 border-b">{distributionData.statistics.底標 ?? '-'}</td>
+                      </tr>
+                      <tr className="bg-gray-50">
+                        <td className="px-4 py-2 text-sm font-medium text-gray-900">平均</td>
+                        <td className="px-4 py-2 text-center text-sm font-bold text-gray-900">{distributionData.statistics.平均 ?? '-'}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div>
+                <h5 className="font-semibold mb-3">成績分布</h5>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full border border-gray-200 rounded-lg">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-sm font-medium text-gray-700 border-b">分數區間</th>
+                        <th className="px-4 py-2 text-center text-sm font-medium text-gray-700 border-b">人數</th>
+                        <th className="px-4 py-2 text-center text-sm font-medium text-gray-700 border-b">長條圖</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {distributionData.distribution.map((d: { range: string; count: number }, index: number) => (
+                        <tr key={index} className={isScoreInDistributionRange(studentScore, d.range) ? 'bg-blue-100' : ''}>
+                          <td className="px-4 py-2 text-sm text-gray-900 border-b">{d.range}</td>
+                          <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 border-b">{d.count}</td>
+                          <td className="px-4 py-2 border-b">
+                            <div className="flex items-center">
+                              <div className="w-20 bg-gray-200 rounded-full h-2 mr-2">
+                                <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${Math.max(5, (d.count / Math.max(...distributionData.distribution.map((item: { range: string; count: number }) => item.count))) * 100)}%` }}></div>
+                              </div>
+                              <span className="text-xs text-gray-500">{Math.round((d.count / distributionData.distribution.reduce((sum: number, item: { range: string; count: number }) => sum + item.count, 0)) * 100)}%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
-            <div className="mt-6">
-              <h5 className="font-semibold mb-3">成績分布圖</h5>
-              <div style={{ height: '400px' }}>
-                <Bar data={chartData} options={chartOptions} />
-              </div>
-            </div>
-          </div>
-        )}
+          );
+        })()}
       </Modal>
     </div>
   );

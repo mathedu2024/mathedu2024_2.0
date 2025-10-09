@@ -10,6 +10,7 @@ import TeacherAdminManager from '../components/TeacherAdminManager';
 import PasswordManager from '../components/PasswordManager';
 import TeacherCourseManager from '../components/TeacherCourseManager';
 import GradeManager from '../components/GradeManager';
+import TutoringManager from '../components/TutoringManager';
 import { getSession, clearSession } from '../utils/session';
 import type { Course } from '../components/TeacherCourseManager';
 import Sidebar from '../components/Sidebar';
@@ -27,6 +28,11 @@ interface BackPanelUserInfo {
   account: string;
   role: string | string[];
   currentRole?: string;
+}
+
+// 新增預設空白元件
+function TeacherExamManager() {
+  return <div style={{padding:40, fontSize:22, color:'#666'}}>「測驗管理」功能開發中，敬請期待！</div>;
 }
 
 function BackPanel() {
@@ -194,7 +200,7 @@ function BackPanel() {
     }
   }, [isAdmin]); // Only depend on isAdmin to prevent infinite loops
 
-  const fetchAdminCourses = async () => {
+  const fetchAdminCourses = useCallback(async () => {
     const res = await fetch('/api/courses/list', { method: 'GET' });
     if (res.ok) {
       const allCourses: Course[] = await res.json();
@@ -204,7 +210,7 @@ function BackPanel() {
       console.error('Failed to fetch admin courses');
       setCourses([]);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (userInfo?.role === '老師' && userInfo.account) {
@@ -219,10 +225,12 @@ function BackPanel() {
         let courseNames: string[] = [];
         if (res.ok) {
           const data = await res.json();
+          console.log('API /api/teacher/courses response:', data);
           courseNames = (data.courses || []).map((str: string) => {
             const match = str.match(/(.+?)\(([^)]*\))$/);
             return match ? match[1] : str;
           });
+          console.log('Extracted courseNames:', courseNames);
         }
         // 再呼叫 /api/courses/list 拿完整課程資料
         const res2 = await fetch('/api/courses/list', {
@@ -233,15 +241,19 @@ function BackPanel() {
         let fullCourses: Course[] = [];
         if (res2.ok) {
           const allCourses: Course[] = await res2.json();
+          console.log('API /api/courses/list response:', allCourses);
           // 只保留老師授課的課程（用 name 過濾）
           fullCourses = allCourses.filter((c: Course) => courseNames.includes(c.name));
+          console.log('Filtered fullCourses:', fullCourses);
         }
         setCourses(fullCourses as Course[]);
+        console.log('Courses passed to TutoringManager:', fullCourses);
+        console.log('Final courses array for teacher:', fullCourses);
       })();
     } else if (userInfo?.role === '管理員') {
       fetchAdminCourses();
     }
-  }, [userInfo?.account, userInfo?.id, userInfo?.role]);
+  }, [userInfo?.account, userInfo?.id, userInfo?.role, fetchAdminCourses]);
 
   const sidebarMenuItems: { [K in '管理員' | '老師']: { id: string; title: string; icon: React.JSX.Element }[] } = {
     '管理員': [
@@ -268,7 +280,7 @@ function BackPanel() {
     { id: 'teacher-grades', title: '成績管理', icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>, color: 'green' },
     { id: 'teacher-attendance', title: '點名管理', icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>, color: 'orange', disabled: true },
     { id: 'teacher-exams', title: '測驗管理', icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>, color: 'yellow', disabled: true },
-    { id: 'tutoring', title: '課程輔導', icon: <CalendarIcon />, color: 'purple', disabled: true },
+    { id: 'tutoring', title: '課程輔導', icon: <CalendarIcon />, color: 'purple', disabled: false },
     { id: 'password', title: '修改密碼', icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>, color: 'red' },
   ];
 
@@ -345,7 +357,7 @@ function BackPanel() {
       ] : [
         { title: '授課課程', value: courses.length, color: 'blue', icon: <svg className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6l4 2" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12V6a2 2 0 00-2-2H6a2 2 0 00-2 2v6" /></svg> },
         { title: '成績管理', value: '可管理', color: 'green', icon: <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg> },
-        { title: '輔導預約', value: '未開放', color: 'yellow', icon: <svg className="h-8 w-8 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg> },
+        { title: '輔導預約', value: '可預約', color: 'yellow', icon: <svg className="h-8 w-8 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg> },
         { title: '帳戶設定', value: '可修改', color: 'purple', icon: <svg className="h-8 w-8 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg> },
       ];
       return (
@@ -495,7 +507,8 @@ function BackPanel() {
         return <GradeManager userInfo={normalizedUserInfo} />;
       case 'teacher-exams':
         return <TeacherExamManager />;
-      // case 'tutoring': // 不可點擊
+      case 'tutoring':
+        return <TutoringManager userInfo={normalizedUserInfo} courses={courses} />;
       default:
         console.log('No matching case for activeTab:', activeTab);
         return null;
@@ -521,13 +534,10 @@ function BackPanel() {
   // 決定哪些 sidebar 功能要 disabled
   const allSidebarMenuItems = currentMenuItems.map(item => ({
     ...item,
-    disabled: item.disabled || (item.id === 'tutoring' || item.id === 'teacher-exams' ? true : false),
+    disabled: item.disabled || false,
   }));
 
-  // 新增預設空白元件
-  function TeacherExamManager() {
-    return <div style={{padding:40, fontSize:22, color:'#666'}}>「測驗管理」功能開發中，敬請期待！</div>;
-  }
+
 
   // 修正重複渲染：分離 mainItems 與 accountItems
   // const sidebarAccordionGroups = [

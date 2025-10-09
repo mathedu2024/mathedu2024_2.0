@@ -78,10 +78,12 @@ function TeacherPageContent() {
                   {teacher.courses && teacher.courses.length > 0 ? teacher.courses.join(' / ') : ''}
                 </div>
               </div>
-              <button
-                className="w-full bg-blue-600 text-white py-3 md:py-2 px-4 rounded-lg text-lg md:text-sm font-bold hover:bg-blue-700 transition-colors duration-200 mt-2"
-                onClick={() => { setSelectedTeacher(teacher); setShowModal(true); }}
-              >
+                                            <button
+                                              onClick={() => {
+                                                setSelectedTeacher(teacher);
+                                                setShowModal(true);
+                                              }}
+                                              className="w-full bg-blue-600 text-white py-3 md:py-2 px-4 rounded-lg text-lg md:text-sm font-bold hover:bg-blue-700 transition-colors duration-200 mt-2"              >
                 詳細資料
               </button>
             </div>

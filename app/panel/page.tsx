@@ -44,7 +44,7 @@ export default function PanelLoginPage() {
         body: JSON.stringify({
           account: formData.account,
           password: formData.password,
-          loginType: 'admin', // Use a single type for panel login
+          loginType: formData.role,
         }),
       });
 
@@ -76,26 +76,16 @@ export default function PanelLoginPage() {
       console.log('Panel - Login successful, data:', data);
 
       // The API returns the authoritative role
+      const sessionData = { ...data, currentRole: formData.role };
       if (data.role.includes('student')) {
-         throw new Error('學生帳號請由學生登入頁面登入。');
+        setSession(sessionData);
+        console.log('Panel - Redirecting student to /student');
+        router.push('/student');
+      } else {
+        setSession(sessionData);
+        console.log('Panel - Redirecting admin/teacher to /back-panel');
+        router.push('/back-panel');
       }
-
-      const sessionData = {
-        id: data.id,
-        name: data.name,
-        role: data.role,
-        account: formData.account,
-        currentRole: formData.role,
-      };
-      console.log('Panel - Setting session:', sessionData);
-      setSession(sessionData);
-
-      console.log('Panel - Session set, checking localStorage...');
-      const storedSession = localStorage.getItem('user_session');
-      console.log('Panel - Stored session:', storedSession);
-
-      console.log('Panel - Redirecting to /back-panel');
-      router.push('/back-panel');
     } catch (err: unknown) {
       console.error('Panel - Login error:', err);
       const message = err instanceof Error ? err.message : '發生未知錯誤';
