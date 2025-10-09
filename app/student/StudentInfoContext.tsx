@@ -10,7 +10,6 @@ interface StudentInfo {
   account: string;
   role: string;
   studentId: string;
-  email?: string;
   enrolledCourses?: string[];
   grade?: string;
 }
