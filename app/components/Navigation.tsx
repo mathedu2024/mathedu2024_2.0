@@ -105,7 +105,7 @@ export default function Navigation() {
               <span className="sr-only">Open main menu</span>
               {isMenuOpen ? (
                 <svg
-                  className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6"
+                  className="h-6 w-6"
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
                   viewBox="0 0 24 24"
@@ -121,7 +121,7 @@ export default function Navigation() {
                 </svg>
               ) : (
                 <svg
-                  className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6"
+                  className="h-6 w-6"
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
                   viewBox="0 0 24 24"
@@ -142,7 +142,7 @@ export default function Navigation() {
       </div>
 
       {/* Mobile menu */}
-      <div className={`md:hidden ${isMenuOpen ? 'block' : 'hidden'}`}>
+      <div className={`transition-all duration-300 ease-in-out overflow-hidden md:hidden ${isMenuOpen ? 'max-h-screen' : 'max-h-0'}`}>
         <div className="px-2 pt-2 pb-3 space-y-1">
           {navLinks.map((link) => (
             <Link

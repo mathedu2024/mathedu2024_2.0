@@ -93,7 +93,7 @@ export default function StudentCoursesPage() {
 
   function LessonDetail({ lesson, index }: { lesson: Lesson; index: number }) {
     return (
-      <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors">
+      <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
         <div className="flex items-center justify-between">
           <div>
             <h4 className="text-lg font-semibold text-gray-900">
@@ -107,7 +107,7 @@ export default function StudentCoursesPage() {
               const currentUrl = window.location.pathname + window.location.search;
               router.push(`/student/lesson-detail?returnTo=${encodeURIComponent(currentUrl)}`);
             }}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-medium"
           >
             查看詳細
           </button>
@@ -135,21 +135,21 @@ export default function StudentCoursesPage() {
     }
     return (
       <div className="flex items-center justify-center space-x-2 mt-6">
-        <button onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1} className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentPage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'}`}>上一頁</button>
+        <button onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1} className={`px-3 py-2 rounded-lg text-sm font-medium ${currentPage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'}`}>上一頁</button>
         {startPage > 1 && (<><button onClick={() => setCurrentPage(1)} className="px-3 py-2 rounded-lg text-sm font-medium bg-white text-gray-700 hover:bg-gray-50 border border-gray-300">1</button>{startPage > 2 && <span className="px-2 text-gray-500">...</span>}</>)}
-        {pageNumbers.map(number => (<button key={number} onClick={() => setCurrentPage(number)} className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentPage === number ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'}`}>{number}</button>))}
+        {pageNumbers.map(number => (<button key={number} onClick={() => setCurrentPage(number)} className={`px-3 py-2 rounded-lg text-sm font-medium ${currentPage === number ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'}`}>{number}</button>))}
         {endPage < totalPages && (<>{endPage < totalPages - 1 && <span className="px-2 text-gray-500">...</span>}<button onClick={() => setCurrentPage(totalPages)} className="px-3 py-2 rounded-lg text-sm font-medium bg-white text-gray-700 hover:bg-gray-50 border border-gray-300">{totalPages}</button></>)}
-        <button onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} disabled={currentPage === totalPages} className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${currentPage === totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'}`}>下一頁</button>
+        <button onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))} disabled={currentPage === totalPages} className={`px-3 py-2 rounded-lg text-sm font-medium ${currentPage === totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'}`}>下一頁</button>
       </div>
     );
   };
 
   if (loadingStudentInfo) {
-    return <div className="flex h-screen items-center justify-center"><LoadingSpinner /></div>;
+    return <LoadingSpinner fullScreen />;
   }
 
   return (
-    <div className="max-w-6xl mx-auto w-full p-2 md:p-8">
+    <div className="max-w-6xl mx-auto w-full p-2 md:p-8 animate-fade-in">
       <h2 className="text-2xl font-bold mb-6">我的課程</h2>
       {loadingCourses ? (
         <div className="flex justify-center items-center h-64"><LoadingSpinner /><span className="ml-4 text-gray-600">載入中...</span></div>
@@ -171,7 +171,7 @@ export default function StudentCoursesPage() {
             />
           </div>
           {selectedCourse && (
-            <>
+            <div className="animate-fade-in">
               <div className="bg-blue-600 rounded-lg shadow-md p-6 text-white mb-6">
                 <div className="mb-6 flex items-center justify-between">
                   <div>
@@ -206,7 +206,7 @@ export default function StudentCoursesPage() {
                 )}
                 <Pagination />
               </div>
-            </>
+            </div>
           )}
         </>
       )}

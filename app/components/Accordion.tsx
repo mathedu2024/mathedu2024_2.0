@@ -44,7 +44,7 @@ const Accordion: React.FC<AccordionProps> = ({ groups, defaultOpenId, className 
           </button>
           <div
             id={`accordion-content-${group.id}`}
-            className={`transition-all sm:duration-200 md:duration-300 ${openId === group.id ? 'max-h-[600px] opacity-100 overflow-y-auto' : 'max-h-0 opacity-0 overflow-hidden'} bg-white`}
+            className={`bg-white transition-[max-height,opacity] duration-300 ease-in-out ${openId === group.id ? 'max-h-[600px] opacity-100 overflow-y-auto' : 'max-h-0 opacity-0 overflow-hidden'}`}
             aria-hidden={openId !== group.id}
           >
             <div className="p-3 md:p-5">{group.content}</div>

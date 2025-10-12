@@ -335,204 +335,163 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
     }
   };
 
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-    <div className="fixed inset-0 bg-white z-50">
-      <div className="bg-white w-full h-full p-2 md:p-8 overflow-auto">
-        {/* 桌面右上角 X 按鈕 */}
-        <div className="hidden md:block absolute top-4 right-4">
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-700"
-            aria-label="關閉"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+      <div className="fixed inset-0 bg-white z-50 flex flex-col">
+        {/* Header */}
+        <div className="flex-shrink-0 p-4 border-b flex justify-between items-center">
+          <div>
+            <h3 className="text-2xl font-bold">{courseName}</h3>
+            <div className="text-gray-500 text-sm">{courseCode}</div>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700" aria-label="關閉">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
-        {/* 漢堡選單（手機顯示） */}
-        <div className="md:hidden flex items-center justify-between p-2 border-b">
-          <span className="font-bold text-lg">課堂管理</span>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-700 ml-2"
-            aria-label="關閉"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        {/* 移除原本右上角浮動的 X 按鈕 */}
-        <div className="mb-4">
-          <h3 className="text-2xl font-bold">{courseName}</h3>
-          <div className="text-gray-500 text-sm">{courseCode}</div>
-        </div>
-        <h3 className="text-2xl font-bold mb-4">課堂管理</h3>
-        {/* 新增：儲存課堂順序按鈕 */}
-        <div className="mb-6 flex gap-2 items-center">
-          {!showForm && (
-            <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700" onClick={() => setShowForm(true)}>
-              新增課堂
-          </button>
+
+        {/* Main Content (Scrollable) */}
+        <div className="flex-grow min-h-0 overflow-y-auto p-4 md:p-8">
+          <h3 className="text-2xl font-bold mb-4">課堂管理</h3>
+          {(showForm || editingLesson) ? (
+            <form onSubmit={editingLesson ? handleEditLesson : handleAddLesson} className="space-y-4 mb-8 bg-gray-50 p-4 rounded-lg">
+              {/* Form content... */}
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium mb-1">課堂標題</label>
+                  <input type="text" className="border rounded px-3 py-2 w-full" value={form.title} onChange={e => setForm((f) => ({ ...f, title: e.target.value }))} required />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-medium mb-1">課程日期</label>
+                  <input type="date" className="border rounded px-3 py-2 w-full" value={form.date} onChange={e => setForm((f) => ({ ...f, date: e.target.value }))} required />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">課程進度</label>
+                <textarea className="border rounded px-3 py-2 w-full" value={form.progress} onChange={e => setForm((f) => ({ ...f, progress: e.target.value }))} rows={2} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">附件</label>
+                <div className="flex items-center mb-2">
+                  <input type="checkbox" checked={form.noAttachment} onChange={e => setForm((f) => ({ ...f, noAttachment: e.target.checked, attachments: e.target.checked ? [{ name: '', url: '' }] : f.attachments }))} />
+                  <span className="ml-2 text-sm">暫無資料</span>
+                </div>
+                {!form.noAttachment && (form.attachments || []).map((att: { name: string; url: string } | string, idx: number) => (
+                  <div key={typeof att === 'object' && att !== null && 'url' in att ? att.url + idx : idx} className="flex gap-2 mb-2">
+                    <input type="text" className="border rounded px-3 py-2 w-32" placeholder="名稱" value={typeof att === 'object' && att !== null && 'name' in att ? att.name : ''} onChange={e => handleAttachmentChange(idx, 'name', e.target.value)} />
+                    <input type="url" className="border rounded px-3 py-2 flex-1" placeholder="連結" value={typeof att === 'object' && att !== null && 'url' in att ? att.url : ''} onChange={e => handleAttachmentChange(idx, 'url', e.target.value)} />
+                    {(form.attachments || []).length > 1 && (
+                      <button type="button" className="text-red-500 px-2" onClick={() => removeAttachmentField(idx)}>移除</button>
+                    )}
+                  </div>
+                ))}
+                {!form.noAttachment && <button type="button" className="text-blue-600 underline text-sm" onClick={addAttachmentField}>+ 新增附件</button>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">課程影片連結</label>
+                {(form.videos || []).map((video: string, idx: number) => (
+                  <div key={video ? video + idx : idx} className="flex gap-2 mb-2">
+                    <input type="url" className="border rounded px-3 py-2 flex-1" value={video} onChange={e => handleVideoChange(idx, e.target.value)} />
+                    {(form.videos || []).length > 1 && (
+                      <button type="button" className="text-red-500 px-2" onClick={() => removeVideoField(idx)}>移除</button>
+                    )}
+                  </div>
+                ))}
+                <button type="button" className="text-blue-600 underline text-sm" onClick={addVideoField}>+ 新增影片連結</button>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">課程作業</label>
+                <div className="flex items-center mb-2">
+                  <input type="checkbox" checked={form.noHomework} onChange={e => setForm((f) => ({ ...f, noHomework: e.target.checked, homework: e.target.checked ? '' : f.homework }))} />
+                  <span className="ml-2 text-sm">無</span>
+                </div>
+                {!form.noHomework && <textarea className="border rounded px-3 py-2 w-full" value={form.homework} onChange={e => setForm((f) => ({ ...f, homework: e.target.value }))} rows={2} />}
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">線上測驗</label>
+                <div className="flex items-center mb-2">
+                  <input type="checkbox" checked={form.noOnlineExam} onChange={e => setForm((f) => ({ ...f, noOnlineExam: e.target.checked, onlineExam: e.target.checked ? '' : f.onlineExam }))} />
+                  <span className="ml-2 text-sm">無</span>
+                </div>
+                {!form.noOnlineExam && <textarea className="border rounded px-3 py-2 w-full" value={form.onlineExam} onChange={e => setForm((f) => ({ ...f, onlineExam: e.target.value }))} rows={2} />}
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">考試範圍</label>
+                <div className="flex items-center mb-2">
+                  <span className="ml-2 text-sm">無</span>
+                </div>
+                {!form.noExamScope && <textarea className="border rounded px-3 py-2 w-full" value={form.examScope} onChange={e => setForm((f) => ({ ...f, examScope: e.target.value }))} rows={2} />}
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">注意事項</label>
+                <textarea className="border rounded px-3 py-2 w-full" value={form.notes} onChange={e => setForm((f) => ({ ...f, notes: e.target.value }))} rows={2} />
+              </div>
+            </form>
+          ) : (
+            <div className="overflow-x-auto">
+              <div className="mb-4 flex gap-2 items-center">
+                  <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700" onClick={() => setShowForm(true)}>
+                    新增課堂
+                  </button>
+                  {isOrderDirty && (
+                    <button className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700" onClick={handleSaveChanges} disabled={isSubmitting}>
+                      {isSubmitting ? '儲存中...' : '儲存順序'}
+                    </button>
+                  )}
+              </div>
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">堂數</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">課堂標題</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">日期</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                  </tr>
+                </thead>
+                <Droppable droppableId="lesson-list">
+                  {(provided: DroppableProvided) => (
+                    <tbody className="bg-white divide-y divide-gray-200" ref={provided.innerRef} {...provided.droppableProps}>
+                      {lessons.map((lesson, idx) => (
+                        <Draggable key={lesson.id} draggableId={lesson.id} index={idx}>
+                          {(provided: DraggableProvided) => (
+                            <tr ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">第 {idx + 1} 堂</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{lesson.title}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{lesson.date}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-left text-sm font-medium">
+                                <button className="text-blue-600 hover:underline px-2" onClick={() => handleEditClick(lesson)}>修改</button>
+                                <button className="text-red-600 hover:underline px-2" onClick={() => handleDeleteLesson(lesson.id)}>刪除</button>
+                              </td>
+                            </tr>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </tbody>
+                  )}
+                </Droppable>
+              </table>
+            </div>
           )}
-          {isOrderDirty && (
-            <button
-              className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
-              onClick={handleSaveChanges}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? '儲存中...' : '儲存變更'}
-            </button>
-          )}
         </div>
+
+        {/* Footer (Sticky) */}
         {(showForm || editingLesson) && (
-          <form onSubmit={editingLesson ? handleEditLesson : handleAddLesson} className="space-y-4 mb-8 bg-gray-50 p-4 rounded-lg">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1">
-                <label className="block text-sm font-medium mb-1">課堂標題</label>
-                <input type="text" className="border rounded px-3 py-2 w-full" value={form.title} onChange={e => setForm((f) => ({ ...f, title: e.target.value }))} required />
-              </div>
-              <div className="flex-1">
-                <label className="block text-sm font-medium mb-1">課程日期</label>
-                <input type="date" className="border rounded px-3 py-2 w-full" value={form.date} onChange={e => setForm((f) => ({ ...f, date: e.target.value }))} required />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">課程進度</label>
-              <textarea className="border rounded px-3 py-2 w-full" value={form.progress} onChange={e => setForm((f) => ({ ...f, progress: e.target.value }))} rows={2} />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">附件</label>
-              <div className="flex items-center mb-2">
-                <input type="checkbox" checked={form.noAttachment} onChange={e => setForm((f) => ({ ...f, noAttachment: e.target.checked, attachments: e.target.checked ? [{ name: '', url: '' }] : f.attachments }))} />
-                <span className="ml-2 text-sm">暫無資料</span>
-              </div>
-              {!form.noAttachment && (form.attachments || []).map((att: { name: string; url: string } | string, idx: number) => (
-                <div key={typeof att === 'object' && att !== null && 'url' in att ? att.url + idx : idx} className="flex gap-2 mb-2">
-                  <input type="text" className="border rounded px-3 py-2 w-32" placeholder="名稱" value={typeof att === 'object' && att !== null && 'name' in att ? att.name : ''} onChange={e => handleAttachmentChange(idx, 'name', e.target.value)} />
-                  <input type="url" className="border rounded px-3 py-2 flex-1" placeholder="連結" value={typeof att === 'object' && att !== null && 'url' in att ? att.url : ''} onChange={e => handleAttachmentChange(idx, 'url', e.target.value)} />
-                  {(form.attachments || []).length > 1 && (
-                    <button type="button" className="text-red-500 px-2" onClick={() => removeAttachmentField(idx)}>移除</button>
-                  )}
-                </div>
-              ))}
-              {!form.noAttachment && <button type="button" className="text-blue-600 underline text-sm" onClick={addAttachmentField}>+ 新增附件</button>}
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">課程影片連結</label>
-              {(form.videos || []).map((video: string, idx: number) => (
-                <div key={video ? video + idx : idx} className="flex gap-2 mb-2">
-                  <input type="url" className="border rounded px-3 py-2 flex-1" value={video} onChange={e => handleVideoChange(idx, e.target.value)} />
-                  {(form.videos || []).length > 1 && (
-                    <button type="button" className="text-red-500 px-2" onClick={() => removeVideoField(idx)}>移除</button>
-                  )}
-                </div>
-              ))}
-              <button type="button" className="text-blue-600 underline text-sm" onClick={addVideoField}>+ 新增影片連結</button>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">課程作業</label>
-              <div className="flex items-center mb-2">
-                <input type="checkbox" checked={form.noHomework} onChange={e => setForm((f) => ({ ...f, noHomework: e.target.checked, homework: e.target.checked ? '' : f.homework }))} />
-                <span className="ml-2 text-sm">無</span>
-              </div>
-              {!form.noHomework && <textarea className="border rounded px-3 py-2 w-full" value={form.homework} onChange={e => setForm((f) => ({ ...f, homework: e.target.value }))} rows={2} />}
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">線上測驗</label>
-              <div className="flex items-center mb-2">
-                <input type="checkbox" checked={form.noOnlineExam} onChange={e => setForm((f) => ({ ...f, noOnlineExam: e.target.checked, onlineExam: e.target.checked ? '' : f.onlineExam }))} />
-                <span className="ml-2 text-sm">無</span>
-              </div>
-              {!form.noOnlineExam && <textarea className="border rounded px-3 py-2 w-full" value={form.onlineExam} onChange={e => setForm((f) => ({ ...f, onlineExam: e.target.value }))} rows={2} />}
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">考試範圍</label>
-              <div className="flex items-center mb-2">
-                <span className="ml-2 text-sm">無</span>
-              </div>
-              {!form.noExamScope && <textarea className="border rounded px-3 py-2 w-full" value={form.examScope} onChange={e => setForm((f) => ({ ...f, examScope: e.target.value }))} rows={2} />}
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">注意事項</label>
-              <textarea className="border rounded px-3 py-2 w-full" value={form.notes} onChange={e => setForm((f) => ({ ...f, notes: e.target.value }))} rows={2} />
-            </div>
-            <div className="flex justify-end gap-2 mt-6">
-              <button type="button" className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300" onClick={() => { setShowForm(false); setEditingLesson(null); }}>取消</button>
-              <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700" disabled={isSubmitting}>{isSubmitting ? '儲存中...' : '儲存課堂'}</button>
-            </div>
-          </form>
-        )}
-        {!(showForm || editingLesson) && (
-          <h4 className="text-lg font-bold mb-2">課堂清單</h4>
-        )}
-        {!showForm && !editingLesson && (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">堂數</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">課堂標題</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">日期</th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
-                </tr>
-              </thead>
-              <Droppable droppableId="lesson-list">
-                {(provided: DroppableProvided) => (
-                  <tbody className="bg-white divide-y divide-gray-200" ref={provided.innerRef} {...provided.droppableProps}>
-                    {lessons.map((lesson, idx) => (
-                      <Draggable key={lesson.id} draggableId={lesson.id} index={idx}>
-                        {(provided: DraggableProvided) => (
-                          <tr
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            {...provided.dragHandleProps}
-                            className="hover:bg-gray-50"
-                          >
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              第 {idx + 1} 堂
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {lesson.title}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              {lesson.date}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-left text-sm font-medium">
-                              <button className="text-blue-600 hover:underline px-2" onClick={() => handleEditClick(lesson)}>修改</button>
-                              <button className="text-red-600 hover:underline px-2" onClick={() => handleDeleteLesson(lesson.id)}>刪除</button>
-                            </td>
-                          </tr>
-                        )}
-                      </Draggable>
-                    ))}
-                    {provided.placeholder}
-                  </tbody>
-                )}
-              </Droppable>
-            </table>
+          <div className="flex-shrink-0 p-4 bg-gray-50 border-t flex justify-end gap-2">
+            <button type="button" className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300" onClick={() => { setShowForm(false); setEditingLesson(null); }}>取消</button>
+            <button type="button" onClick={editingLesson ? handleEditLesson : handleAddLesson} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700" disabled={isSubmitting}>{isSubmitting ? '儲存中...' : '儲存課堂'}</button>
           </div>
         )}
+        
+        {alert.message && (
+          <AlertDialog
+            message={alert.message}
+            type={alert.type || 'info'}
+            onClose={() => setAlert({ message: '', type: null })}
+          />
+        )}
       </div>
-      {/* 漢堡按鈕（手機顯示，sidebar 關閉時顯示） */}
-      {!sidebarOpen && (
-        <button className="fixed top-4 left-4 z-50 md:hidden bg-white p-2 rounded-full shadow" onClick={() => setSidebarOpen(true)}>
-          <svg className="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
-        </button>
-      )}
-            {alert.message && (
-        <AlertDialog
-          message={alert.message}
-          type={alert.type}
-          onClose={() => setAlert({ message: '', type: null })}
-        />
-      )}
-    </div>
     </DragDropContext>
   );
 }
@@ -884,7 +843,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
   }
 
   return (
-    <div className="max-w-6xl mx-auto w-full p-4 h-full flex flex-col min-h-0">
+    <div className="max-w-6xl mx-auto w-full p-4 flex flex-col min-h-0">
       <div className="flex justify-between items-center mb-6 flex-shrink-0">
         <h2 className="text-2xl font-bold">我的授課課程</h2>
         {userInfo?.role === '管理員' && (

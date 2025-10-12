@@ -1,14 +1,17 @@
 'use client';
 
 import React from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useStudentInfo } from './StudentInfoContext';
 import { BookOpenIcon, ClipboardDocumentListIcon, CheckCircleIcon, PencilIcon, CalendarIcon, KeyIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from '../components/LoadingSpinner';
+import PasswordManager from '../components/PasswordManager';
 
 export default function StudentPanel() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { studentInfo, loading } = useStudentInfo();
+  const activeTab = searchParams.get('tab');
 
   const studentQuickActions = [
     { id: 'courses', title: '我的課程', description: '查看課程內容與進度', icon: <BookOpenIcon className="h-8 w-8" />, onClick: () => router.push('/student/courses'), disabled: false },
@@ -20,12 +23,16 @@ export default function StudentPanel() {
   ];
 
   if (loading) {
-    return <div className="flex h-screen items-center justify-center"><LoadingSpinner /></div>;
+    return <LoadingSpinner fullScreen />;
+  }
+
+  if (activeTab === 'change-password') {
+    return <PasswordManager />;
   }
 
   return (
     <div className="max-w-7xl mx-auto w-full p-2 md:p-8 px-2 sm:px-4 md:px-6 lg:px-8">
-      <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg shadow-lg p-4 md:p-6 text-white mb-4 md:mb-8">
+      <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg shadow-lg p-4 md:p-6 text-white mb-4 md:mb-8 animate-fade-in">
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
           <div className="flex-1">
             <h1 className="text-2xl md:text-4xl font-bold mb-2">歡迎回來，{studentInfo?.name}！</h1>
@@ -39,7 +46,7 @@ export default function StudentPanel() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 animate-fade-in" style={{ animationDelay: '0.1s' }}>
         <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
           <div className="flex items-center">
             <div className="p-3 rounded-full bg-blue-100 text-blue-600"><BookOpenIcon className="h-8 w-8" /></div>
@@ -78,7 +85,7 @@ export default function StudentPanel() {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-white rounded-lg shadow-md p-6 animate-fade-in" style={{ animationDelay: '0.2s' }}>
         <h2 className="text-2xl font-bold text-gray-800 mb-6">快速操作</h2>
         <div className="card-list">
           {studentQuickActions.map((action) => (
@@ -86,7 +93,7 @@ export default function StudentPanel() {
               key={action.id}
               onClick={action.onClick}
               disabled={action.disabled}
-              className={`min-w-[260px] sm:min-w-0 text-left p-6 rounded-2xl transition-all sm:duration-200 md:duration-300 flex items-center border ${
+              className={`min-w-[260px] sm:min-w-0 text-left p-6 rounded-2xl transition-colors,transition-shadow,transform duration-300 ease-in-out flex items-center border ${
                 action.disabled
                   ? 'bg-gray-100 cursor-not-allowed opacity-60 border-gray-200'
                   : 'bg-white hover:bg-gray-50 border-gray-200 hover:shadow-xl md:hover:-translate-y-1'

@@ -263,19 +263,19 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
     )}
     
       {!selectedCourse && !loading && courses.length === 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center animate-fade-in">
           <p className="text-yellow-800">您目前沒有選修任何課程，無法查詢成績。</p>
         </div>
       )}
 
       {!selectedCourse && !loading && courses.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center animate-fade-in">
           <p className="text-blue-800">請選擇一個課程來查看成績</p>
         </div>
       )}
 
       {selectedCourse && !loading && gradeData && (
-      <div>
+      <div className="animate-fade-in">
         <div className="text-blue-700 font-bold text-lg mb-2">
           {getSelectedCourseInfo().name}（{getSelectedCourseInfo().code}）
           <span className="ml-4 text-base font-normal text-blue-500">授課教師：{getTeacherNames()}</span>
@@ -283,31 +283,30 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
         
         <div className="border-b mb-4">
           <nav className="flex">
-              <button onClick={() => setSelectedTab('total')} className={`px-6 py-3 text-sm font-medium ${selectedTab === 'total' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>總成績</button>
-              <button onClick={() => setSelectedTab('regular')} className={`px-6 py-3 text-sm font-medium ${selectedTab === 'regular' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>平時成績</button>
-              <button onClick={() => setSelectedTab('periodic')} className={`px-6 py-3 text-sm font-medium ${selectedTab === 'periodic' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>定期評量</button>
+              <button onClick={() => setSelectedTab('total')} className={`px-6 py-3 text-sm font-medium transition-colors duration-200 ${selectedTab === 'total' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>總成績</button>
+              <button onClick={() => setSelectedTab('regular')} className={`px-6 py-3 text-sm font-medium transition-colors duration-200 ${selectedTab === 'regular' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>平時成績</button>
+              <button onClick={() => setSelectedTab('periodic')} className={`px-6 py-3 text-sm font-medium transition-colors duration-200 ${selectedTab === 'periodic' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>定期評量</button>
           </nav>
         </div>
         
-        <div>
-          {selectedTab === 'total' && (
-            <div>
-              <h4 className="text-lg font-semibold mb-4">總成績概況</h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-                <div className="p-4 border rounded text-center">
-                  <div className="text-sm text-blue-600 font-medium cursor-pointer" onClick={() => setSelectedTab('regular')}>平時成績</div>
-                    <div className="text-2xl font-bold text-blue-800">{studentGrade ? calcRegularDisplay(studentGrade) : '未評分'}</div>
-                  </div>
-                  {['第一次定期評量','第二次定期評量','期末評量'].map(name => (
-                    <div key={name} className="p-4 border rounded text-center">
-                      <div className="text-sm text-blue-600 font-medium cursor-pointer">{name}</div>
-                      <div className="text-2xl font-bold text-blue-800">{studentGrade ? (studentGrade.periodicScores?.[name] ?? '未評分') : '未評分'}</div>
-                </div>
-                  ))}
-              </div>
-            </div>
-          )}
-          
+        <div className="animate-fade-in">
+                    {selectedTab === 'total' && (
+                      <div>
+                        <h4 className="text-lg font-semibold mb-4">總成績概況</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+                          <div className="p-4 border rounded text-center">
+                            <div className="text-sm text-blue-600 font-medium cursor-pointer" onClick={() => setSelectedTab('regular')}>平時成績</div>
+                            <div className="text-2xl font-bold text-blue-800">{studentGrade ? calcRegularDisplay(studentGrade) : '未評分'}</div>
+                          </div>
+                          {['第一次定期評量', '第二次定期評量', '期末評量'].map(name => (
+                            <div key={name} className="p-4 border rounded text-center">
+                              <div className="text-sm text-blue-600 font-medium cursor-pointer">{name}</div>
+                              <div className="text-2xl font-bold text-blue-800">{studentGrade ? (studentGrade.periodicScores?.[name] ?? '未評分') : '未評分'}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}          
           {selectedTab === 'regular' && (
             <div>
               <h4 className="text-lg font-semibold mb-4">平時成績</h4>
@@ -350,13 +349,12 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
                 </div>
               </div>
               
-              {/* 分頁按鈕 - 參考首頁公告的樣式 */}
               {totalPages > 1 && (
                 <div className="flex flex-wrap justify-center gap-2 sm:gap-4 mt-4 md:mt-8">
                   {Array.from({length: totalPages}).map((_, idx) => (
                     <button
                       key={idx}
-                      className={`px-4 py-2 rounded transition-colors ${currentPage === idx+1 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-blue-100'}`}
+                      className={`px-4 py-2 rounded ${currentPage === idx+1 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-blue-100'}`}
                       onClick={() => setCurrentPage(idx+1)}
                     >
                       {idx+1}
@@ -365,7 +363,6 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
                 </div>
               )}
               
-              {/* 趨勢分析圖表 */}
               <div className="mb-6 mt-6">
                 <h5 className="font-semibold mb-3">趨勢分析</h5>
                 <div style={{ height: '300px' }}>

@@ -15,6 +15,7 @@ import { getSession, clearSession } from '../utils/session';
 import type { Course } from '../components/TeacherCourseManager';
 import Sidebar from '../components/Sidebar';
 import { CalendarIcon } from '@heroicons/react/24/outline';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 type AdminTab = 'announcements' | 'exam-dates' | 'students' | 'courses' | 'admin-teachers';
 type TeacherTab = 'teacher-courses' | 'teacher-grades' | 'teacher-exams' | 'tutoring';
@@ -361,7 +362,7 @@ function BackPanel() {
         { title: '帳戶設定', value: '可修改', color: 'purple', icon: <svg className="h-8 w-8 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg> },
       ];
       return (
-        <div className="max-w-7xl mx-auto w-full px-2 sm:px-4 md:px-6 lg:px-8 mt-[5px]">
+        <div className="max-w-7xl mx-auto w-full px-2 sm:px-4 md:px-6 lg:px-8 mt-[5px] animate-fade-in">
           {/* 歡迎區塊 */}
           <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg shadow-lg p-4 md:p-6 text-white mb-4 md:mb-8">
             <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
@@ -414,7 +415,7 @@ function BackPanel() {
                       <button
                         key={action.id}
                         onClick={() => handleTabChange(action.id as Tab)}
-                        className={`min-w-[260px] sm:min-w-0 text-left p-6 rounded-2xl shadow-md transition-all sm:duration-200 md:duration-300 flex items-center border-l-4 ${action.borderColor} bg-white hover:bg-gray-50 md:hover:-translate-y-1 ${
+                        className={`min-w-[260px] sm:min-w-0 text-left p-6 rounded-2xl shadow-md transition-shadow,transform duration-300 ease-in-out flex items-center border-l-4 ${action.borderColor} bg-white hover:bg-gray-50 md:hover:-translate-y-1 ${
                           isActive ? `ring-2 ${ringColor}` : ''
                         }`}
                       >
@@ -442,7 +443,7 @@ function BackPanel() {
                         key={action.id}
                         onClick={() => !action.disabled && handleTabChange(action.id as Tab)}
                         disabled={action.disabled}
-                        className={`min-w-[260px] sm:min-w-0 text-left p-6 rounded-2xl shadow-md transition-all sm:duration-200 md:duration-300 flex items-center border-l-4 ${action.borderColor} bg-white hover:bg-gray-50 md:hover:-translate-y-1 ${
+                        className={`min-w-[260px] sm:min-w-0 text-left p-6 rounded-2xl shadow-md transition-shadow,transform duration-300 ease-in-out flex items-center border-l-4 ${action.borderColor} bg-white hover:bg-gray-50 md:hover:-translate-y-1 ${
                           isActive ? `ring-2 ${ringColor}` : ''
                         } ${action.disabled ? 'bg-gray-100 cursor-not-allowed opacity-60 ring-0' : ''}`}
                       >
@@ -486,41 +487,44 @@ function BackPanel() {
     }
     // 根據 activeTab 顯示對應內容
     console.log('Rendering content for activeTab:', activeTab);
-    switch (activeTab) {
-      case 'announcements':
-        return <AnnouncementManager />;
-      case 'exam-dates':
-        return <ExamDateManager />;
-      case 'students':
-        return <StudentManager />;
-      case 'courses':
-        console.log('Rendering CourseManager');
-        return <CourseManager onProcessingStateChange={handleProcessingStateChange} />;
-      case 'admin-teachers':
-        return <TeacherAdminManager />;
-      case 'password':
-        return <PasswordManager apiEndpoint='/api/auth/change-password' />;
-      case 'teacher-courses':
-        console.log('Rendering TeacherCourseManager with userInfo:', normalizedUserInfo, 'courses:', courses);
-        return <TeacherCourseManager userInfo={normalizedUserInfo} courses={courses} />;
-      case 'teacher-grades':
-        return <GradeManager userInfo={normalizedUserInfo} />;
-      case 'teacher-exams':
-        return <TeacherExamManager />;
-      case 'tutoring':
-        return <TutoringManager userInfo={normalizedUserInfo} courses={courses} />;
-      default:
-        console.log('No matching case for activeTab:', activeTab);
-        return null;
-    }
+    return (
+      <div className="animate-fade-in h-full flex flex-col">
+        {(() => {
+          switch (activeTab) {
+            case 'announcements':
+              return <AnnouncementManager />;
+            case 'exam-dates':
+              return <ExamDateManager />;
+            case 'students':
+              return <StudentManager />;
+            case 'courses':
+              console.log('Rendering CourseManager');
+              return <CourseManager onProcessingStateChange={handleProcessingStateChange} />;
+            case 'admin-teachers':
+              return <TeacherAdminManager />;
+            case 'password':
+              return <PasswordManager apiEndpoint='/api/auth/change-password' />;
+            case 'teacher-courses':
+              console.log('Rendering TeacherCourseManager with userInfo:', normalizedUserInfo, 'courses:', courses);
+              return <TeacherCourseManager userInfo={normalizedUserInfo} courses={courses} />;
+            case 'teacher-grades':
+              return <GradeManager userInfo={normalizedUserInfo} />;
+            case 'teacher-exams':
+              return <TeacherExamManager />;
+            case 'tutoring':
+              return <TutoringManager userInfo={normalizedUserInfo} courses={courses} />;
+            default:
+              console.log('No matching case for activeTab:', activeTab);
+              return null;
+          }
+        })()}
+      </div>
+    );
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-4 md:p-8 h-screen bg-gray-100">
-        <div className="loading-spinner h-16 w-16"></div>
-        <span className="ml-4 text-blue-600 text-lg md:text-2xl font-semibold">後台資料載入中，請稍候...</span>
-      </div>
+      <LoadingSpinner fullScreen text="後台資料載入中，請稍候..." />
     );
   }
 
@@ -599,7 +603,7 @@ function BackPanel() {
     <div className="flex h-full bg-gray-100">
       {/* 漢堡按鈕（僅手機顯示，sidebar 關閉時顯示） */}
       {isMobile && !sidebarOpen && (
-        <button className="fixed top-16 left-4 z-40 bg-white p-2 rounded-full shadow-lg md:hidden hover:bg-gray-50 transition-colors" onClick={() => setSidebarOpen(true)}>
+        <button className="fixed top-16 left-4 z-40 bg-white p-2 rounded-full shadow-lg md:hidden hover:bg-gray-50" onClick={() => setSidebarOpen(true)}>
           <svg className="w-6 h-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
         </button>
       )}
@@ -617,7 +621,7 @@ function BackPanel() {
       />
 
       <div
-        className="flex-1 flex flex-col min-h-0 bg-gray-100"
+        className={`flex-1 flex flex-col min-h-0 bg-gray-100 ${!activeTab ? 'justify-center' : ''}`}
         style={{
           paddingLeft: isMobile ? 0 : (sidebarOpen ? 64 : 256),
           transition: 'padding-left 0.3s'

@@ -9,6 +9,12 @@ const commonConfig = {
 	allowOutsideClick: false,
 	allowEscapeKey: true,
 	backdrop: true,
+  showClass: {
+    popup: 'animate-bounce-in'
+  },
+  hideClass: {
+    popup: 'animate-fade-out'
+  },
 	...Swal.mixin({
 		customClass: {
 			confirmButton: 'swal2-confirm-blue'
@@ -96,8 +102,8 @@ export const confirm = (message: string, options: SweetAlertOptions = {}) => {
 		confirmButtonText: '確認',
 		cancelButtonText: '取消',
 		focusCancel: true,
-		confirmButtonColor: '#3B82F6',
-		cancelButtonColor: '#6B7280',
+		confirmButtonColor: '#16a34a',
+		cancelButtonColor: '#dc2626',
 		scrollbarPadding: false,
 		heightAuto: false,
 		allowOutsideClick: false,

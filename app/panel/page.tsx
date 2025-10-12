@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { setSession } from '../utils/session';
+import alerts from '../utils/alerts';
 import LoadingSpinner from '../components/LoadingSpinner';
 import Dropdown from '../components/ui/Dropdown';
 
@@ -14,7 +15,7 @@ export default function PanelLoginPage() {
     account: '',
     password: '',
   });
-  const [error, setError] = useState('');
+  
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -31,7 +32,7 @@ export default function PanelLoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setError('');
+    
     console.log('Panel - Starting login process...');
 
     try {
@@ -89,10 +90,18 @@ export default function PanelLoginPage() {
     } catch (err: unknown) {
       console.error('Panel - Login error:', err);
       const message = err instanceof Error ? err.message : '發生未知錯誤';
-      setError(message);
       
-      // The error is already set and will be displayed on the page.
-      // The SweetAlert2 dialogs are removed to make the error more visible.
+      
+      // 根據錯誤類型顯示對應的 SweetAlert2 對話框
+      if (message.includes('Invalid password') || message.includes('密碼')) {
+        alerts.showPasswordError();
+      } else if (message.includes('Account not found') || message.includes('查無') || message.includes('not found')) {
+        alerts.showAccountNotFound();
+      } else if (message.includes('伺服器錯誤') || message.includes('伺服器回傳格式錯誤')) {
+        alerts.showErrorCode('500');
+      } else {
+        alerts.showError(message);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -100,7 +109,7 @@ export default function PanelLoginPage() {
 
   return (
     <div className="h-full bg-gray-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-4xl flex flex-row bg-white shadow-2xl rounded-2xl overflow-hidden">
+      <div className="w-full max-w-4xl flex flex-row bg-white shadow-2xl rounded-2xl overflow-hidden animate-fade-in">
         {/* Left Panel */}
         <div className="w-1/2 bg-blue-600 p-12 text-white hidden md:flex flex-col justify-center items-center text-center">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-24 w-24 mb-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -140,7 +149,7 @@ export default function PanelLoginPage() {
                   type="text"
                   autoComplete="account"
                   required
-                  className="block w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  className="block w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors,transition-shadow"
                   placeholder="請輸入您的帳號"
                   value={formData.account}
                   onChange={handleChange}
@@ -160,7 +169,7 @@ export default function PanelLoginPage() {
                   placeholder="請輸入您的密碼"
                   value={formData.password}
                   onChange={handleChange}
-                  className="block w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 transition pr-10"
+                  className="block w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors,transition-shadow pr-10"
                   required
                   autoComplete="current-password"
                 />
@@ -185,7 +194,7 @@ export default function PanelLoginPage() {
               </div>
             </div>
 
-            {error && <div className="text-red-500 text-center text-sm font-semibold border border-red-200 bg-red-50 py-2 rounded-lg">{error}</div>}
+            
             
             <button
               type="submit"

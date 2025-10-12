@@ -1,4 +1,7 @@
+'use client';
+
 import React from 'react';
+import { motion } from 'framer-motion';
 import { MoonLoader } from 'react-spinners';
 
 export interface ButtonProps {
@@ -45,11 +48,14 @@ export default function Button({
   const classes = `${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${widthClass} ${className}`;
 
   return (
-    <button
+    <motion.button
       type={type}
       className={classes}
       onClick={onClick}
       disabled={disabled || loading}
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      transition={{ duration: 0.1 }}
     >
       {loading && (
         <MoonLoader
@@ -60,6 +66,6 @@ export default function Button({
         />
       )}
       {children}
-    </button>
+    </motion.button>
   );
 } 

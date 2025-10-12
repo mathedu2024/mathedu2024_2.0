@@ -9,6 +9,7 @@ import AlertDialog from './AlertDialog';
 import ConfirmDialog from './ConfirmDialog';
 import type { Course } from '../components/TeacherCourseManager';
 import { TutoringSlot, BookedStudent } from '@/services/interfaces';
+import LoadingSpinner from './LoadingSpinner';
 import 'react-toastify/dist/ReactToastify.css';
 
 interface UserInfo {
@@ -687,7 +688,7 @@ const TutoringManager: React.FC<TutoringManagerProps> = ({ userInfo, courses }) 
               <div className="flex justify-end space-x-3">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="btn-secondary">取消</button>
                 <button type="submit" className="btn-primary" disabled={loading}>
-                  {loading ? <MoonLoader size={20} /> : (selectedSlot ? '儲存變更' : '新增時段')}
+                  {loading ? <LoadingSpinner size={20} color="white" /> : (selectedSlot ? '儲存變更' : '新增時段')}
                 </button>
               </div>
             </form>

@@ -5,6 +5,7 @@ import MoonLoader from './MoonLoader';
 import Swal from 'sweetalert2';
 import { XCircleIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { Appointment } from '@/services/interfaces'; // Import Appointment interface
+import LoadingSpinner from './LoadingSpinner';
 
 
 interface StudentTutoringHistoryProps {
@@ -237,7 +238,7 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
               <div className="flex justify-end space-x-3">
                 <button type="button" onClick={() => setIsEditModalOpen(false)} className="btn-secondary">取消</button>
                 <button type="submit" className="btn-primary" disabled={loading}>
-                  {loading ? <MoonLoader size={20} /> : '儲存變更'}
+                  {loading ? <LoadingSpinner size={20} color="white" /> : '儲存變更'}
                 </button>
               </div>
             </form>

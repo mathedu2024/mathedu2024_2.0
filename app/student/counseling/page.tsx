@@ -11,7 +11,7 @@ export default function CounselingPage() {
   const [counselingSubTab, setCounselingSubTab] = useState<'request' | 'history'>('request');
 
   if (loading) {
-    return <div className="flex h-screen items-center justify-center"><LoadingSpinner /></div>;
+    return <LoadingSpinner fullScreen />;
   }
 
   return (

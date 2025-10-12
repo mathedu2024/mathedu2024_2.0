@@ -3,11 +3,33 @@
 import React from 'react';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { getAnnouncements } from '../services/announcementService';
 import { getExams, Exam } from '../services/examService';
-import Dropdown from './components/ui/Dropdown';
-import Footer from './components/Footer';
-import LoadingSpinner from './components/LoadingSpinner';
+import Dropdown from '@/components/ui/Dropdown';
+import Footer from '@/components/Footer';
+import LoadingSpinner from '@/components/LoadingSpinner';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: {
+      duration: 0.5,
+    },
+  },
+};
 
 interface Link {
   name: string;
@@ -56,56 +78,40 @@ const gradeOptions = [
   { value: '進修', label: '進修' },
 ];
 
-// Removed unused getHomePageData function
-
 export default function Home() {
-  // 計算倒數天數 (考試前一天為第1天)
   const calculateDaysLeft = (startDate: string) => {
     const now = new Date();
     const target = new Date(startDate);
-    
-    // 設定為台灣時區
-    const taiwanOffset = 8 * 60; // 台灣是 UTC+8
-    const userOffset = now.getTimezoneOffset(); // 獲取用戶時區偏移（分鐘）
-    const totalOffset = taiwanOffset + userOffset; // 計算總偏移
-    
-    // 調整時間到台灣時區
+    const taiwanOffset = 8 * 60;
+    const userOffset = now.getTimezoneOffset();
+    const totalOffset = taiwanOffset + userOffset;
     const taiwanTime = new Date(now.getTime() + totalOffset * 60 * 1000);
-    taiwanTime.setHours(0, 0, 0, 0); // 設定為當天凌晨
-    
+    taiwanTime.setHours(0, 0, 0, 0);
     const targetDay = new Date(target);
-    targetDay.setHours(0, 0, 0, 0); // 設定目標日期為凌晨
-    
+    targetDay.setHours(0, 0, 0, 0);
     const timeDiff = targetDay.getTime() - taiwanTime.getTime();
     const daysLeft = Math.ceil(timeDiff / (1000 * 3600 * 24));
-    return daysLeft - 1; // 考試前一天為第1天，考試當天為第0天
+    return daysLeft - 1;
   };
 
-  // 考試資料狀態
   const [exams, setExams] = useState<Exam[]>([]);
   const [countdowns, setCountdowns] = useState<number[]>([]);
-
-  // 公告與課程資料
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedAnnouncement, setExpandedAnnouncement] = useState<string | null>(null);
   const [announcementPage, setAnnouncementPage] = useState<number>(1);
   const ANNOUNCEMENTS_PER_PAGE = 3;
-
-  // 篩選器狀態
   const [selectedContentType, setSelectedContentType] = useState<string>('全部');
   const [selectedSubject, setSelectedSubject] = useState<string>('全部');
   const [selectedGrade, setSelectedGrade] = useState<string>('全部');
 
-  // 篩選後的公告
   const filteredAnnouncements = announcements
     .slice()
     .sort((a, b) => {
-      // createdAt 可能是字串或 Timestamp，統一轉成數字比較
       const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
       const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      return bTime - aTime; // 新到舊
+      return bTime - aTime;
     })
     .filter(announcement => {
       const contentTypeMatch = selectedContentType === '全部' || announcement.contentType === selectedContentType;
@@ -114,42 +120,29 @@ export default function Home() {
       return contentTypeMatch && subjectMatch && gradeMatch;
     });
 
-  // 更新倒數天數
   useEffect(() => {
     const updateCountdowns = () => {
       const newCountdowns = exams.map(exam => calculateDaysLeft(exam.startDate));
       setCountdowns(newCountdowns);
     };
     updateCountdowns();
-    // 暫停自動更新功能
-    // const timer = setInterval(updateCountdowns, 1000 * 60 * 60); // 每小時更新一次
-    // return () => clearInterval(timer);
   }, [exams]);
 
-  // 檢查本地緩存
   useEffect(() => {
-    // 檢查是否有緩存數據可用
     const checkCache = () => {
-      // 確保只在客戶端執行
       if (typeof window === 'undefined') return false;
-      
       try {
         const cachedAnn = localStorage.getItem('cached_announcements');
         const cachedExm = localStorage.getItem('cached_exams');
         const annCacheTime = localStorage.getItem('announcements_cache_time');
         const exmCacheTime = localStorage.getItem('exams_cache_time');
-        
-        // 檢查緩存是否過期（24小時）
         const now = Date.now();
-        const cacheExpiry = 24 * 60 * 60 * 1000; // 24小時
-        
+        const cacheExpiry = 24 * 60 * 60 * 1000;
         let hasValidCache = false;
-        
         if (cachedAnn && annCacheTime && (now - parseInt(annCacheTime)) < cacheExpiry) {
           try {
             const parsedAnn = JSON.parse(cachedAnn);
             if (Array.isArray(parsedAnn) && parsedAnn.length > 0) {
-              console.log('使用緩存的公告數據進行初始渲染');
               setAnnouncements(parsedAnn);
               hasValidCache = true;
             }
@@ -157,12 +150,10 @@ export default function Home() {
             console.error('解析緩存公告數據時出錯:', parseErr);
           }
         }
-        
         if (cachedExm && exmCacheTime && (now - parseInt(exmCacheTime)) < cacheExpiry) {
           try {
             const parsedExm = JSON.parse(cachedExm);
             if (Array.isArray(parsedExm) && parsedExm.length > 0) {
-              console.log('使用緩存的考試數據進行初始渲染');
               setExams(parsedExm);
               hasValidCache = true;
             }
@@ -170,29 +161,21 @@ export default function Home() {
             console.error('解析緩存考試數據時出錯:', parseErr);
           }
         }
-        
         if (hasValidCache) {
           setLoading(false);
         }
-        
         return hasValidCache;
       } catch (err) {
         console.error('檢查緩存時出錯:', err);
         return false;
       }
     };
-    
-    // 如果有有效緩存，先顯示緩存數據，然後在後台刷新
     const hasCache = checkCache();
-    
-    // 無論是否有緩存，都嘗試獲取最新數據
-    setLoading(!hasCache); // 如果沒有緩存，顯示加載狀態
+    setLoading(!hasCache);
     setError(null);
   }, []);
-  
-  // 檢查是否需要顯示加載狀態
+
   useEffect(() => {
-    // 如果沒有任何數據，顯示加載狀態
     if (announcements.length === 0 && exams.length === 0) {
       setLoading(true);
     } else {
@@ -200,48 +183,27 @@ export default function Home() {
     }
   }, [announcements.length, exams.length]);
 
-  // 取得公告、課程與考試資訊（只在組件掛載時執行一次）
   useEffect(() => {
-    // 使用 ref 來追蹤是否已經獲取過數據，避免重複請求
     let isMounted = true;
-    
     setError(null);
-    
-    // 添加增強的重試機制
     const fetchData = async (retryCount = 0, maxRetries = 3) => {
-      if (!isMounted) return; // 如果組件已卸載，停止執行
-      
+      if (!isMounted) return;
       try {
-        console.log(`嘗試獲取首頁資料 (嘗試 ${retryCount + 1}/${maxRetries + 1})`);
-        
-        // 使用單獨的 try-catch 塊分別獲取數據，這樣一個失敗不會影響另一個
         let ann = [];
         let exm = [];
-        
         try {
           ann = await getAnnouncements();
-          console.log(`成功獲取公告數據: ${Array.isArray(ann) ? ann.length : 0} 條記錄`);
         } catch (annErr) {
           console.error('獲取公告數據失敗:', annErr);
-          // 不拋出錯誤，而是使用空數組繼續
         }
-        
         try {
           exm = await getExams();
-          console.log(`成功獲取考試數據: ${Array.isArray(exm) ? exm.length : 0} 條記錄`);
         } catch (exmErr) {
           console.error('獲取考試數據失敗:', exmErr);
-          // 不拋出錯誤，而是使用空數組繼續
         }
-        
-        // 如果兩個數據源都失敗且還有重試機會，則拋出錯誤以觸發重試
         if ((!ann || ann.length === 0) && (!exm || exm.length === 0) && retryCount < maxRetries) {
           throw new Error('兩個數據源都獲取失敗，將進行重試');
         }
-        
-        console.log('首頁資料獲取成功');
-        
-        // 處理公告資料
         const processedAnnouncements = Array.isArray(ann) && ann.length > 0
           ? ann.map(a => {
               if (!a || typeof a !== 'object') {
@@ -256,15 +218,12 @@ export default function Home() {
                 subject: a.subject || undefined,
                 grade: a.grade || undefined,
                 links: Array.isArray(a.links) ? a.links : [],
-                createdAt: a.createdAt ? a.createdAt.toString() : new Date().toISOString(), // 確保 createdAt 是字符串
+                createdAt: a.createdAt ? a.createdAt.toString() : new Date().toISOString(),
                 description: typeof a.description === 'string' ? a.description : '',
               };
-            }).filter(Boolean) // 過濾掉無效的數據
+            }).filter(Boolean)
           : [];
-        
         setAnnouncements(processedAnnouncements);
-        
-        // 處理考試資料
         const processedExams = Array.isArray(exm) && exm.length > 0
           ? exm.map(e => {
               if (!e || typeof e !== 'object') {
@@ -278,65 +237,40 @@ export default function Home() {
                 endDate: typeof e.endDate === 'string' ? e.endDate : new Date().toISOString().split('T')[0],
                 createdAt: e.createdAt ? e.createdAt.toString() : new Date().toISOString(),
               };
-            }).filter(Boolean) // 過濾掉無效的數據
+            }).filter(Boolean)
           : [];
-        
         setExams(processedExams);
-        
-        // 將處理後的數據保存到本地緩存
-        try {
-          // 確保只在客戶端執行
-          if (typeof window !== 'undefined') {
-            if (processedAnnouncements.length > 0) {
-              localStorage.setItem('cached_announcements', JSON.stringify(processedAnnouncements));
-              localStorage.setItem('announcements_cache_time', Date.now().toString());
-              console.log('公告數據已緩存到本地存儲');
-            }
-            
-            if (processedExams.length > 0) {
-              localStorage.setItem('cached_exams', JSON.stringify(processedExams));
-              localStorage.setItem('exams_cache_time', Date.now().toString());
-              console.log('考試數據已緩存到本地存儲');
-            }
+        if (typeof window !== 'undefined') {
+          if (processedAnnouncements.length > 0) {
+            localStorage.setItem('cached_announcements', JSON.stringify(processedAnnouncements));
+            localStorage.setItem('announcements_cache_time', Date.now().toString());
           }
-        } catch (cacheErr) {
-          console.error('無法緩存數據到本地存儲:', cacheErr);
+          if (processedExams.length > 0) {
+            localStorage.setItem('cached_exams', JSON.stringify(processedExams));
+            localStorage.setItem('exams_cache_time', Date.now().toString());
+          }
         }
         setLoading(false);
       } catch (err) {
-        console.error(`首頁資料獲取錯誤 (嘗試 ${retryCount + 1}/${maxRetries + 1}):`, err);
-        
-        // 如果還有重試次數，則重試
         if (retryCount < maxRetries) {
-          // 使用指數退避策略，每次重試延遲時間增加
-          const retryDelay = Math.min(1000 * Math.pow(2, retryCount), 10000); // 最大延遲10秒
-          console.log(`將在 ${retryDelay}ms 後重試...`);
-          
+          const retryDelay = Math.min(1000 * Math.pow(2, retryCount), 10000);
           setTimeout(() => {
             fetchData(retryCount + 1, maxRetries);
           }, retryDelay);
         } else {
-          console.error('已達最大重試次數，無法獲取資料');
-          // 提供更詳細的錯誤信息
           const errorMessage = err instanceof Error ? err.message : '未知錯誤';
           setLoading(false);
-          
-          // 嘗試使用本地緩存數據（如果有）
           try {
-            // 確保只在客戶端執行
             if (typeof window !== 'undefined') {
               const cachedAnn = localStorage.getItem('cached_announcements');
               const cachedExm = localStorage.getItem('cached_exams');
               const annCacheTime = localStorage.getItem('announcements_cache_time');
               const exmCacheTime = localStorage.getItem('exams_cache_time');
-              
               let hasCache = false;
-              
               if (cachedAnn) {
                 try {
                   const parsedAnn = JSON.parse(cachedAnn);
                   if (Array.isArray(parsedAnn) && parsedAnn.length > 0) {
-                    console.log(`使用本地緩存的公告數據（緩存時間：${annCacheTime ? new Date(parseInt(annCacheTime)).toLocaleString() : '未知'}）`);
                     setAnnouncements(parsedAnn);
                     hasCache = true;
                   }
@@ -344,12 +278,10 @@ export default function Home() {
                   console.error('解析緩存公告數據時出錯:', parseErr);
                 }
               }
-              
               if (cachedExm) {
                 try {
                   const parsedExm = JSON.parse(cachedExm);
                   if (Array.isArray(parsedExm) && parsedExm.length > 0) {
-                    console.log(`使用本地緩存的考試數據（緩存時間：${exmCacheTime ? new Date(parseInt(exmCacheTime)).toLocaleString() : '未知'}）`);
                     setExams(parsedExm);
                     hasCache = true;
                   }
@@ -357,7 +289,6 @@ export default function Home() {
                   console.error('解析緩存考試數據時出錯:', parseErr);
                 }
               }
-              
               if (hasCache) {
                 setError(`使用緩存數據顯示，部分內容可能不是最新。上次更新時間：${new Date(Math.max(
                   annCacheTime ? parseInt(annCacheTime) : 0,
@@ -367,30 +298,22 @@ export default function Home() {
                 setError(`載入資料時發生錯誤: ${errorMessage}。請檢查網絡連接後重新整理頁面。`);
               }
             }
-          } catch (cacheErr) {
-            console.error('無法使用本地緩存:', cacheErr);
+          } catch {
             setError(`載入資料時發生錯誤: ${errorMessage}。無法讀取緩存數據。請檢查網絡連接後重新整理頁面。`);
           }
         }
       }
     };
-    
-    // 開始獲取資料
     fetchData();
-    
-    // 清理函數
     return () => {
       isMounted = false;
-      console.log('首頁資料獲取組件卸載');
     };
-  }, []); // 空依賴數組是正確的，因為我們只想在組件掛載時執行一次
+  }, []);
 
-  // 重置分頁當篩選器改變時
   useEffect(() => {
     setAnnouncementPage(1);
   }, [selectedContentType, selectedSubject, selectedGrade]);
 
-  // 如果發生錯誤，顯示錯誤訊息
   if (error) {
     return (
       <main className="h-full p-8 bg-gray-50">
@@ -410,8 +333,7 @@ export default function Home() {
 
   return (
     <main className="h-full p-2 sm:p-4 md:p-6 lg:p-8 bg-gray-50">
-      {/* 頁首區塊 */}
-      <div className="mb-4 md:mb-8 text-center">
+      <div className="mb-4 md:mb-8 text-center animate-fade-in">
         <div className="bg-white rounded-xl p-4 md:p-6 mb-4 md:mb-8">
           <h1 className="text-2xl md:text-4xl font-bold text-blue-700 mb-4 md:mb-8 text-center">
             <span className="block md:inline">歡迎來到</span>
@@ -423,25 +345,33 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 重要考試時程區塊 */}
-      <div className="mb-4 md:mb-8 rounded-xl p-4 md:p-6 bg-blue-600">
+      <div className="mb-4 md:mb-8 rounded-xl p-4 md:p-6 bg-blue-600 animate-fade-in" style={{ animationDelay: '0.1s' }}>
         <h2 className="text-2xl md:text-4xl font-bold text-center text-white mb-4 md:mb-8">重要考試時程</h2>
         {loading ? (
           <div className="flex items-center justify-center p-4 md:p-8 py-4 md:py-8">
             <LoadingSpinner size={40} />
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <motion.div 
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+          >
             {exams.sort((a, b) => {
               const order = {
-                'gsat': 1, // 學測
-                'tcat': 2, // 統測
-                'bcat': 3, // 會考
-                'ast': 4   // 分科測驗
+                'gsat': 1,
+                'tcat': 2,
+                'bcat': 3,
+                'ast': 4
               };
               return (order[a.id as keyof typeof order] || 999) - (order[b.id as keyof typeof order] || 999);
             }).map((exam, index) => (
-              <div key={exam.id} className="bg-white/20 backdrop-blur-sm rounded-lg p-4 md:p-6 text-center">
+              <motion.div 
+                key={exam.id} 
+                className="bg-white/20 backdrop-blur-sm rounded-lg p-4 md:p-6 text-center"
+                variants={itemVariants}
+              >
                 <h3 className="text-xl md:text-3xl font-bold text-white mb-4 md:mb-6">{exam.name}</h3>
                 <div className="text-base md:text-lg text-white">
                   {exam.startDate}
@@ -450,61 +380,57 @@ export default function Home() {
                 <div className="text-xl md:text-3xl font-bold text-white mt-4 md:mt-6">
                   {countdowns[index] > 0 ? `倒數 ${countdowns[index]} 天` : countdowns[index] === 0 ? '考試開始' : countdowns[index] < 0 ? '已結束' : '考試開始'}
                 </div>
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         )}
       </div>
 
-      {/* 網站公告區塊 */}
-      <section id="announcements" className="py-4 md:py-8 bg-white">
+      <section id="announcements" className="py-4 md:py-8 bg-white animate-fade-in" style={{ animationDelay: '0.2s' }}>
         <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8">
           <div className="text-center mb-4 md:mb-8">
             <h2 className="text-2xl md:text-4xl font-bold text-center mb-4 md:mb-8 text-blue-600">網站公告</h2>
             
-            {/* 公告篩選器 */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 md:mb-8">
-              <div className="flex flex-col gap-2 w-full md:flex-row md:gap-4 md:w-auto md:items-center">
-                {/* 篩選器1 */}
-                <div className="w-full md:w-auto">
-                  <Dropdown
-                    value={selectedContentType}
-                    onChange={setSelectedContentType}
-                    options={contentTypeOptions}
-                    placeholder="全部類型"
-                    className="min-w-[240px] md:min-w-[300px] max-w-full"
-                  />
-                </div>
-                {/* 篩選器2 */}
-                <div className="w-full md:w-auto">
-                  <Dropdown
-                    value={selectedSubject}
-                    onChange={setSelectedSubject}
-                    options={subjectOptions}
-                    placeholder="全部科目"
-                    className="min-w-[240px] md:min-w-[300px] max-w-full"
-                  />
-                </div>
-                {/* 篩選器3 */}
-                <div className="w-full md:w-auto">
-                  <Dropdown
-                    value={selectedGrade}
-                    onChange={setSelectedGrade}
-                    options={gradeOptions}
-                    placeholder="全部年級"
-                    className="min-w-[240px] md:min-w-[300px] max-w-full"
-                  />
-                </div>
-              </div>
+            <div className="flex flex-col sm:flex-row flex-wrap justify-center items-center gap-4 mb-4 md:mb-8">
+              <Dropdown
+                value={selectedContentType}
+                onChange={setSelectedContentType}
+                options={contentTypeOptions}
+                placeholder="全部類型"
+                className="w-full sm:w-auto sm:min-w-[200px]"
+              />
+              <Dropdown
+                value={selectedSubject}
+                onChange={setSelectedSubject}
+                options={subjectOptions}
+                placeholder="全部科目"
+                className="w-full sm:w-auto sm:min-w-[200px]"
+              />
+              <Dropdown
+                value={selectedGrade}
+                onChange={setSelectedGrade}
+                options={gradeOptions}
+                placeholder="全部年級"
+                className="w-full sm:w-auto sm:min-w-[200px]"
+              />
             </div>
           </div>
           
           {filteredAnnouncements.length > 0 ? (
-            <div className="space-y-4 w-full">
+            <motion.div 
+              className="space-y-4 w-full"
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+            >
               {filteredAnnouncements.slice((announcementPage-1)*ANNOUNCEMENTS_PER_PAGE, announcementPage*ANNOUNCEMENTS_PER_PAGE).map((announcement) => (
-                <div key={announcement.id} className="border rounded-lg overflow-hidden">
+                <motion.div 
+                  key={announcement.id} 
+                  className="border rounded-lg overflow-hidden"
+                  variants={itemVariants}
+                >
                   <button
-                    className="w-full text-left p-4 md:p-6 hover:bg-gray-50 transition-colors flex items-center"
+                    className="w-full text-left p-4 md:p-6 hover:bg-gray-50 flex items-center"
                     onClick={() => setExpandedAnnouncement(expandedAnnouncement === announcement.id ? null : announcement.id)}
                     style={{ color: 'rgb(70, 131, 229)' }}
                   >
@@ -522,9 +448,9 @@ export default function Home() {
                       </svg>
                     </div>
                   </button>
-                  {expandedAnnouncement === announcement.id && (
+                  <div
+                    className={`transition-[max-height,opacity] duration-300 ease-in-out overflow-hidden ${expandedAnnouncement === announcement.id ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
                     <div className="p-4 md:p-6 border-t">
-                      {/* 標籤顯示 */}
                       <div className="flex flex-wrap gap-2 mb-4 md:mb-6">
                         {announcement.contentType && (
                           <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs sm:text-sm rounded-full">
@@ -543,7 +469,6 @@ export default function Home() {
                         )}
                       </div>
                       <p className="text-sm md:text-base text-black whitespace-pre-line mb-4 md:mb-6">{announcement.content}</p>
-                      {/* 連結顯示 */}
                       {announcement.links && announcement.links.length > 0 && (
                         <div className="mt-4 md:mt-6">
                           <div className="text-sm md:text-base font-medium text-gray-700 mb-2">相關連結：</div>
@@ -554,7 +479,7 @@ export default function Home() {
                                 href={link.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-block bg-blue-600 text-white px-3 py-1 rounded text-xs sm:text-sm hover:bg-blue-700 transition-colors"
+                                className="inline-block bg-blue-600 text-white px-3 py-1 rounded text-xs sm:text-sm hover:bg-blue-700"
                               >
                                 {link.name}
                               </a>
@@ -563,16 +488,15 @@ export default function Home() {
                         </div>
                       )}
                     </div>
-                  )}
-                </div>
+                  </div>
+                </motion.div>
               ))}
-              {/* 分頁按鈕 */}
               {filteredAnnouncements.length > ANNOUNCEMENTS_PER_PAGE && (
                 <div className="flex flex-wrap justify-center gap-2 sm:gap-4 mt-4 md:mt-8">
                   {Array.from({length: Math.ceil(filteredAnnouncements.length/ANNOUNCEMENTS_PER_PAGE)}).map((_, idx) => (
                     <button
                       key={idx}
-                      className={`px-4 py-2 rounded transition-colors ${announcementPage === idx+1 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-blue-100'}`}
+                      className={`px-3 py-1 sm:px-4 sm:py-2 rounded ${announcementPage === idx+1 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-blue-100'}`}
                       onClick={() => setAnnouncementPage(idx+1)}
                     >
                       {idx+1}
@@ -580,14 +504,13 @@ export default function Home() {
                   ))}
                 </div>
               )}
-            </div>
+            </motion.div>
           ) : (
             <p className="text-center text-gray-500 text-base md:text-lg">目前沒有符合篩選條件的公告</p>
           )}
         </div>
       </section>
       
-      {/* 添加 Footer 组件 */}
       <Footer />
     </main>
   );

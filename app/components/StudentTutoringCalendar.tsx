@@ -3,6 +3,7 @@ import { format, parseISO } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import MoonLoader from './MoonLoader';
 import { confirm, showError } from '../utils/alerts';
+import LoadingSpinner from './LoadingSpinner';
 
 
 interface TutoringSlot {
@@ -324,7 +325,7 @@ const StudentTutoringCalendar: React.FC<StudentTutoringCalendarProps> = ({ userI
               <div className="flex justify-end space-x-3 pt-4">
                 <button type="button" onClick={() => setIsBookingModalOpen(false)} className="btn-secondary">取消</button>
                 <button type="submit" className="btn-primary" disabled={loading}>
-                  {loading ? <MoonLoader size={20} /> : '確認預約'}
+                  {loading ? <LoadingSpinner size={20} color="white" /> : '確認預約'}
                 </button>
               </div>
             </form>

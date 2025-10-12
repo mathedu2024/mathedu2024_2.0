@@ -25,7 +25,7 @@ export default function StudentGradesPage() {
   }
 
   return (
-    <div className="w-full p-2 md:p-8">
+    <div className="w-full p-2 md:p-8 animate-fade-in">
       <StudentGradeViewer studentInfo={studentInfo} />
     </div>
   );

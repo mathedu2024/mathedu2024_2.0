@@ -73,7 +73,7 @@ export default function FqaPage() {
   };
 
   return (
-    <div className="bg-gray-100 p-8">
+    <div className="bg-gray-100 p-8 animate-fade-in">
       <div className="max-w-4xl mx-auto pb-8">
         <h1 className="text-4xl md:text-5xl font-bold text-center text-blue-600 tracking-tight drop-shadow-sm mb-12">常見問題</h1>
         <div className="space-y-4">
@@ -93,11 +93,11 @@ export default function FqaPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
-              {openIndex === index && (
+              <div className={`transition-[max-height,opacity] duration-300 ease-in-out overflow-hidden ${openIndex === index ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
                 <div className="p-6 border-t border-gray-200">
                   <p className="text-lg text-gray-700 leading-relaxed">{item.answer}</p>
                 </div>
-              )}
+              </div>
             </div>
           ))}
         </div>

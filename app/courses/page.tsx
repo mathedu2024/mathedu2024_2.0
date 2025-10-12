@@ -43,6 +43,7 @@ export default function CoursesPage() {
   const [selectedSubject, setSelectedSubject] = useState<string>('all');
   const [selectedNature, setSelectedNature] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   // 篩選選項
   const grades = ['國一', '國二', '國三', '高一', '高二', '高三', '職一', '職二', '職三', '大一', '進修'];
@@ -154,10 +155,22 @@ export default function CoursesPage() {
 
       {/* 課程篩選器 */}
       {/* 手機：Accordion 收合群組 */}
-      <div className="md:hidden mb-8">
-        <details className="bg-white rounded-lg p-4 shadow">
-          <summary className="text-xl font-semibold mb-2 cursor-pointer">課程篩選</summary>
-          <div className="grid grid-cols-1 gap-4 mt-2">
+      <div className="md:hidden mb-8 bg-white rounded-lg shadow overflow-hidden">
+        <button onClick={() => setIsFilterOpen(!isFilterOpen)} className="w-full text-left p-4">
+          <summary className="text-xl font-semibold cursor-pointer flex justify-between items-center">
+            課程篩選
+            <svg
+              className={`w-5 h-5 ml-2 transform transition-transform ${isFilterOpen ? 'rotate-180' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </summary>
+        </button>
+        <div className={`transition-[max-height] duration-300 ease-in-out ${isFilterOpen ? 'max-h-[500px]' : 'max-h-0'}`}>
+          <div className="grid grid-cols-1 gap-4 p-4 border-t">
             {/* 年級篩選 */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">年級</label>
@@ -206,7 +219,7 @@ export default function CoursesPage() {
             <div className="flex items-end">
               <button
                 onClick={clearFilters}
-                className="w-full bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-gray-600 transition-colors duration-200 text-sm font-medium"
+                className="w-full bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-gray-600 text-sm font-medium"
               >
                 清除篩選
               </button>
@@ -215,7 +228,7 @@ export default function CoursesPage() {
               顯示 {filteredCourses.length} 個課程 (共 {courses.length} 個課程)
             </div>
           </div>
-        </details>
+        </div>
       </div>
       {/* 桌機：維持展開 */}
       <div className="hidden md:block bg-white rounded-lg p-6 mb-8">
@@ -365,8 +378,8 @@ export default function CoursesPage() {
 
       {/* Detail Modal */}
       {showModal && selectedCourse && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-bounce-in">
             <div className="p-6">
               {/* Modal Header */}
               <div className="flex justify-between items-start mb-6">
@@ -451,7 +464,7 @@ export default function CoursesPage() {
               <div className="flex justify-end mt-6 pt-6 border-t">
                 <button
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
                 >
                   關閉
                 </button>

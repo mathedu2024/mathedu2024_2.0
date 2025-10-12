@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { clearSession } from '../utils/session';
 import Sidebar from '../components/Sidebar';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -19,9 +19,15 @@ const studentFeatures = [
 
 function StudentLayoutContent({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { studentInfo, loading } = useStudentInfo();
+
+  useEffect(() => {
+    const currentTab = searchParams.get('tab');
+    setActiveTab(currentTab);
+  }, [searchParams]);
 
   const handleTabChange = (tab: string | null) => {
     setActiveTab(tab);
@@ -30,9 +36,7 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
     } else if (['courses', 'grades', 'counseling'].includes(tab)) {
       router.push(`/student/${tab}`);
     } else {
-      const url = new URL(window.location.href);
-      url.searchParams.set('tab', tab);
-      window.history.replaceState({}, '', url.toString());
+      router.push(`/student?tab=${tab}`);
     }
   };
 
@@ -44,7 +48,7 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
   if (loading) {
-    return <div className="flex h-screen items-center justify-center"><LoadingSpinner /></div>;
+    return <LoadingSpinner fullScreen />;
   }
 
   if (!studentInfo) {
@@ -84,7 +88,7 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
         />
 
         <main
-          className="flex-1 min-w-0 transition-all duration-300 flex justify-center"
+          className="flex-1 min-w-0 transition-all duration-300"
           style={{
             paddingLeft: isMobile ? 0 : (sidebarOpen ? '4rem' : '16rem'),
             transition: 'padding-left 0.3s'
@@ -100,7 +104,9 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
 export default function StudentLayout({ children }: { children: React.ReactNode }) {
   return (
     <StudentInfoProvider>
-      <StudentLayoutContent>{children}</StudentLayoutContent>
+      <Suspense fallback={<LoadingSpinner fullScreen />}>
+        <StudentLayoutContent>{children}</StudentLayoutContent>
+      </Suspense>
     </StudentInfoProvider>
   );
 }

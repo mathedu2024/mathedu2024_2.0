@@ -86,8 +86,8 @@ export default function StudentLoginPage() {
   };
 
   return (
-    <div className="h-full bg-gray-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-4xl flex flex-row bg-white shadow-2xl rounded-2xl overflow-hidden">
+    <div className="h-[calc(100vh-4rem)] bg-gray-100 flex items-center justify-center p-4">
+      <div className="w-full max-w-4xl flex flex-row bg-white shadow-2xl rounded-2xl overflow-hidden animate-fade-in">
         {/* Left Panel - Decorative */}
         <div className="w-1/2 bg-blue-600 p-12 text-white hidden md:flex flex-col justify-center items-center text-center">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-24 w-24 mb-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -123,7 +123,7 @@ export default function StudentLoginPage() {
                     required
                     value={formData.account}
                     onChange={handleChange}
-                    className="block w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+                    className="block w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors,transition-shadow"
                     placeholder="請輸入您的學號"
                   />
                 </div>
@@ -139,7 +139,7 @@ export default function StudentLoginPage() {
                     placeholder="請輸入您的密碼"
                     value={formData.password}
                     onChange={handleChange}
-                    className="block w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 transition pr-10"
+                    className="block w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors,transition-shadow pr-10"
                     required
                     autoComplete="current-password"
                     disabled={isLoading}
@@ -188,7 +188,7 @@ export default function StudentLoginPage() {
             <div className="mt-6 text-center">
               <Link 
                 href="/panel" 
-                className="text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
+                className="text-sm font-medium text-blue-600 hover:text-blue-800"
               >
                 老師/管理員登入
               </Link>

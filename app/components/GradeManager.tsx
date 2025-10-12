@@ -805,10 +805,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
 
   if (isCourseListLoading) {
     return (
-      <div className="flex items-center justify-center p-4 md:p-8 h-full bg-gray-100">
-        <div className="loading-spinner h-12 w-12"></div>
-        <span className="ml-4 text-blue-600 text-lg md:text-xl font-semibold">成績資料載入中...</span>
-      </div>
+      <LoadingSpinner fullScreen text="成績資料載入中..." />
     );
   }
 
