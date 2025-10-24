@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '../../../../services/firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 
 export async function POST(req: NextRequest) {
   const { studentId, oldCourses, newCourses, studentInfo } = await req.json();
@@ -7,67 +8,119 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing params' }, { status: 400 });
   }
 
-  // 計算加選與退選的課程
-  const added = newCourses.filter((c: string) => !oldCourses.includes(c));
-  const removed = oldCourses.filter((c: string) => !newCourses.includes(c));
+  const getCourseDocRef = async (compositeId: string) => {
+    const courseIdRegex = /^(.*)\((.*)\)$/;
+    const match = compositeId.match(courseIdRegex);
+    if (!match) return null;
+    const name = match[1];
+    const code = match[2];
 
-  // 取得學生資訊（如未傳入）
+    const courseQuery = await adminDb.collection('courses').where('name', '==', name).where('code', '==', code).limit(1).get();
+    if (courseQuery.empty) {
+      console.warn(`Could not find course document for compositeId: ${compositeId}`);
+      return null;
+    }
+    return courseQuery.docs[0].ref;
+  };
+
   let info = studentInfo;
   if (!info) {
-    // 從 users 集合查詢
     const userDoc = await adminDb.collection('users').doc(studentId).get();
     info = userDoc.exists ? userDoc.data() : { id: studentId };
   }
+  
+  const studentDetails = { 
+    id: studentId, 
+    name: info.name, 
+    account: info.account, 
+    email: info.email,
+    studentId: info.studentId || studentId,
+    grade: info.grade || '未設定'
+  };
 
-  // 加選：將學生加入對應課程的 students 陣列
-  for (const courseId of added) {
-    const ref = adminDb.collection('course-student-list').doc(courseId);
-    const doc = await ref.get();
-    const students = (doc.exists ? doc.data()?.students : []) || [];
-    if (!students.some((s: { id: string }) => s.id === studentId)) {
-      students.push({ 
-        id: studentId, 
-        name: info.name, 
-        account: info.account, 
-        email: info.email,
-        studentId: info.studentId || studentId,
-        grade: info.grade || '未設定'
-      });
-    }
-    await ref.set({ students }, { merge: true });
-  }
+  const added = newCourses.filter((c: string) => !oldCourses.includes(c));
+  const removed = oldCourses.filter((c: string) => !newCourses.includes(c));
+  const unchanged = newCourses.filter((c: string) => oldCourses.includes(c));
 
-  // 退選：將學生從對應課程的 students 陣列移除
-  for (const courseId of removed) {
-    const ref = adminDb.collection('course-student-list').doc(courseId);
-    const doc = await ref.get();
-    const students = (doc.exists ? doc.data()?.students : []) || [];
-    const filteredStudents = students.filter((s: { id: string }) => s.id !== studentId);
-    await ref.set({ students: filteredStudents }, { merge: true });
-  }
+  try {
+    // Handle added courses
+    for (const compositeId of added) {
+      const courseDocRef = await getCourseDocRef(compositeId);
 
-  // 更新現有課程中的學生資訊（確保資訊同步）
-  const allEnrolledCourses = [...oldCourses, ...newCourses];
-  for (const courseId of allEnrolledCourses) {
-    const ref = adminDb.collection('course-student-list').doc(courseId);
-    const doc = await ref.get();
-    if (doc.exists) {
-      const students = doc.data()?.students || [];
-      const studentIndex = students.findIndex((s: { id: string }) => s.id === studentId);
-      if (studentIndex !== -1) {
-        // 更新現有學生的資訊
-        students[studentIndex] = {
-          ...students[studentIndex],
-          name: info.name,
-          account: info.account,
-          email: info.email,
-          studentId: info.studentId || studentId,
-          grade: info.grade || '未設定'
-        };
-        await ref.set({ students }, { merge: true });
+      if (courseDocRef) {
+        const studentSubCollectionRef = courseDocRef.collection('students').doc(studentId);
+        await adminDb.runTransaction(async (transaction) => {
+          transaction.set(studentSubCollectionRef, studentDetails);
+          transaction.update(courseDocRef, { students: FieldValue.arrayUnion(studentId) });
+        });
+      }
+
+      // Also update student_data collection's enrolledCourses
+      const studentDataDocRef = adminDb.collection('student_data').doc(studentId);
+      const studentDataDoc = await studentDataDocRef.get();
+      
+      if (studentDataDoc.exists) {
+        const currentEnrolledCourses = studentDataDoc.data()?.enrolledCourses || [];
+        if (!currentEnrolledCourses.includes(compositeId)) {
+          await studentDataDocRef.update({ 
+            enrolledCourses: FieldValue.arrayUnion(compositeId) 
+          });
+          console.log(`Updated student_data for ${studentId}: added course ${compositeId}`);
+        }
+      } else {
+        // Create student_data document if it doesn't exist
+        await studentDataDocRef.set({ 
+          enrolledCourses: [compositeId],
+          studentId: studentId,
+          name: studentDetails.name,
+          account: studentDetails.account,
+          email: studentDetails.email,
+          grade: studentDetails.grade
+        });
+        console.log(`Created student_data for ${studentId}: added course ${compositeId}`);
       }
     }
-  }
 
-  return NextResponse.json({ success: true });
-} 
+    // Handle removed courses
+    for (const compositeId of removed) {
+      const courseDocRef = await getCourseDocRef(compositeId);
+
+      if (courseDocRef) {
+        const studentSubCollectionRef = courseDocRef.collection('students').doc(studentId);
+        await adminDb.runTransaction(async (transaction) => {
+          transaction.delete(studentSubCollectionRef);
+          transaction.update(courseDocRef, { students: FieldValue.arrayRemove(studentId) });
+        });
+      }
+
+      // Also update student_data collection's enrolledCourses
+      const studentDataDocRef = adminDb.collection('student_data').doc(studentId);
+      const studentDataDoc = await studentDataDocRef.get();
+      
+      if (studentDataDoc.exists) {
+        await studentDataDocRef.update({ 
+          enrolledCourses: FieldValue.arrayRemove(compositeId) 
+        });
+        console.log(`Updated student_data for ${studentId}: removed course ${compositeId}`);
+      }
+    }
+
+    // Handle unchanged courses (update student info)
+    if (studentInfo) {
+      for (const compositeId of unchanged) {
+        const courseDocRef = await getCourseDocRef(compositeId);
+        if (courseDocRef) {
+          const studentSubCollectionRef = courseDocRef.collection('students').doc(studentId);
+          await studentSubCollectionRef.set(studentDetails, { merge: true });
+        }
+      }
+    }
+
+    return NextResponse.json({ success: true });
+
+  } catch (error) {
+    console.error('Error updating student courses:', error);
+    const message = error instanceof Error ? error.message : 'An unknown error occurred.';
+    return NextResponse.json({ error: 'Failed to update course enrollments.', details: message }, { status: 500 });
+  }
+}

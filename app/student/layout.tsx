@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { clearSession } from '../utils/session';
 import Sidebar from '../components/Sidebar';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -11,29 +11,32 @@ import { BookOpenIcon, ClipboardDocumentListIcon, CheckCircleIcon, PencilIcon, C
 const studentFeatures = [
   { id: 'courses', title: '我的課程', icon: <BookOpenIcon /> },
   { id: 'grades', title: '成績查詢', icon: <ClipboardDocumentListIcon /> },
-  { id: 'attendance', title: '線上點名', icon: <CheckCircleIcon />, disabled: true },
-  { id: 'exam', title: '線上測驗', icon: <PencilIcon />, disabled: true },
+  { id: 'attendance', title: '線上點名', icon: <CheckCircleIcon /> },
   { id: 'counseling', title: '輔導預約', icon: <CalendarIcon /> },
   { id: 'change-password', title: '修改密碼', icon: <KeyIcon /> },
+  { id: 'exam', title: '線上測驗', icon: <PencilIcon />, disabled: true },
 ];
 
 function StudentLayoutContent({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { studentInfo, loading } = useStudentInfo();
 
   useEffect(() => {
-    const currentTab = searchParams.get('tab');
-    setActiveTab(currentTab);
-  }, [searchParams]);
+    const pathSegments = pathname.split('/').filter(Boolean);
+    const currentTabFromPath = pathSegments.length > 1 ? pathSegments[1] : null;
+    const currentTabFromSearch = searchParams.get('tab');
+    setActiveTab(currentTabFromPath || currentTabFromSearch);
+  }, [pathname, searchParams]);
 
   const handleTabChange = (tab: string | null) => {
     setActiveTab(tab);
     if (tab === null) {
       router.push('/student');
-    } else if (['courses', 'grades', 'counseling'].includes(tab)) {
+    } else if (['courses', 'grades', 'counseling', 'attendance'].includes(tab)) {
       router.push(`/student/${tab}`);
     } else {
       router.push(`/student?tab=${tab}`);
@@ -88,8 +91,9 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
         />
 
         <main
-          className="flex-1 min-w-0 transition-all duration-300"
+          className="flex-1 min-w-0 transition-all duration-300 overflow-y-auto"
           style={{
+            paddingTop: '1rem',
             paddingLeft: isMobile ? 0 : (sidebarOpen ? '4rem' : '16rem'),
             transition: 'padding-left 0.3s'
           }}

@@ -54,15 +54,37 @@ export const isSessionValid = (): boolean => {
 
 export const getSessionFromCookie = (cookieString: string): SessionData | null => {
   try {
+    console.log('getSessionFromCookie: cookieString', cookieString);
     const cookies = cookieString.split(';').reduce((acc, cookie) => {
-      const [key, value] = cookie.trim().split('=');
+      const parts = cookie.trim().split('=');
+      const key = parts[0];
+      const value = parts.slice(1).join('=');
       acc[key] = value;
       return acc;
     }, {} as Record<string, string>);
     
     const sessionCookie = cookies['session'];
+    console.log('getSessionFromCookie: sessionCookie raw', sessionCookie);
     if (sessionCookie) {
-      return JSON.parse(decodeURIComponent(sessionCookie));
+      // Some environments may already provide a decoded cookie. Try parse directly first.
+      try {
+        return JSON.parse(sessionCookie);
+      } catch {}
+
+      // Fallback: decode once then parse
+      try {
+        const once = decodeURIComponent(sessionCookie);
+        return JSON.parse(once);
+      } catch {}
+
+      // Final fallback: decode twice (legacy behavior)
+      try {
+        const twice = decodeURIComponent(decodeURIComponent(sessionCookie));
+        return JSON.parse(twice);
+      } catch (e) {
+        console.error('Failed to parse session cookie after decode attempts:', e);
+        return null;
+      }
     }
     return null;
   } catch (error) {

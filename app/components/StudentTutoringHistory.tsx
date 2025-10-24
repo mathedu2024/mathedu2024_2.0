@@ -196,15 +196,15 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
                     <td className="px-6 py-4">{appointment.slotDetails?.teacherName || 'N/A'}</td>
                     <td className="px-6 py-4">
                       <div className="flex gap-3">
-                        <button onClick={() => handleOpenDetailsModal(appointment)} className="text-gray-600 hover:text-gray-800 font-medium transition-colors flex items-center">
+                        <button onClick={() => handleOpenDetailsModal(appointment)} className="btn-primary btn-sm flex items-center">
                           查看詳情
                         </button>
                         {isUpcoming && (appointment.status === 'confirmed' || appointment.status === 'pending') && (
                           <>
-                            <button onClick={() => handleOpenEditModal(appointment)} className="text-blue-600 hover:text-blue-800 font-medium transition-colors flex items-center">
+                            <button onClick={() => handleOpenEditModal(appointment)} className="btn-primary btn-sm flex items-center">
                               <PencilIcon className="w-4 h-4 mr-1" /> 編輯
                             </button>
-                            <button onClick={() => handleCancelAppointment(appointment)} className="text-red-600 hover:text-red-800 font-medium transition-colors flex items-center">
+                            <button onClick={() => handleCancelAppointment(appointment)} className="btn-primary btn-sm flex items-center">
                               <XCircleIcon className="w-4 h-4 mr-1" /> 取消
                             </button>
                           </>
@@ -231,12 +231,12 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
                   value={editForm.problemDescription}
                   onChange={(e) => setEditForm({ problemDescription: e.target.value })}
                   rows={5}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"
+                  className="input-unified mt-1"
                   required
                 ></textarea>
               </div>
               <div className="flex justify-end space-x-3">
-                <button type="button" onClick={() => setIsEditModalOpen(false)} className="btn-secondary">取消</button>
+                <button type="button" onClick={() => setIsEditModalOpen(false)} className="btn-primary">取消</button>
                 <button type="submit" className="btn-primary" disabled={loading}>
                   {loading ? <LoadingSpinner size={20} color="white" /> : '儲存變更'}
                 </button>
@@ -262,7 +262,7 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
               {detailsAppointment.bookingTimestamp && <p><strong>預約時間:</strong> {new Date(detailsAppointment.bookingTimestamp).toLocaleString()}</p>}
             </div>
             <div className="flex justify-end mt-6">
-              <button type="button" onClick={() => setIsDetailsModalOpen(false)} className="btn-secondary">關閉</button>
+              <button type="button" onClick={() => setIsDetailsModalOpen(false)} className="btn-primary">關閉</button>
             </div>
           </div>
         </div>

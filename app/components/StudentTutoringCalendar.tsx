@@ -182,7 +182,7 @@ const StudentTutoringCalendar: React.FC<StudentTutoringCalendarProps> = ({ userI
           ).then((response: EmailJSResponseStatus) => {
             console.log('EmailJS SUCCESS!', response.status, response.text);
           }, (error: EmailJSResponseStatus) => {
-            alert("郵件發送失敗，請稍後再試。");
+            showError("郵件發送失敗，請稍後再試。");
             console.error('EmailJS FAILED...', JSON.stringify(error, null, 2));
           });
         } else {
@@ -275,7 +275,7 @@ const StudentTutoringCalendar: React.FC<StudentTutoringCalendarProps> = ({ userI
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
                         onClick={() => handleOpenBookingModal(slot)}
-                        className={`px-3 py-1 rounded-md text-white transition-colors ${canBook ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400 cursor-not-allowed'}`}
+                        className="btn-primary btn-sm"
                         disabled={!canBook}
                       >
                         預約
@@ -323,7 +323,7 @@ const StudentTutoringCalendar: React.FC<StudentTutoringCalendarProps> = ({ userI
                 </div>
               )}
               <div className="flex justify-end space-x-3 pt-4">
-                <button type="button" onClick={() => setIsBookingModalOpen(false)} className="btn-secondary">取消</button>
+                <button type="button" onClick={() => setIsBookingModalOpen(false)} className="btn-primary">取消</button>
                 <button type="submit" className="btn-primary" disabled={loading}>
                   {loading ? <LoadingSpinner size={20} color="white" /> : '確認預約'}
                 </button>

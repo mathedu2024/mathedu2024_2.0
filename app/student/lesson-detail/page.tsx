@@ -205,35 +205,24 @@ export default function LessonDetailPage() {
   }
 
   return (
-    <div className="h-full flex flex-col animate-fade-in">
-      {/* 頂部導航 */}
-      <div className="bg-white shadow-sm border-b sticky top-0 z-30 flex-shrink-0">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={handleBack}
-              className="flex items-center text-gray-600 hover:text-gray-900"
-            >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              返回課程列表
-            </button>
-            <div className="h-6 w-px bg-gray-300"></div>
-            <div>
-              <h1 className="text-lg font-semibold text-gray-900">
-                {lesson.courseName} ({lesson.courseCode})
-              </h1>
-              <p className="text-sm text-gray-600">
-                第 {lesson.lessonIndex} 堂：{lesson.title}
-              </p>
-            </div>
-          </div>
-          {/* 漢堡按鈕（手機顯示） */}
-          <button className="md:hidden p-2" onClick={() => setSidebarOpen(!sidebarOpen)}>
-            <svg className="w-6 h-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
-          </button>
-        </div>
+    <div className="w-full p-2 md:p-8 animate-fade-in">
+      {/* 返回按鈕和課程標題 */}
+      <div className="mb-6">
+        <button
+          onClick={handleBack}
+          className="flex items-center text-gray-600 hover:text-gray-900 mb-4"
+        >
+          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          返回課程列表
+        </button>
+        <h2 className="text-2xl font-bold text-gray-900">
+          {lesson.courseName} ({lesson.courseCode})
+        </h2>
+        <p className="text-lg text-gray-600 mt-2">
+          第 {lesson.lessonIndex} 堂：{lesson.title}
+        </p>
       </div>
 
       {/* 手機版側邊欄遮罩 */}
@@ -245,9 +234,9 @@ export default function LessonDetailPage() {
       )}
 
       {/* 主要內容 */}
-      <div className="w-full max-w-full px-2 md:px-8 py-4 md:py-8 flex flex-col md:grid md:grid-cols-10 gap-4 md:gap-8">
+      <div className="w-full flex flex-col md:grid md:grid-cols-10 gap-4 md:gap-8">
         {/* C區：課堂清單 */}
-        <div className={`md:col-span-2 transform transition-transform duration-300 ease-in-out ${isMobile ? `fixed top-0 right-0 h-full w-4/5 max-w-sm bg-white z-50 shadow-lg ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'}` : 'sticky top-24 max-h-[calc(100vh-8rem)]'}`}>
+        <div className={`md:col-span-2 transform transition-transform duration-300 ease-in-out ${isMobile ? `fixed top-0 right-0 h-full w-4/5 max-w-sm bg-white z-50 shadow-lg ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'}` : 'sticky top-8 max-h-[calc(100vh-4rem)]'}`}>
             <div className="bg-white rounded-lg md:shadow-md p-2 md:p-4 h-full flex flex-col relative">
               <button
                 className="w-8 h-8 flex items-center justify-center bg-white border border-gray-300 rounded-full shadow hover:bg-gray-100 focus:outline-none absolute top-2 right-2 z-40 md:hidden"

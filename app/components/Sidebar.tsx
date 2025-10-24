@@ -124,69 +124,70 @@ export default function Sidebar({
 
       {/* 統一的側邊欄 */}
       <aside className={sidebarClasses}>
-        <div className={`mt-4 flex flex-col ${sidebarOpen ? 'items-center' : 'items-start pl-4'}`}>
-          {/* 用戶資料區塊 */}
+        <div className={`p-4 ${sidebarOpen ? 'flex justify-center' : ''}`}>
           {userInfo && (
-            <>
-              <div className="flex items-center gap-2 pb-2">
-                <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">
-                  {displayInfo.name?.[0] || '?'}
-                </div>
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0">
+                {displayInfo.name?.[0] || '?'}
+              </div>
+              {!sidebarOpen && (
                 <div>
-                  {!sidebarOpen && <div className="font-normal text-base">{displayInfo.name} ({displayInfo.role})</div>}
-                  {!sidebarOpen && (
-                    <div className="text-xs text-gray-500 font-light">
-                      {userRole === '學生' ? '學號：' : '帳號：'}{displayInfo.id}
-                    </div>
-                  )}
+                  <div className="font-normal text-base">{displayInfo.name} ({displayInfo.role})</div>
+                  <div className="text-xs text-gray-500 font-light">
+                    {userRole === '學生' ? '學號：' : '帳號：'}{displayInfo.id}
+                  </div>
                 </div>
-              </div>
-              <div className="pb-2 w-full">
-                <button
-                  onClick={onLogout}
-                  className={sidebarOpen
-                    ? 'flex items-center justify-center w-12 h-12 rounded-full text-red-600 hover:bg-red-50'
-                    : 'flex items-center w-full h-12 rounded-lg text-red-600 hover:bg-red-50'}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                  </svg>
-                  {!sidebarOpen && <span className="ml-3">登出</span>}
-                </button>
-              </div>
-              {/* 收合/展開按鈕 */}
-              <div className="pt-0 pb-0 w-full">
-                <button
-                  onClick={onToggleSidebar}
-                  className={
-                    sidebarOpen
-                      ? "flex items-center justify-center w-12 h-12 rounded-full hover:rounded-lg hover:bg-gray-100 text-gray-700"
-                      : "flex items-center w-full h-12 rounded-lg hover:bg-gray-100 text-gray-700"
-                  }
-                  aria-label={sidebarOpen ? "展開選單" : "收合選單"}
-                >
-                  <span className="flex items-center justify-center w-8 h-8">
-                    {sidebarOpen ? (
-                      <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    ) : (
-                      <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                      </svg>
-                    )}
-                  </span>
-                  {!sidebarOpen && <span className="ml-3 text-base">收合選單</span>}
-                </button>
-              </div>
-            </>
+              )}
+            </div>
           )}
         </div>
-        {/* 功能選單 */}
-        <nav className={`flex-1 py-4 flex flex-col gap-2 overflow-y-auto min-h-0 w-full ${sidebarOpen ? 'items-center' : ''}`}>
+
+        <div className="p-2">
+          <button
+            onClick={onToggleSidebar}
+            className={clsx(
+              'flex items-center h-12 rounded-lg',
+              sidebarOpen ? 'w-12 justify-center hover:bg-gray-100 text-gray-700' : 'w-full px-3 py-2 hover:bg-gray-100 text-gray-700'
+            )}
+            aria-label={sidebarOpen ? "展開選單" : "收合選單"}
+          >
+            <span className="flex items-center justify-center w-8 h-8">
+              {sidebarOpen ? (
+                <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              ) : (
+                <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              )}
+            </span>
+            {!sidebarOpen && <span className="ml-3 text-base">收合選單</span>}
+          </button>
+          <button
+            onClick={onLogout}
+            className={clsx(
+              'flex items-center h-12 rounded-lg',
+              sidebarOpen ? 'w-12 justify-center text-red-600 hover:bg-red-50' : 'w-full px-3 py-2 text-red-600 hover:bg-red-50'
+            )}
+          >
+            <span className="flex items-center justify-center w-8 h-8">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+            </span>
+            {!sidebarOpen && <span className="ml-3 text-base">登出</span>}
+          </button>
+        </div>
+
+        <nav className="flex flex-col flex-1 p-2 gap-2">
           <button
             onClick={() => handleTabChange(null)}
-            className={`flex items-center w-full h-12 px-3 py-2 rounded-lg select-none ${activeTab === null ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100 text-gray-700'}`}
+            className={clsx(
+              'flex items-center h-12 rounded-lg select-none',
+              sidebarOpen ? 'w-12 justify-center' : 'w-full px-3 py-2',
+              activeTab === null ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100 text-gray-700'
+            )}
           >
             <span className="flex items-center justify-center w-8 h-8">
               <svg className="h-6 w-6 flex-shrink-0 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -197,31 +198,40 @@ export default function Sidebar({
               <span className="ml-3 text-base truncate">儀表板</span>
             )}
           </button>
-          {menuItems.map(item => (
-            <button
-              key={item.id}
-              onClick={() => {
-                if (!item.disabled) {
-                  handleTabChange(item.id);
-                }
-              }}
-              disabled={item.disabled}
-              className={`flex items-center w-full h-12 px-3 py-2 rounded-lg select-none
-                ${activeTab === item.id ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100 text-gray-700'}
-                ${item.disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-60 pointer-events-none' : ''}`}
-            >
-              <span className="flex items-center justify-center w-8 h-8">
-                {React.cloneElement(item.icon as React.ReactElement<{ className?: string }>, {
-                  className: `h-6 w-6 flex-shrink-0 ${item.disabled ? 'text-gray-400' : 'text-blue-600'}`
-                })}
-              </span>
-              {!sidebarOpen && (
-                <span className="ml-3 text-base truncate">{item.title}</span>
-              )}
-            </button>
-          ))}
+
+          {menuItems.map(item => {
+            if (item.id.startsWith('divider')) {
+              return <div key={item.id} className={`border-t border-gray-200 mx-4 my-2 ${sidebarOpen ? 'hidden' : ''}`} />;
+            }
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  if (!item.disabled) {
+                    handleTabChange(item.id);
+                  }
+                }}
+                disabled={item.disabled}
+                className={clsx(
+                  'flex items-center h-12 rounded-lg select-none',
+                  sidebarOpen ? 'w-12 justify-center' : 'w-full px-3 py-2',
+                  activeTab === item.id ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100 text-gray-700',
+                  item.disabled && 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-60 pointer-events-none'
+                )}
+              >
+                <span className="flex items-center justify-center w-8 h-8">
+                  {React.cloneElement(item.icon as React.ReactElement<{ className?: string }>, {
+                    className: `h-6 w-6 flex-shrink-0 ${item.disabled ? 'text-gray-400' : 'text-blue-600'}`
+                  })}
+                </span>
+                {!sidebarOpen && (
+                  <span className="ml-3 text-base truncate">{item.title}</span>
+                )}
+              </button>
+            );
+          })}
         </nav>
-        {/* 手機版專用的登出和關閉按鈕 */}
+
         {isMobile && (
           <>
             <div className="px-2 pb-2 border-t bg-white">

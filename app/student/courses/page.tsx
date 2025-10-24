@@ -174,11 +174,13 @@ export default function StudentCoursesPage() {
             <div className="animate-fade-in">
               <div className="bg-blue-600 rounded-lg shadow-md p-6 text-white mb-6">
                 <div className="mb-6 flex items-center justify-between">
-                  <div>
+                  <div className="flex-grow">
                     <h3 className="text-xl font-bold mb-1">{selectedCourse.name}</h3>
                     <p className="text-blue-100">{selectedCourse.code}</p>
                   </div>
-                  <span className="px-3 py-1 rounded-full text-sm font-medium bg-white text-blue-600">{selectedCourse.status}</span>
+                  <div className="flex items-center">
+                    <span className="px-3 py-1 rounded-full text-sm font-medium bg-white text-blue-600">{selectedCourse.status}</span>
+                  </div>
                 </div>
                 <div className="space-y-3">
                   {selectedCourse.startDate && <div className="flex items-center justify-between p-3 bg-blue-700 rounded-lg"><span>課程期間</span><span>{selectedCourse.startDate} ~ {selectedCourse.endDate}</span></div>}

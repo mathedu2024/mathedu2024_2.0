@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
         return acc;
       }, {} as Record<string, unknown>);
     }
-    await adminDb.collection('grades').doc(docId).set({ ...gradeData, grades }, { merge: true });
+    await adminDb.collection('courses').doc(docId).collection('grades').doc('data').set({ ...gradeData, grades }, { merge: true });
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
     let message = '儲存失敗';

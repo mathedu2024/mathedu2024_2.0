@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
       account: cleanAccount,
     };
 
-    const cookie = serialize('session', encodeURIComponent(JSON.stringify(sessionData)), {
+    const cookie = serialize('session', JSON.stringify(sessionData), {
       httpOnly: true,
       path: '/',
       maxAge: 60 * 60 * 24, // 1 day

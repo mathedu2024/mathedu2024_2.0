@@ -2,6 +2,28 @@
 
 import Image from 'next/image';
 import React, { useState, Suspense } from 'react';
+import { motion } from 'framer-motion';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: {
+      duration: 0.5,
+    },
+  },
+};
 
 export default function TeacherPage() {
   return (
@@ -24,6 +46,7 @@ function TeacherPageContent() {
         '東吳大學 數學系(2025/09~)'
       ],
       experience: [
+        '2018年 亞東技術院 彈指翻轉程式競賽',
         '2019年 北區四城市中小學學生專題寫作比賽',
         '2024年 ARML Local',
         '2024年 TI-Nspire學生數學競賽',
@@ -37,7 +60,7 @@ function TeacherPageContent() {
       ],
       courses: [
         '國中數學系列課程',
-        '高中數學系列課程'
+        '高中數學系列課程',
       ]
     }
     // 可擴充更多老師
@@ -51,11 +74,17 @@ function TeacherPageContent() {
       <h1 className="text-4xl md:text-5xl font-bold text-center mb-12 text-blue-600 tracking-tight drop-shadow-sm">
         師資介紹
       </h1>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 px-2 sm:px-4 md:px-0">
+      <motion.div 
+        className="grid grid-cols-1 lg:grid-cols-2 gap-8 px-2 sm:px-4 md:px-0"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
         {teachers.map((teacher) => (
-          <div
+          <motion.div
             key={teacher.name}
-            className="bg-white rounded-lg shadow-md hover:shadow-xl overflow-hidden hover:bg-gray-50 transition-all duration-300 flex flex-col md:block mb-6 md:mb-0 relative"
+            className="bg-white rounded-lg shadow-md hover:shadow-xl overflow-hidden hover:bg-gray-50 flex flex-col md:block mb-6 md:mb-0 relative"
+            variants={itemVariants}
           >
             {/* 圖片區塊 */}
             <div className="w-full relative md:w-1/2 md:relative md:float-left md:mr-6 mb-4 md:mb-0">
@@ -87,13 +116,13 @@ function TeacherPageContent() {
                 詳細資料
               </button>
             </div>
-          </div>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
       {/* Detail Modal */}
       {showModal && selectedTeacher && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-bounce-in">
             <div className="p-6">
               {/* Modal Header */}
               <div className="flex justify-between items-start mb-6">

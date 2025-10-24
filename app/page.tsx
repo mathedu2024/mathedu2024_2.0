@@ -332,7 +332,7 @@ export default function Home() {
   }
 
   return (
-    <main className="h-full p-2 sm:p-4 md:p-6 lg:p-8 bg-gray-50">
+    <main className="h-full p-2 sm:p-4 md:p-6 lg:p-8 bg-gray-50 overflow-y-auto">
       <div className="mb-4 md:mb-8 text-center animate-fade-in">
         <div className="bg-white rounded-xl p-4 md:p-6 mb-4 md:mb-8">
           <h1 className="text-2xl md:text-4xl font-bold text-blue-700 mb-4 md:mb-8 text-center">
@@ -388,30 +388,30 @@ export default function Home() {
 
       <section id="announcements" className="py-4 md:py-8 bg-white animate-fade-in" style={{ animationDelay: '0.2s' }}>
         <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 md:px-6 lg:px-8">
-          <div className="text-center mb-4 md:mb-8">
+          <div className="mb-4 md:mb-8">
             <h2 className="text-2xl md:text-4xl font-bold text-center mb-4 md:mb-8 text-blue-600">網站公告</h2>
             
-            <div className="flex flex-col sm:flex-row flex-wrap justify-center items-center gap-4 mb-4 md:mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4 md:mb-8">
               <Dropdown
                 value={selectedContentType}
                 onChange={setSelectedContentType}
                 options={contentTypeOptions}
                 placeholder="全部類型"
-                className="w-full sm:w-auto sm:min-w-[200px]"
+                className="w-full"
               />
               <Dropdown
                 value={selectedSubject}
                 onChange={setSelectedSubject}
                 options={subjectOptions}
                 placeholder="全部科目"
-                className="w-full sm:w-auto sm:min-w-[200px]"
+                className="w-full"
               />
               <Dropdown
                 value={selectedGrade}
                 onChange={setSelectedGrade}
                 options={gradeOptions}
                 placeholder="全部年級"
-                className="w-full sm:w-auto sm:min-w-[200px]"
+                className="w-full"
               />
             </div>
           </div>

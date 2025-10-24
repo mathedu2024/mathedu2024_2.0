@@ -30,6 +30,7 @@ interface Course {
     gradeTags: string[];
     subjectTag: string;
     courseNature: string;
+    examScope?: string[];
     showInIntroduction: boolean;
     archived: boolean;
     description?: string;
@@ -230,11 +231,12 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
             students: course.students || [],
             subjectTag: course.subjectTag || '',
             courseNature: course.courseNature || '',
+            examScope: course.examScope || [],
             timeArrangementType: course.timeArrangementType || '依時段安排',
             startDate: course.startDate || '',
             endDate: course.endDate || '',
             status: course.status || '未開課',
-            showInIntroduction: typeof course.showInIntroduction === 'boolean' ? course.showInIntroduction : false,
+            showInIntroduction: typeof course.showInIntroduction === 'boolean' ? course.showInIntroduction : true,
             archived: typeof course.archived === 'boolean' ? course.archived : false,
         };
         console.log('editingCourse:', courseWithDefaults);
@@ -465,7 +467,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                     />
                     {!editingCourse && (
                         <button
-                            onClick={() => setEditingCourse({ id: '', name: '', code: '', coverImageURL: '', description: '', teachingMethod: '實體上課', teachers: [], startDate: '', endDate: '', classTimes: [], status: '未開課', gradeTags: [], subjectTag: '', courseNature: '', showInIntroduction: false, timeArrangementType: '依時段安排', location: '', liveStreamURL: '', archived: false } as Course)}
+                            onClick={() => setEditingCourse({ id: '', name: '', code: '', coverImageURL: '', description: '', teachingMethod: '實體上課', teachers: [], startDate: '', endDate: '', classTimes: [], status: '未開課', gradeTags: [], subjectTag: '', courseNature: '', examScope: [], showInIntroduction: true, timeArrangementType: '依時段安排', location: '', liveStreamURL: '', archived: false } as Course)}
                             className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 w-full md:w-auto"
                         >
                             新增課程
@@ -521,6 +523,30 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                     className="w-full"
                                 />
                             </div>
+                            {[ '升學考試複習', '檢定/考試訓練班'].includes(editingCourse.courseNature) && (
+                                <div className="col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700">考試範圍</label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {['第一次定期評量', '第二次定期評量', '期末評量'].map(exam => (
+                                            <label key={exam} className="inline-flex items-center">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={(editingCourse.examScope || []).includes(exam)}
+                                                    onChange={e => {
+                                                        const currentScope = editingCourse.examScope || [];
+                                                        const newScope = e.target.checked
+                                                            ? [...currentScope, exam]
+                                                            : currentScope.filter(s => s !== exam);
+                                                        setEditingCourse(prev => prev ? { ...prev, examScope: newScope } : null);
+                                                    }}
+                                                    className="mr-2 accent-blue-600"
+                                                />
+                                                {exam}
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                             <div className="col-span-2">
                                 <label className="block text-sm font-medium text-gray-700">年級 *</label>
                                 <div className="flex flex-wrap gap-2">

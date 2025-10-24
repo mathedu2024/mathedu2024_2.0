@@ -315,6 +315,9 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
       setIsCourseListLoading(true);
       try {
         const resCourses = await fetch('/api/courses/list');
+        if (!resCourses.ok) {
+          throw new Error('無法獲取課程列表');
+        }
         const allCourses = await resCourses.json();
         if (!Array.isArray(allCourses)) {
           throw new Error('課程資料格式錯誤');
@@ -328,6 +331,11 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ courseName: course.name, courseCode: course.code }),
           });
+          
+          if (!studentRes.ok) {
+            throw new Error(`無法獲取課程 ${course.name} 的學生列表`);
+          }
+          
           const studentList = await studentRes.json();
           if (!Array.isArray(studentList)) {
             throw new Error('學生資料格式錯誤');
@@ -339,6 +347,11 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ courseKeys: [`${course.name}(${course.code})`] }),
           });
+          
+          if (!gradeRes.ok) {
+            throw new Error(`無法獲取課程 ${course.name} 的成績資料`);
+          }
+          
           const gradeData = (await gradeRes.json())[`${course.name}(${course.code})`];
           const examStatus = {
             '第一次定期評量': false,
@@ -386,6 +399,11 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ courseName: selectedCourseName, courseCode: selectedCourseCode }),
           });
+          
+          if (!res.ok) {
+            throw new Error(`無法獲取課程 ${selectedCourseName} 的學生列表`);
+          }
+          
           const studentList = await res.json();
           if (!Array.isArray(studentList)) {
             throw new Error('學生資料格式錯誤');
@@ -408,6 +426,11 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ courseKeys: [courseKey] }),
           });
+          
+          if (!resGrades.ok) {
+            throw new Error(`無法獲取課程 ${selectedCourseName} 的成績資料`);
+          }
+          
           const gradesResult = await resGrades.json();
           const gradeData = gradesResult ? gradesResult[courseKey] : null;
 

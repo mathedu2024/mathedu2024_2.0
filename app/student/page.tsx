@@ -18,7 +18,7 @@ export default function StudentPanel() {
     { id: 'grades', title: '成績查詢', description: '查看各科成績與評量', icon: <ClipboardDocumentListIcon className="h-8 w-8" />, onClick: () => router.push('/student/grades'), disabled: false },
     { id: 'counseling', title: '輔導預約', description: '預約老師或助教的輔導時段', icon: <CalendarIcon className="h-8 w-8" />, onClick: () => router.push('/student/counseling'), disabled: false },
     { id: 'change-password', title: '修改密碼', description: '更新您的登入密碼', icon: <KeyIcon className="h-8 w-8" />, onClick: () => router.push('/student?tab=change-password'), disabled: false },
-    { id: 'attendance', title: '線上點名', description: '功能暫時關閉', icon: <CheckCircleIcon className="h-8 w-8" />, onClick: () => {}, disabled: true },
+    { id: 'attendance', title: '線上點名', description: '查看點名記錄與狀態', icon: <CheckCircleIcon className="h-8 w-8" />, onClick: () => router.push('/student/attendance'), disabled: false },
     { id: 'exam', title: '線上測驗', description: '功能暫時關閉', icon: <PencilIcon className="h-8 w-8" />, onClick: () => {}, disabled: true },
   ];
 

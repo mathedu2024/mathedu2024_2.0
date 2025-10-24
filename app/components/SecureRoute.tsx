@@ -37,7 +37,7 @@ export default function SecureRoute({
       }
 
       // 檢查角色權限
-      if (requiredRole && session.role !== requiredRole) {
+      if (requiredRole && (Array.isArray(session.role) ? !session.role.includes(requiredRole) : session.role !== requiredRole)) {
         console.warn(`權限不足: 需要 ${requiredRole}，實際為 ${session.role}`);
         router.push('/back-login');
         return;

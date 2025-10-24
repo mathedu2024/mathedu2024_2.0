@@ -381,7 +381,7 @@ const TutoringManager: React.FC<TutoringManagerProps> = ({ userInfo, courses }) 
 
   return (
     <div className="p-4 md:p-8 bg-gray-100 min-h-screen">
-      <div className="max-w-7xl mx-auto w-full px-2 sm:px-4 md:px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto w-full px-2 sm:px-4 md:px-6 lg:px-8">
       <h1 className="text-3xl font-bold text-gray-800 mb-6">課程輔導管理</h1>
 
       {alert.message && (
@@ -397,7 +397,7 @@ const TutoringManager: React.FC<TutoringManagerProps> = ({ userInfo, courses }) 
           <h2 className="text-2xl font-semibold text-gray-700">輔導時段日曆</h2>
           <button
             onClick={() => openCreateModal(selectedDate)}
-            className="mt-4 md:mt-0 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center"
+            className="btn-primary mt-4 md:mt-0 flex items-center"
           >
             <PlusIcon className="w-5 h-5 mr-2" />新增輔導時段
           </button>
@@ -442,7 +442,7 @@ const TutoringManager: React.FC<TutoringManagerProps> = ({ userInfo, courses }) 
                 <div className="flex justify-between items-center mt-4">
                   <button
                     onClick={() => openEditModal(slot)}
-                    className="btn-primary text-sm px-3 py-1"
+                    className="btn-primary btn-sm"
                   >
                     編輯時段
                   </button>
@@ -453,7 +453,7 @@ const TutoringManager: React.FC<TutoringManagerProps> = ({ userInfo, courses }) 
                       setCurrentSlotTitle(slot.title || '預約學生');
                       setShowBookingsModal(true);
                     }}
-                    className="btn-secondary text-sm px-3 py-1"
+                    className="btn-primary btn-sm"
                     disabled={!slot.bookedStudents || slot.bookedStudents.length === 0}
                   >
                     查看預約 ({slot.bookedStudents?.length || 0})
@@ -488,7 +488,7 @@ const TutoringManager: React.FC<TutoringManagerProps> = ({ userInfo, courses }) 
                           setStudentToCancel(student);
                           setIsCancelConfirmOpen(true);
                         }}
-                        className="btn-danger text-sm px-3 py-1"
+                        className="btn-primary btn-sm"
                       >
                         取消預約
                       </button>
@@ -500,7 +500,7 @@ const TutoringManager: React.FC<TutoringManagerProps> = ({ userInfo, courses }) 
               )}
             </div>
             <div className="flex justify-end mt-6">
-              <button onClick={() => setShowBookingsModal(false)} className="btn-secondary">
+              <button className="btn-primary">
                 關閉
               </button>
             </div>
@@ -686,7 +686,7 @@ const TutoringManager: React.FC<TutoringManagerProps> = ({ userInfo, courses }) 
                 <textarea id="remarks" name="remarks" value={form.remarks} onChange={handleFormChange} rows={3} className="input-unified"></textarea>
               </div>
               <div className="flex justify-end space-x-3">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="btn-secondary">取消</button>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="btn-primary">取消</button>
                 <button type="submit" className="btn-primary" disabled={loading}>
                   {loading ? <LoadingSpinner size={20} color="white" /> : (selectedSlot ? '儲存變更' : '新增時段')}
                 </button>

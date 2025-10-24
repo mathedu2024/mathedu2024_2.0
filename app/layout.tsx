@@ -38,7 +38,7 @@ export default function RootLayout({
       </head>
       <body className={`${geistFont.className} flex flex-col bg-gray-100`}>
         <Navigation />
-        <main className="flex-1 overflow-auto">{children}</main>
+        <main className="flex-1">{children}</main>
       </body>
     </html>
   );

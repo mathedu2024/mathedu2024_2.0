@@ -88,7 +88,7 @@ export default function CoursesPage() {
     const matchesNature = selectedNature === 'all' || course.courseNature === selectedNature;
     const matchesStatus = selectedStatus === 'all' || course.status === selectedStatus;
     
-    return matchesGrade && matchesSubject && matchesNature && matchesStatus;
+    return course.showInIntroduction && matchesGrade && matchesSubject && matchesNature && matchesStatus;
   });
 
   const getTeacherNames = (teacherIds: string[] | undefined | null) => {

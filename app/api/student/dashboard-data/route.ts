@@ -152,7 +152,7 @@ async function fetchCourseData(studentId: string, enrolledCourses: string[]) {
     const grades: Record<string, { columns: Record<string, { name: string; type: string; date: string; }>; totalSetting?: { regularDetail?: Record<string, { calcMethod: string; n?: number; percent: number; }>; periodicEnabled?: Record<string, boolean>; periodicPercent: number; }; periodicScores?: string[]; student: StudentGradeRow | null; }> = {};
     const gradePromises = courses.map(async (course) => {
         const gradeDocId = `${course.name}(${course.code})`;
-        const gradeDoc = await adminDb.collection('grades').doc(gradeDocId).get();
+        const gradeDoc = await adminDb.collection('courses').doc(course.id).collection('grades').doc('data').get();
         if (gradeDoc.exists) {
             const gradeData = gradeDoc.data();
             if (gradeData && gradeData.students) {

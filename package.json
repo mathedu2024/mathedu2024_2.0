@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "deploy:rules": "firebase deploy --only firestore:rules",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
