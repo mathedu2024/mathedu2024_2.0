@@ -32,6 +32,24 @@ export async function getExams() {
   }
 }
 
-// Note: Functions for adding, updating, and deleting exams
-// have been removed as they would require significant changes to security rules
-// to be used securely in a client-only application.
+export async function deleteExam(id: string) {
+  try {
+    const response = await fetch(`/api/exam-dates/delete`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ id }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to delete exam date');
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error('Error deleting exam date:', error);
+    throw error;
+  }
+}

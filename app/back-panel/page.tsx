@@ -49,7 +49,6 @@ function BackPanel() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [adminStats, setAdminStats] = useState({ studentCount: 0, teacherCount: 0, courseCount: 0 });
   const [loading, setLoading] = useState(true);
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
 
   const handleActivity = useCallback(() => setLastActivity(Date.now()), []);
 
@@ -119,28 +118,39 @@ function BackPanel() {
     }
 
     const fetchTeacher = async () => {
-      console.log('Back Panel - Fetching teacher data for account:', session.account);
-      const res = await fetch('/api/teacher/profile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ account: session.account }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const userInfoData = {
-          id: data.id,
-          name: data.name || '',
-          account: session.account,
-          role: '老師',
-        };
-        setUserInfo(userInfoData);
+      try {
+        console.log('Back Panel - Fetching teacher data for account:', session.account);
+        const res = await fetch('/api/teacher/profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ account: session.account }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const userInfoData = {
+            id: data.id,
+            name: data.name || '',
+            account: session.account,
+            role: '老師',
+          };
+          setUserInfo(userInfoData);
+        } else {
+          console.error('Failed to fetch teacher profile');
+          throw new Error('Failed to fetch teacher profile');
+        }
+      } catch (error) {
+        console.error('Error fetching teacher data:', error);
+        // Set loading to false even on error
+      } finally {
+        setLoading(false);
+        console.timeEnd('back-panel-load');
       }
-      setLoading(false);
-      console.timeEnd('back-panel-load');
     };
 
     if (userRole === '老師') {
-      fetchTeacher();
+      fetchTeacher().catch(error => {
+        console.error('Unhandled error in fetchTeacher:', error);
+      });
     } else {
       const adminUserInfo = { ...session, name: session.name, account: session.account, id: session.id, role: userRole };
       console.log('Back Panel - Setting admin userInfo:', adminUserInfo);
@@ -203,57 +213,74 @@ function BackPanel() {
   }, [isAdmin]); // Only depend on isAdmin to prevent infinite loops
 
   const fetchAdminCourses = useCallback(async () => {
-    const res = await fetch('/api/courses/list', { method: 'GET' });
-    if (res.ok) {
-      const allCourses: Course[] = await res.json();
-      console.log('Fetched admin courses:', allCourses);
-      setCourses(allCourses);
-    } else {
-      console.error('Failed to fetch admin courses');
+    try {
+      const res = await fetch('/api/courses/list', { method: 'GET' });
+      if (res.ok) {
+        const allCourses: Course[] = await res.json();
+        console.log('Fetched admin courses:', allCourses);
+        setCourses(allCourses);
+      } else {
+        console.error('Failed to fetch admin courses');
+        setCourses([]);
+      }
+    } catch (error) {
+      console.error('Error fetching admin courses:', error);
       setCourses([]);
     }
   }, []);
 
   useEffect(() => {
     if (userInfo?.role === '老師' && userInfo.account) {
-
       (async () => {
-        // 先取得老師授課課程的名稱
-        const res = await fetch('/api/teacher/courses', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ account: userInfo.account }),
-        });
-        let courseNames: string[] = [];
-        if (res.ok) {
-          const data = await res.json();
-          console.log('API /api/teacher/courses response:', data);
-          courseNames = (data.courses || []).map((str: string) => {
-            const match = str.match(/(.+?)\(([^)]*\))$/);
-            return match ? match[1] : str;
+        try {
+          // 先取得老師授課課程的名稱
+          const res = await fetch('/api/teacher/courses', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ account: userInfo.account }),
           });
-          console.log('Extracted courseNames:', courseNames);
+          let courseNames: string[] = [];
+          if (res.ok) {
+            const data = await res.json();
+            console.log('API /api/teacher/courses response:', data);
+            courseNames = (data.courses || []).map((str: string) => {
+              const match = str.match(/(.+?)\(([^)]*\))$/);
+              return match ? match[1] : str;
+            });
+            console.log('Extracted courseNames:', courseNames);
+          } else {
+            console.error('Failed to fetch teacher courses');
+          }
+          // 再呼叫 /api/courses/list 拿完整課程資料
+          const res2 = await fetch('/api/courses/list', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ teacherId: userInfo.id }),
+          });
+          let fullCourses: Course[] = [];
+          if (res2.ok) {
+            const allCourses: Course[] = await res2.json();
+            console.log('API /api/courses/list response:', allCourses);
+            // 只保留老師授課的課程（用 name 過濾）
+            fullCourses = allCourses.filter((c: Course) => courseNames.includes(c.name));
+            console.log('Filtered fullCourses:', fullCourses);
+          } else {
+            console.error('Failed to fetch courses list');
+          }
+          setCourses(fullCourses as Course[]);
+          console.log('Courses passed to TutoringManager:', fullCourses);
+          console.log('Final courses array for teacher:', fullCourses);
+        } catch (error) {
+          console.error('Error fetching teacher courses:', error);
+          setCourses([]);
         }
-        // 再呼叫 /api/courses/list 拿完整課程資料
-        const res2 = await fetch('/api/courses/list', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ teacherId: userInfo.id }),
-        });
-        let fullCourses: Course[] = [];
-        if (res2.ok) {
-          const allCourses: Course[] = await res2.json();
-          console.log('API /api/courses/list response:', allCourses);
-          // 只保留老師授課的課程（用 name 過濾）
-          fullCourses = allCourses.filter((c: Course) => courseNames.includes(c.name));
-          console.log('Filtered fullCourses:', fullCourses);
-        }
-        setCourses(fullCourses as Course[]);
-        console.log('Courses passed to TutoringManager:', fullCourses);
-        console.log('Final courses array for teacher:', fullCourses);
-      })();
+      })().catch(error => {
+        console.error('Unhandled error in teacher courses fetch:', error);
+      });
     } else if (userInfo?.role === '管理員') {
-      fetchAdminCourses();
+      fetchAdminCourses().catch(error => {
+        console.error('Unhandled error in fetchAdminCourses:', error);
+      });
     }
   }, [userInfo?.account, userInfo?.id, userInfo?.role, fetchAdminCourses]);
 
@@ -363,7 +390,7 @@ function BackPanel() {
         { title: '帳戶設定', value: '可修改', color: 'purple', icon: <svg className="h-8 w-8 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg> },
       ];
       return (
-        <div className="max-w-7xl mx-auto w-full px-2 sm:px-4 md:px-6 lg:px-8 mt-[5px] animate-fade-in">
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 animate-fade-in">
           {/* 歡迎區塊 */}
           <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg shadow-lg p-4 md:p-6 text-white mb-4 md:mb-8">
             <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
@@ -488,8 +515,14 @@ function BackPanel() {
     }
     // 根據 activeTab 顯示對應內容
     console.log('Rendering content for activeTab:', activeTab);
+    // 針對 teacher-courses tab，內容區塊不強制 flex-1/min-h-0，避免大空白
+    const isTeacherCourses = activeTab === 'teacher-courses';
     return (
-      <div className="animate-fade-in h-full flex flex-col">
+      <div className={
+        isTeacherCourses
+          ? 'animate-fade-in flex flex-col px-4 sm:px-6 lg:px-8 py-6'
+          : 'animate-fade-in flex flex-col flex-1 min-h-0 px-4 sm:px-6 lg:px-8 py-6 overflow-y-auto'
+      }>
         {(() => {
           switch (activeTab) {
             case 'announcements':
@@ -527,7 +560,7 @@ function BackPanel() {
 
   if (loading) {
     return (
-      <LoadingSpinner fullScreen text="後台資料載入中，請稍候..." />
+      <LoadingSpinner fullScreen size={40} />
     );
   }
 
@@ -603,13 +636,7 @@ function BackPanel() {
   // ];
 
   return (
-    <div className="flex h-full bg-gray-100">
-      {/* 漢堡按鈕（僅手機顯示，sidebar 關閉時顯示） */}
-      {isMobile && !sidebarOpen && (
-        <button className="fixed top-16 left-4 z-40 bg-white p-2 rounded-full shadow-lg md:hidden hover:bg-gray-50" onClick={() => setSidebarOpen(true)}>
-          <svg className="w-6 h-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
-        </button>
-      )}
+  <div className="flex flex-1 bg-white">
       
       {/* 使用統一的 Sidebar 組件 */}
       <Sidebar
@@ -620,13 +647,12 @@ function BackPanel() {
         activeTab={activeTab}
         onTabChange={handleTabChange}
         onLogout={handleLogout}
-        isMobile={isMobile}
       />
 
       <div
-        className={`flex-1 flex flex-col min-h-0 bg-gray-100 ${!activeTab ? 'justify-center' : ''}`}
+  className={`flex-1 flex flex-col min-h-0 bg-white`}
         style={{
-          paddingLeft: isMobile ? 0 : (sidebarOpen ? 64 : 256),
+          paddingLeft: sidebarOpen ? 64 : 256,
           transition: 'padding-left 0.3s'
         }}
       >

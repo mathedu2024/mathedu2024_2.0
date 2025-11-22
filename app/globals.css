@@ -1,3 +1,66 @@
+/* 文字層次與排版 */
+.text-main {
+  color: #1A1A1A;
+}
+.text-secondary {
+  color: #555555;
+}
+.heading-1 {
+  @apply text-3xl font-extrabold text-main mb-6;
+}
+.heading-2 {
+  @apply text-2xl font-bold text-main mb-4;
+}
+.heading-3 {
+  @apply text-xl font-bold text-main mb-2;
+}
+.section {
+  @apply mb-8;
+}
+.section-tight {
+  @apply mb-4;
+}
+.content {
+  @apply text-base text-main leading-relaxed;
+}
+.content-secondary {
+  @apply text-sm text-secondary leading-relaxed;
+}
+/* 卡片元件：白底、主題邊框、柔邊陰影 */
+.card {
+  @apply bg-card-bg border border-card-border rounded-xl shadow-card;
+}
+
+/* 表格：交錯底色、主題表頭 */
+.table-main {
+  @apply w-full border border-border rounded-lg overflow-hidden;
+}
+.table-main thead {
+  @apply bg-table-head text-text-main font-bold;
+}
+.table-main tbody tr:nth-child(even) {
+  @apply bg-table-even;
+}
+.table-main tbody tr:nth-child(odd) {
+  @apply bg-table-odd;
+}
+.table-main th, .table-main td {
+  @apply border-b border-border px-4 py-2 text-text-main;
+}
+
+/* 輸入框：白底、灰描邊，聚焦主題藍描邊與淡陰影 */
+.input-main {
+  @apply bg-white border border-border-input rounded-lg px-3 py-2 text-text-main focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none shadow-sm transition;
+}
+
+/* 標籤：純色底白字、籌碼風格 */
+.tag-main {
+  @apply inline-block px-3 py-1 rounded-full font-bold text-white text-xs shadow-sm;
+}
+.tag-quiz { @apply bg-tag-quiz; }
+.tag-homework { @apply bg-tag-homework; }
+.tag-exam { @apply bg-tag-exam; }
+.tag-custom { @apply bg-tag-custom; }
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -135,28 +198,49 @@ html, body {
 }
 
 /* 統一按鈕樣式 */
+
+/* 主要按鈕：主題藍實心、白字、小投影 */
 .btn-primary {
-  @apply bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium;
+  @apply bg-primary text-white px-4 py-2 rounded-lg font-medium shadow-btn transition disabled:opacity-50 disabled:cursor-not-allowed;
+  box-shadow: 0 2px 4px 0 rgba(45, 109, 246, 0.15);
+}
+.btn-primary:hover:not(:disabled) {
+  @apply bg-primary-hover;
 }
 
+/* 次要按鈕：白底主題藍邊框主題藍字，hover 實心 */
 .btn-secondary {
-  @apply bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium;
+  @apply bg-white border border-primary text-primary px-4 py-2 rounded-lg font-medium shadow-btn transition disabled:opacity-50 disabled:cursor-not-allowed;
+  box-shadow: 0 2px 4px 0 rgba(45, 109, 246, 0.10);
+}
+.btn-secondary:hover:not(:disabled) {
+  @apply bg-primary text-white;
 }
 
-.btn-danger {
-  @apply bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium;
-}
-
+/* 狀態按鈕 */
 .btn-success {
-  @apply bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium;
+  @apply bg-success text-white px-4 py-2 rounded-lg font-medium shadow-btn transition disabled:opacity-50 disabled:cursor-not-allowed;
 }
-
+.btn-success:hover:not(:disabled) {
+  @apply bg-success-hover;
+}
 .btn-warning {
-  @apply bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed font-medium;
+  @apply bg-warning text-white px-4 py-2 rounded-lg font-medium shadow-btn transition disabled:opacity-50 disabled:cursor-not-allowed;
 }
-
+.btn-warning:hover:not(:disabled) {
+  @apply bg-warning-hover;
+}
+.btn-danger {
+  @apply bg-error text-white px-4 py-2 rounded-lg font-medium shadow-btn transition disabled:opacity-50 disabled:cursor-not-allowed;
+}
+.btn-danger:hover:not(:disabled) {
+  @apply bg-error-hover;
+}
 .btn-info {
-  @apply bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium;
+  @apply bg-info text-white px-4 py-2 rounded-lg font-medium shadow-btn transition disabled:opacity-50 disabled:cursor-not-allowed;
+}
+.btn-info:hover:not(:disabled) {
+  @apply bg-info-hover;
 }
 
 .btn-sm {

@@ -37,8 +37,6 @@ interface SidebarProps {
   // 登出處理
   onLogout: () => void;
   
-  // 手機版控制
-  isMobile?: boolean;
 }
 
 export default function Sidebar({
@@ -48,14 +46,13 @@ export default function Sidebar({
   menuItems,
   activeTab,
   onTabChange,
-  onLogout,
-  isMobile = false
+  onLogout
 }: SidebarProps) {
   // 當點選功能時自動關閉側邊欄
   const handleTabChange = (tab: string | null) => {
     onTabChange(tab);
     // 如果是手機版或側邊欄是展開狀態，點選後關閉
-    if (isMobile || sidebarOpen) {
+    if (sidebarOpen) {
       onToggleSidebar();
     }
   };
@@ -98,30 +95,16 @@ export default function Sidebar({
 
   const sidebarClasses = clsx(
     'flex flex-col z-50 bg-white border-r',
-    'transition-transform duration-300 ease-in-out',
+    'transition-all duration-300 ease-in-out',
+    'fixed top-16 left-0 h-[calc(100vh-64px)]',
     {
-      // 桌面版樣式
-      'hidden md:flex fixed top-16 left-0 h-[calc(100vh-64px)]': !isMobile,
-      'w-64': !sidebarOpen && !isMobile,
-      'w-16': sidebarOpen && !isMobile,
-      // 手機版樣式
-      'fixed inset-y-0 left-0 w-64 transform': isMobile,
-      'translate-x-0': sidebarOpen && isMobile,
-      '-translate-x-full': !sidebarOpen && isMobile,
+      'w-64': !sidebarOpen,
+      'w-16': sidebarOpen,
     }
   );
 
   return (
     <>
-      {/* 遮罩層 (僅在手機版側邊欄開啟時顯示) */}
-      {isMobile && sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
-          onClick={onToggleSidebar}
-          aria-hidden="true"
-        />
-      )}
-
       {/* 統一的側邊欄 */}
       <aside className={sidebarClasses}>
         <div className={`p-4 ${sidebarOpen ? 'flex justify-center' : ''}`}>
@@ -146,8 +129,8 @@ export default function Sidebar({
           <button
             onClick={onToggleSidebar}
             className={clsx(
-              'flex items-center h-12 rounded-lg',
-              sidebarOpen ? 'w-12 justify-center hover:bg-gray-100 text-gray-700' : 'w-full px-3 py-2 hover:bg-gray-100 text-gray-700'
+              'flex items-center h-12 rounded-lg w-full hover:bg-gray-100 text-gray-700',
+              sidebarOpen ? 'pl-3' : 'px-3'
             )}
             aria-label={sidebarOpen ? "展開選單" : "收合選單"}
           >
@@ -167,8 +150,8 @@ export default function Sidebar({
           <button
             onClick={onLogout}
             className={clsx(
-              'flex items-center h-12 rounded-lg',
-              sidebarOpen ? 'w-12 justify-center text-red-600 hover:bg-red-50' : 'w-full px-3 py-2 text-red-600 hover:bg-red-50'
+              'flex items-center h-12 rounded-lg w-full text-red-600 hover:bg-red-50',
+              sidebarOpen ? 'justify-center' : 'px-3'
             )}
           >
             <span className="flex items-center justify-center w-8 h-8">
@@ -180,88 +163,107 @@ export default function Sidebar({
           </button>
         </div>
 
-        <nav className="flex flex-col flex-1 p-2 gap-2">
-          <button
-            onClick={() => handleTabChange(null)}
-            className={clsx(
-              'flex items-center h-12 rounded-lg select-none',
-              sidebarOpen ? 'w-12 justify-center' : 'w-full px-3 py-2',
-              activeTab === null ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100 text-gray-700'
-            )}
-          >
-            <span className="flex items-center justify-center w-8 h-8">
-              <svg className="h-6 w-6 flex-shrink-0 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l9-9 9 9M4.5 10.5V21a1.5 1.5 0 001.5 1.5h3.75A1.5 1.5 0 0011.25 21V15h1.5v6a1.5 1.5 0 001.5 1.5h3.75A1.5 1.5 0 0019.5 21V10.5" />
-              </svg>
-            </span>
-            {!sidebarOpen && (
-              <span className="ml-3 text-base truncate">儀表板</span>
-            )}
-          </button>
+                <nav className="flex flex-col flex-1 p-2 gap-2">
 
-          {menuItems.map(item => {
-            if (item.id.startsWith('divider')) {
-              return <div key={item.id} className={`border-t border-gray-200 mx-4 my-2 ${sidebarOpen ? 'hidden' : ''}`} />;
-            }
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  if (!item.disabled) {
-                    handleTabChange(item.id);
-                  }
-                }}
-                disabled={item.disabled}
-                className={clsx(
-                  'flex items-center h-12 rounded-lg select-none',
-                  sidebarOpen ? 'w-12 justify-center' : 'w-full px-3 py-2',
-                  activeTab === item.id ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100 text-gray-700',
-                  item.disabled && 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-60 pointer-events-none'
-                )}
-              >
-                <span className="flex items-center justify-center w-8 h-8">
-                  {React.cloneElement(item.icon as React.ReactElement<{ className?: string }>, {
-                    className: `h-6 w-6 flex-shrink-0 ${item.disabled ? 'text-gray-400' : 'text-blue-600'}`
+                  <button
+
+                    onClick={() => handleTabChange(null)}
+
+                    className={clsx(
+
+                      'flex items-center h-12 rounded-lg select-none w-full',
+
+                      activeTab === null ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100 text-gray-700',
+                      
+                      sidebarOpen ? 'justify-center' : 'px-3'
+
+                    )}
+
+                  >
+
+                    <span className="flex items-center justify-center w-8 h-8">
+
+                      <svg className="h-6 w-6 flex-shrink-0 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l9-9 9 9M4.5 10.5V21a1.5 1.5 0 001.5 1.5h3.75A1.5 1.5 0 0011.25 21V15h1.5v6a1.5 1.5 0 001.5 1.5h3.75A1.5 1.5 0 0019.5 21V10.5" />
+
+                      </svg>
+
+                    </span>
+
+                    {!sidebarOpen && (
+
+                      <span className="ml-3 text-base flex-shrink-0">儀表板</span>
+
+                    )}
+
+                  </button>
+
+        
+
+                  {menuItems.map(item => {
+
+                    if (item.id.startsWith('divider')) {
+
+                      return <div key={item.id} className={`border-t border-gray-200 mx-4 my-2 ${ sidebarOpen ? 'hidden' : ''}`} />;
+                    }
+
+                    return (
+
+                      <button
+
+                        key={item.id}
+
+                        onClick={() => {
+
+                          if (!item.disabled) {
+
+                            handleTabChange(item.id);
+
+                          }
+
+                        }}
+
+                        disabled={item.disabled}
+
+                        className={clsx(
+
+                          'flex items-center h-12 rounded-lg select-none w-full',
+
+                          activeTab === item.id ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-100 text-gray-700',
+
+                          item.disabled && 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-60 pointer-events-none',
+
+                          sidebarOpen ? 'justify-center' : 'px-3'
+
+                        )
+
+                      }>
+
+                        <span className="flex items-center justify-center w-8 h-8">
+
+                          {React.cloneElement(item.icon as React.ReactElement<{ className?: string }>, {
+
+                            className: `h-6 w-6 flex-shrink-0 ${item.disabled ? 'text-gray-400' : 'text-blue-600'}`
+
+                          })}
+
+                        </span>
+
+                        {!sidebarOpen && (
+
+                          <span className="ml-3 text-base flex-shrink-0">{item.title}</span>
+
+                        )}
+
+                      </button>
+
+                    );
+
                   })}
-                </span>
-                {!sidebarOpen && (
-                  <span className="ml-3 text-base truncate">{item.title}</span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
 
-        {isMobile && (
-          <>
-            <div className="px-2 pb-2 border-t bg-white">
-              <button
-                onClick={() => { onLogout(); onToggleSidebar(); }}
-                className="flex items-center w-full h-12 px-3 py-2 rounded-lg hover:bg-red-50 text-red-600"
-              >
-                <span className="flex items-center justify-center w-8 h-8">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                  </svg>
-                </span>
-                <span className="ml-3 text-base">登出</span>
-              </button>
-            </div>
-            <div className="px-2 pb-2 border-t bg-white">
-              <button
-                onClick={onToggleSidebar}
-                className="flex items-center w-full h-12 px-3 py-2 rounded-lg hover:bg-gray-100 text-gray-700"
-              >
-                <span className="flex items-center justify-center w-8 h-8">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </span>
-                <span className="ml-3 text-base">收合選單</span>
-              </button>
-            </div>
-          </>
-        )}
+                </nav>
+
       </aside>
     </>
   );

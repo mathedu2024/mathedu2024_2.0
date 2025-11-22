@@ -32,11 +32,9 @@ interface AttendanceManagementProps {
 
 // Generic Modal Component
 const Modal = ({ children, onClose: _onClose }: { children: React.ReactNode, onClose: () => void }) => (
-  <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
-    <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-      <div className="flex-grow overflow-y-auto p-6">
-        {children}
-      </div>
+  <div className="fixed inset-0 bg-gray-500 bg-opacity-75 z-50 flex justify-center items-start p-4 pt-10">
+    <div className="bg-white rounded-lg shadow-xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-6">
+      {children}
     </div>
   </div>
 );
@@ -52,6 +50,17 @@ export default function AttendanceManagementComponent({ courses }: AttendanceMan
   const [isExporting, setIsExporting] = useState(false);
 
 
+
+  useEffect(() => {
+    if (isCreateModalOpen || editingActivity || rosterActivity) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isCreateModalOpen, editingActivity, rosterActivity]);
 
   const fetchActivities = async (courseId: string, showLoading = true) => {
       if (!courseId) return;
@@ -228,39 +237,61 @@ export default function AttendanceManagementComponent({ courses }: AttendanceMan
       <h2 className="text-2xl font-bold mb-6 flex-shrink-0">點名管理</h2>
       
       {!selectedCourseId ? (
-        <div className="overflow-x-auto">
-          <table className="min-w-full bg-white">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">課程</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {courses.map(course => (
-                <tr key={course.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium">{course.name}</div>
-                    <div className="text-sm text-gray-500">{course.code}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <button
-                      className="btn-primary"
-                      onClick={() => {
-                        setSelectedCourseId(course.id);
-                      }}
-                    >
-                      管理點名
-                    </button>
-                  </td>
+        <>
+          {/* Card view for mobile */}
+          <div className="md:hidden">
+            {courses.map(course => (
+              <div key={course.id} className="bg-white border border-gray-200 rounded-lg shadow-sm mb-4 p-4">
+                <div className="font-medium text-gray-900 mb-2">{course.name}</div>
+                <div className="text-sm text-gray-500 mb-4">{course.code}</div>
+                <div className="flex justify-end">
+                  <button
+                    className="btn-primary"
+                    onClick={() => {
+                      setSelectedCourseId(course.id);
+                    }}
+                  >
+                    管理點名
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Table view for desktop */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="min-w-full bg-white">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">課程</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {courses.map(course => (
+                  <tr key={course.id}>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="font-medium">{course.name}</div>
+                      <div className="text-sm text-gray-500">{course.code}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <button
+                        className="btn-primary"
+                        onClick={() => {
+                          setSelectedCourseId(course.id);
+                        }}
+                      >
+                        管理點名
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       ) : (
         <>
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
             <div>
               <button
                 className="btn-secondary mb-4"
@@ -273,7 +304,7 @@ export default function AttendanceManagementComponent({ courses }: AttendanceMan
               </button>
               <h3 className="text-xl font-bold text-gray-800">{selectedCourseName}</h3>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <button 
                 onClick={handleExportSummary}
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:bg-gray-400"
@@ -295,60 +326,103 @@ export default function AttendanceManagementComponent({ courses }: AttendanceMan
           {error && <p className="text-red-500 text-center">{error}</p>}
 
           {!loading && !error && (
-            <div className="flex-1 overflow-x-auto">
-              <div className="min-w-full inline-block align-middle">
-                <div className="overflow-hidden border border-gray-200 rounded-lg shadow-sm">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">序號</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">標題</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">點名方式</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">點名代碼</th>
-                        <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">應到</th>
-                        <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">實到</th>
-                        <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">未到</th>
-                        <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">請假</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {activities.length > 0 ? (
-                        activities.map((activity, index) => (
-                          <tr key={activity.id} className="hover:bg-gray-50">
-                            <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{index + 1}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{activity.title}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getCheckInMethodName(activity.checkInMethod)}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{renderCheckInCode(activity)}</td>
-                            {activity.status === 'scheduled' ? (
-                              <td colSpan={4} className="px-6 py-4 text-center text-sm text-gray-400">-</td>
-                            ) : (
-                              <>
-                                <td className="px-3 py-4 text-center text-sm text-gray-800">{activity.expected}</td>
-                                <td className="px-3 py-4 text-center text-sm text-green-600 font-semibold">{activity.present}</td>
-                                <td className="px-3 py-4 text-center text-sm text-red-600 font-semibold">{activity.absent}</td>
-                                <td className="px-3 py-4 text-center text-sm text-yellow-600 font-semibold">{activity.leave}</td>
-                              </>
-                            )}
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              <div className="flex items-center space-x-4">
-                                <button onClick={() => setEditingActivity(activity)} className="text-blue-600 hover:text-blue-900">修改活動</button>
-                                <button onClick={() => setRosterActivity(activity)} className="text-green-600 hover:text-green-900">點名資料</button>
-                                <button onClick={() => handleDelete(activity.id)} className="text-red-600 hover:text-red-900">刪除</button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan={9} className="px-6 py-12 text-center text-sm text-gray-500">此課程尚無點名活動。</td>
-                        </tr>
+            <>
+              {/* Card view for mobile */}
+              <div className="md:hidden">
+                {activities.length > 0 ? (
+                  activities.map((activity, index) => (
+                    <div key={activity.id} className="bg-white border border-gray-200 rounded-lg shadow-sm mb-4 p-4">
+                      <div className="font-medium text-gray-900 mb-2">活動 {index + 1}: {activity.title}</div>
+                      <div className="text-sm text-gray-500 mb-2">
+                        <span className="font-medium text-gray-700">點名方式:</span> {getCheckInMethodName(activity.checkInMethod)}
+                      </div>
+                      <div className="text-sm text-gray-500 mb-2">
+                        <span className="font-medium text-gray-700">點名代碼:</span> {renderCheckInCode(activity)}
+                      </div>
+                      {activity.status !== 'scheduled' && (
+                        <>
+                          <div className="text-sm text-gray-500 mb-2">
+                            <span className="font-medium text-gray-700">應到:</span> {activity.expected}
+                          </div>
+                          <div className="text-sm text-green-600 mb-2">
+                            <span className="font-medium text-gray-700">實到:</span> {activity.present}
+                          </div>
+                          <div className="text-sm text-red-600 mb-2">
+                            <span className="font-medium text-gray-700">未到:</span> {activity.absent}
+                          </div>
+                          <div className="text-sm text-yellow-600 mb-4">
+                            <span className="font-medium text-gray-700">請假:</span> {activity.leave}
+                          </div>
+                        </>
                       )}
-                    </tbody>
-                  </table>
+                      <div className="flex justify-end gap-3">
+                        <button onClick={() => setEditingActivity(activity)} className="text-blue-600 hover:text-blue-900">修改活動</button>
+                        <button onClick={() => setRosterActivity(activity)} className="text-green-600 hover:text-green-900">點名資料</button>
+                        <button onClick={() => handleDelete(activity.id)} className="text-red-600 hover:text-red-900">刪除</button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-12 text-sm text-gray-500">此課程尚無點名活動。</div>
+                )}
+              </div>
+
+              {/* Table view for desktop */}
+              <div className="hidden md:block flex-1 overflow-x-auto">
+                <div className="min-w-full inline-block align-middle">
+                  <div className="overflow-hidden border border-gray-200 rounded-lg shadow-sm">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">序號</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">標題</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">點名方式</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">點名代碼</th>
+                          <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">應到</th>
+                          <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">實到</th>
+                          <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">未到</th>
+                          <th scope="col" className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">請假</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {activities.length > 0 ? (
+                          activities.map((activity, index) => (
+                            <tr key={activity.id} className="hover:bg-gray-50">
+                              <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{index + 1}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{activity.title}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{getCheckInMethodName(activity.checkInMethod)}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{renderCheckInCode(activity)}</td>
+                              {activity.status === 'scheduled' ? (
+                                <td colSpan={4} className="px-6 py-4 text-center text-sm text-gray-400">-</td>
+                              ) : (
+                                <>
+                                  <td className="px-3 py-4 text-center text-sm text-gray-800">{activity.expected}</td>
+                                  <td className="px-3 py-4 text-center text-sm text-green-600 font-semibold">{activity.present}</td>
+                                  <td className="px-3 py-4 text-center text-sm text-red-600 font-semibold">{activity.absent}</td>
+                                  <td className="px-3 py-4 text-center text-sm text-yellow-600 font-semibold">{activity.leave}</td>
+                                </>
+                              )}
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <div className="flex items-center space-x-4">
+                                  <button onClick={() => setEditingActivity(activity)} className="text-blue-600 hover:text-blue-900">修改活動</button>
+                                  <button onClick={() => setRosterActivity(activity)} className="text-green-600 hover:text-green-900">點名資料</button>
+                                  <button onClick={() => handleDelete(activity.id)} className="text-red-600 hover:text-red-900">刪除</button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan={9} className="px-6 py-12 text-center text-sm text-gray-500">此課程尚無點名活動。</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
-            </div>
+            </>
           )}
         </>
       )}

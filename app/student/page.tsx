@@ -23,7 +23,7 @@ export default function StudentPanel() {
   ];
 
   if (loading) {
-    return <LoadingSpinner fullScreen />;
+    return <LoadingSpinner fullScreen size={40} />;
   }
 
   if (activeTab === 'change-password') {
@@ -31,7 +31,7 @@ export default function StudentPanel() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto w-full p-2 md:p-8 px-2 sm:px-4 md:px-6 lg:px-8">
+    <div className="max-w-7xl mx-auto w-full px-2 sm:px-4 md:px-6 lg:px-8 py-2 md:py-8">
       <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-lg shadow-lg p-4 md:p-6 text-white mb-4 md:mb-8 animate-fade-in">
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
           <div className="flex-1">
@@ -47,7 +47,7 @@ export default function StudentPanel() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 animate-fade-in" style={{ animationDelay: '0.1s' }}>
-        <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
+  <div className="bg-white rounded-lg shadow-md p-4 md:p-6 border-l-4 border-blue-500">
           <div className="flex items-center">
             <div className="p-3 rounded-full bg-blue-100 text-blue-600"><BookOpenIcon className="h-8 w-8" /></div>
             <div className="ml-4">
@@ -56,7 +56,7 @@ export default function StudentPanel() {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
+  <div className="bg-white rounded-lg shadow-md p-4 md:p-6 border-l-4 border-green-500">
           <div className="flex items-center">
             <div className="p-3 rounded-full bg-green-100 text-green-600"><ClipboardDocumentListIcon className="h-8 w-8" /></div>
             <div className="ml-4">
@@ -65,7 +65,7 @@ export default function StudentPanel() {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-yellow-500">
+  <div className="bg-white rounded-lg shadow-md p-4 md:p-6 border-l-4 border-yellow-500">
           <div className="flex items-center">
             <div className="p-3 rounded-full bg-yellow-100 text-yellow-600"><CalendarIcon className="h-8 w-8" /></div>
             <div className="ml-4">
@@ -74,7 +74,7 @@ export default function StudentPanel() {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-500">
+  <div className="bg-white rounded-lg shadow-md p-4 md:p-6 border-l-4 border-purple-500">
           <div className="flex items-center">
             <div className="p-3 rounded-full bg-purple-100 text-purple-600"><KeyIcon className="h-8 w-8" /></div>
             <div className="ml-4">
@@ -85,7 +85,7 @@ export default function StudentPanel() {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md p-6 animate-fade-in" style={{ animationDelay: '0.2s' }}>
+  <div className="bg-white rounded-lg shadow-md p-6 animate-fade-in" style={{ animationDelay: '0.2s' }}>
         <h2 className="text-2xl font-bold text-gray-800 mb-6">快速操作</h2>
         <div className="card-list">
           {studentQuickActions.map((action) => (

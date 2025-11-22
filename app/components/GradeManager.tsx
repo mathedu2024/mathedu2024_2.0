@@ -7,6 +7,7 @@ import Swal from 'sweetalert2';
 import { Modal } from './ui';
 import Dropdown from './ui/Dropdown';
 import LoadingSpinner from './LoadingSpinner';
+import GradeRegistrationMobile from './GradeRegistrationMobile';
 
 
 interface UserInfo {
@@ -227,6 +228,22 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
   const [isCourseListLoading, setIsCourseListLoading] = useState(false);
   const [isGradeDataLoading, setIsGradeDataLoading] = useState(false);
   const [loadingCourseId, setLoadingCourseId] = useState<string | null>(null);
+
+  // Mobile update handlers (used by mobile-only UI)
+  const handleUpdateRegularScore = (studentId: string, colIdx: number, value?: number) => {
+    setStudents(prev => prev.map(s => s.id === studentId ? { ...s, regularScores: { ...s.regularScores, [colIdx]: value } } : s));
+    setHasUnsavedChanges(true);
+  };
+
+  const handleUpdatePeriodicScore = (studentId: string, scoreName: PeriodicScoreName, value?: number) => {
+    setStudents(prev => prev.map(s => s.id === studentId ? { ...s, periodicScores: { ...s.periodicScores, [scoreName]: value } } : s));
+    setHasUnsavedChanges(true);
+  };
+
+  const handleUpdateManualAdjust = (studentId: string, value: number) => {
+    setStudents(prev => prev.map(s => s.id === studentId ? { ...s, manualAdjust: value } : s));
+    setHasUnsavedChanges(true);
+  };
 
 
   const handleShowSettings = (colIdx: number) => {
@@ -828,12 +845,14 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
 
   if (isCourseListLoading) {
     return (
-      <LoadingSpinner fullScreen text="成績資料載入中..." />
+      <div className="flex items-center justify-center min-h-screen w-full">
+        <LoadingSpinner size={60} text="成績資料載入中..." />
+      </div>
     );
   }
 
   return (
-    <div className="max-w-6xl mx-auto w-full p-4 h-full flex flex-col">
+  <div className="max-w-6xl mx-auto w-full p-4 min-h-screen flex flex-col bg-white" style={{ minHeight: '100vh' }}>
       <h2 className="text-2xl font-bold mb-6 flex-shrink-0">成績資料管理</h2>
       {!selectedCourse ? (
         <div className="overflow-x-auto">
@@ -912,7 +931,12 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
       )}
       {/* 已選課且有學生才顯示主功能區塊與匯入/出按鈕 */}
       {selectedCourse && students.length > 0 && (
-        <>
+        <div className="relative">
+          {isGradeDataLoading && (
+            <div className="flex items-center justify-center min-h-screen w-full">
+              <LoadingSpinner size={60} text="成績資料載入中..." />
+            </div>
+          )}
           <div className="flex gap-4 mb-6 items-center flex-wrap">
             <button className={`px-4 py-2 rounded ${selectedTab === 'regular' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`} onClick={() => setSelectedTab('regular')}>平時成績</button>
             <button className={`px-4 py-2 rounded ${selectedTab === 'periodic' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`} onClick={() => setSelectedTab('periodic')}>定期評量</button>
@@ -922,18 +946,45 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
           {selectedTab === 'regular' && (
             <div className="mb-8">
               {/* 按鈕區塊移到上方 */}
-              <div className="grid grid-cols-2 gap-2 mb-4 md:flex md:gap-2 md:flex-nowrap md:overflow-x-auto">
-                <button className="btn-primary min-w-[110px] flex-shrink-0" onClick={handleExport}>匯出成績</button>
-                <button className="btn-success min-w-[110px] flex-shrink-0" onClick={handleImport}>匯入成績</button>
-                <button className="btn-warning min-w-[110px] flex-shrink-0" onClick={openPercentModal}>百分比調整</button>
-                <button type="button" className="btn-info min-w-[110px] flex-shrink-0" onClick={handleAddColumn}>增加欄位</button>
-                <button
-                  className="btn-danger min-w-[110px] flex-shrink-0"
-                  onClick={handleSave}
-                  disabled={isSaving}
-                >{isSaving ? '儲存中...' : '儲存成績'}</button>
+              {/* Mobile: grid, Desktop: flex */}
+              <div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4 md:hidden">
+                  <button className="btn-primary w-full" onClick={handleExport}>匯出成績</button>
+                  <button className="btn-success w-full" onClick={handleImport}>匯入成績</button>
+                  <button className="btn-warning w-full" onClick={openPercentModal}>百分比調整</button>
+                  <button type="button" className="btn-info w-full" onClick={handleAddColumn}>增加欄位</button>
+                  <button
+                    className="btn-danger w-full"
+                    onClick={handleSave}
+                    disabled={isSaving}
+                  >{isSaving ? '儲存中...' : '儲存成績'}</button>
+                </div>
+                <div className="hidden md:flex md:gap-2 md:flex-nowrap md:overflow-x-auto mb-4">
+                  <button className="btn-primary min-w-[110px] flex-shrink-0" onClick={handleExport}>匯出成績</button>
+                  <button className="btn-success min-w-[110px] flex-shrink-0" onClick={handleImport}>匯入成績</button>
+                  <button className="btn-warning min-w-[110px] flex-shrink-0" onClick={openPercentModal}>百分比調整</button>
+                  <button type="button" className="btn-info min-w-[110px] flex-shrink-0" onClick={handleAddColumn}>增加欄位</button>
+                  <button
+                    className="btn-danger min-w-[110px] flex-shrink-0"
+                    onClick={handleSave}
+                    disabled={isSaving}
+                  >{isSaving ? '儲存中...' : '儲存成績'}</button>
+                </div>
               </div>
               <div className="overflow-x-auto" style={{ maxWidth: '100%' }}>
+                {/* Mobile card view */}
+                <div className="md:hidden mb-4">
+                  <GradeRegistrationMobile
+                    tab="regular"
+                    students={students}
+                    regularColumns={regularColumns}
+                    columnDetails={columnDetails}
+                    _periodicScores={periodicScores}
+                    onUpdateRegularScore={handleUpdateRegularScore}
+                    _onUpdatePeriodicScore={handleUpdatePeriodicScore}
+                    _onUpdateManualAdjust={handleUpdateManualAdjust}
+                  />
+                </div>
                 <table className="min-w-full border border-gray-200 rounded-lg" style={{ tableLayout: 'fixed', width: `${120 + 100 + (regularColumns * 120)}px` }}>
                   <thead>
                     <tr className="bg-gray-100">
@@ -1056,7 +1107,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                 onColumnDetailsChange={setColumnDetails}
                 students={students}
                 getTaiwanPercentileLevels={getTaiwanPercentileLevels}
-                periodicScores={periodicScores}
+                _periodicScores={periodicScores}
               />
 
               {/* 平時成績分析卡片（已移除） */}
@@ -1076,6 +1127,19 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                 >{isSaving ? '儲存中...' : '儲存成績'}</button>
               </div>
               <div className="overflow-x-auto" style={{ maxWidth: '100%' }}>
+                {/* Mobile card view */}
+                <div className="md:hidden mb-4">
+                  <GradeRegistrationMobile
+                    tab="periodic"
+                    students={students}
+                    regularColumns={regularColumns}
+                    columnDetails={columnDetails}
+                    _periodicScores={periodicScores}
+                    onUpdateRegularScore={handleUpdateRegularScore}
+                    _onUpdatePeriodicScore={handleUpdatePeriodicScore}
+                    _onUpdateManualAdjust={handleUpdateManualAdjust}
+                  />
+                </div>
                 <table className="min-w-full border border-gray-200 rounded-lg" style={{ tableLayout: 'fixed', width: `${120 + 100 + (periodicScores.length * 120)}px` }}>
                   <thead>
                     <tr className="bg-gray-100">
@@ -1176,7 +1240,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                 onColumnDetailsChange={setColumnDetails}
                 students={students}
                 getTaiwanPercentileLevels={getTaiwanPercentileLevels}
-                periodicScores={periodicScores}
+                _periodicScores={periodicScores}
               />
 
               
@@ -1196,6 +1260,19 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                 >{isSaving ? '儲存中...' : '儲存成績'}</button>
               </div>
               <div className="overflow-x-auto" style={{ maxWidth: '100%' }}>
+                {/* Mobile card view */}
+                <div className="md:hidden mb-4">
+                  <GradeRegistrationMobile
+                    tab="total"
+                    students={students}
+                    regularColumns={regularColumns}
+                    columnDetails={columnDetails}
+                    _periodicScores={periodicScores}
+                    onUpdateRegularScore={handleUpdateRegularScore}
+                    _onUpdatePeriodicScore={handleUpdatePeriodicScore}
+                    _onUpdateManualAdjust={handleUpdateManualAdjust}
+                  />
+                </div>
                 <table className="min-w-full border border-gray-200 rounded-lg" style={{ tableLayout: 'fixed', width: `${120 + 100 + 120*4}px` }}>
                   <thead>
                     <tr className="bg-gray-100">
@@ -1651,7 +1728,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
               </div>
             </Modal>
           )}
-        </>
+  </div>
       )}
     </div>
   );

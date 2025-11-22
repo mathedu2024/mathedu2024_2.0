@@ -208,7 +208,7 @@ function CheckInView({ firestoreCourseId, activityId }: { firestoreCourseId: str
     }
   };
 
-  if (isLoading) return <LoadingSpinner text="載入點名活動中..." />;
+  if (isLoading) return <LoadingSpinner size={40} />;
   if (error) return <p className="text-center text-red-500 font-semibold">{error}</p>;
   if (!activity) return <p className="text-center text-gray-600">找不到點名活動。</p>;
 
@@ -398,7 +398,7 @@ function StudentAttendancePageContent() {
       </div>
 
       {isLoading ? (
-        <LoadingSpinner text="正在載入點名活動..." />
+        <LoadingSpinner size={40} />
       ) : (
         <div>
           {tab === 'live' && 
@@ -428,7 +428,7 @@ function StudentAttendancePageContent() {
 
 export default function StudentAttendancePage() {
   return (
-    <Suspense fallback={<LoadingSpinner text="載入頁面中..." />}>
+    <Suspense fallback={<LoadingSpinner size={40} />}>
       <StudentAttendancePageContent />
     </Suspense>
   );

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { format, parseISO } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
-import MoonLoader from './MoonLoader';
 import { confirm, showError } from '../utils/alerts';
 import LoadingSpinner from './LoadingSpinner';
 
@@ -220,7 +219,7 @@ const StudentTutoringCalendar: React.FC<StudentTutoringCalendarProps> = ({ userI
     <>
       <h2 className="text-2xl font-bold mb-6">可預約輔導時段</h2>
       {loading ? (
-        <div className="flex justify-center items-center h-64"><MoonLoader /></div>
+        <div className="flex justify-center items-center h-64"><LoadingSpinner size={40} /></div>
       ) : filteredAndSortedSlots.length === 0 ? (
         <div className="bg-white border border-gray-200 p-6 rounded-lg shadow-sm text-center text-gray-500 py-10">
           目前沒有可預約的輔導時段
@@ -325,7 +324,7 @@ const StudentTutoringCalendar: React.FC<StudentTutoringCalendarProps> = ({ userI
               <div className="flex justify-end space-x-3 pt-4">
                 <button type="button" onClick={() => setIsBookingModalOpen(false)} className="btn-primary">取消</button>
                 <button type="submit" className="btn-primary" disabled={loading}>
-                  {loading ? <LoadingSpinner size={20} color="white" /> : '確認預約'}
+                  {loading ? <LoadingSpinner size={40} color="white" /> : '確認預約'}
                 </button>
               </div>
             </form>

@@ -190,7 +190,7 @@ export default function CreateAttendanceActivityForm({ courseId, onComplete, ini
 
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 p-6 bg-white rounded-lg max-w-3xl mx-auto">
+    <form onSubmit={handleSubmit} className="space-y-6 p-6 bg-white rounded-lg mx-auto">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">{isEditMode ? '編輯點名活動' : '建立新的點名活動'}</h2>
 
       {/* Creation Mode Selection - Disabled in edit mode */}
@@ -284,21 +284,21 @@ export default function CreateAttendanceActivityForm({ courseId, onComplete, ini
       {error && <p className="text-sm text-red-600 mt-4 text-center">{error}</p>}
 
       {/* Action Buttons */}
-      <div className="flex justify-end space-x-4 pt-4">
-        <button
-          type="button"
-          onClick={onComplete}
-          className="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition-colors"
-          disabled={isLoading}
-        >
-          取消
-        </button>
+      <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-4 pt-4">
         <button
           type="submit"
-          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:bg-blue-400 transition-colors"
+          className="w-full sm:w-auto px-4 py-2 sm:px-6 sm:py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:bg-blue-400 transition-colors"
           disabled={isLoading}
         >
           {isLoading ? (isEditMode ? '儲存中...' : '建立中...') : (isEditMode ? '儲存變更' : '建立活動')}
+        </button>
+        <button
+          type="button"
+          onClick={onComplete}
+          className="w-full sm:w-auto px-4 py-2 sm:px-6 sm:py-3 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition-colors"
+          disabled={isLoading}
+        >
+          取消
         </button>
       </div>
     </form>

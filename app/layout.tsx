@@ -21,7 +21,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-TW" className="h-full">
+    <html lang="zh-TW" className="h-full overflow-hidden">
       <head>
         {/* 全面置換 favicon 為 learn.png，支援多格式 */}
         <link rel="icon" href="/learn.png" type="image/png" />
@@ -36,9 +36,9 @@ export default function RootLayout({
           {`emailjs.init("Oxm7lO3VyhQ4vxUTW");`}
         </Script>
       </head>
-      <body className={`${geistFont.className} flex flex-col bg-gray-100`}>
+  <body className={`${geistFont.className} bg-white h-full overflow-hidden`}>
         <Navigation />
-        <main className="flex-1">{children}</main>
+        <main className="px-[5px] h-[calc(100vh-64px)] overflow-y-auto">{children}</main>
       </body>
     </html>
   );

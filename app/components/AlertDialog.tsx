@@ -29,7 +29,9 @@ export default function AlertDialog({ message, type, onClose }: AlertDialogProps
         alertPromise = Promise.resolve();
         break;
     }
-    alertPromise.finally(onClose);
+    alertPromise.catch(error => {
+      console.error('Error showing alert:', error);
+    }).finally(onClose);
   }, [message, type, onClose]);
 
   return null;

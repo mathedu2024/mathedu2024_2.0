@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { format, parseISO, isFuture } from 'date-fns';
 
-import MoonLoader from './MoonLoader';
 import Swal from 'sweetalert2';
 import { XCircleIcon, PencilIcon } from '@heroicons/react/24/outline';
 import { Appointment } from '@/services/interfaces'; // Import Appointment interface
@@ -166,7 +165,7 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
     <>
       <h2 className="text-2xl font-bold mb-6">我的輔導紀錄</h2>
       {loading ? (
-        <div className="flex justify-center items-center h-64"><MoonLoader /></div>
+        <div className="flex justify-center items-center h-64"><LoadingSpinner size={40} /></div>
       ) : appointments.length === 0 ? (
         <div className="bg-white border border-gray-200 p-6 rounded-lg shadow-sm text-center text-gray-500 py-10">
             您沒有任何輔導預約記錄。
@@ -238,7 +237,7 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
               <div className="flex justify-end space-x-3">
                 <button type="button" onClick={() => setIsEditModalOpen(false)} className="btn-primary">取消</button>
                 <button type="submit" className="btn-primary" disabled={loading}>
-                  {loading ? <LoadingSpinner size={20} color="white" /> : '儲存變更'}
+                  {loading ? <LoadingSpinner size={40} color="white" /> : '儲存變更'}
                 </button>
               </div>
             </form>

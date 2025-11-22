@@ -332,7 +332,7 @@ export default function Home() {
   }
 
   return (
-    <main className="h-full p-2 sm:p-4 md:p-6 lg:p-8 bg-gray-50 overflow-y-auto">
+    <main>
       <div className="mb-4 md:mb-8 text-center animate-fade-in">
         <div className="bg-white rounded-xl p-4 md:p-6 mb-4 md:mb-8">
           <h1 className="text-2xl md:text-4xl font-bold text-blue-700 mb-4 md:mb-8 text-center">

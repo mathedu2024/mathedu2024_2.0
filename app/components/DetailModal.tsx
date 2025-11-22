@@ -1,4 +1,5 @@
 import React from 'react';
+import Modal from './ui/Modal';
 
 interface DetailModalProps {
   open: boolean;
@@ -8,19 +9,21 @@ interface DetailModalProps {
 }
 
 export default function DetailModal({ open, title, children, onClose }: DetailModalProps) {
-  if (!open) return null;
   return (
-    <div className="dialog-overlay">
-      <div className="dialog-content">
-        <div className="dialog-title">{title}</div>
-        <div className="mb-4 md:mb-6 text-base md:text-lg">{children}</div>
-        <button
-          onClick={onClose}
-          className="dialog-button"
-        >
-          關閉
-        </button>
-      </div>
-    </div>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={title}
+      size="sm"
+      showCloseButton={false}
+    >
+      <div className="mb-4 md:mb-6 text-base md:text-lg">{children}</div>
+      <button
+        onClick={onClose}
+        className="dialog-button"
+      >
+        關閉
+      </button>
+    </Modal>
   );
 } 

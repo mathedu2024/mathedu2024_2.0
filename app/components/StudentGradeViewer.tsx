@@ -125,7 +125,9 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
       }
     };
 
-    loadDashboardData();
+    loadDashboardData().catch(error => {
+      console.error('Unhandled error in loadDashboardData:', error);
+    });
   }, [studentInfo]);
 
   useEffect(() => {
@@ -257,7 +259,7 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
     {loading && (
       <div className="flex justify-center py-8">
           <div className="text-center">
-            <LoadingSpinner size={32} text="載入中..." />
+            <LoadingSpinner size={40} />
           </div>
         </div>
     )}
@@ -310,16 +312,18 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
           {selectedTab === 'regular' && (
             <div>
               <h4 className="text-lg font-semibold mb-4">平時成績</h4>
-              <div className="mb-4 flex gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">開始日期</label>
-                    <input type="date" value={dateRange.from} onChange={(e) => setDateRange(prev => ({ ...prev, from: e.target.value }))} className="border rounded px-3 py-2" />
+              <div className="mb-4 flex flex-col md:flex-row gap-4">
+                <div className="flex gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">開始日期</label>
+                      <input type="date" value={dateRange.from} onChange={(e) => setDateRange(prev => ({ ...prev, from: e.target.value }))} className="border rounded px-3 py-2" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">結束日期</label>
+                      <input type="date" value={dateRange.to} onChange={(e) => setDateRange(prev => ({ ...prev, to: e.target.value }))} className="border rounded px-3 py-2" />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">結束日期</label>
-                    <input type="date" value={dateRange.to} onChange={(e) => setDateRange(prev => ({ ...prev, to: e.target.value }))} className="border rounded px-3 py-2" />
-                </div>
-                <div className="flex items-end">
+                <div className="flex items-start md:items-end">
                     <button onClick={() => setDateRange({ from: '', to: '' })} className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">清除篩選</button>
                 </div>
               </div>

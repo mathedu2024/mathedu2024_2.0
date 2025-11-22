@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { PlusIcon, PencilIcon, TrashIcon, UserGroupIcon, UserIcon, MapPinIcon, ClockIcon, TagIcon, ChatBubbleLeftRightIcon, EnvelopeIcon, ClipboardIcon } from '@heroicons/react/24/outline';
 import { format, startOfWeek, addDays, isSameDay, parseISO, isPast, addWeeks, subWeeks } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
-import MoonLoader from './MoonLoader';
 import MultiSelectDropdown from './MultiSelectDropdown';
 import Dropdown from './ui/Dropdown';
 import AlertDialog from './AlertDialog';
@@ -380,7 +379,7 @@ const TutoringManager: React.FC<TutoringManagerProps> = ({ userInfo, courses }) 
   }, [slots, selectedDate]);
 
   return (
-    <div className="p-4 md:p-8 bg-gray-100 min-h-screen">
+    <div className="p-2 md:p-4 bg-gray-100">
       <div className="max-w-6xl mx-auto w-full px-2 sm:px-4 md:px-6 lg:px-8">
       <h1 className="text-3xl font-bold text-gray-800 mb-6">課程輔導管理</h1>
 
@@ -409,7 +408,7 @@ const TutoringManager: React.FC<TutoringManagerProps> = ({ userInfo, courses }) 
       <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-2xl font-semibold text-gray-700 mb-4">{format(selectedDate, 'yyyy年 M月 d日', { locale: zhTW })} 的輔導時段</h2>
         {loading ? (
-          <div className="flex justify-center items-center h-32"><MoonLoader /></div>
+          <div className="flex justify-center items-center h-32"><LoadingSpinner size={40} /></div>
         ) : filteredSlots.length === 0 ? (
           <p className="text-gray-500 text-center">本日無輔導時段</p>
         ) : (
@@ -688,7 +687,7 @@ const TutoringManager: React.FC<TutoringManagerProps> = ({ userInfo, courses }) 
               <div className="flex justify-end space-x-3">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="btn-primary">取消</button>
                 <button type="submit" className="btn-primary" disabled={loading}>
-                  {loading ? <LoadingSpinner size={20} color="white" /> : (selectedSlot ? '儲存變更' : '新增時段')}
+                  {loading ? <LoadingSpinner size={40} color="white" /> : (selectedSlot ? '儲存變更' : '新增時段')}
                 </button>
               </div>
             </form>

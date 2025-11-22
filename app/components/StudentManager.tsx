@@ -259,15 +259,17 @@ export default function StudentManager() {
               placeholder="搜尋學生姓名或帳號"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="flex-1 w-full border border-gray-300 p-3 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 p-3 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <Dropdown
-                value={selectedGrade}
-                onChange={setSelectedGrade}
-                options={[{ value: 'all', label: '全部年級' }, ...grades.map(g => ({ value: g, label: g }))]}
-                placeholder="全部年級"
-                className="w-full md:w-48"
-              />
+            <div className="w-full md:w-48">
+              <Dropdown
+                  value={selectedGrade}
+                  onChange={setSelectedGrade}
+                  options={[{ value: 'all', label: '全部年級' }, ...grades.map(g => ({ value: g, label: g }))]}
+                  placeholder="全部年級"
+                  className="w-full"
+                />
+            </div>
 
             {!isEditing && (
               <button
@@ -287,7 +289,7 @@ export default function StudentManager() {
                   });
                   setIsEditing(true);
                 }}
-                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 w-full md:w-auto"
+                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 w-full md:w-auto flex-shrink-0"
               >
                 新增學生
               </button>
@@ -353,6 +355,7 @@ export default function StudentManager() {
                     onChange={(value) => setEditingStudent(prev => prev ? { ...prev, grade: value } : null)}
                     options={grades.map(g => ({ value: g, label: g }))}
                     placeholder="選擇年級"
+                    className="w-full"
                   />
                 </div>
                  <div className="md:col-span-2">
@@ -362,6 +365,7 @@ export default function StudentManager() {
                      selectedOptions={editingStudent.enrolledCourses}
                      onChange={(selected) => setEditingStudent(prev => prev ? { ...prev, enrolledCourses: selected } : null)}
                      placeholder="選擇學生選修的課程..."
+                     className="w-full"
                   />
                 </div>
                 <div>
@@ -423,71 +427,122 @@ export default function StudentManager() {
         )}
 
         {!isEditing && (
-          <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-x-auto">
-            <table className="w-full text-sm text-left text-gray-500">
-              <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3">姓名</th>
-                  <th scope="col" className="px-6 py-3">學號</th>
-                  <th scope="col" className="px-6 py-3">帳號</th>
-                  <th scope="col" className="px-6 py-3">年級</th>
-                  <th scope="col" className="px-6 py-3">性別</th>
-                  <th scope="col" className="px-6 py-3">課程數</th>
-                  <th scope="col" className="px-6 py-3">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={7} className="text-center py-10">
-                      <div className="flex flex-col items-center gap-2">
-                        <LoadingSpinner size={8} />
-                        <span className="mt-2 text-gray-500">讀取中...</span>
+          <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+            {/* Mobile View */}
+            <div className="md:hidden">
+              {loading ? (
+                <div className="p-4 text-center">
+                  <LoadingSpinner size={40} />
+                </div>
+              ) : filteredStudents.length > 0 ? (
+                <div className="divide-y divide-gray-200">
+                  {filteredStudents.map(student => (
+                    <div key={student.id} className="p-4">
+                      <div className="flex justify-between items-center mb-3">
+                          <h3 className="font-bold text-lg text-gray-900">{student.name}</h3>
+                          <span className="text-sm font-medium bg-gray-100 text-gray-700 px-2 py-1 rounded">{student.grade}</span>
                       </div>
-                    </td>
-                  </tr>
-                ) : filteredStudents.length > 0 ? filteredStudents.map(student => (
-                  <tr key={student.id} className="bg-white border-b hover:bg-gray-50">
-                    <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{student.name}</td>
-                    <td className="px-6 py-4">{student.studentId}</td>
-                    <td className="px-6 py-4">{student.account}</td>
-                    <td className="px-6 py-4">{student.grade}</td>
-                    <td className="px-6 py-4">{student.gender === 'male' ? '男' : '女'}</td>
-                    <td className="px-6 py-4">
-                      {student.enrolledCourses ? student.enrolledCourses.length : 0}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex gap-3 w-full min-w-[180px]">
+
+                      <div className="space-y-1 text-sm text-gray-600 mb-4 pt-3">
+                          <p><span className="font-semibold w-16 inline-block">學號:</span> {student.studentId}</p>
+                          <p><span className="font-semibold w-16 inline-block">性別:</span> {student.gender === 'male' ? '男' : '女'}</p>
+                          <p><span className="font-semibold w-16 inline-block">課程數:</span> {student.enrolledCourses ? student.enrolledCourses.length : 0}</p>
+                      </div>
+                      
+                      <div className="flex justify-end gap-3 flex-wrap">
                         <button 
                           onClick={() => handleEdit(student)} 
-                          className="text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                          className="text-blue-600 hover:text-blue-800 font-medium"
                         >
                           編輯
                         </button>
                         <button 
                           onClick={() => handleDelete(student)} 
-                          className="text-red-600 hover:text-red-800 font-medium transition-colors"
+                          className="text-red-600 hover:text-red-800 font-medium"
                         >
                           刪除
                         </button>
                         <button 
                           onClick={() => handleResetPassword(student.id)} 
-                          className="text-yellow-600 hover:text-yellow-800 font-medium transition-colors"
+                          className="text-yellow-600 hover:text-yellow-800 font-medium"
                         >
                           復原密碼
                         </button>
                       </div>
-                    </td>
-                  </tr>
-                )) : (
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="py-10 text-center text-gray-500">沒有找到符合條件的學生資料</p>
+              )}
+            </div>
+
+            {/* Desktop View */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm text-left text-gray-500">
+                <thead className="text-xs text-gray-700 uppercase bg-gray-50">
                   <tr>
-                    <td colSpan={7} className="text-center py-10 text-gray-500">
-                      沒有找到符合條件的學生資料
-                    </td>
+                    <th scope="col" className="px-6 py-3">姓名</th>
+                    <th scope="col" className="px-6 py-3">學號</th>
+                    <th scope="col" className="px-6 py-3">帳號</th>
+                    <th scope="col" className="px-6 py-3">年級</th>
+                    <th scope="col" className="px-6 py-3">性別</th>
+                    <th scope="col" className="px-6 py-3">課程數</th>
+                    <th scope="col" className="px-6 py-3">操作</th>
                   </tr>
-                )}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={7} className="text-center py-10">
+                        <div className="flex flex-col items-center gap-2">
+                          <LoadingSpinner size={40} />
+                        </div>
+                      </td>
+                    </tr>
+                  ) : filteredStudents.length > 0 ? filteredStudents.map(student => (
+                    <tr key={student.id} className="bg-white border-b hover:bg-gray-50">
+                      <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{student.name}</td>
+                      <td className="px-6 py-4">{student.studentId}</td>
+                      <td className="px-6 py-4">{student.account}</td>
+                      <td className="px-6 py-4">{student.grade}</td>
+                      <td className="px-6 py-4">{student.gender === 'male' ? '男' : '女'}</td>
+                      <td className="px-6 py-4">
+                        {student.enrolledCourses ? student.enrolledCourses.length : 0}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex gap-3 w-full min-w-[180px]">
+                          <button 
+                            onClick={() => handleEdit(student)} 
+                            className="text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                          >
+                            編輯
+                          </button>
+                          <button 
+                            onClick={() => handleDelete(student)} 
+                            className="text-red-600 hover:text-red-800 font-medium transition-colors"
+                          >
+                            刪除
+                          </button>
+                          <button 
+                            onClick={() => handleResetPassword(student.id)} 
+                            className="text-yellow-600 hover:text-yellow-800 font-medium transition-colors"
+                          >
+                            復原密碼
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={7} className="text-center py-10 text-gray-500">
+                        沒有找到符合條件的學生資料
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

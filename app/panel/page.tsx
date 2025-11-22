@@ -108,7 +108,7 @@ export default function PanelLoginPage() {
   };
 
   return (
-    <div className="h-full bg-gray-100 flex items-center justify-center p-4">
+    <div className="min-h-[calc(100vh-4rem)] bg-gray-100 flex items-center justify-center py-2 px-4">
       <div className="w-full max-w-4xl flex flex-row bg-white shadow-2xl rounded-2xl overflow-hidden animate-fade-in">
         {/* Left Panel */}
         <div className="w-1/2 bg-blue-600 p-12 text-white hidden md:flex flex-col justify-center items-center text-center">
@@ -199,10 +199,10 @@ export default function PanelLoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3 mt-2 btn-primary text-lg"
+              className="w-full py-3 mt-2 btn-primary text-lg flex justify-center items-center"
             >
               {isLoading ? (
-                <LoadingSpinner size={20} color="white" text="載入中..." />
+                <LoadingSpinner size={20} color="white" text="登入中..." />
               ) : '登入'}
             </button>
           </form>

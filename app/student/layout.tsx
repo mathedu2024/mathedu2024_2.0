@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useTransition } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { clearSession } from '../utils/session';
 import Sidebar from '../components/Sidebar';
@@ -24,6 +24,7 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { studentInfo, loading } = useStudentInfo();
+  const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     const pathSegments = pathname.split('/').filter(Boolean);
@@ -34,13 +35,15 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
 
   const handleTabChange = (tab: string | null) => {
     setActiveTab(tab);
-    if (tab === null) {
-      router.push('/student');
-    } else if (['courses', 'grades', 'counseling', 'attendance'].includes(tab)) {
-      router.push(`/student/${tab}`);
-    } else {
-      router.push(`/student?tab=${tab}`);
-    }
+    startTransition(() => {
+      if (tab === null) {
+        router.push('/student');
+      } else if (['courses', 'grades', 'counseling', 'attendance'].includes(tab)) {
+        router.push(`/student/${tab}`);
+      } else {
+        router.push(`/student?tab=${tab}`);
+      }
+    });
   };
 
   const handleLogout = () => {
@@ -48,10 +51,8 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-
   if (loading) {
-    return <LoadingSpinner fullScreen />;
+    return <LoadingSpinner fullScreen size={40} />;
   }
 
   if (!studentInfo) {
@@ -64,21 +65,7 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex flex-col h-full font-sans">
-      <div className="flex flex-1 min-h-0">
-        <button
-          className={`fixed top-20 left-4 z-50 bg-white p-2 rounded-full shadow-lg hover:bg-gray-50 transition-colors md:hidden ${sidebarOpen ? 'hidden' : 'block'}`}
-          onClick={() => setSidebarOpen(true)}
-        >
-          <svg className="w-6 h-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
-        </button>
-
-        {sidebarOpen && (
-          <div
-            className="fixed inset-0 bg-black bg-opacity-40 z-40 md:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-
+      <div className="flex flex-1 min-h-0 overflow-y-auto">
         <Sidebar
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
@@ -87,17 +74,20 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
           activeTab={activeTab}
           onTabChange={handleTabChange}
           onLogout={handleLogout}
-          isMobile={isMobile}
         />
 
         <main
-          className="flex-1 min-w-0 transition-all duration-300 overflow-y-auto"
+          className="flex-1 min-w-0 transition-all duration-300 relative bg-gray-100"
           style={{
-            paddingTop: '1rem',
-            paddingLeft: isMobile ? 0 : (sidebarOpen ? '4rem' : '16rem'),
+            paddingLeft: sidebarOpen ? '4rem' : '16rem',
             transition: 'padding-left 0.3s'
           }}
         >
+          {isPending && (
+            <div className="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center z-50">
+              <LoadingSpinner size={40} />
+            </div>
+          )}
           {children}
         </main>
       </div>
@@ -108,7 +98,7 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
 export default function StudentLayout({ children }: { children: React.ReactNode }) {
   return (
     <StudentInfoProvider>
-      <Suspense fallback={<LoadingSpinner fullScreen />}>
+      <Suspense fallback={<LoadingSpinner fullScreen size={40} />}>
         <StudentLayoutContent>{children}</StudentLayoutContent>
       </Suspense>
     </StudentInfoProvider>

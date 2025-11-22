@@ -167,7 +167,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ slot, userInfo, onClose, on
                 {slot.isFull && <p className="text-red-500 font-bold">此時段名額已滿</p>}
                 <button type="button" onClick={onClose} className="btn-secondary">取消</button>
                 <button type="submit" className="btn-primary" disabled={loading || slot.isFull}>
-                  {loading ? <LoadingSpinner size={20} /> : '確認預約'}
+                  {loading ? <LoadingSpinner size={40} /> : '確認預約'}
                 </button>
               </div>
             </form>

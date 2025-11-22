@@ -1,23 +1,20 @@
-import React from 'react';
 import { MoonLoader } from 'react-spinners';
 
 export interface LoadingSpinnerProps {
   size?: number;
-  
+  text?: string;
   color?: 'blue' | 'white' | 'gray';
   className?: string;
-  text?: string;
   fullScreen?: boolean;
 }
 
 // 統一使用主視覺藍色 blue-600
 export default function LoadingSpinner({ 
   className = '', 
-  size = 50, 
-  
   color = 'blue',
-  text,
-  fullScreen = false
+  fullScreen = false,
+  size = 40,
+  text = '',
 }: LoadingSpinnerProps) {
   const colorMap = {
     blue: '#3B82F6',
@@ -32,9 +29,7 @@ export default function LoadingSpinner({
         size={size}
         speedMultiplier={1}
       />
-      {text && (
-        <span className="ml-3 text-gray-600 font-medium">{text}</span>
-      )}
+      {text && <span className="ml-2">{text}</span>}
     </div>
   );
 

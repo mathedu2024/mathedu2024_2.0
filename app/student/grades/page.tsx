@@ -11,7 +11,7 @@ export default function StudentGradesPage() {
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <LoadingSpinner />
+        <LoadingSpinner size={40} />
       </div>
     );
   }

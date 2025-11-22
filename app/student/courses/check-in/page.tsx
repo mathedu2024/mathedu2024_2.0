@@ -126,7 +126,7 @@ function CheckInPageComponent() {
   };
 
   if (isLoading) {
-    return <LoadingSpinner fullScreen text="正在尋找點名活動..." />;
+    return <LoadingSpinner fullScreen size={40} />;
   }
 
   if (error) {
@@ -155,7 +155,7 @@ function CheckInPageComponent() {
 
 export default function StudentCheckInPage() {
     return (
-        <Suspense fallback={<LoadingSpinner fullScreen text="載入中..."/>}>
+        <Suspense fallback={<LoadingSpinner fullScreen size={40} />}>
             <CheckInPageComponent />
         </Suspense>
     )

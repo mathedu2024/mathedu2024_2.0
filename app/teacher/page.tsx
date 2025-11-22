@@ -70,9 +70,9 @@ function TeacherPageContent() {
   const [showModal, setShowModal] = useState(false);
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
       <h1 className="text-4xl md:text-5xl font-bold text-center mb-12 text-blue-600 tracking-tight drop-shadow-sm">
-        師資介紹
+        老師介紹
       </h1>
       <motion.div 
         className="grid grid-cols-1 lg:grid-cols-2 gap-8 px-2 sm:px-4 md:px-0"
@@ -83,7 +83,7 @@ function TeacherPageContent() {
         {teachers.map((teacher) => (
           <motion.div
             key={teacher.name}
-            className="bg-white rounded-lg shadow-md hover:shadow-xl overflow-hidden hover:bg-gray-50 flex flex-col md:block mb-6 md:mb-0 relative"
+            className="bg-white rounded-lg shadow-md hover:shadow-xl overflow-hidden hover:bg-white flex flex-col md:block mb-6 md:mb-0 relative"
             variants={itemVariants}
           >
             {/* 圖片區塊 */}

@@ -339,9 +339,9 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div className="fixed inset-0 bg-white z-50 flex flex-col">
+      <div className="fixed inset-0 bg-white z-50 flex flex-col items-center justify-start min-h-screen h-full">
         {/* Header */}
-        <div className="flex-shrink-0 p-4 border-b flex justify-between items-center">
+        <div className="flex-shrink-0 p-4 border-b flex justify-between items-center w-full max-w-4xl mx-auto">
           <div>
             <h3 className="text-2xl font-bold">{courseName}</h3>
             <div className="text-gray-500 text-sm">{courseCode}</div>
@@ -351,8 +351,18 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
           </button>
         </div>
 
-        {/* Main Content (Scrollable) */}
-        <div className="flex-grow min-h-0 overflow-y-auto p-4 md:p-8">
+        <div className="flex-1 overflow-y-auto w-full">
+    {/* Main Content (Scrollable) */}
+      {lessons.length === 0 && !(showForm || editingLesson) ? (
+        <div className="p-8 flex flex-col items-center justify-center w-full max-w-4xl mx-auto">
+          <h3 className="text-2xl font-bold mb-4">課堂管理</h3>
+          <div className="text-center text-gray-400 py-12">尚無課堂資料，請點擊「新增課堂」建立。</div>
+          <button className="mt-6 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700" onClick={() => setShowForm(true)}>
+            新增課堂
+          </button>
+        </div>
+      ) : (
+  <div className="w-full max-w-4xl mx-auto p-4 md:p-8 flex flex-col">
           <h3 className="text-2xl font-bold mb-4">課堂管理</h3>
           {(showForm || editingLesson) ? (
             <form onSubmit={editingLesson ? handleEditLesson : handleAddLesson} className="space-y-4 mb-8 bg-gray-50 p-4 rounded-lg">
@@ -440,50 +450,72 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
                     </button>
                   )}
               </div>
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">堂數</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">課堂標題</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">日期</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
-                  </tr>
-                </thead>
-                <Droppable droppableId="lesson-list">
-                  {(provided: DroppableProvided) => (
-                    <tbody className="bg-white divide-y divide-gray-200" ref={provided.innerRef} {...provided.droppableProps}>
-                      {lessons.map((lesson, idx) => (
-                        <Draggable key={lesson.id} draggableId={lesson.id} index={idx}>
-                          {(provided: DraggableProvided) => (
-                            <tr ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className="hover:bg-gray-50">
-                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">第 {idx + 1} 堂</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{lesson.title}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{lesson.date}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-left text-sm font-medium">
-                                <button className="text-blue-600 hover:underline px-2" onClick={() => handleEditClick(lesson)}>修改</button>
-                                <button className="text-red-600 hover:underline px-2" onClick={() => handleDeleteLesson(lesson.id)}>刪除</button>
-                              </td>
-                            </tr>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-                    </tbody>
+              {/* Card view for mobile */}
+              <div className="md:hidden">
+                {lessons.length === 0 ? null : (
+                  lessons.map((lesson, idx) => (
+                    <div key={lesson.id} className="bg-white border border-gray-200 rounded-lg shadow-sm mb-4 p-4">
+                      <div className="font-medium text-gray-900 mb-2">第 {idx + 1} 堂: {lesson.title}</div>
+                      <div className="text-sm text-gray-500 mb-4">日期: {lesson.date}</div>
+                      <div className="flex justify-end gap-3">
+                        <button className="text-blue-600 hover:underline" onClick={() => handleEditClick(lesson)}>修改</button>
+                        <button className="text-red-600 hover:underline" onClick={() => handleDeleteLesson(lesson.id)}>刪除</button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              {/* Table view for desktop */}
+              <div className="hidden md:block w-full">
+                <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-x-auto w-full">
+                  {lessons.length === 0 ? null : (
+                    <table className="min-w-full w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">堂數</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">課堂標題</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">日期</th>
+                          <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                        </tr>
+                      </thead>
+                      <Droppable droppableId="lesson-list">
+                        {(provided: DroppableProvided) => (
+                          <tbody className="bg-white divide-y divide-gray-200" ref={provided.innerRef} {...provided.droppableProps}>
+                            {lessons.map((lesson, idx) => (
+                              <Draggable key={lesson.id} draggableId={lesson.id} index={idx}>
+                                {(provided: DraggableProvided) => (
+                                  <tr ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className="hover:bg-gray-50">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">第 {idx + 1} 堂</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{lesson.title}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{lesson.date}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-left text-sm font-medium">
+                                      <button className="text-blue-600 hover:underline px-2" onClick={() => handleEditClick(lesson)}>修改</button>
+                                      <button className="text-red-600 hover:underline px-2" onClick={() => handleDeleteLesson(lesson.id)}>刪除</button>
+                                    </td>
+                                  </tr>
+                                )}
+                              </Draggable>
+                            ))}
+                            {provided.placeholder}
+                          </tbody>
+                        )}
+                      </Droppable>
+                    </table>
                   )}
-                </Droppable>
-              </table>
+                </div>
+              </div>
             </div>
           )}
         </div>
-
+      )}
+        </div>
         {/* Footer (Sticky) */}
         {(showForm || editingLesson) && (
-          <div className="flex-shrink-0 p-4 bg-gray-50 border-t flex justify-end gap-2">
+          <div className="flex-shrink-0 p-4 bg-gray-50 border-t flex justify-end gap-2 w-full max-w-4xl mx-auto">
             <button type="button" className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300" onClick={() => { setShowForm(false); setEditingLesson(null); }}>取消</button>
             <button type="button" onClick={editingLesson ? handleEditLesson : handleAddLesson} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700" disabled={isSubmitting}>{isSubmitting ? '儲存中...' : '儲存課堂'}</button>
           </div>
         )}
-        
         {alert.message && (
           <AlertDialog
             message={alert.message}
@@ -624,12 +656,16 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
 
   // 2. useEffect 只呼叫 fetchCourses
   useEffect(() => {
-    fetchCourses();
+    fetchCourses().catch(error => {
+      console.error('Unhandled error in fetchCourses:', error);
+    });
   }, [userInfo?.id, fetchCourses]);
 
   // 獲取老師資料
   useEffect(() => {
-    fetchTeachers();
+    fetchTeachers().catch(error => {
+      console.error('Unhandled error in fetchTeachers:', error);
+    });
   }, [fetchTeachers]);
 
   // handleShowCourseDetail 改為：
@@ -648,6 +684,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
     
     // 設定課程詳情
     setShowCourseDetail(fullCourse);
+    window.scrollTo(0, 0);
     
     try {
       // 嘗試獲取課程額外資料（如果存在）
@@ -843,7 +880,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
   }
 
   return (
-    <div className="max-w-6xl mx-auto w-full p-4 flex flex-col min-h-0">
+    <div className="max-w-6xl mx-auto w-full px-4 pb-4 flex flex-col flex-1 min-h-0">
       <div className="flex justify-between items-center mb-6 flex-shrink-0">
         <h2 className="text-2xl font-bold">我的授課課程</h2>
         {userInfo?.role === '管理員' && (
@@ -890,7 +927,57 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
       {/* 課程卡片清單 */}
       {!loading && filteredCourses.length > 0 && (
         <div className="flex-1 min-h-0 overflow-y-auto">
-          <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-x-auto">
+          {/* Card view for mobile */}
+          <div className="md:hidden">
+            {filteredCourses.map(course => (
+              <div key={course.id} className="bg-white border border-gray-200 rounded-lg shadow-sm mb-4 p-4">
+                <div className="font-medium text-gray-900 mb-2">{course.name}</div>
+                <div className="text-sm text-gray-500 mb-2">{course.code}</div>
+                <div className="text-sm text-gray-500 mb-2">
+                  <span className="font-medium text-gray-700">授課老師:</span> {teacherNamesMap[course.id]?.join('、') || '載入中...'}
+                </div>
+                <div className="text-sm text-gray-500 mb-2">
+                  <span className="font-medium text-gray-700">學生人數:</span> {studentCounts[course.id] ?? 0}
+                </div>
+                <div className="text-sm text-gray-500 mb-2">
+                  <span className="font-medium text-gray-700">上課時間:</span>
+                  {(course.classTimes || []).map((ct, index) => (
+                    <div key={index}>{`${(ct as unknown as ClassTime).day} ${(ct as unknown as ClassTime).startTime}-${(ct as unknown as ClassTime).endTime}`}</div>
+                  ))}
+                </div>
+                <div className="text-sm text-gray-500 mb-2">
+                  <span className="font-medium text-gray-700">會議室:</span>
+                  {(course.teachingMethod === '線上上課' || course.teachingMethod === '實體與線上同步上課') && course.liveStreamURL ? (
+                    <a href={course.liveStreamURL} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                      會議連結
+                    </a>
+                  ) : (
+                    <span>-</span>
+                  )}
+                </div>
+                <div className="text-sm text-gray-500 mb-4">
+                  <span className="font-medium text-gray-700">狀態:</span>
+                  <span className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
+                      course.status === '未開課' ? 'bg-gray-100 text-gray-800' :
+                      course.status === '報名中' ? 'bg-green-100 text-green-800' :
+                      course.status === '開課中' ? 'bg-blue-100 text-blue-800' :
+                      course.status === '已額滿' ? 'bg-red-100 text-red-800' :
+                      course.status === '已封存' ? 'bg-gray-200 text-gray-600' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                    {course.status}
+                  </span>
+                </div>
+                <div className="flex justify-end gap-3">
+                  <button className="btn-primary" onClick={() => { setShowLessonManager(course); window.scrollTo(0, 0); }}>管理課程</button>
+                  <button className="btn-secondary" onClick={() => handleShowCourseDetail(course)}>課程資料</button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Table view for desktop */}
+          <div className="hidden md:block bg-white border border-gray-200 rounded-lg shadow-sm overflow-x-auto">
             <table className="w-full text-sm text-left text-gray-500">
               <thead className="text-xs text-gray-700 uppercase bg-gray-50">
                 <tr>
@@ -906,7 +993,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-10">
+                    <td colSpan={7} className="text-center py-10">
                       <div className="flex flex-col items-center gap-2">
                         <LoadingSpinner size={8} />
                         <span className="mt-2 text-gray-500">讀取中...</span>
@@ -956,7 +1043,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                   </tr>
                 )) : (
                   <tr>
-                    <td colSpan={6} className="text-center py-10 text-gray-500">
+                    <td colSpan={7} className="text-center py-10 text-gray-500">
                       尚無授課課程
                     </td>
                   </tr>

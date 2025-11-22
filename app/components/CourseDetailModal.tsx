@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 
 interface Course {
   id: string;
@@ -50,6 +50,8 @@ interface CourseDetailModalProps {
   editingColumn?: number | null;
   columnDetails?: { [idx: number]: { type: string; name: string; date: string; nature?: string } };
   onColumnDetailsChange?: (details: { [idx: number]: { type: string; name: string; date: string; nature?: string } }) => void;
+  periodicColumnDetails?: { [key: string]: { name: string; date: string } };
+  onPeriodicColumnDetailsChange?: (details: { [key: string]: { name: string; date: string } }) => void;
   students?: {
     name: string;
     regularScores: { [columnId: string]: number | undefined };
@@ -57,7 +59,7 @@ interface CourseDetailModalProps {
   }[];
   getTaiwanPercentileLevels?: (scores: number[]) => PercentileStatistics;
   isPeriodic?: boolean;
-  periodicScores?: string[];
+  _periodicScores?: string[];
 }
 
 export default function CourseDetailModal({
@@ -65,21 +67,41 @@ export default function CourseDetailModal({
   teachers,
   open,
   onClose,
+  showDescription,
   showDeleteButton = false,
   onDelete,
   isGradeInfo = false,
   editingColumn = null,
   columnDetails = {},
   onColumnDetailsChange,
+  periodicColumnDetails = {},
+  onPeriodicColumnDetailsChange,
   students = [],
   getTaiwanPercentileLevels,
   isPeriodic = false,
-  periodicScores = []
+  _periodicScores = []
 }: CourseDetailModalProps) {
+
+  const isSimpleCourse = !course || !('description' in course) || typeof (course as Course).description !== 'string';
+
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [open]);
 
   if (!open || !course) return null;
 
-  const isSimpleCourse = !('teachingMethod' in course) && !('status' in course);
+  const currentPeriodicScoreName = (isPeriodic && editingColumn !== null) ? _periodicScores[editingColumn] : undefined;
+  const currentColumn = isPeriodic 
+    ? (currentPeriodicScoreName ? periodicColumnDetails[currentPeriodicScoreName] : null)
+    : (editingColumn !== null ? columnDetails[editingColumn] : null);
+
 
   const getTeacherNames = (teacherIds: string[] | undefined | null) => {
     if (!teacherIds || !Array.isArray(teacherIds)) {
@@ -118,11 +140,9 @@ export default function CourseDetailModal({
     return date.toLocaleDateString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit' });
   };
 
-  const currentColumn = editingColumn !== null ? columnDetails[editingColumn] : null;
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center overflow-y-auto">
+      <div className="bg-white rounded-lg w-full max-w-2xl self-start mt-16 mb-8 mx-auto">
         <div className="p-6">
           <div className="flex justify-between items-start mb-6">
             <h2 className="text-2xl font-bold text-gray-900">{course.name}</h2>
@@ -137,13 +157,21 @@ export default function CourseDetailModal({
                   <input
                     className="border rounded px-2 py-1 w-full"
                     value={currentColumn?.name || ''}
-                    onChange={e =>
-                      onColumnDetailsChange?.({
-                        ...columnDetails,
-                        [editingColumn]: { ...currentColumn, name: e.target.value }
-                      })
-                    }
-                    disabled={isPeriodic}
+                    onChange={e => {
+                      if (isPeriodic) {
+                        if (currentPeriodicScoreName && onPeriodicColumnDetailsChange) {
+                          const newDetails = { ...periodicColumnDetails };
+                          newDetails[currentPeriodicScoreName] = { ...(newDetails[currentPeriodicScoreName] || { name: '', date: '' }), name: e.target.value };
+                          onPeriodicColumnDetailsChange(newDetails);
+                        }
+                      } else {
+                        if (onColumnDetailsChange) {
+                          const newDetails = { ...columnDetails };
+                          newDetails[editingColumn] = { ...(newDetails[editingColumn] || { type: '', name: '', date: '', nature: '' }), name: e.target.value };
+                          onColumnDetailsChange(newDetails);
+                        }
+                      }
+                    }}
                   />
                 </div>
                 <div className="mb-3">
@@ -152,12 +180,21 @@ export default function CourseDetailModal({
                     type="date"
                     className="border rounded px-2 py-1 w-full"
                     value={currentColumn?.date || ''}
-                    onChange={e =>
-                      onColumnDetailsChange?.({
-                        ...columnDetails,
-                        [editingColumn]: { ...currentColumn, date: e.target.value }
-                      })
-                    }
+                    onChange={e => {
+                      if (isPeriodic) {
+                        if (currentPeriodicScoreName && onPeriodicColumnDetailsChange) {
+                          const newDetails = { ...periodicColumnDetails };
+                          newDetails[currentPeriodicScoreName] = { ...(newDetails[currentPeriodicScoreName] || { name: '', date: '' }), date: e.target.value };
+                          onPeriodicColumnDetailsChange(newDetails);
+                        }
+                      } else {
+                        if (onColumnDetailsChange) {
+                          const newDetails = { ...columnDetails };
+                          newDetails[editingColumn] = { ...(newDetails[editingColumn] || { type: '', name: '', date: '', nature: '' }), date: e.target.value };
+                          onColumnDetailsChange(newDetails);
+                        }
+                      }
+                    }}
                   />
                 </div>
 
@@ -167,13 +204,13 @@ export default function CourseDetailModal({
                     <label className="block mb-1 font-semibold text-gray-900">成績性質：</label>
                     <select
                       className="border rounded px-2 py-1 w-full"
-                      value={currentColumn?.nature || '平時測驗'}
-                      onChange={e =>
+                      value={columnDetails[editingColumn]?.nature || '平時測驗'}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
                         onColumnDetailsChange?.({
                           ...columnDetails,
                           [editingColumn]: { 
-                            ...currentColumn, 
-                            nature: e.target.value as '平時測驗' | '回家作業' | '上課態度'
+                            ...(columnDetails[editingColumn] || { type: '', name: '', date: '', nature: '' }),
+                            nature: e.target.value
                           }
                         })
                       }
@@ -192,9 +229,9 @@ export default function CourseDetailModal({
                     {(() => {
                       let scores: number[] = [];
                       
-                      if (isPeriodic && editingColumn !== null && periodicScores && periodicScores[editingColumn]) {
+                      if (isPeriodic && editingColumn !== null && _periodicScores && _periodicScores[editingColumn]) {
                         // 定期評量：只分析該次評量的成績
-                        const scoreName = periodicScores[editingColumn];
+                        const scoreName = _periodicScores[editingColumn];
                         scores = students
                           .map(stu => stu.periodicScores?.[scoreName as keyof typeof stu.periodicScores])
                           .filter(score => typeof score === 'number' && !isNaN(score)) as number[];
@@ -261,25 +298,18 @@ export default function CourseDetailModal({
                     }
                   </div>
                 )}
-
-                {/* 定期評量說明 */}
-                {isPeriodic && (
-                  <div className="bg-yellow-50 p-4 rounded-lg">
-                    <h4 className="font-semibold text-gray-900 mb-2">定期評量說明</h4>
-                    <p className="text-sm text-gray-700">
-                      定期評量名稱已預設為：第一次定期評量、第二次定期評量、期末評量，無法修改。
-                    </p>
-                  </div>
-                )}
               </>
             ) : isSimpleCourse ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div><h4 className="font-semibold text-gray-900 mb-1">課程代碼</h4><p>{course.code}</p></div>
+                <div><h4 className="font-semibold text-gray-900 mb-1">課程狀態</h4><span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor((course as Course).status ?? '')}`}>{(course as Course).status ?? '未設定'}</span></div>
                 <div><h4 className="font-semibold text-gray-900 mb-1">課程名稱</h4><p>{course.name}</p></div>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><h4 className="font-semibold text-gray-900 mb-1">課程代碼</h4><p>{course.code}</p></div>
                 <div><h4 className="font-semibold text-gray-900 mb-1">課程狀態</h4><span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor((course as Course).status ?? '')}`}>{(course as Course).status ?? '未設定'}</span></div>
+                <div><h4 className="font-semibold text-gray-900 mb-1">課程名稱</h4><p>{course.name}</p></div>
                 <div><h4 className="font-semibold text-gray-900 mb-1">授課老師</h4><p>{getTeacherNames((course as Course).teachers)}</p></div>
                 <div><h4 className="font-semibold text-gray-900 mb-1">開始日期</h4><p>{formatDate((course as Course).startDate)}</p></div>
                 <div><h4 className="font-semibold text-gray-900 mb-1">結束日期</h4><p>{formatDate((course as Course).endDate)}</p></div>
@@ -294,7 +324,7 @@ export default function CourseDetailModal({
             )}
           </div>
 
-          {!isSimpleCourse && (course as Course).description && (
+          {showDescription && course && !isSimpleCourse && 'description' in course && typeof course.description === 'string' && (
             <div className="mt-6 pt-6 border-t">
               <h4 className="font-semibold text-gray-900 mb-2">課程簡介</h4>
               <p className="text-gray-600 whitespace-pre-line">{(course as Course).description}</p>

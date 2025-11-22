@@ -148,7 +148,7 @@ export default function CoursesPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
       <h1 className="text-4xl md:text-5xl font-bold text-center mb-12 text-blue-600 tracking-tight drop-shadow-sm">
         課程介紹
       </h1>
@@ -297,8 +297,7 @@ export default function CoursesPage() {
       <div className="space-y-8">
         {loading ? (
           <div className="text-center py-12">
-            <LoadingSpinner size={8} className="mx-auto mb-4" />
-            <p className="text-gray-600">正在載入課程資料...</p>
+            <LoadingSpinner size={40} />
           </div>
         ) : filteredCourses.length === 0 ? (
           <div className="text-center py-12">

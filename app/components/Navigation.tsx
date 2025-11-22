@@ -30,10 +30,10 @@ export default function Navigation() {
   return (
     <nav className="bg-white sticky top-0 z-50 shadow-sm">
       <div className="w-full px-2 sm:px-4 md:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
+        <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <div className="flex-shrink-0 flex items-center">
-            <Link href="/" className="text-xl md:text-3xl font-bold text-blue-600 hover:text-blue-700 transition-colors">
+          <div className="flex-1 flex items-center min-w-0">
+            <Link href="/" className="text-lg md:text-3xl font-bold text-blue-600 hover:text-blue-700 transition-colors truncate">
               高中學習資源教育網 2.0
             </Link>
           </div>
@@ -96,7 +96,7 @@ export default function Navigation() {
           </div>
 
           {/* Mobile menu button */}
-          <div className="md:hidden flex items-center">
+          <div className="md:hidden flex items-center flex-shrink-0">
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 transition-colors"

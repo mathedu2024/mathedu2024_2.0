@@ -73,29 +73,36 @@ export default function FqaPage() {
   };
 
   return (
-    <div className="bg-gray-100 p-8 animate-fade-in">
+        <div className="px-4 sm:px-6 lg:px-8 py-6 bg-white min-h-screen">
       <div className="max-w-4xl mx-auto pb-8">
-        <h1 className="text-4xl md:text-5xl font-bold text-center text-blue-600 tracking-tight drop-shadow-sm mb-12">常見問題</h1>
-        <div className="space-y-4">
+            <h1 className="text-4xl md:text-5xl font-bold text-center text-blue-600 tracking-tight drop-shadow-sm mb-12">常見問題</h1>
+        <div className="space-y-4 w-full">
           {fqaData.map((item, index) => (
-            <div key={index} className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div key={index} className="border rounded-lg overflow-hidden">
               <button
+                className="w-full text-left p-4 md:p-6 hover:bg-gray-50 flex items-center"
                 onClick={() => toggleFqa(index)}
-                className="w-full flex justify-between items-center text-left p-6 hover:bg-gray-50 focus:outline-none"
+                style={{ color: 'rgb(70, 131, 229)' }}
               >
-                <span className="text-xl font-semibold text-gray-800">{item.question}</span>
-                <svg
-                  className={`w-6 h-6 transform transition-transform duration-300 ${openIndex === index ? 'rotate-180' : ''}`}
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                </svg>
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex-1">
+                    <div className="text-lg md:text-2xl font-normal">{item.question}</div>
+                  </div>
+                  <svg
+                    className={`w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 transform transition-transform ${openIndex === index ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
               </button>
-              <div className={`transition-[max-height,opacity] duration-300 ease-in-out overflow-hidden ${openIndex === index ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                <div className="p-6 border-t border-gray-200">
-                  <p className="text-lg text-gray-700 leading-relaxed">{item.answer}</p>
+              <div
+                className={`transition-[max-height,opacity] duration-300 ease-in-out overflow-hidden ${openIndex === index ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}
+              >
+                <div className="p-4 md:p-6 border-t">
+                  <p className="text-sm md:text-base text-black whitespace-pre-line mb-4 md:mb-6">{item.answer}</p>
                 </div>
               </div>
             </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useStudentInfo } from '../StudentInfoContext';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import Dropdown from '../../components/ui/Dropdown';
@@ -13,6 +13,7 @@ interface Lesson { id: string; title: string; date: string; progress: string; at
 
 export default function StudentCoursesPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { studentInfo, loading: loadingStudentInfo } = useStudentInfo();
 
   const [courses, setCourses] = useState<Course[]>([]);
@@ -51,6 +52,16 @@ export default function StudentCoursesPage() {
       fetchCourses();
     }
   }, [studentInfo, fetchCourses]);
+
+  useEffect(() => {
+    const courseIdFromQuery = searchParams.get('courseId');
+    if (courseIdFromQuery && courses.length > 0) {
+      const courseToSelect = courses.find(c => c.id === courseIdFromQuery);
+      if (courseToSelect) {
+        setSelectedCourse(courseToSelect);
+      }
+    }
+  }, [courses, searchParams]);
 
   useEffect(() => {
     const fetchLessons = async () => {
@@ -145,14 +156,14 @@ export default function StudentCoursesPage() {
   };
 
   if (loadingStudentInfo) {
-    return <LoadingSpinner fullScreen />;
+    return <LoadingSpinner fullScreen size={40} />;
   }
 
   return (
-    <div className="max-w-6xl mx-auto w-full p-2 md:p-8 animate-fade-in">
+    <div className="max-w-6xl mx-auto w-full p-6 animate-fade-in">
       <h2 className="text-2xl font-bold mb-6">我的課程</h2>
       {loadingCourses ? (
-        <div className="flex justify-center items-center h-64"><LoadingSpinner /><span className="ml-4 text-gray-600">載入中...</span></div>
+        <div className="flex justify-center items-center h-64"><LoadingSpinner size={40} /></div>
       ) : courses.length === 0 ? (
         <div className="text-center py-12"><div className="text-gray-400 text-6xl mb-4">📚</div><h3 className="text-xl font-semibold text-gray-600 mb-2">尚無課程</h3><p className="text-gray-500">您目前還沒有選擇任何課程</p></div>
       ) : (
@@ -198,7 +209,7 @@ export default function StudentCoursesPage() {
                   {lessons.length > 0 && <div className="text-sm text-gray-600">共 {lessons.length} 堂課{totalPages > 1 && <span className="ml-2">（第 {currentPage} 頁，共 {totalPages} 頁）</span>}</div>}
                 </div>
                 {loadingLessons ? (
-                  <div className="flex justify-center items-center py-8"><LoadingSpinner /><span className="ml-3 text-gray-600">載入課程清單中...</span></div>
+                  <div className="flex justify-center items-center py-8"><LoadingSpinner size={40} /></div>
                 ) : lessons.length === 0 ? (
                   <div className="text-center py-8"><div className="text-gray-400 text-4xl mb-2">📝</div><p className="text-gray-500">此課程尚未有課程清單</p></div>
                 ) : (

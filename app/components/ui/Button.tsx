@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { MoonLoader } from 'react-spinners';
+import LoadingSpinner from '../LoadingSpinner';
 
 export interface ButtonProps {
   variant?: 'primary' | 'secondary' | 'danger' | 'success' | 'warning';
@@ -58,10 +58,9 @@ export default function Button({
       transition={{ duration: 0.1 }}
     >
       {loading && (
-        <MoonLoader
-          color="#FFFFFF"
+        <LoadingSpinner
+          color="white"
           size={16}
-          speedMultiplier={1}
           className="-ml-1 mr-2"
         />
       )}

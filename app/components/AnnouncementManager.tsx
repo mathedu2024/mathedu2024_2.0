@@ -462,7 +462,7 @@ export default function AnnouncementManager() {
                 className="btn-primary px-6 py-2"
                 disabled={loading}
               >
-                {loading ? <LoadingSpinner size={5} className="mr-2" /> : (editingId ? '更新' : '新增')}
+                {loading ? <LoadingSpinner size={40} /> : (editingId ? '更新' : '新增')}
               </button>
               <button
                 type="button"
@@ -496,8 +496,7 @@ export default function AnnouncementManager() {
                 <tr>
                   <td colSpan={6} className="text-center py-10">
                     <div className="flex flex-col items-center gap-2">
-                      <LoadingSpinner size={8} />
-                      <span className="mt-2 text-gray-500">讀取中...</span>
+                      <LoadingSpinner size={40} />
                     </div>
                   </td>
                 </tr>

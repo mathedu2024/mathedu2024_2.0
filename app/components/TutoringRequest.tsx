@@ -31,7 +31,9 @@ const TutoringRequest: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchSlots();
+    fetchSlots().catch(error => {
+      console.error('Unhandled error in fetchSlots:', error);
+    });
   }, [fetchSlots]);
 
   const handleOpenModal = (slot: TutoringSlot) => {
@@ -106,8 +108,73 @@ const TutoringRequest: React.FC = () => {
   return (
     <>
       <div className="">
-        <h2 className="text-xl text-gray-800 mb-4">可預約的輔導時段</h2>
-        <div className="overflow-x-auto">
+        <h2 className="text-lg md:text-xl text-gray-800 mb-4">可預約的輔導時段</h2>
+        {/* 手機端：卡片式布局 */}
+        <div className="md:hidden space-y-4">
+          {filteredSlots.length > 0 ? (
+            filteredSlots.map((slot) => {
+              const isBooked = slot.bookedStudents?.some(student => student.studentId === studentInfo.id);
+              const bookedCount = slot.bookedStudents?.length || 0;
+              const isFull = bookedCount >= Number(slot.participantLimit);
+              const canBook = !isBooked && !isFull;
+
+              return (
+                <div key={slot.id} className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 space-y-3">
+                  <div className="flex items-start justify-between">
+                    <h3 className="text-base font-semibold text-gray-900 flex-1 pr-2">{slot.title}</h3>
+                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                      isBooked ? 'bg-green-100 text-green-800' : 
+                      isFull ? 'bg-red-100 text-red-800' : 
+                      'bg-blue-100 text-blue-800'
+                    }`}>
+                      {isBooked ? '已預約' : isFull ? '已額滿' : '可預約'}
+                    </span>
+                  </div>
+                  <div className="space-y-2 text-sm text-gray-600">
+                    <div className="flex items-center">
+                      <span className="font-medium text-gray-700 w-20">日期：</span>
+                      <span>{slot.date}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="font-medium text-gray-700 w-20">時間：</span>
+                      <span>{slot.startTime} - {slot.endTime}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="font-medium text-gray-700 w-20">老師：</span>
+                      <span>{slot.teacherName}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="font-medium text-gray-700 w-20">模式：</span>
+                      <span>{slot.locationType}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="font-medium text-gray-700 w-20">方式：</span>
+                      <span>{slot.method}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="font-medium text-gray-700 w-20">人數：</span>
+                      <span>{bookedCount} / {slot.participantLimit}</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleOpenModal(slot)}
+                    className="w-full btn-primary text-sm py-2"
+                    disabled={!canBook}
+                  >
+                    預約
+                  </button>
+                </div>
+              );
+            })
+          ) : (
+            <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 text-center text-gray-500">
+              <p>目前沒有符合您資格的輔導時段</p>
+            </div>
+          )}
+        </div>
+
+        {/* 桌面端：表格布局 */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 table-fixed">
             <thead className="bg-gray-50">
               <tr>

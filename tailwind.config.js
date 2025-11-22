@@ -7,6 +7,57 @@ module.exports = {
   ],
   theme: {
     extend: {
+      colors: {
+        primary: {
+          DEFAULT: '#2D6DF6',
+          light: '#E9F0FF', // 4%主題藍
+          hover: '#1B4FC1',
+        },
+        success: {
+          DEFAULT: '#2AB673',
+          hover: '#21925A',
+        },
+        warning: {
+          DEFAULT: '#F7B500',
+          hover: '#E6A200',
+        },
+        error: {
+          DEFAULT: '#E64545',
+          hover: '#C93030',
+        },
+        info: {
+          DEFAULT: '#2D6DF6',
+          hover: '#1B4FC1',
+        },
+        border: {
+          DEFAULT: '#E6E6E6',
+          input: '#CCCCCC',
+          focus: '#2D6DF6',
+        },
+        text: {
+          main: '#1A1A1A',
+          secondary: '#555555',
+        },
+        table: {
+          even: '#FAFAFA',
+          odd: '#FFFFFF',
+          head: '#E9F0FF',
+        },
+        card: {
+          bg: '#FFFFFF',
+          border: '#E6E6E6',
+        },
+        tag: {
+          quiz: '#2D6DF6',
+          homework: '#2AB673',
+          exam: '#F7B500',
+          custom: '#E64545',
+        },
+      },
+      boxShadow: {
+        card: '0 2px 10px 0 rgba(30, 42, 80, 0.08)',
+        btn: '0 2px 4px 0 rgba(45, 109, 246, 0.15)',
+      },
 
       screens: {
         'xs': '480px',

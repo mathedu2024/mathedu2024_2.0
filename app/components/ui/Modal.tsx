@@ -5,56 +5,45 @@ export interface ModalProps {
   open: boolean;
   onClose: () => void;
   title?: string;
-  children: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
   showCloseButton?: boolean;
-  closeOnOverlayClick?: boolean;
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
   className?: string;
+  children: React.ReactNode;
 }
 
-export default function Modal({
-  open,
-  onClose,
-  title,
-  children,
-  size = 'md',
-  showCloseButton = true,
-  closeOnOverlayClick = true,
-  className = ''
-}: ModalProps) {
+const sizeClasses = {
+  sm: 'max-w-md',
+  md: 'max-w-lg',
+  lg: 'max-w-2xl',
+  xl: 'max-w-4xl',
+  full: 'max-w-full mx-4',
+};
+
+const Modal: React.FC<ModalProps> = ({ open, onClose, title, showCloseButton = true, size = 'md', className = '', children }) => {
   useEffect(() => {
-    // 不再修改全局body的overflow，避免雙滾輪問題
-    // 改為使用CSS控制模態框內部的滾動
-    return () => {};
+    if (open) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [open]);
 
   if (!open) return null;
 
-  const sizeClasses = {
-    sm: 'max-w-md',
-    md: 'max-w-lg',
-    lg: 'max-w-2xl',
-    xl: 'max-w-4xl',
-    full: 'max-w-full mx-4'
-  };
-
-  const handleOverlayClick = (e: React.MouseEvent) => {
-    if (closeOnOverlayClick && e.target === e.currentTarget) {
-      onClose();
-    }
-  };
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-      onClick={handleOverlayClick}
-    >
-      <div className={`bg-white rounded-lg shadow-xl w-full ${sizeClasses[size]} max-h-[90vh] overflow-hidden ${className}`}>
-        {/* Header */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 w-screen min-h-screen h-full">
+      <div
+        className={`bg-white rounded-lg shadow-xl flex flex-col ${sizeClasses[size]} ${className}`}
+        style={{ maxHeight: '95vh', maxWidth: '95vw', minHeight: '0', minWidth: '0', overflowY: 'auto' }}
+        onClick={e => e.stopPropagation()}
+      >
         {(title || showCloseButton) && (
-          <div className="flex items-center justify-between p-6 pb-0">
+          <div className="flex items-center justify-between p-4 flex-shrink-0 border-b">
             {title && (
-              <h3 className="text-xl font-bold text-gray-900">{title}</h3>
+              <h3 className="text-lg md:text-xl font-bold text-gray-900">{title}</h3>
             )}
             {showCloseButton && (
               <button
@@ -69,12 +58,10 @@ export default function Modal({
             )}
           </div>
         )}
-        
-        {/* Content */}
-        <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 80px)' }}>
-          {children}
-        </div>
+        <div className="p-6 overflow-y-auto flex-1 min-h-0">{children}</div>
       </div>
     </div>
   );
-}
+};
+
+export default Modal;

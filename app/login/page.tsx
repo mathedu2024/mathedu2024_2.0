@@ -11,7 +11,6 @@ export default function StudentLoginPage() {
     account: '', // This will be treated as account
     password: '',
   });
-  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -21,16 +20,11 @@ export default function StudentLoginPage() {
       ...prev,
       [name]: value
     }));
-    
-    if (error) {
-      setError('');
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setError('');
 
     try {
       const response = await fetch('/api/auth/login', {
@@ -42,24 +36,19 @@ export default function StudentLoginPage() {
         credentials: 'include',
       });
 
-      let data = null;
+      let data;
       try {
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          data = await response.json();
-        } else {
-          throw new Error('伺服器回傳格式錯誤');
-        }
+        data = await response.json();
       } catch {
-        throw new Error('伺服器錯誤，請稍後再試');
+        data = null;
       }
 
       if (!response.ok) {
-        throw new Error((data && data.error) || '登入失敗');
+        throw new Error(data?.error || '登入時發生未知的伺服器錯誤');
       }
       
       setSession({
-        id: data.id, // Corrected: The API returns the ID in the 'id' field
+        id: data.id,
         name: data.name,
         role: 'student',
         account: formData.account,
@@ -68,15 +57,11 @@ export default function StudentLoginPage() {
       window.location.href = '/student';
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '發生未知錯誤';
-      setError(message);
       
-      // 根據錯誤類型顯示對應的 SweetAlert2 對話框
-      if (message.includes('Invalid password') || message.includes('密碼')) {
+      if (message.includes('密碼')) {
         alerts.showPasswordError();
-      } else if (message.includes('Account not found') || message.includes('查無') || message.includes('not found')) {
+      } else if (message.includes('帳號') || message.includes('查無')) {
         alerts.showAccountNotFound();
-      } else if (message.includes('伺服器錯誤') || message.includes('伺服器回傳格式錯誤')) {
-        alerts.showErrorCode('500');
       } else {
         alerts.showError(message);
       }
@@ -86,7 +71,7 @@ export default function StudentLoginPage() {
   };
 
   return (
-    <div className="h-[calc(100vh-4rem)] bg-gray-100 flex items-center justify-center p-4">
+    <div className="min-h-[calc(100vh-4rem)] bg-gray-100 flex items-center justify-center py-2 px-4">
       <div className="w-full max-w-4xl flex flex-row bg-white shadow-2xl rounded-2xl overflow-hidden animate-fade-in">
         {/* Left Panel - Decorative */}
         <div className="w-1/2 bg-blue-600 p-12 text-white hidden md:flex flex-col justify-center items-center text-center">
@@ -106,11 +91,11 @@ export default function StudentLoginPage() {
               <p className="text-gray-600 text-lg">請輸入您的帳號和密碼</p>
             </div>
             
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-6">
               <div>
                 <label
                   htmlFor="account"
-                  className="block text-sm font-medium text-gray-700"
+                  className="block text-base font-medium text-gray-700 mb-2"
                 >
                   學號
                 </label>
@@ -166,16 +151,10 @@ export default function StudentLoginPage() {
                 </div>
               </div>
               
-              {error && (
-                <div className="text-red-600 text-sm font-medium text-center bg-red-50 border border-red-200 rounded-lg py-2 px-4">
-                  {error}
-                </div>
-              )}
-              
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3 mt-2 btn-primary text-lg"
+                className="w-full py-3 mt-2 btn-primary text-lg flex justify-center items-center"
               >
                 {isLoading ? (
                   <LoadingSpinner size={20} color="white" text="登入中..." />
