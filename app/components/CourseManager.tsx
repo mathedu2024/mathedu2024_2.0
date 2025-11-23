@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import MultiSelectDropdown from './MultiSelectDropdown';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import LoadingSpinner from './LoadingSpinner';
+import { LoadingSpinner } from './ui';
 
 import alerts from '../utils/alerts';
 import Swal from 'sweetalert2';
@@ -488,7 +488,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
 
             {/* 編輯/新增表單 */}
             {editingCourse && (
-                <Modal open={!!editingCourse} onClose={() => setEditingCourse(null)} title={editingCourse.id && editingCourse.id !== 'new' ? '編輯課程' : '新增課程'} size="lg">
+                <Modal open={!!editingCourse} onClose={() => setEditingCourse(null)} title={editingCourse.id && editingCourse.id !== 'new' ? '編輯課程' : '新增課程'} size="lg" showCloseButton={false}>
                     <form onSubmit={handleSaveCourse} className="space-y-6">
                         {/* Section 1: Basic Info */}
                         <div className="p-4 border border-gray-200 rounded-lg">
@@ -699,7 +699,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                         </div>
 
                         <div className="flex justify-end gap-4 pt-4">
-                            <button type="button" onClick={() => setEditingCourse(null)} disabled={isSubmitting} className="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">取消</button>
+                            <button type="button" onClick={() => setEditingCourse(null)} disabled={isSubmitting} className="px-6 py-2 bg-white text-gray-800 rounded-lg hover:bg-gray-100">取消</button>
                             <button type="submit" disabled={isSubmitting} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                                 {isSubmitting ? '更新中...' : (editingCourse.id && editingCourse.id !== 'new' ? '更新課程' : '建立課程')}
                             </button>
