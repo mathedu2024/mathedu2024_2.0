@@ -135,12 +135,14 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Effect to toggle body overflow when LessonManager is active
+  // Effect to toggle body and html overflow when LessonManager is active
   useEffect(() => {
     document.body.classList.add('overflow-hidden');
+    document.documentElement.classList.add('overflow-hidden'); // Also target html element
     // Cleanup function to remove the class when component unmounts
     return () => {
       document.body.classList.remove('overflow-hidden');
+      document.documentElement.classList.remove('overflow-hidden'); // Also remove from html element
     };
   }, []); // Empty dependency array means this runs once on mount and once on unmount
 
