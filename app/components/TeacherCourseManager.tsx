@@ -363,10 +363,12 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
       <div className="fixed inset-0 bg-white z-50 flex flex-col items-center justify-start min-h-screen h-full">
         {/* Header */}
         <div className="flex-shrink-0 p-4 border-b flex justify-between items-center w-full max-w-4xl mx-auto">
-          <div>
-            <h3 className="text-2xl font-bold">{courseName}</h3>
-            <div className="text-gray-500 text-sm">{courseCode}</div>
-          </div>
+          {!(showForm || editingLesson) && (
+            <div>
+              <h3 className="text-2xl font-bold">{courseName}</h3>
+              <div className="text-gray-500 text-sm">{courseCode}</div>
+            </div>
+          )}
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700" aria-label="關閉">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
@@ -386,7 +388,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
   <div className="w-full max-w-4xl mx-auto p-4 md:p-8 flex flex-col">
           <h3 className="text-2xl font-bold mb-4">課堂管理</h3>
           {(showForm || editingLesson) ? (
-            <form onSubmit={editingLesson ? handleEditLesson : handleAddLesson} className="space-y-4 mb-8 bg-gray-50 p-4 rounded-lg">
+            <form onSubmit={editingLesson ? handleEditLesson : handleAddLesson} className="space-y-4 mb-8 bg-white p-4 rounded-lg">
               {/* Form content... */}
               <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-1">
