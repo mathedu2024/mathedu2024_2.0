@@ -134,7 +134,18 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-
+  // Effect to toggle body overflow when loading
+  useEffect(() => {
+    if (isLoading) {
+      document.body.classList.add('overflow-hidden');
+    } else {
+      document.body.classList.remove('overflow-hidden');
+    }
+    // Cleanup function to remove the class when component unmounts or loading state changes
+    return () => {
+      document.body.classList.remove('overflow-hidden');
+    };
+  }, [isLoading]);
 
   // 2. DropResult, DraggableProvided, DroppableProvided 已正確型別
   // 3. useCallback、useEffect 依賴已補齊
@@ -678,6 +689,19 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
       console.error('Unhandled error in fetchTeachers:', error);
     });
   }, [fetchTeachers]);
+
+  // Effect to toggle body overflow when TeacherCourseManager is loading
+  useEffect(() => {
+    if (loading) {
+      document.body.classList.add('overflow-hidden');
+    } else {
+      document.body.classList.remove('overflow-hidden');
+    }
+    // Cleanup function to remove the class when component unmounts or loading state changes
+    return () => {
+      document.body.classList.remove('overflow-hidden');
+    };
+  }, [loading]);
 
   // handleShowCourseDetail 改為：
   const handleShowCourseDetail = async (course: Course) => {
