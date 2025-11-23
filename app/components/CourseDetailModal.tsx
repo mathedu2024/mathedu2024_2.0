@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import React from 'react';
+import { Modal } from './ui';
 
 interface Course {
   id: string;
@@ -84,17 +85,6 @@ export default function CourseDetailModal({
 
   const isSimpleCourse = !course || !('description' in course) || typeof (course as Course).description !== 'string';
 
-  useEffect(() => {
-    if (open) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, [open]);
-
   if (!open || !course) return null;
 
   const currentPeriodicScoreName = (isPeriodic && editingColumn !== null) ? _periodicScores[editingColumn] : undefined;
@@ -141,202 +131,202 @@ export default function CourseDetailModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center overflow-y-auto">
-      <div className="bg-white rounded-lg w-full max-w-2xl self-start mt-16 mb-8 mx-auto">
-        <div className="p-6">
-          <div className="flex justify-between items-start mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">{course.name}</h2>
-          </div>
-
-          <div className="space-y-4">
-            {/* === 成績欄位編輯 === */}
-            {isGradeInfo && editingColumn !== null ? (
-              <>
-                <div className="mb-3">
-                  <label className="block mb-1 font-semibold text-gray-900">名稱：</label>
-                  <input
-                    className="border rounded px-2 py-1 w-full"
-                    value={currentColumn?.name || ''}
-                    onChange={e => {
-                      if (isPeriodic) {
-                        if (currentPeriodicScoreName && onPeriodicColumnDetailsChange) {
-                          const newDetails = { ...periodicColumnDetails };
-                          newDetails[currentPeriodicScoreName] = { ...(newDetails[currentPeriodicScoreName] || { name: '', date: '' }), name: e.target.value };
-                          onPeriodicColumnDetailsChange(newDetails);
-                        }
-                      } else {
-                        if (onColumnDetailsChange) {
-                          const newDetails = { ...columnDetails };
-                          newDetails[editingColumn] = { ...(newDetails[editingColumn] || { type: '', name: '', date: '', nature: '' }), name: e.target.value };
-                          onColumnDetailsChange(newDetails);
-                        }
-                      }
-                    }}
-                  />
-                </div>
-                <div className="mb-3">
-                  <label className="block mb-1 font-semibold text-gray-900">考試日期：</label>
-                  <input
-                    type="date"
-                    className="border rounded px-2 py-1 w-full"
-                    value={currentColumn?.date || ''}
-                    onChange={e => {
-                      if (isPeriodic) {
-                        if (currentPeriodicScoreName && onPeriodicColumnDetailsChange) {
-                          const newDetails = { ...periodicColumnDetails };
-                          newDetails[currentPeriodicScoreName] = { ...(newDetails[currentPeriodicScoreName] || { name: '', date: '' }), date: e.target.value };
-                          onPeriodicColumnDetailsChange(newDetails);
-                        }
-                      } else {
-                        if (onColumnDetailsChange) {
-                          const newDetails = { ...columnDetails };
-                          newDetails[editingColumn] = { ...(newDetails[editingColumn] || { type: '', name: '', date: '', nature: '' }), date: e.target.value };
-                          onColumnDetailsChange(newDetails);
-                        }
-                      }
-                    }}
-                  />
-                </div>
-
-                {/* 成績性質選擇（僅針對平時成績） */}
-                {!isPeriodic && (
-                  <div className="mb-3">
-                    <label className="block mb-1 font-semibold text-gray-900">成績性質：</label>
-                    <select
-                      className="border rounded px-2 py-1 w-full"
-                      value={columnDetails[editingColumn]?.nature || '平時測驗'}
-                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                        onColumnDetailsChange?.({
-                          ...columnDetails,
-                          [editingColumn]: { 
-                            ...(columnDetails[editingColumn] || { type: '', name: '', date: '', nature: '' }),
-                            nature: e.target.value
-                          }
-                        })
-                      }
-                    >
-                      <option value="平時測驗">平時測驗</option>
-                      <option value="回家作業">回家作業</option>
-                      <option value="上課態度">上課態度</option>
-                    </select>
-                  </div>
-                )}
-
-                {/* 成績統計 */}
-                {isGradeInfo && (
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="font-semibold text-gray-900 mb-4">成績統計</h4>
-                    {(() => {
-                      let scores: number[] = [];
-                      
-                      if (isPeriodic && editingColumn !== null && _periodicScores && _periodicScores[editingColumn]) {
-                        // 定期評量：只分析該次評量的成績
-                        const scoreName = _periodicScores[editingColumn];
-                        scores = students
-                          .map(stu => stu.periodicScores?.[scoreName as keyof typeof stu.periodicScores])
-                          .filter(score => typeof score === 'number' && !isNaN(score)) as number[];
-                      } else if (!isPeriodic && editingColumn !== null) {
-                        // 平時成績：分析該欄位的成績
-                        scores = students
-                          .map(stu => stu.regularScores?.[editingColumn])
-                          .filter(score => typeof score === 'number' && !isNaN(score)) as number[];
-                      }
-                      
-                      if (scores.length === 0) {
-                        return <p className="text-gray-500">暫無成績資料</p>;
-                      }
-                      
-                      const stats = getTaiwanPercentileLevels!(scores);
-                      const max = Math.max(...scores);
-                      const min = Math.min(...scores);
-                      const sortedScores = [...scores].sort((a, b) => a - b);
-                      const median = sortedScores.length % 2 === 0
-                        ? (sortedScores[sortedScores.length / 2 - 1] + sortedScores[sortedScores.length / 2]) / 2
-                        : sortedScores[Math.floor(sortedScores.length / 2)];
-                      
-                      return (
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                          <div className="text-center">
-                            <div className="text-2xl font-bold text-blue-600">{stats.平均}</div>
-                            <div className="text-sm text-gray-600">平均</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-2xl font-bold text-green-600">{max}</div>
-                            <div className="text-sm text-gray-600">最高</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-2xl font-bold text-red-600">{min}</div>
-                            <div className="text-sm text-gray-600">最低</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-2xl font-bold text-purple-600">{median}</div>
-                            <div className="text-sm text-gray-600">中位數</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-lg font-bold text-orange-600">{stats.頂標}</div>
-                            <div className="text-sm text-gray-600">頂標</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-lg font-bold text-yellow-600">{stats.前標}</div>
-                            <div className="text-sm text-gray-600">前標</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-lg font-bold text-blue-600">{stats.均標}</div>
-                            <div className="text-sm text-gray-600">均標</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-lg font-bold text-gray-600">{stats.後標}</div>
-                            <div className="text-sm text-gray-600">後標</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-lg font-bold text-red-600">{stats.底標}</div>
-                            <div className="text-sm text-gray-600">底標</div>
-                          </div>
-                        </div>
-                      );
-                    })()
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={course.name}
+      size="lg"
+      footer={
+        <>
+          {showDeleteButton && onDelete && (<button onClick={onDelete} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors mr-auto">刪除此欄</button>)}
+          <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors">關閉</button>
+        </>
+      }
+    >
+      <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
+        <div className="space-y-4 flex-shrink-0">
+        {/* === 成績欄位編輯 === */}
+        {isGradeInfo && editingColumn !== null ? (
+          <>
+            <div className="mb-3">
+              <label className="block mb-1 font-semibold text-gray-900">名稱：</label>
+              <input
+                className="border rounded px-2 py-1 w-full"
+                value={currentColumn?.name || ''}
+                onChange={e => {
+                  if (isPeriodic) {
+                    if (currentPeriodicScoreName && onPeriodicColumnDetailsChange) {
+                      const newDetails = { ...periodicColumnDetails };
+                      newDetails[currentPeriodicScoreName] = { ...(newDetails[currentPeriodicScoreName] || { name: '', date: '' }), name: e.target.value };
+                      onPeriodicColumnDetailsChange(newDetails);
                     }
-                  </div>
-                )}
-              </>
-            ) : isSimpleCourse ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div><h4 className="font-semibold text-gray-900 mb-1">課程代碼</h4><p>{course.code}</p></div>
-                <div><h4 className="font-semibold text-gray-900 mb-1">課程狀態</h4><span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor((course as Course).status ?? '')}`}>{(course as Course).status ?? '未設定'}</span></div>
-                <div><h4 className="font-semibold text-gray-900 mb-1">課程名稱</h4><p>{course.name}</p></div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div><h4 className="font-semibold text-gray-900 mb-1">課程代碼</h4><p>{course.code}</p></div>
-                <div><h4 className="font-semibold text-gray-900 mb-1">課程狀態</h4><span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor((course as Course).status ?? '')}`}>{(course as Course).status ?? '未設定'}</span></div>
-                <div><h4 className="font-semibold text-gray-900 mb-1">課程名稱</h4><p>{course.name}</p></div>
-                <div><h4 className="font-semibold text-gray-900 mb-1">授課老師</h4><p>{getTeacherNames((course as Course).teachers)}</p></div>
-                <div><h4 className="font-semibold text-gray-900 mb-1">開始日期</h4><p>{formatDate((course as Course).startDate)}</p></div>
-                <div><h4 className="font-semibold text-gray-900 mb-1">結束日期</h4><p>{formatDate((course as Course).endDate)}</p></div>
-                <div><h4 className="font-semibold text-gray-900 mb-1">課程性質</h4><p>{(course as Course).courseNature ?? '未設定'}</p></div>
-                <div><h4 className="font-semibold text-gray-900 mb-1">適用年級</h4><p>{getGradeTags((course as Course).gradeTags)}</p></div>
-                <div><h4 className="font-semibold text-gray-900 mb-1">授課方式</h4><p>{(course as Course).teachingMethod ?? '未設定'}</p></div>
-                {(course as Course).location && (<div><h4 className="font-semibold text-gray-900 mb-1">上課地點</h4><p>{(course as Course).location}</p></div>)}
-                {((course as Course).teachingMethod === '線上上課' || (course as Course).teachingMethod === '實體與線上同步上課') && (course as Course).liveStreamURL && (
-                  <div className="md:col-span-2"><h4 className="font-semibold text-gray-900 mb-1">會議室連結</h4><a href={(course as Course).liveStreamURL} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">點擊加入</a></div>
-                )}
+                  } else {
+                    if (onColumnDetailsChange) {
+                      const newDetails = { ...columnDetails };
+                      newDetails[editingColumn] = { ...(newDetails[editingColumn] || { type: '', name: '', date: '', nature: '' }), name: e.target.value };
+                      onColumnDetailsChange(newDetails);
+                    }
+                  }
+                }}
+              />
+            </div>
+            <div className="mb-3">
+              <label className="block mb-1 font-semibold text-gray-900">考試日期：</label>
+              <input
+                type="date"
+                className="border rounded px-2 py-1 w-full"
+                value={currentColumn?.date || ''}
+                onChange={e => {
+                  if (isPeriodic) {
+                    if (currentPeriodicScoreName && onPeriodicColumnDetailsChange) {
+                      const newDetails = { ...periodicColumnDetails };
+                      newDetails[currentPeriodicScoreName] = { ...(newDetails[currentPeriodicScoreName] || { name: '', date: '' }), date: e.target.value };
+                      onPeriodicColumnDetailsChange(newDetails);
+                    }
+                  } else {
+                    if (onColumnDetailsChange) {
+                      const newDetails = { ...columnDetails };
+                      newDetails[editingColumn] = { ...(newDetails[editingColumn] || { type: '', name: '', date: '', nature: '' }), date: e.target.value };
+                      onColumnDetailsChange(newDetails);
+                    }
+                  }
+                }}
+              />
+            </div>
+
+            {/* 成績性質選擇（僅針對平時成績） */}
+            {!isPeriodic && (
+              <div className="mb-3">
+                <label className="block mb-1 font-semibold text-gray-900">成績性質：</label>
+                <select
+                  className="border rounded px-2 py-1 w-full"
+                  value={columnDetails[editingColumn]?.nature || '平時測驗'}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                    onColumnDetailsChange?.({
+                      ...columnDetails,
+                      [editingColumn]: { 
+                        ...(columnDetails[editingColumn] || { type: '', name: '', date: '', nature: '' }),
+                        nature: e.target.value
+                      }
+                    })
+                  }
+                >
+                  <option value="平時測驗">平時測驗</option>
+                  <option value="回家作業">回家作業</option>
+                  <option value="上課態度">上課態度</option>
+                </select>
               </div>
             )}
-          </div>
 
-          {showDescription && course && !isSimpleCourse && 'description' in course && typeof course.description === 'string' && (
-            <div className="mt-6 pt-6 border-t">
-              <h4 className="font-semibold text-gray-900 mb-2">課程簡介</h4>
-              <p className="text-gray-600 whitespace-pre-line">{(course as Course).description}</p>
-            </div>
-          )}
-
-          <div className="flex justify-end mt-6 pt-6 border-t">
-            {showDeleteButton && onDelete && (<button onClick={onDelete} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors mr-auto">刪除此欄</button>)}
-            <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors">關閉</button>
+            {/* 成績統計 */}
+            {isGradeInfo && (
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-semibold text-gray-900 mb-4">成績統計</h4>
+                {(() => {
+                  let scores: number[] = [];
+                  
+                  if (isPeriodic && editingColumn !== null && _periodicScores && _periodicScores[editingColumn]) {
+                    // 定期評量：只分析該次評量的成績
+                    const scoreName = _periodicScores[editingColumn];
+                    scores = students
+                      .map(stu => stu.periodicScores?.[scoreName as keyof typeof stu.periodicScores])
+                      .filter(score => typeof score === 'number' && !isNaN(score)) as number[];
+                  } else if (!isPeriodic && editingColumn !== null) {
+                    // 平時成績：分析該欄位的成績
+                    scores = students
+                      .map(stu => stu.regularScores?.[editingColumn])
+                      .filter(score => typeof score === 'number' && !isNaN(score)) as number[];
+                  }
+                  
+                  if (scores.length === 0) {
+                    return <p className="text-gray-500">暫無成績資料</p>;
+                  }
+                  
+                  const stats = getTaiwanPercentileLevels!(scores);
+                  const max = Math.max(...scores);
+                  const min = Math.min(...scores);
+                  const sortedScores = [...scores].sort((a, b) => a - b);
+                  const median = sortedScores.length % 2 === 0
+                    ? (sortedScores[sortedScores.length / 2 - 1] + sortedScores[sortedScores.length / 2]) / 2
+                    : sortedScores[Math.floor(sortedScores.length / 2)];
+                  
+                  return (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-blue-600">{stats.平均}</div>
+                        <div className="text-sm text-gray-600">平均</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-green-600">{max}</div>
+                        <div className="text-sm text-gray-600">最高</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-red-600">{min}</div>
+                        <div className="text-sm text-gray-600">最低</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-purple-600">{median}</div>
+                        <div className="text-sm text-gray-600">中位數</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-orange-600">{stats.頂標}</div>
+                        <div className="text-sm text-gray-600">頂標</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-yellow-600">{stats.前標}</div>
+                        <div className="text-sm text-gray-600">前標</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-blue-600">{stats.均標}</div>
+                        <div className="text-sm text-gray-600">均標</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-gray-600">{stats.後標}</div>
+                        <div className="text-sm text-gray-600">後標</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-lg font-bold text-red-600">{stats.底標}</div>
+                        <div className="text-sm text-gray-600">底標</div>
+                      </div>
+                    </div>
+                  );
+                })()
+                }
+              </div>
+            )}
+          </>
+        ) : isSimpleCourse ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div><h4 className="font-semibold text-gray-900 mb-1">課程代碼</h4><p>{course.code}</p></div>
+            <div><h4 className="font-semibold text-gray-900 mb-1">課程狀態</h4><span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor((course as Course).status ?? '')}`}>{(course as Course).status ?? '未設定'}</span></div>
+            <div><h4 className="font-semibold text-gray-900 mb-1">課程名稱</h4><p>{course.name}</p></div>
           </div>
-        </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div><h4 className="font-semibold text-gray-900 mb-1">課程代碼</h4><p>{course.code}</p></div>
+            <div><h4 className="font-semibold text-gray-900 mb-1">課程狀態</h4><span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor((course as Course).status ?? '')}`}>{(course as Course).status ?? '未設定'}</span></div>
+            <div><h4 className="font-semibold text-gray-900 mb-1">課程名稱</h4><p>{course.name}</p></div>
+            <div><h4 className="font-semibold text-gray-900 mb-1">授課老師</h4><p>{getTeacherNames((course as Course).teachers)}</p></div>
+            <div><h4 className="font-semibold text-gray-900 mb-1">開始日期</h4><p>{formatDate((course as Course).startDate)}</p></div>
+            <div><h4 className="font-semibold text-gray-900 mb-1">結束日期</h4><p>{formatDate((course as Course).endDate)}</p></div>
+            <div><h4 className="font-semibold text-gray-900 mb-1">課程性質</h4><p>{(course as Course).courseNature ?? '未設定'}</p></div>
+            <div><h4 className="font-semibold text-gray-900 mb-1">適用年級</h4><p>{getGradeTags((course as Course).gradeTags)}</p></div>
+            <div><h4 className="font-semibold text-gray-900 mb-1">授課方式</h4><p>{(course as Course).teachingMethod ?? '未設定'}</p></div>
+            {(course as Course).location && (<div><h4 className="font-semibold text-gray-900 mb-1">上課地點</h4><p>{(course as Course).location}</p></div>)}
+            {((course as Course).teachingMethod === '線上上課' || (course as Course).teachingMethod === '實體與線上同步上課') && (course as Course).liveStreamURL && (
+              <div className="md:col-span-2"><h4 className="font-semibold text-gray-900 mb-1">會議室連結</h4><a href={(course as Course).liveStreamURL} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">點擊加入</a></div>
+            )}
+          </div>
+        )}
       </div>
-    </div>
+
+      {showDescription && course && !isSimpleCourse && 'description' in course && typeof course.description === 'string' && (
+        <div className="mt-6 pt-6 border-t flex-shrink-0">
+          <h4 className="font-semibold text-gray-900 mb-2">課程簡介</h4>
+          <p className="text-gray-600 whitespace-pre-line">{(course as Course).description}</p>
+        </div>
+      )}
+    </div> {/* Closing tag for the new flex-1 wrapper */}
+    </Modal>
   );
 }
