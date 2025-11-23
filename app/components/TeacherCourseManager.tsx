@@ -365,13 +365,20 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
       <div className="fixed inset-0 bg-white z-50 flex flex-col items-center justify-start min-h-screen h-full">
         {/* Header */}
         <div className="flex-shrink-0 p-4 border-b flex justify-between items-center w-full max-w-4xl mx-auto">
-          {!(showForm || editingLesson) && (
+          {!(showForm || editingLesson) ? (
             <div>
               <h3 className="text-2xl font-bold">{courseName}</h3>
               <div className="text-gray-500 text-sm">{courseCode}</div>
             </div>
+          ) : (
+            <div className="w-6"></div> /* Placeholder to keep button on right if title is hidden */
           )}
 
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 transition-colors" aria-label="關閉">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto w-full">
