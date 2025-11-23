@@ -578,22 +578,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
 
   // 工具函數：依全形1、半形0.5計算字數，超過35字元截斷加省略號
   // 處理舊資料格式
-  // 新增：只查有用到的老師
-  const fetchTeacherNames = async (teacherIds: string[]): Promise<{ [id: string]: string }> => {
-    if (!teacherIds.length) return {};
-    const res = await fetch('/api/teacher/batch', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ids: teacherIds })
-    });
-    if (!res.ok) return {};
-    const teachers = await res.json();
-    console.log('查詢老師ID:', teacherIds);
-    console.log('API回傳:', teachers);
-    const map: { [id: string]: string } = {};
-    teachers.forEach((t: { id: string, name: string }) => { map[t.id] = t.name; });
-    return map;
-  };
+
 
   const fetchTeachers = useCallback(async () => {
     try {
@@ -690,14 +675,18 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
     });
   }, [fetchTeachers]);
 
-  // Effect to toggle body overflow when TeacherCourseManager is active
+  // Effect to toggle body overflow when TeacherCourseManager is loading
   useEffect(() => {
-    document.body.classList.add('overflow-hidden');
-    // Cleanup function to remove the class when component unmounts
+    if (loading) {
+      document.body.classList.add('overflow-hidden');
+    } else {
+      document.body.classList.remove('overflow-hidden');
+    }
+    // Cleanup function to remove the class when component unmounts or loading state changes
     return () => {
       document.body.classList.remove('overflow-hidden');
     };
-  }, []); // Empty dependency array means this runs once on mount and once on unmount
+  }, [loading]);
 
   // handleShowCourseDetail 改為：
   const handleShowCourseDetail = async (course: Course) => {

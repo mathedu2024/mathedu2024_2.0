@@ -6,7 +6,7 @@ import CourseDetailModal from './CourseDetailModal';
 import Swal from 'sweetalert2';
 import { Modal } from './ui';
 import Dropdown from './ui/Dropdown';
-import LoadingSpinner from './LoadingSpinner';
+import { LoadingSpinner } from './ui';
 import GradeRegistrationMobile from './GradeRegistrationMobile';
 
 
@@ -589,6 +589,9 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
       const cleanedGradeData = removeUndefinedDeep(gradeData);
       await saveGrades(selectedCourseName, selectedCourseCode, cleanedGradeData);
       Swal.fire('成功', '成績已儲存！', 'success');
+    } catch (error: unknown) {
+      console.error('儲存成績時發生錯誤:', error);
+      Swal.fire('錯誤', error instanceof Error ? error.message : String(error), 'error');
     } finally {
       setIsSaving(false);
     }
