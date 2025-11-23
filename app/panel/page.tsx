@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { setSession } from '../utils/session';
 import alerts from '../utils/alerts';
-import LoadingSpinner from '../components/LoadingSpinner';
+import { LoadingSpinner } from '@/components/ui';;
 import Dropdown from '../components/ui/Dropdown';
 
 
@@ -199,10 +199,10 @@ export default function PanelLoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3 mt-2 btn-primary text-lg flex justify-center items-center"
+              className="w-full py-3 mt-2 btn-primary text-lg flex justify-center items-center whitespace-nowrap"
             >
               {isLoading ? (
-                <LoadingSpinner size={20} color="white" text="登入中..." />
+                <LoadingSpinner size={20} color="white" text="登入中..." textPosition="right" />
               ) : '登入'}
             </button>
           </form>

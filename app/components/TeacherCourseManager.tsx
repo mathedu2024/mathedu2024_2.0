@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import "react-datepicker/dist/react-datepicker.css";
 import Swal from 'sweetalert2';
 // import DetailModal from './DetailModal'; // 移除未使用的 import
-import LoadingSpinner from './LoadingSpinner';
+import { LoadingSpinner } from './ui';
 import CourseDetailModal from './CourseDetailModal';
 import AlertDialog from './AlertDialog';
 
@@ -132,6 +132,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
   // 1. useState 明確型別
   const [isOrderDirty, setIsOrderDirty] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
 
 
@@ -141,6 +142,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
   // 工具函數：依全形1、半形0.5計算字數，超過35字元截斷加省略號
   // 處理舊資料格式
   const fetchLessons = useCallback(async () => {
+    setIsLoading(true);
     try {
       const res = await fetch('/api/lessons/list', {
         method: 'POST',
@@ -166,6 +168,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
     } catch {
       Swal.fire('錯誤', '讀取課堂失敗', 'error');
     } finally {
+      setIsLoading(false);
     }
   }, [courseId]);
 
@@ -336,6 +339,14 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
   };
 
 
+
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 bg-white z-50 flex flex-col items-center justify-center">
+        <LoadingSpinner size={60} text="課堂資料載入中..." />
+      </div>
+    );
+  }
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
@@ -804,7 +815,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
   if (loading) {
     return (
       <div className="flex justify-center items-center h-full">
-        <LoadingSpinner size={12} />
+        <LoadingSpinner size={60} />
         <p className="ml-4 text-gray-600">正在讀取您的課程資料...</p>
       </div>
     );
@@ -896,7 +907,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
       {/* 顯示載入狀態或錯誤 */}
       {loading && (
         <div className="text-center py-12">
-          <LoadingSpinner size={12} />
+          <LoadingSpinner size={60} />
           <p className="mt-4 text-gray-600">正在載入課程資料...</p>
         </div>
       )}
