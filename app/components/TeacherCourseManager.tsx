@@ -505,7 +505,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
                             {lessons.map((lesson, idx) => (
                               <Draggable key={lesson.id} draggableId={lesson.id} index={idx}>
                                 {(provided: DraggableProvided) => (
-                                  <tr ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className="hover:bg-gray-50">
+                                  <tr ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className="bg-white hover:bg-gray-50">
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">第 {idx + 1} 堂</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{lesson.title}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{lesson.date}</td>
