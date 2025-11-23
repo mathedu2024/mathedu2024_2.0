@@ -848,8 +848,8 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
 
   if (isCourseListLoading) {
     return (
-      <div className="fixed inset-0 bg-white z-50">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center">
+      <div className="fixed inset-0 bg-white z-50 flex items-center justify-center">
+        <div className="flex items-center">
           <LoadingSpinner size={60} text="成績資料載入中..." />
         </div>
       </div>
@@ -938,8 +938,8 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
       {selectedCourse && students.length > 0 && (
         <div className="relative">
           {isGradeDataLoading && (
-            <div className="fixed inset-0 bg-white z-50">
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center">
+            <div className="fixed inset-0 bg-white z-50 flex items-center justify-center">
+              <div className="flex items-center">
                 <LoadingSpinner size={60} text="成績資料載入中..." />
               </div>
             </div>
