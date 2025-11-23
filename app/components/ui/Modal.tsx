@@ -9,6 +9,7 @@ export interface ModalProps {
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
   className?: string;
   children: React.ReactNode;
+  footer?: React.ReactNode;
 }
 
 const sizeClasses = {
@@ -19,7 +20,7 @@ const sizeClasses = {
   full: 'max-w-full mx-4',
 };
 
-const Modal: React.FC<ModalProps> = ({ open, onClose, title, showCloseButton = true, size = 'md', className = '', children }) => {
+const Modal: React.FC<ModalProps> = ({ open, onClose, title, showCloseButton = true, size = 'lg', className = '', children, footer }) => {
   useEffect(() => {
     if (open) {
       document.body.style.overflow = 'hidden';
@@ -34,16 +35,19 @@ const Modal: React.FC<ModalProps> = ({ open, onClose, title, showCloseButton = t
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30 w-screen min-h-screen h-full">
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center overflow-y-auto p-4"
+      onClick={onClose}
+    >
       <div
-        className={`bg-white rounded-lg shadow-xl flex flex-col ${sizeClasses[size]} ${className}`}
-        style={{ maxHeight: '95vh', maxWidth: '95vw', minHeight: '0', minWidth: '0', overflowY: 'auto' }}
+        className={`bg-white rounded-lg shadow-xl flex flex-col w-full ${sizeClasses[size]} ${className} self-start mt-16 mb-8`}
+        style={{ maxHeight: 'calc(100vh - 4rem)' }}
         onClick={e => e.stopPropagation()}
       >
         {(title || showCloseButton) && (
-          <div className="flex items-center justify-between p-4 flex-shrink-0 border-b">
+          <div className="flex items-center justify-between p-6 flex-shrink-0 border-b">
             {title && (
-              <h3 className="text-lg md:text-xl font-bold text-gray-900">{title}</h3>
+              <h3 className="text-2xl font-bold text-gray-900">{title}</h3>
             )}
             {showCloseButton && (
               <button
@@ -59,6 +63,11 @@ const Modal: React.FC<ModalProps> = ({ open, onClose, title, showCloseButton = t
           </div>
         )}
         <div className="p-6 overflow-y-auto flex-1 min-h-0">{children}</div>
+        {footer && (
+          <div className="flex justify-end p-6 border-t">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );
