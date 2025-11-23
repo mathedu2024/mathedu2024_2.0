@@ -690,18 +690,14 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
     });
   }, [fetchTeachers]);
 
-  // Effect to toggle body overflow when TeacherCourseManager is loading
+  // Effect to toggle body overflow when TeacherCourseManager is active
   useEffect(() => {
-    if (loading) {
-      document.body.classList.add('overflow-hidden');
-    } else {
-      document.body.classList.remove('overflow-hidden');
-    }
-    // Cleanup function to remove the class when component unmounts or loading state changes
+    document.body.classList.add('overflow-hidden');
+    // Cleanup function to remove the class when component unmounts
     return () => {
       document.body.classList.remove('overflow-hidden');
     };
-  }, [loading]);
+  }, []); // Empty dependency array means this runs once on mount and once on unmount
 
   // handleShowCourseDetail 改為：
   const handleShowCourseDetail = async (course: Course) => {
