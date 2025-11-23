@@ -847,7 +847,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen w-full">
+      <div className="fixed inset-0 bg-white z-50 flex justify-center items-center">
         <LoadingSpinner size={60} />
         <p className="ml-4 text-gray-600">正在讀取您的課程資料...</p>
       </div>
