@@ -533,7 +533,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
         {/* Footer (Sticky) */}
         {(showForm || editingLesson) && (
           <div className="flex-shrink-0 p-4 bg-white border-t flex justify-end gap-2 w-full max-w-4xl mx-auto">
-            <button type="button" className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300" onClick={() => { setShowForm(false); setEditingLesson(null); onClose(); }}>取消</button>
+            <button type="button" className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300" onClick={() => { setShowForm(false); setEditingLesson(null); }}>取消</button>
             <button type="button" onClick={editingLesson ? handleEditLesson : handleAddLesson} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700" disabled={isSubmitting}>{isSubmitting ? '儲存中...' : '儲存課堂'}</button>
           </div>
         )}
