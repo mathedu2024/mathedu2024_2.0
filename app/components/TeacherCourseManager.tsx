@@ -135,18 +135,14 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Effect to toggle body overflow when loading
+  // Effect to toggle body overflow when LessonManager is active
   useEffect(() => {
-    if (isLoading) {
-      document.body.classList.add('overflow-hidden');
-    } else {
-      document.body.classList.remove('overflow-hidden');
-    }
-    // Cleanup function to remove the class when component unmounts or loading state changes
+    document.body.classList.add('overflow-hidden');
+    // Cleanup function to remove the class when component unmounts
     return () => {
       document.body.classList.remove('overflow-hidden');
     };
-  }, [isLoading]);
+  }, []); // Empty dependency array means this runs once on mount and once on unmount
 
   // 2. DropResult, DraggableProvided, DroppableProvided 已正確型別
   // 3. useCallback、useEffect 依賴已補齊
