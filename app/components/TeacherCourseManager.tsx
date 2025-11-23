@@ -102,6 +102,7 @@ const getTeacherNames = async (teacherIds: string[]): Promise<Map<string, string
     return map;
   } catch (error) {
     console.error('獲取老師名字時發生錯誤:', error);
+    Swal.fire('錯誤', '獲取老師名字時發生錯誤', 'error');
     return new Map();
   }
 };
@@ -574,6 +575,30 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
   const [selectedGrade] = useState('all');
   const [selectedSubject] = useState('all');
 
+  const fetchTeacherNamesCallback = useCallback(async (teacherIds: string[]): Promise<{ [id: string]: string }> => {
+    if (!teacherIds.length) return {};
+    try {
+      const res = await fetch('/api/teacher/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: teacherIds })
+      });
+      if (!res.ok) {
+        Swal.fire('錯誤', '獲取老師名字時發生錯誤：API 回傳失敗', 'error');
+        return {};
+      }
+      const teachers = await res.json();
+      const map: { [id: string]: string } = {};
+      teachers.forEach((t: { id: string, name: string }) => { map[t.id] = t.name; });
+      return map;
+    } catch (error) {
+      console.error('獲取老師名字時發生錯誤:', error);
+      Swal.fire('錯誤', '獲取老師名字時發生錯誤', 'error');
+      return {};
+    }
+  }, []); // Empty dependency array as it doesn't depend on component scope for its logic
+
+
   // const subjects = ['數學', '理化', '物理', '化學', '生物'];
 
   // 工具函數：依全形1、半形0.5計算字數，超過35字元截斷加省略號
@@ -589,6 +614,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
       }
     } catch (error) {
       console.error('獲取老師資料時發生錯誤:', error);
+    Swal.fire('錯誤', '獲取老師資料時發生錯誤', 'error');
     }
   }, []);
 
@@ -612,7 +638,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
         const allTeacherIds = Array.from(new Set(
           (allCourses.flatMap((c: Course) => (c.teachers || [])).filter((id: unknown): id is string => typeof id === 'string')) as string[]
         ));
-        const teacherNameMap = await fetchTeacherNames(allTeacherIds);
+        const teacherNameMap = await fetchTeacherNamesCallback(allTeacherIds);
         // 組合課程 id -> 老師名稱陣列
         const newTeacherNamesMap: { [courseId: string]: string[] } = {};
         allCourses.forEach((course: Course) => {
@@ -651,15 +677,15 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
       } else {
         const errorText = await res.text();
         setCourses([]);
-        setError('讀取課程資料時發生錯誤：API 回傳失敗 - ' + errorText);
+        Swal.fire('錯誤', '讀取課程資料時發生錯誤：API 回傳失敗 - ' + errorText, 'error');
       }
     } catch (error) {
-      setError('讀取課程資料時發生錯誤：' + (error as Error).message);
+      Swal.fire('錯誤', '讀取課程資料時發生錯誤：' + (error as Error).message, 'error');
       setCourses([]);
     } finally {
       setLoading(false);
     }
-  }, [userInfo?.id]);
+  }, [userInfo?.id, fetchTeacherNamesCallback]);
 
   // 2. useEffect 只呼叫 fetchCourses
   useEffect(() => {
@@ -830,75 +856,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
     );
   }
 
-  if (error) {
-    return (
-      <div className="p-4">
-        <h2 className="text-3xl font-bold mb-6 text-gray-800">我的授課課程</h2>
-        <div className="text-center py-12 px-6 bg-white rounded-lg border border-red-200">
-          <svg className="mx-auto h-12 w-12 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-          </svg>
-          <h3 className="mt-2 text-lg font-medium text-red-900">讀取課程資料時發生錯誤</h3>
-          <p className="mt-1 text-sm text-red-600">{error}</p>
-          <button 
-            onClick={() => {
-              setLoading(true);
-              setError(null);
-              const fetchCourses = async () => {
-                if (!userInfo || !userInfo.id) {
-                  setCourses([]);
-                  setLoading(false);
-                  return;
-                }
-                try {
-                  const res = await fetch('/api/courses/list', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ teacherId: userInfo.id })
-                  });
-                  if (res.ok) {
-                    const allCourses = await res.json();
-                    setCourses(allCourses);
-                    // 獲取所有課程的老師名字
-                    const teacherNamesPromises = allCourses.map(async (course: Course) => {
-                      if (course.teachers && course.teachers.length > 0) {
-                        const namesMap = await getTeacherNames(course.teachers);
-                        const orderedNames = course.teachers
-                          .map((id: string) => namesMap.get(id))
-                          .filter((name: string | undefined): name is string => !!name);
-                        return { courseId: course.id, names: orderedNames };
-                      }
-                      return { courseId: course.id, names: [] };
-                    });
-                    const teacherNamesResults = await Promise.all(teacherNamesPromises);
-                    const newTeacherNamesMap: { [courseId: string]: string[] } = {};
-                    teacherNamesResults.forEach(result => {
-                      newTeacherNamesMap[result.courseId] = result.names;
-                    });
-                    setTeacherNamesMap(newTeacherNamesMap);
-                    setError(null);
-                  } else {
-                    setCourses([]);
-                    setError('讀取課程資料時發生錯誤：API 回傳失敗');
-                  }
-                } catch (error) {
-                  setError('讀取課程資料時發生錯誤：' + (error as Error).message);
-                  setCourses([]);
-                } finally {
-                  setLoading(false);
-                }
-              };
-              fetchCourses();
-            }}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            重新嘗試
-          </button>
-        </div>
-      </div>
-    );
-  }
-
+  
   return (
     <div className="max-w-6xl mx-auto w-full px-4 pb-4 flex flex-col flex-1 min-h-0">
       <div className="flex justify-between items-center mb-6 flex-shrink-0">
