@@ -867,7 +867,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
 
   
   return (
-    <div className="max-w-6xl mx-auto w-full px-4 pb-4 flex flex-col flex-1 min-h-0">
+    <div className="max-w-6xl mx-auto w-full px-4 pb-4 flex flex-col">
       <div className="flex justify-between items-center mb-6 flex-shrink-0">
         <h2 className="text-2xl font-bold">我的授課課程</h2>
         {userInfo?.role === '管理員' && (
@@ -913,7 +913,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
       
       {/* 課程卡片清單 */}
       {!loading && filteredCourses.length > 0 && (
-        <div className={`flex-1 min-h-0 ${showLessonManager ? '' : 'overflow-y-auto'}`}>
+        <div>
           {/* Card view for mobile */}
           <div className="md:hidden">
             {filteredCourses.map(course => (

@@ -518,11 +518,7 @@ function BackPanel() {
     // 針對 teacher-courses tab，內容區塊不強制 flex-1/min-h-0，避免大空白
     const isTeacherCourses = activeTab === 'teacher-courses';
     return (
-      <div className={
-        isTeacherCourses
-          ? 'animate-fade-in flex flex-col px-4 sm:px-6 lg:px-8 py-6'
-          : 'animate-fade-in flex flex-col flex-1 min-h-0 px-4 sm:px-6 lg:px-8 py-6 overflow-y-auto'
-      }>
+      <div className={'animate-fade-in'}>
         {(() => {
           switch (activeTab) {
             case 'announcements':
@@ -650,7 +646,7 @@ function BackPanel() {
       />
 
       <div
-  className={`flex-1 flex flex-col min-h-0 bg-white`}
+  className={`flex-1 flex flex-col bg-white`}
         style={{
           paddingLeft: sidebarOpen ? 64 : 256,
           transition: 'padding-left 0.3s'
