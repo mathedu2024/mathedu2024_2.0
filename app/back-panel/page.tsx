@@ -16,7 +16,7 @@ import { getSession, clearSession } from '../utils/session';
 import type { Course } from '../components/TeacherCourseManager';
 import Sidebar from '../components/Sidebar';
 import { CalendarIcon } from '@heroicons/react/24/outline';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 type AdminTab = 'announcements' | 'exam-dates' | 'students' | 'courses' | 'admin-teachers';
 type TeacherTab = 'teacher-courses' | 'teacher-grades' | 'teacher-exams' | 'tutoring' | 'teacher-attendance';
