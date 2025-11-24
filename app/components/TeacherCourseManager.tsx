@@ -913,7 +913,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
       
       {/* 課程卡片清單 */}
       {!loading && filteredCourses.length > 0 && (
-        <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className={`flex-1 min-h-0 ${showLessonManager ? '' : 'overflow-y-auto'}`}>
           {/* Card view for mobile */}
           <div className="md:hidden">
             {filteredCourses.map(course => (
