@@ -364,7 +364,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="fixed inset-0 bg-white z-50 flex flex-col items-center justify-start min-h-screen h-full">
         {/* Header */}
-        <div className="flex-shrink-0 p-4 border-b flex justify-between items-center w-full max-w-4xl mx-auto">
+        <div className="sticky top-0 z-10 bg-white flex-shrink-0 p-4 border-b flex justify-between items-center w-full max-w-4xl mx-auto">
           {!(showForm || editingLesson) ? (
             <div>
               <h3 className="text-2xl font-bold">{courseName}</h3>
