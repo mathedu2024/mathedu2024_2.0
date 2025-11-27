@@ -867,9 +867,9 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
 
   
   return (
-    <div className="max-w-6xl mx-auto w-full px-4 pb-4 flex flex-col">
+    <div className="max-w-6xl mx-auto w-full p-4 flex flex-col">
+      <h2 className="text-2xl font-bold mb-6">我的授課課程</h2>
       <div className="flex justify-between items-center mb-6 flex-shrink-0">
-        <h2 className="text-2xl font-bold">我的授課課程</h2>
         {userInfo?.role === '管理員' && (
           <button 
             onClick={() => setShowNewCourse(true)}
