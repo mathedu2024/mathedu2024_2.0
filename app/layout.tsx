@@ -39,6 +39,7 @@ export default function RootLayout({
   <body className={`${geistFont.className} bg-white h-full`}>
         <Navigation />
         <main className="px-[5px] h-[calc(100vh-64px)] overflow-y-auto">{children}</main>
+        <div id="modal-root"></div> {/* This will be the target for our Portal */}
       </body>
     </html>
   );

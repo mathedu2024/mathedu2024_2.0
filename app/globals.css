@@ -597,8 +597,8 @@ html, body {
 
 /* 響應式動畫 */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .animate-fade-in {
@@ -795,6 +795,11 @@ html.swal2-shown {
 /* 確保 SweetAlert2 不會影響頁面滾動 */
 .swal2-container.swal2-backdrop-show {
   overflow: hidden !important;
+}
+
+/* Force overflow visible for html and body to ensure fixed elements work correctly */
+html, body {
+  overflow: visible !important;
 }
 
 /* SweetAlert2 彈跳動畫 */

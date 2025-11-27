@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import ReactDOM from 'react-dom'; // Import ReactDOM for createPortal
 
 export interface ModalProps {
   open: boolean;
@@ -33,7 +34,25 @@ const Modal: React.FC<ModalProps> = ({ open, onClose, title, showCloseButton = t
 
   if (!open) return null;
 
-  return (
+  // Find the portal root element once
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  if (!mounted) return null; // Don't render portal content until mounted
+
+  const portalRoot = document.getElementById('modal-root');
+
+  if (!portalRoot) {
+    console.error('Modal: Portal root element with id "modal-root" not found!');
+    return null; // Or throw an error, depending on desired behavior
+  }
+
+  // Render the modal content into the portal root
+  return ReactDOM.createPortal(
     <div className="fixed inset-0 z-40"> {/* This div serves as the primary container for both backdrop and modal content */}
       {/* Backdrop */}
       <div className="fixed inset-0 bg-black bg-opacity-50" onClick={onClose} />
@@ -71,8 +90,9 @@ const Modal: React.FC<ModalProps> = ({ open, onClose, title, showCloseButton = t
           )}
         </div>
       </div>
-    </div>
-  );
+    </div>,
+    portalRoot
+  ); // End ReactDOM.createPortal
 };
 
 export default Modal;
