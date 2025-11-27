@@ -53,12 +53,12 @@ const Modal: React.FC<ModalProps> = ({ open, onClose, title, showCloseButton = t
 
   // Render the modal content into the portal root
   return ReactDOM.createPortal(
-    <div className="fixed inset-0 z-40"> {/* This div serves as the primary container for both backdrop and modal content */}
+    <div className="fixed inset-0 z-[51]"> {/* Primary container for both backdrop and modal content, above navbar */}
       {/* Backdrop */}
       <div className="fixed inset-0 bg-black bg-opacity-50" onClick={onClose} />
 
       {/* Modal Content */}
-      <div className="fixed inset-0 z-50 flex justify-center items-center p-4 overflow-y-auto" onClick={onClose}>
+      <div className="fixed inset-0 z-[52] flex justify-center items-center p-4 overflow-y-auto" onClick={onClose}> {/* Modal content itself, above backdrop */}
         <div
           className={`bg-white rounded-lg shadow-xl flex flex-col w-full ${sizeClasses[size]} ${className}`}
           style={{ maxHeight: 'calc(100vh - 4rem)' }}
