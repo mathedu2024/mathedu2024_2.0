@@ -32,13 +32,13 @@ export default function LoadingSpinner({
   const numericSize = typeof size === 'number' ? size : sizeMap[size];
 
   const content = (
-    <div className={`flex flex-col items-center justify-center ${className}`}>
+    <div className={`flex flex-row items-center justify-center ${className}`}>
       <MoonLoader
         color={colorMap[color]}
         size={numericSize}
         speedMultiplier={1}
       />
-      {text && <span className="mt-2 text-gray-600">{text}</span>}
+      {text && <span className="ml-2 text-white">{text}</span>}
     </div>
   );
 
