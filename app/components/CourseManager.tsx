@@ -488,7 +488,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
 
             {/* 編輯/新增表單 */}
             {editingCourse && (
-                <Modal open={!!editingCourse} onClose={() => setEditingCourse(null)} title={editingCourse.id && editingCourse.id !== 'new' ? '編輯課程' : '新增課程'} size="lg" showCloseButton={false}>
+                <Modal open={!!editingCourse} onClose={() => setEditingCourse(null)} title={editingCourse.id && editingCourse.id !== 'new' ? '編輯課程' : '新增課程'} size="lg">
                     <form onSubmit={handleSaveCourse} className="space-y-6">
                         {/* Section 1: Basic Info */}
                         <div className="p-4 border border-gray-200 rounded-lg">

@@ -1676,8 +1676,9 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
           </button>
         </div>
       </div>
-                </Modal>)}
-              )} {/* Closing the conditional for showPercentModal */}          {/* 離開確認彈窗 */}
+                </Modal>
+          )} {/* Closing the conditional for showPercentModal */}
+          {/* 離開確認彈窗 */}
           
 
           {isDistributionModalOpen && distributionData && editingColumn !== null && (
