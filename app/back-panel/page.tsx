@@ -41,7 +41,18 @@ function BackPanel() {
   const router = useRouter();
   const searchParams = useSearchParams();
   // 1. 狀態 hooks 命名與學生端一致
-  const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 768 : true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const savedState = localStorage.getItem('sidebarOpen');
+      return savedState !== null ? JSON.parse(savedState) : window.innerWidth >= 768;
+    }
+    return true; // Default for SSR
+  });
+
+  // Effect to save sidebarOpen state to localStorage
+  useEffect(() => {
+    localStorage.setItem('sidebarOpen', JSON.stringify(sidebarOpen));
+  }, [sidebarOpen]);
   const [activeTab, setActiveTab] = useState<Tab>(null);
   const [userInfo, setUserInfo] = useState<BackPanelUserInfo | null>(null);
   const [lastActivity, setLastActivity] = useState<number>(Date.now());
