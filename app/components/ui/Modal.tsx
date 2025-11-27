@@ -1,5 +1,4 @@
 import React, { useEffect } from 'react';
-import Backdrop from './Backdrop'; // Import the new Backdrop component
 
 export interface ModalProps {
   open: boolean;
@@ -35,23 +34,21 @@ const Modal: React.FC<ModalProps> = ({ open, onClose, title, showCloseButton = t
   if (!open) return null;
 
   return (
-    <>
-      {/* Render the new Backdrop component */}
-      <Backdrop onClick={onClose} />
-      {/* The modal content itself */}
-      <div
-        className={`fixed z-50 flex justify-center items-center p-4 overflow-y-auto inset-0`} // Add fixed and z-index directly here
-        onClick={onClose} // Clicks on the space around the modal also close it
-      >
+    <div className="fixed inset-0 z-40"> {/* This div serves as the primary container for both backdrop and modal content */}
+      {/* Backdrop */}
+      <div className="fixed inset-0 bg-black bg-opacity-50" onClick={onClose} />
+
+      {/* Modal Content */}
+      <div className="fixed inset-0 z-50 flex justify-center items-center p-4 overflow-y-auto" onClick={onClose}>
         <div
-          className={`bg-white rounded-lg shadow-xl flex flex-col w-full ${sizeClasses[size]} ${className} self-start`}
-          style={{ maxHeight: 'calc(100vh - 4rem)', zIndex: 50 }} // Ensure modal content is above backdrop
-          onClick={e => e.stopPropagation()}
+          className={`bg-white rounded-lg shadow-xl flex flex-col w-full ${sizeClasses[size]} ${className}`}
+          style={{ maxHeight: 'calc(100vh - 4rem)' }}
+          onClick={(e) => e.stopPropagation()}
         >
           {(title || showCloseButton) && (
             <div className="flex items-center justify-between p-6 flex-shrink-0 border-b">
               {title && (
-                <h3 className="text-2xl font-bold text-gray-900">{title}</h3>
+                <h3 className="text-2xl font-bold text-gray-900">{title}</h3> 
               )}
               {showCloseButton && (
                 <button
@@ -74,7 +71,7 @@ const Modal: React.FC<ModalProps> = ({ open, onClose, title, showCloseButton = t
           )}
         </div>
       </div>
-    </>
+    </div>
   );
 };
 
