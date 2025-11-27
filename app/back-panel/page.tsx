@@ -443,7 +443,7 @@ function BackPanel() {
                       <button
                         key={action.id}
                         onClick={() => handleTabChange(action.id as Tab)}
-                        className={`min-w-[260px] sm:min-w-0 text-left p-6 rounded-2xl shadow-md transition-shadow,transform duration-300 ease-in-out flex items-center border-l-4 ${action.borderColor} bg-white hover:bg-gray-50 md:hover:-translate-y-1 ${
+                        className={`min-w-[260px] sm:min-w-0 text-left p-6 rounded-2xl shadow-md duration-300 ease-in-out flex items-center border-l-4 ${action.borderColor} bg-white hover:bg-gray-50 ${
                           isActive ? `ring-2 ${ringColor}` : ''
                         }`}
                       >
@@ -471,7 +471,7 @@ function BackPanel() {
                         key={action.id}
                         onClick={() => !action.disabled && handleTabChange(action.id as Tab)}
                         disabled={action.disabled}
-                        className={`min-w-[260px] sm:min-w-0 text-left p-6 rounded-2xl shadow-md transition-shadow,transform duration-300 ease-in-out flex items-center border-l-4 ${action.borderColor} bg-white hover:bg-gray-50 md:hover:-translate-y-1 ${
+                        className={`min-w-[260px] sm:min-w-0 text-left p-6 rounded-2xl shadow-md duration-300 ease-in-out flex items-center border-l-4 ${action.borderColor} bg-white hover:bg-gray-50 ${
                           isActive ? `ring-2 ${ringColor}` : ''
                         } ${action.disabled ? 'bg-gray-100 cursor-not-allowed opacity-60 ring-0' : ''}`}
                       >
