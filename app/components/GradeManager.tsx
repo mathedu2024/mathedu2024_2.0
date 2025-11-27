@@ -1657,26 +1657,27 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
     </div>
 
     {/* 按鈕區域 */}
-    <div className="flex justify-end space-x-3 pt-4 border-t">
-      <button
-        onClick={() => setShowPercentModal(false)}
-        className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
-      >
-        取消
-      </button>
-      <button
-        onClick={async () => {
-          setShowPercentModal(false);
-          await handleSave();
-        }}
-        disabled={percentRegular>100||percentPeriodic<0}
-        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        儲存
-      </button>
-    </div>
-  </div>
-</Modal>          {/* 離開確認彈窗 */}
+        <div className="flex justify-end space-x-3 pt-4 border-t">
+          <button
+            onClick={() => setShowPercentModal(false)}
+            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+          >
+            取消
+          </button>
+          <button
+            onClick={async () => {
+              setShowPercentModal(false);
+              await handleSave();
+            }}
+            disabled={percentRegular>100||percentPeriodic<0}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            儲存
+          </button>
+        </div>
+      </div>
+                </Modal>)}
+              )} {/* Closing the conditional for showPercentModal */}          {/* 離開確認彈窗 */}
           
 
           {isDistributionModalOpen && distributionData && editingColumn !== null && (
