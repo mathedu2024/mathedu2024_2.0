@@ -36,7 +36,8 @@ const Modal: React.FC<ModalProps> = ({ open, onClose, title, showCloseButton = t
 
   return (
     <div 
-      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center overflow-y-auto p-4"
+      className="bg-black bg-opacity-50 z-50 flex justify-center overflow-y-auto p-4"
+      style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh' }}
       onClick={onClose}
     >
       <div
