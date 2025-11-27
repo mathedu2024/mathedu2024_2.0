@@ -1380,7 +1380,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                             <td className={studentNameTdClass} style={studentNameColStyle}>{stu.name}</td>
                             <td className="px-4 py-2 text-center text-sm text-gray-900">{regularScore.toFixed(1)}</td>
                             <td className="px-4 py-2 text-center text-sm text-gray-900">{midAvg.toFixed(1)}</td>
-                            <td className="px-4 py-2 text-center text-sm text-gray-900">{final}</td>
+                            <td className="px-4 py-2 text-center text-sm text-gray-900">{String(final)}</td>
                             <td className="px-4 py-2 text-center text-sm text-gray-900">
                               <input
                                 type="number"
@@ -1417,8 +1417,8 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
               </div>
             </div>
           )}
-          {/* 2. 百分比調整 Modal 內容重構 */}
-                    <Modal
+          {showPercentModal && ( // Conditionally render the Modal
+            <Modal
   open={showPercentModal}
   onClose={() => setShowPercentModal(false)}
   title="百分比調整"
