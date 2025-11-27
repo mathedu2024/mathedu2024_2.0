@@ -16,7 +16,7 @@ import { getSession, clearSession } from '../utils/session';
 import type { Course } from '../components/TeacherCourseManager';
 import Sidebar from '../components/Sidebar';
 import { CalendarIcon } from '@heroicons/react/24/outline';
-import LoadingSpinner from '../components/LoadingSpinner';
+import { LoadingSpinner } from '@/components/ui';
 
 type AdminTab = 'announcements' | 'exam-dates' | 'students' | 'courses' | 'admin-teachers';
 type TeacherTab = 'teacher-courses' | 'teacher-grades' | 'teacher-exams' | 'tutoring' | 'teacher-attendance';
@@ -518,7 +518,7 @@ function BackPanel() {
     // 針對 teacher-courses tab，內容區塊不強制 flex-1/min-h-0，避免大空白
     const isTeacherCourses = activeTab === 'teacher-courses';
     return (
-      <div className={'animate-fade-in'}>
+      <div className={'animate-fade-in h-full'}>
         {(() => {
           switch (activeTab) {
             case 'announcements':
@@ -646,8 +646,7 @@ function BackPanel() {
       />
 
       <div
-  className={`flex-1 flex flex-col bg-white`}
-        style={{
+          className={`flex-1 flex flex-col bg-white overflow-y-auto`}        style={{
           paddingLeft: sidebarOpen ? 64 : 256,
           transition: 'padding-left 0.3s'
         }}
