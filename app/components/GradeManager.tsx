@@ -857,75 +857,120 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
   }
 
   return (
-  <div className="max-w-6xl mx-auto w-full p-4 min-h-screen flex flex-col bg-white" style={{ minHeight: '100vh' }}>
-      <h2 className="text-2xl font-bold mb-6 flex-shrink-0">成績資料管理</h2>
-      {!selectedCourse ? (
-        <div className="overflow-x-auto">
-          <table className="min-w-full bg-white">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">課程</th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">學生人數</th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">第一次段考</th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">第二次段考</th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">期末考</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {courses.map(course => (
-                <tr key={course.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium">{course.name}</div>
-                    <div className="text-sm text-gray-500">{course.code}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center">{courseStats[course.id]?.studentCount ?? '...'}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
-                    {courseStats[course.id]?.examStatus['第一次定期評量'] ? '已上傳' : '未上傳'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
-                    {courseStats[course.id]?.examStatus['第二次定期評量'] ? '已上傳' : '未上傳'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
-                    {courseStats[course.id]?.examStatus['期末評量'] ? '已上傳' : '未上傳'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <button
-                      className="btn-primary"
-                      disabled={isGradeDataLoading}
-                      onClick={() => {
-                        setIsGradeDataLoading(true);
-                        setLoadingCourseId(course.id);
-                        setSelectedCourse(course.id);
-                        setSelectedCourseName(course.name);
-                        setSelectedCourseCode(course.code);
-                      }}
-                    >
-                      {isGradeDataLoading && loadingCourseId === course.id ? (
-                        <LoadingSpinner size={20} color="white" />
-                      ) : (
-                        '管理成績'
-                      )}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
+    <div className="max-w-6xl mx-auto w-full p-4 flex flex-col">
+      <h2 className="text-2xl font-bold mb-6">成績資料管理</h2>
+      {selectedCourse ? (
         <div className="mb-4">
-          <button
-            className="btn-secondary"
-            onClick={() => {
-              setSelectedCourse('');
-              setSelectedCourseName('');
-              setSelectedCourseCode('');
-            }}
-          >
+          <button className="btn-secondary" onClick={() => { setSelectedCourse(''); setSelectedCourseName(''); setSelectedCourseCode(''); }}>
             返回課程列表
           </button>
         </div>
+      ) : (
+        <>
+          {/* Mobile Card View for Course Selection */}
+          <div className="md:hidden">
+            {courses.map(course => (
+              <div key={course.id} className="bg-white border border-gray-200 rounded-lg shadow-sm mb-4 p-4">
+                <div className="font-medium text-gray-900 mb-2">{course.name} ({course.code})</div>
+                <div className="text-sm text-gray-500 mb-2">學生人數: {courseStats[course.id]?.studentCount ?? '...'}</div>
+                <div className="text-sm text-gray-500 mb-2">第一次段考: {courseStats[course.id]?.examStatus['第一次定期評量'] ? '已上傳' : '未上傳'}</div>
+                <div className="text-sm text-gray-500 mb-2">第二次段考: {courseStats[course.id]?.examStatus['第二次定期評量'] ? '已上傳' : '未上傳'}</div>
+                <div className="text-sm text-gray-500 mb-4">期末考: {courseStats[course.id]?.examStatus['期末評量'] ? '已上傳' : '未上傳'}</div>
+                <button
+                  className="btn-primary w-full"
+                  disabled={isGradeDataLoading}
+                  onClick={() => {
+                    setIsGradeDataLoading(true);
+                    setLoadingCourseId(course.id);
+                    setSelectedCourse(course.id);
+                    setSelectedCourseName(course.name);
+                    setSelectedCourseCode(course.code);
+                  }}
+                >
+                  {isGradeDataLoading && loadingCourseId === course.id ? (
+                    <LoadingSpinner size={20} color="white" />
+                  ) : (
+                    '管理成績'
+                  )}
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop Table View for Course Selection */}
+          <div className="hidden md:block bg-white border border-gray-200 rounded-lg shadow-sm overflow-x-auto mb-8">
+            <table className="w-full text-sm text-left text-gray-500">
+              <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">課程</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">學生人數</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">第一次段考</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">第二次段考</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">期末考</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {courses.map(course => (
+                  <tr key={course.id} className="bg-white border-b hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="font-medium text-gray-900">{course.name}</div>
+                      <div className="text-sm text-gray-500">{course.code}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center text-gray-800">{courseStats[course.id]?.studentCount ?? '...'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      {courseStats[course.id]?.examStatus['第一次定期評量'] ? (
+                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">已上傳</span>
+                      ) : (
+                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">未上傳</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      {courseStats[course.id]?.examStatus['第二次定期評量'] ? (
+                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">已上傳</span>
+                      ) : (
+                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">未上傳</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                      {courseStats[course.id]?.examStatus['期末評量'] ? (
+                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">已上傳</span>
+                      ) : (
+                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">未上傳</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <button
+                        className="btn-primary"
+                        disabled={isGradeDataLoading}
+                        onClick={() => {
+                          setIsGradeDataLoading(true);
+                          setLoadingCourseId(course.id);
+                          setSelectedCourse(course.id);
+                          setSelectedCourseName(course.name);
+                          setSelectedCourseCode(course.code);
+                        }}
+                      >
+                        {isGradeDataLoading && loadingCourseId === course.id ? (
+                          <LoadingSpinner size={20} color="white" />
+                        ) : (
+                          '管理成績'
+                        )}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {!loading && courses.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="text-center py-4 text-gray-500">
+                      尚無授課課程
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
       {(userInfo && courses.length === 0) && (
         <div className="text-red-500 mb-4">尚未設定授課課程，請聯絡管理員。</div>
