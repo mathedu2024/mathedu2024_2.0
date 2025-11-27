@@ -960,7 +960,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                     </td>
                   </tr>
                 ))}
-                {!loading && courses.length === 0 && (
+                {!isCourseListLoading && courses.length === 0 && (
                   <tr>
                     <td colSpan={6} className="text-center py-4 text-gray-500">
                       尚無授課課程
@@ -997,14 +997,14 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
           {/* 分頁內容 */}
           {selectedTab === 'regular' && (
             <div className="mb-8">
-              {/* 按鈕區塊移到上方 */}
+              {/* 按鈕區塊 */}
               {/* Mobile: grid, Desktop: flex */}
               <div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4 md:hidden">
                   <button className="btn-primary w-full" onClick={handleExport}>匯出成績</button>
                   <button className="btn-success w-full" onClick={handleImport}>匯入成績</button>
                   <button className="btn-warning w-full" onClick={openPercentModal}>百分比調整</button>
-                  <button type="button" className="btn-info w-full" onClick={handleAddColumn}>增加欄位</button>
+                  <button type="button" className="btn-info w-full" onClick={handleAddColumn}>新增欄位</button>
                   <button
                     className="btn-danger w-full"
                     onClick={handleSave}
@@ -1015,7 +1015,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                   <button className="btn-primary min-w-[110px] flex-shrink-0" onClick={handleExport}>匯出成績</button>
                   <button className="btn-success min-w-[110px] flex-shrink-0" onClick={handleImport}>匯入成績</button>
                   <button className="btn-warning min-w-[110px] flex-shrink-0" onClick={openPercentModal}>百分比調整</button>
-                  <button type="button" className="btn-info min-w-[110px] flex-shrink-0" onClick={handleAddColumn}>增加欄位</button>
+                  <button type="button" className="btn-info min-w-[110px] flex-shrink-0" onClick={handleAddColumn}>新增欄位</button>
                   <button
                     className="btn-danger min-w-[110px] flex-shrink-0"
                     onClick={handleSave}
@@ -1045,7 +1045,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                         <th className={studentNameColClass} style={studentNameColStyle}>姓名</th>
                         {Array.from({ length: regularColumns }).map((_, idx) => {
                           const detail = columnDetails[idx];
-                          // 依 type 與同類型順序命名
+                          // 依 type 自動產生顯示名稱
                           let displayName = '';
                           if (detail?.type === '作業') {
                             const count = Array.from({ length: idx + 1 }).filter((_, i) => (columnDetails[i]?.type) === '作業').length;
@@ -1128,7 +1128,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                                     }
                                   }}
                                 />
-                                {/* 4. 小於60分標記* */}
+                                {/* 4. 低於60分標示* */}
                                 {isLow && (
                                   <span className="text-red-500 ml-1 font-bold">*</span>
                                 )}
@@ -1140,7 +1140,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                     </tbody>
                   </table>
                 </div>
-              {/* 平時成績課程詳細資訊模態框 */}
+              {/* 平時成績設定與統計彈窗 */}
               <CourseDetailModal
                 course={showCourseDetail}
                 teachers={teachers}
@@ -1163,12 +1163,12 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                 _periodicScores={periodicScores}
               />
 
-              {/* 平時成績分析卡片（已移除） */}
+              {/* 平時成績百分比調整彈窗 */}
             </div>
           )}
           {selectedTab === 'periodic' && (
             <div className="mb-8">
-              {/* 按鈕區塊移到上方 */}
+              {/* 按鈕區塊 */}
               <div className="grid grid-cols-2 gap-2 mb-4 md:flex md:gap-2 md:flex-nowrap md:overflow-x-auto">
                 <button className="btn-primary min-w-[110px] flex-shrink-0" onClick={handleExport}>匯出成績</button>
                 <button className="btn-success min-w-[110px] flex-shrink-0" onClick={handleImport}>匯入成績</button>
@@ -1208,7 +1208,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                                 type="button"
                                 onClick={() => {
                                   setEditingColumn(idx);
-                                  // 創建一個簡化的課程資訊物件
+                                  // 偽造 course 物件以顯示彈窗
                                   const tempCourse = {
                                     id: `periodic-${idx}`,
                                     name: `${periodicScores[idx]}成績`,
@@ -1216,7 +1216,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                                   };
                                   handleShowCourseDetail(tempCourse);
                                 }}
-                              >成績資訊</button>
+                              >成績統計</button>
                             </div>
                           </th>
                         ))}
@@ -1244,12 +1244,12 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                                     const value = e.target.value;
                                     setStudents(prev => prev.map(s =>
                                       s.id === stu.id
-                                        ? { 
-                                            ...s, 
-                                            periodicScores: { 
-                                              ...s.periodicScores, 
-                                              [scoreName]: value === '' ? undefined : parseInt(value, 10) 
-                                            } 
+                                        ? {
+                                            ...s,
+                                            periodicScores: {
+                                              ...s.periodicScores,
+                                              [scoreName]: value === '' ? undefined : parseInt(value, 10)
+                                            }
                                           }
                                         : s
                                     ));
@@ -1263,7 +1263,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                                     }
                                   }}
                                 />
-                                {/* 小於60分標記* */}
+                                {/* 低於60分標示* */}
                                 {isLow && (
                                   <span className="text-red-500 ml-1 font-bold">*</span>
                                 )}
@@ -1275,7 +1275,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                     </tbody>
                   </table>
                 </div>
-              {/* 定期評量課程詳細資訊模態框 */}
+              {/* 定期評量設定與統計彈窗 */}
               <CourseDetailModal
                 course={showCourseDetail}
                 teachers={teachers}
@@ -1297,7 +1297,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                 _periodicScores={periodicScores}
               />
 
-              
+
             </div>
           )}
           {selectedTab === 'total' && (
@@ -1408,6 +1408,7 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                     </tbody>
                   </table>
                 </div>
+              </div>
               {/* 在總成績表格上方顯示公式 */}
               <div className="mb-2 text-sm text-gray-600 font-mono">
                 總成績 = 小考({totalSetting.regularDetail['小考']?.percent ?? 0}%)
@@ -1417,374 +1418,11 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
               </div>
             </div>
           )}
-          {showPercentModal && ( // Conditionally render the Modal
-            <Modal
-  open={showPercentModal}
-  onClose={() => setShowPercentModal(false)}
-  title="百分比調整"
-  size="lg"
->
-  <div className="space-y-6">
-    {/* 成績設定 */}
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">小考 (%)</label>
-        <input
-          type="number"
-          min="0"
-          max="100"
-          value={percentQuizRaw}
-          onChange={e => setPercentQuizRaw(e.target.value)}
-          className="w-full border border-gray-300 p-3 rounded-lg"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">作業 (%)</label>
-        <input
-          type="number"
-          min="0"
-          max="100"
-          value={percentHomeworkRaw}
-          onChange={e => setPercentHomeworkRaw(e.target.value)}
-          className="w-full border border-gray-300 p-3 rounded-lg"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">上課態度 (%)</label>
-        <input
-          type="number"
-          min="0"
-          max="100"
-          value={percentAttitudeRaw}
-          onChange={e => setPercentAttitudeRaw(e.target.value)}
-          className="w-full border border-gray-300 p-3 rounded-lg"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">平時成績 (%)</label>
-        <input
-          type="number"
-          min="0"
-          max="100"
-          value={percentRegular}
-          readOnly
-          className="w-full border border-gray-300 p-3 rounded-lg bg-gray-50"
-        />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">定期評量 (%)</label>
-        <input
-          type="number"
-          min="0"
-          max="100"
-          value={percentPeriodic}
-          readOnly
-          className="w-full border border-gray-300 p-3 rounded-lg bg-gray-50"
-        />
-      </div>
-    </div>
 
-    {/* 百分比總和驗證 */}
-    <div className="bg-gray-50 p-4 rounded-lg">
-      <div className="text-sm text-gray-600 mb-2">平時成績總和：{percentRegular}%</div>
-      <div className="text-sm text-gray-600 mb-2">總成績總和：{percentRegular + percentPeriodic}%</div>
-      {(percentRegular > 100 || percentPeriodic < 0) && (
-        <div className="text-red-600 text-sm">⚠️ p+q+r 不可超過 100</div>
-      )}
-    </div>
-
-    {/* 採計模式設定 */}
-    <div className="space-y-4">
-      <h4 className="font-semibold text-gray-900">成績採計模式</h4>
-      
-      {/* 小考採計模式 */}
-      <div className="border rounded-lg p-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">小考成績採計（共{Object.values(columnDetails).filter((col: ColumnDetail)=>col.type==='小考').length}筆）</label>
-        <div className="space-y-2">
-          <label className="flex items-center">
-            <input
-              type="radio"
-              name="quizMode"
-              value="all"
-              checked={quizMode === 'all'}
-              onChange={e => setQuizMode(e.target.value as 'all' | 'best')}
-              className="mr-2"
-            />
-            全部採計
-          </label>
-          <label className="flex items-center">
-            <input
-              type="radio"
-              name="quizMode"
-              value="best"
-              checked={quizMode === 'best'}
-              onChange={e => setQuizMode(e.target.value as 'all' | 'best')}
-              className="mr-2"
-            />
-            擇優採計
-          </label>
-          {quizMode === 'best' && (
-            <div className="ml-6">
-              <label className="block text-sm text-gray-600 mb-1">採計次數：</label>
-              <input
-                type="number"
-                min="1"
-                max={Object.values(columnDetails).filter((col: ColumnDetail)=>col.type==='小考').length}
-                value={quizBestCount}
-                onChange={e => setQuizBestCount(Math.min(Number(e.target.value), Object.values(columnDetails).filter((col: ColumnDetail)=>col.type==='小考').length))}
-                className="w-20 border border-gray-300 p-1 rounded"
-              />
-              {quizBestCount > Object.values(columnDetails).filter((col: ColumnDetail)=>col.type==='小考').length && (
-                <div className="text-red-500 text-sm mt-1">⚠️ 採計次數不可大於資料數</div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 作業採計模式 */}
-      <div className="border rounded-lg p-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">作業成績採計（共{Object.values(columnDetails).filter((col: ColumnDetail)=>col.type==='作業').length}筆）</label>
-        <div className="space-y-2">
-          <label className="flex items-center">
-            <input
-              type="radio"
-              name="homeworkMode"
-              value="all"
-              checked={homeworkMode === 'all'}
-              onChange={e => setHomeworkMode(e.target.value as 'all' | 'best')}
-              className="mr-2"
-            />
-            全部採計
-          </label>
-          <label className="flex items-center">
-            <input
-              type="radio"
-              name="homeworkMode"
-              value="best"
-              checked={homeworkMode === 'best'}
-              onChange={e => setHomeworkMode(e.target.value as 'all' | 'best')}
-              className="mr-2"
-            />
-            擇優採計
-          </label>
-          {homeworkMode === 'best' && (
-            <div className="ml-6">
-              <label className="block text-sm text-gray-600 mb-1">採計次數：</label>
-              <input
-                type="number"
-                min="1"
-                max={Object.values(columnDetails).filter((col: ColumnDetail)=>col.type==='作業').length}
-                value={homeworkBestCount}
-                onChange={e => setHomeworkBestCount(Math.min(Number(e.target.value), Object.values(columnDetails).filter((col: ColumnDetail)=>col.type==='作業').length))}
-                className="w-20 border border-gray-300 p-1 rounded"
-              />
-              {homeworkBestCount > Object.values(columnDetails).filter((col: ColumnDetail)=>col.type==='作業').length && (
-                <div className="text-red-500 text-sm mt-1">⚠️ 採計次數不可大於資料數</div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 上課態度採計模式 */}
-      <div className="border rounded-lg p-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">上課態度採計（共{Object.values(columnDetails).filter((col: ColumnDetail)=>col.type==='上課態度').length}筆）</label>
-        <div className="space-y-2">
-          <label className="flex items-center">
-            <input
-              type="radio"
-              name="attitudeMode"
-              value="all"
-              checked={attitudeMode === 'all'}
-              onChange={e => setAttitudeMode(e.target.value as 'all' | 'best')}
-              className="mr-2"
-            />
-            全部採計
-          </label>
-          <label className="flex items-center">
-            <input
-              type="radio"
-              name="attitudeMode"
-              value="best"
-              checked={attitudeMode === 'best'}
-              onChange={e => setAttitudeMode(e.target.value as 'all' | 'best')}
-              className="mr-2"
-            />
-            擇優採計
-          </label>
-          {attitudeMode === 'best' && (
-            <div className="ml-6">
-              <label className="block text-sm text-gray-600 mb-1">採計次數：</label>
-              <input
-                type="number"
-                min="1"
-                max={Object.values(columnDetails).filter((col: ColumnDetail)=>col.type==='上課態度').length}
-                value={attitudeBestCount}
-                onChange={e => setAttitudeBestCount(Math.min(Number(e.target.value), Object.values(columnDetails).filter((col: ColumnDetail)=>col.type==='上課態度').length))}
-                className="w-20 border border-gray-300 p-1 rounded"
-              />
-              {attitudeBestCount > Object.values(columnDetails).filter((col: ColumnDetail)=>col.type==='上課態度').length && (
-                <div className="text-red-500 text-sm mt-1">⚠️ 採計次數不可大於資料數</div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 定期評量採計 */}
-      <div className="border rounded-lg p-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">定期評量採計</label>
-        <div className="space-y-2">
-          {[0,1,2].map(i=>(
-            <label key={i} className="flex items-center">
-              <input
-                type="checkbox"
-                checked={periodicEnabled[i] || false}
-                onChange={()=>setPeriodicEnabled(arr=>arr.map((v,idx)=>idx===i?!v:v))}
-                className="mr-2"
-              />
-              {['第一次定期評量','第二次定期評量','期末評量'][i]}
-            </label>
-          ))}
-          <div className="text-sm text-blue-600 mt-2">
-            目前採計：{
-              periodicEnabled.map((v,i)=>v?['第一次定期評量','第二次定期評量','期末評量'][i]:null).filter(Boolean).join('、') || '（無）'
-            }
-          </div>
-        </div>
-      </div>
-    </div>
-
-    {/* 按鈕區域 */}
-        <div className="flex justify-end space-x-3 pt-4 border-t">
-          <button
-            onClick={() => setShowPercentModal(false)}
-            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
-          >
-            取消
-          </button>
-          <button
-            onClick={async () => {
-              setShowPercentModal(false);
-              await handleSave();
-            }}
-            disabled={percentRegular>100||percentPeriodic<0}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            儲存
-          </button>
-        </div>
-      </div>
-                </Modal>
-          )} {/* Closing the conditional for showPercentModal */}
           {/* 離開確認彈窗 */}
           
 
-          {isDistributionModalOpen && distributionData && editingColumn !== null && (
-            <Modal
-              open={isDistributionModalOpen}
-              onClose={() => {
-                setIsDistributionModalOpen(false);
-                setEditingColumn(null);
-              }}
-              title="成績設定"
-              size="lg"
-            >
-              <div className="space-y-6">
-                {/* Settings Form */}
-                <div>
-                  <h5 className="font-semibold mb-3">成績設定</h5>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">成績名稱</label>
-                      <input
-                        type="text"
-                        value={columnDetails[editingColumn]?.name || ''}
-                        onChange={(e) => {
-                          const newDetails = { ...columnDetails };
-                          newDetails[editingColumn] = { ...(newDetails[editingColumn] || { type: '', name: '', date: '' }), name: e.target.value };
-                          setColumnDetails(newDetails);
-                        }}
-                        className="w-full border border-gray-300 p-2 rounded-lg"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">測驗日期</label>
-                      <input
-                        type="date"
-                        value={columnDetails[editingColumn]?.date || ''}
-                        onChange={(e) => {
-                          const newDetails = { ...columnDetails };
-                          newDetails[editingColumn] = { ...(newDetails[editingColumn] || { type: '', name: '', date: '' }), date: e.target.value };
-                          setColumnDetails(newDetails);
-                        }}
-                        className="w-full border border-gray-300 p-2 rounded-lg"
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">成績形式</label>
-                      <Dropdown
-                        value={columnDetails[editingColumn]?.type || ''}
-                        onChange={(value) => {
-                          const newDetails = { ...columnDetails };
-                          newDetails[editingColumn] = { ...(newDetails[editingColumn] || { type: '', name: '', date: '' }), type: value };
-                          setColumnDetails(newDetails);
-                        }}
-                        options={[{ value: '', label: '請選擇' }, { value: '小考', label: '小考' }, { value: '作業', label: '作業' }, { value: '上課態度', label: '上課態度' }]}
-                        placeholder="請選擇"
-                        className="w-full"
-                      />
-                    </div>
-                  </div>
-                </div>
 
-                {/* 五標表格 */}
-                <div>
-                  <h5 className="font-semibold mb-3">五標統計</h5>
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full border border-gray-200 rounded-lg">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-4 py-2 text-left text-sm font-medium text-gray-700 border-b">項目</th>
-                          <th className="px-4 py-2 text-center text-sm font-medium text-gray-700 border-b">分數</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td className="px-4 py-2 text-sm text-gray-900 border-b">頂標</td>
-                          <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 border-b">{distributionData.statistics.頂標 ?? '-'}</td>
-                        </tr>
-                        <tr>
-                          <td className="px-4 py-2 text-sm text-gray-900 border-b">前標</td>
-                          <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 border-b">{distributionData.statistics.前標 ?? '-'}</td>
-                        </tr>
-                        <tr>
-                          <td className="px-4 py-2 text-sm text-gray-900 border-b">均標</td>
-                          <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 border-b">{distributionData.statistics.均標 ?? '-'}</td>
-                        </tr>
-                        <tr>
-                          <td className="px-4 py-2 text-sm text-gray-900 border-b">後標</td>
-                          <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 border-b">{distributionData.statistics.後標 ?? '-'}</td>
-                        </tr>
-                        <tr>
-                          <td className="px-4 py-2 text-sm text-gray-900 border-b">底標</td>
-                          <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 border-b">{distributionData.statistics.底標 ?? '-'}</td>
-                        </tr>
-                        <tr className="bg-gray-50">
-                          <td className="px-4 py-2 text-sm font-medium text-gray-900">平均</td>
-                          <td className="px-4 py-2 text-center text-sm font-bold text-gray-900">{distributionData.statistics.平均 ?? '-'}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-
-                {/* 長條圖（改用表格呈現，已移除） */}
-              </div>
-            </Modal>
-          )}
   </div>
       )}
     </div>
