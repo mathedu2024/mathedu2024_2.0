@@ -1037,108 +1037,109 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                     _onUpdateManualAdjust={handleUpdateManualAdjust}
                   />
                 </div>
-                <table className="min-w-full border border-gray-200 rounded-lg" style={{ tableLayout: 'fixed', width: `${120 + 100 + (regularColumns * 120)}px` }}>
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className={studentIdColClass} style={studentIdColStyle}>學號</th>
-                      <th className={studentNameColClass} style={studentNameColStyle}>姓名</th>
-                      {Array.from({ length: regularColumns }).map((_, idx) => {
-                        const detail = columnDetails[idx];
-                        // 依 type 與同類型順序命名
-                        let displayName = '';
-                        if (detail?.type === '作業') {
-                          const count = Array.from({ length: idx + 1 }).filter((_, i) => (columnDetails[i]?.type) === '作業').length;
-                          displayName = `作業${count}`;
-                        } else if (detail?.type === '上課態度') {
-                          const count = Array.from({ length: idx + 1 }).filter((_, i) => (columnDetails[i]?.type) === '上課態度').length;
-                          displayName = `上課態度${count}`;
-                        } else if (detail?.type === '小考') {
-                          const count = Array.from({ length: idx + 1 }).filter((_, i) => (columnDetails[i]?.type) === '小考').length;
-                          displayName = `小考${count}`;
-                        } else {
-                          displayName = detail?.name?.trim() ? detail.name : `成績${idx + 1}`;
-                        }
-                        return (
-                          <th key={idx} className="px-4 py-2 text-left text-sm font-semibold text-gray-700 whitespace-nowrap" style={{ width: '120px' }}>
-                            <div className="flex flex-col items-start">
-                              <span>{displayName}</span>
-                              <button
-                                className="mt-1 text-blue-500 hover:text-blue-700 text-xs border border-blue-400 rounded px-2 py-0.5"
-                                type="button"
-                                onClick={() => handleShowSettings(idx)}
-                              >成績設定</button>
-                            </div>
-                          </th>
-                        );
-                      })}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {students.map((stu, rowIdx) => (
-                      <tr key={stu.id} className="border-t">
-                        <td className={studentIdTdClass} style={studentIdColStyle}>{stu.studentId}</td>
-                        <td className={studentNameTdClass} style={studentNameColStyle}>{stu.name}</td>
-                        {Array.from({ length: regularColumns }).map((_, colIdx) => {
-                          const score = stu.regularScores?.[colIdx];
-                          const isLow = typeof score === 'number' && score < 60;
+                <div className="hidden md:block bg-white border border-gray-200 rounded-lg shadow-sm overflow-x-auto">
+                  <table className="w-full text-sm text-left text-gray-500" style={{ tableLayout: 'fixed', width: `${120 + 100 + (regularColumns * 120)}px` }}>
+                    <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+                      <tr>
+                        <th className={studentIdColClass} style={studentIdColStyle}>學號</th>
+                        <th className={studentNameColClass} style={studentNameColStyle}>姓名</th>
+                        {Array.from({ length: regularColumns }).map((_, idx) => {
+                          const detail = columnDetails[idx];
+                          // 依 type 與同類型順序命名
+                          let displayName = '';
+                          if (detail?.type === '作業') {
+                            const count = Array.from({ length: idx + 1 }).filter((_, i) => (columnDetails[i]?.type) === '作業').length;
+                            displayName = `作業${count}`;
+                          } else if (detail?.type === '上課態度') {
+                            const count = Array.from({ length: idx + 1 }).filter((_, i) => (columnDetails[i]?.type) === '上課態度').length;
+                            displayName = `上課態度${count}`;
+                          } else if (detail?.type === '小考') {
+                            const count = Array.from({ length: idx + 1 }).filter((_, i) => (columnDetails[i]?.type) === '小考').length;
+                            displayName = `小考${count}`;
+                          } else {
+                            displayName = detail?.name?.trim() ? detail.name : `成績${idx + 1}`;
+                          }
                           return (
-                            <td key={colIdx} className="px-2 py-2" style={{ width: '120px' }}>
-                              <input
-                      inputMode="numeric"
-                      className="w-16 border rounded p-1"
-                      value={score ?? ''}
-                      ref={el => {
-                        if (!inputRefs.current[rowIdx]) inputRefs.current[rowIdx] = [];
-                        inputRefs.current[rowIdx][colIdx] = el;
-                      }}
-                      onChange={e => {
-                        const value = e.target.value;
-                        setStudents(prev => prev.map(s =>
-                          s.id === stu.id
-                            ? { ...s, regularScores: { ...s.regularScores, [colIdx]: value === '' ? undefined : parseInt(value, 10) } }
-                            : s
-                        ));
-                      }}
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          if (rowIdx < students.length - 1) {
-                            inputRefs.current[rowIdx + 1]?.[colIdx]?.focus();
-                          }
-                        }
-                      }}
-                      onBlur={e => {
-                        const value = e.target.value;
-                        if (value !== '') {
-                          const numValue = parseInt(value, 10);
-                          if (numValue < 0) {
-                            setStudents(prev => prev.map(s =>
-                              s.id === stu.id
-                                ? { ...s, regularScores: { ...s.regularScores, [colIdx]: 0 } }
-                                : s
-                            ));
-                          } else if (numValue > 100) {
-                            setStudents(prev => prev.map(s =>
-                              s.id === stu.id
-                                ? { ...s, regularScores: { ...s.regularScores, [colIdx]: 100 } }
-                                : s
-                            ));
-                          }
-                        }
-                      }}
-                    />
-                              {/* 4. 小於60分標記* */}
-                              {isLow && (
-                                <span className="text-red-500 ml-1 font-bold">*</span>
-                              )}
-                            </td>
+                            <th key={idx} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '120px' }}>
+                              <div className="flex flex-col items-start">
+                                <span>{displayName}</span>
+                                <button
+                                  className="mt-1 text-blue-500 hover:text-blue-700 text-xs border border-blue-400 rounded px-2 py-0.5"
+                                  type="button"
+                                  onClick={() => handleShowSettings(idx)}
+                                >成績設定</button>
+                              </div>
+                            </th>
                           );
                         })}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {students.map((stu, rowIdx) => (
+                        <tr key={stu.id} className="bg-white hover:bg-gray-50">
+                          <td className={studentIdTdClass} style={studentIdColStyle}>{stu.studentId}</td>
+                          <td className={studentNameTdClass} style={studentNameColStyle}>{stu.name}</td>
+                          {Array.from({ length: regularColumns }).map((_, colIdx) => {
+                            const score = stu.regularScores?.[colIdx];
+                            const isLow = typeof score === 'number' && score < 60;
+                            return (
+                              <td key={colIdx} className="px-2 py-4 whitespace-nowrap text-sm text-gray-900" style={{ width: '120px' }}>
+                                <input
+                                  inputMode="numeric"
+                                  className="w-16 border border-gray-300 rounded p-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  value={score ?? ''}
+                                  ref={el => {
+                                    if (!inputRefs.current[rowIdx]) inputRefs.current[rowIdx] = [];
+                                    inputRefs.current[rowIdx][colIdx] = el;
+                                  }}
+                                  onChange={e => {
+                                    const value = e.target.value;
+                                    setStudents(prev => prev.map(s =>
+                                      s.id === stu.id
+                                        ? { ...s, regularScores: { ...s.regularScores, [colIdx]: value === '' ? undefined : parseInt(value, 10) } }
+                                        : s
+                                    ));
+                                  }}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      if (rowIdx < students.length - 1) {
+                                        inputRefs.current[rowIdx + 1]?.[colIdx]?.focus();
+                                      }
+                                    }
+                                  }}
+                                  onBlur={e => {
+                                    const value = e.target.value;
+                                    if (value !== '') {
+                                      const numValue = parseInt(value, 10);
+                                      if (numValue < 0) {
+                                        setStudents(prev => prev.map(s =>
+                                          s.id === stu.id
+                                            ? { ...s, regularScores: { ...s.regularScores, [colIdx]: 0 } }
+                                            : s
+                                        ));
+                                      } else if (numValue > 100) {
+                                        setStudents(prev => prev.map(s =>
+                                          s.id === stu.id
+                                            ? { ...s, regularScores: { ...s.regularScores, [colIdx]: 100 } }
+                                            : s
+                                        ));
+                                      }
+                                    }
+                                  }}
+                                />
+                                {/* 4. 小於60分標記* */}
+                                {isLow && (
+                                  <span className="text-red-500 ml-1 font-bold">*</span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               {/* 平時成績課程詳細資訊模態框 */}
               <CourseDetailModal
                 course={showCourseDetail}
@@ -1192,87 +1193,88 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                     _onUpdateManualAdjust={handleUpdateManualAdjust}
                   />
                 </div>
-                <table className="min-w-full border border-gray-200 rounded-lg" style={{ tableLayout: 'fixed', width: `${120 + 100 + (periodicScores.length * 120)}px` }}>
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className={studentIdColClass} style={studentIdColStyle}>學號</th>
-                      <th className={studentNameColClass} style={studentNameColStyle}>姓名</th>
-                      {periodicScores.map((scoreName, idx) => (
-                        <th key={idx} className="px-4 py-2 text-left text-sm font-semibold text-gray-700 whitespace-nowrap" style={{ width: '120px' }}>
-                          <div className="flex flex-col items-start">
-                            <span>{scoreName}</span>
-                            <button
-                              className="mt-1 text-blue-500 hover:text-blue-700 text-xs border border-blue-400 rounded px-2 py-0.5"
-                              type="button"
-                              onClick={() => {
-                                setEditingColumn(idx);
-                                // 創建一個簡化的課程資訊物件
-                                const tempCourse = {
-                                  id: `periodic-${idx}`,
-                                  name: `${periodicScores[idx]}成績`,
-                                  code: `PERIODIC-${idx + 1}`
-                                };
-                                handleShowCourseDetail(tempCourse);
-                              }}
-                            >成績資訊</button>
-                          </div>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {students.map((stu, rowIdx) => (
-                      <tr key={stu.id} className="border-t">
-                        <td className={studentIdTdClass} style={studentIdColStyle}>{stu.studentId}</td>
-                        <td className={studentNameTdClass} style={studentNameColStyle}>{stu.name}</td>
-                        {periodicScores.map((scoreName, colIdx) => {
-                          const score = stu.periodicScores?.[scoreName];
-                          const isLow = typeof score === 'number' && score < 60;
-                          return (
-                            <td key={colIdx} className="px-2 py-2" style={{ width: '120px' }}>
-                              <input
-                                inputMode="numeric"
-                                className="w-16 border rounded p-1"
-                                value={score ?? ''}
-                                ref={el => {
-                                  if (!inputRefs.current[rowIdx]) inputRefs.current[rowIdx] = [];
-                                  inputRefs.current[rowIdx][colIdx] = el;
+                <div className="hidden md:block bg-white border border-gray-200 rounded-lg shadow-sm overflow-x-auto">
+                  <table className="w-full text-sm text-left text-gray-500" style={{ tableLayout: 'fixed', width: `${120 + 100 + (periodicScores.length * 120)}px` }}>
+                    <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+                      <tr>
+                        <th className={studentIdColClass} style={studentIdColStyle}>學號</th>
+                        <th className={studentNameColClass} style={studentNameColStyle}>姓名</th>
+                        {periodicScores.map((scoreName, idx) => (
+                          <th key={idx} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '120px' }}>
+                            <div className="flex flex-col items-start">
+                              <span>{scoreName}</span>
+                              <button
+                                className="mt-1 text-blue-500 hover:text-blue-700 text-xs border border-blue-400 rounded px-2 py-0.5"
+                                type="button"
+                                onClick={() => {
+                                  setEditingColumn(idx);
+                                  // 創建一個簡化的課程資訊物件
+                                  const tempCourse = {
+                                    id: `periodic-${idx}`,
+                                    name: `${periodicScores[idx]}成績`,
+                                    code: `PERIODIC-${idx + 1}`
+                                  };
+                                  handleShowCourseDetail(tempCourse);
                                 }}
-                                onChange={e => {
-                                  const value = e.target.value;
-                                  setStudents(prev => prev.map(s =>
-                                    s.id === stu.id
-                                      ? { 
-                                          ...s, 
-                                          periodicScores: { 
-                                            ...s.periodicScores, 
-                                            [scoreName]: value === '' ? undefined : parseInt(value, 10) 
-                                          } 
-                                        }
-                                      : s
-                                  ));
-                                }}
-                                onKeyDown={e => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    if (rowIdx < students.length - 1) {
-                                      inputRefs.current[rowIdx + 1]?.[colIdx]?.focus();
-                                    }
-                                  }
-                                }}
-                              />
-                              {/* 小於60分標記* */}
-                              {isLow && (
-                                <span className="text-red-500 ml-1 font-bold">*</span>
-                              )}
-                            </td>
-                          );
-                        })}
+                              >成績資訊</button>
+                            </div>
+                          </th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {students.map((stu, rowIdx) => (
+                        <tr key={stu.id} className="bg-white hover:bg-gray-50">
+                          <td className={studentIdTdClass} style={studentIdColStyle}>{stu.studentId}</td>
+                          <td className={studentNameTdClass} style={studentNameColStyle}>{stu.name}</td>
+                          {periodicScores.map((scoreName, colIdx) => {
+                            const score = stu.periodicScores?.[scoreName];
+                            const isLow = typeof score === 'number' && score < 60;
+                            return (
+                              <td key={colIdx} className="px-2 py-4 whitespace-nowrap text-sm text-gray-900" style={{ width: '120px' }}>
+                                <input
+                                  inputMode="numeric"
+                                  className="w-16 border border-gray-300 rounded p-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  value={score ?? ''}
+                                  ref={el => {
+                                    if (!inputRefs.current[rowIdx]) inputRefs.current[rowIdx] = [];
+                                    inputRefs.current[rowIdx][colIdx] = el;
+                                  }}
+                                  onChange={e => {
+                                    const value = e.target.value;
+                                    setStudents(prev => prev.map(s =>
+                                      s.id === stu.id
+                                        ? { 
+                                            ...s, 
+                                            periodicScores: { 
+                                              ...s.periodicScores, 
+                                              [scoreName]: value === '' ? undefined : parseInt(value, 10) 
+                                            } 
+                                          }
+                                        : s
+                                    ));
+                                  }}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      if (rowIdx < students.length - 1) {
+                                        inputRefs.current[rowIdx + 1]?.[colIdx]?.focus();
+                                      }
+                                    }
+                                  }}
+                                />
+                                {/* 小於60分標記* */}
+                                {isLow && (
+                                  <span className="text-red-500 ml-1 font-bold">*</span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               {/* 定期評量課程詳細資訊模態框 */}
               <CourseDetailModal
                 course={showCourseDetail}
@@ -1325,86 +1327,87 @@ export default function GradeManager({ userInfo }: GradeManagerProps) {
                     _onUpdateManualAdjust={handleUpdateManualAdjust}
                   />
                 </div>
-                <table className="min-w-full border border-gray-200 rounded-lg" style={{ tableLayout: 'fixed', width: `${120 + 100 + 120*4}px` }}>
-                  <thead>
-                    <tr className="bg-gray-100">
-                      <th className={studentIdColClass} style={studentIdColStyle}>學號</th>
-                      <th className={studentNameColClass} style={studentNameColStyle}>姓名</th>
-                      <th className="px-4 py-2 text-center text-sm font-semibold text-gray-700 whitespace-nowrap" style={{ width: '120px' }}>平時成績</th>
-                      <th className="px-4 py-2 text-center text-sm font-semibold text-gray-700 whitespace-nowrap" style={{ width: '120px' }}>期中評量</th>
-                      <th className="px-4 py-2 text-center text-sm font-semibold text-gray-700 whitespace-nowrap" style={{ width: '120px' }}>期末評量</th>
-                      <th className="px-4 py-2 text-center text-sm font-semibold text-gray-700 whitespace-nowrap" style={{ width: '120px' }}>特殊加分</th>
-                      <th className="px-4 py-2 text-center text-sm font-semibold text-gray-700 whitespace-nowrap" style={{ width: '120px' }}>總成績</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {students.map((stu) => {
-                      // 平時成績計算
-                      const { weighted: regularScore } = calcRegularScore(stu);
-                      // 定期評量
-                      const first = stu.periodicScores?.['第一次定期評量'] ?? 0;
-                      const second = stu.periodicScores?.['第二次定期評量'] ?? 0;
-                      const final = stu.periodicScores?.['期末評量'] ?? 0;
-                      const midAvg = (Number(first) + Number(second)) / 2;
-                      // 特殊加分
-                      const manualAdjust = typeof stu.manualAdjust === 'number' ? stu.manualAdjust : 0;
-                      // 平時成績顯示：現有平時成績數據 / (平時成績總%/100)
-                      const percentRegularNum = typeof totalSetting.regularPercent === 'number' && !isNaN(totalSetting.regularPercent) ? totalSetting.regularPercent : 0;
-                      const percentPeriodicNum = typeof totalSetting.periodicPercent === 'number' && !isNaN(totalSetting.periodicPercent) ? totalSetting.periodicPercent : 0;
-                      const manualAdjustNum = typeof manualAdjust === 'number' && !isNaN(manualAdjust) ? manualAdjust : 0;
-                      // 匯出時用 totalSetting.periodicEnabled
-                      const periodicEnabledObj = totalSetting.periodicEnabled || {
-                        '第一次定期評量': true,
-                        '第二次定期評量': true,
-                        '期末評量': true,
-                      };
-                      const PERIODIC_SCORE_NAMES = ['第一次定期評量', '第二次定期評量', '期末評量'];
-                      const enabledPeriodic = PERIODIC_SCORE_NAMES.filter(name => periodicEnabledObj[name as PeriodicScoreName]);
-                      const periodicVals: number[] = enabledPeriodic.map(name => {
-                        const v = stu.periodicScores?.[name as PeriodicScoreName];
-                        return typeof v === 'number' && !isNaN(v) ? v : 0;
-                      });
-                      const periodicAvgNum = enabledPeriodic.length > 0 ? (periodicVals as number[]).reduce((a, b) => a + b, 0) / enabledPeriodic.length : 0;
-                      // 修正：正確計算總成績
-                      const total = Math.round(
-                        regularScore * percentRegularNum / 100 +
-                        periodicAvgNum * percentPeriodicNum / 100 +
-                        manualAdjustNum
-                      );
-                      return (
-                        <tr key={stu.id} className="border-t">
-                          <td className={studentIdTdClass} style={studentIdColStyle}>{stu.studentId}</td>
-                          <td className={studentNameTdClass} style={studentNameColStyle}>{stu.name}</td>
-                          <td className="px-4 py-2 text-center text-base">{regularScore.toFixed(1)}</td>
-                          <td className="px-4 py-2 text-center text-base">{midAvg.toFixed(1)}</td>
-                          <td className="px-4 py-2 text-center text-base">{final}</td>
-                          <td className="px-4 py-2 text-center text-base">
-                            <input
-                              type="number"
-                              inputMode="numeric"
-                              className="border rounded px-2 py-1 w-20 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                              min={-5}
-                              max={5}
-                              step={1}
-                              value={manualAdjust}
-                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                let v = Number(e.target.value);
-                                if (isNaN(v)) v = 0;
-                                if (v > 5) v = 5;
-                                if (v < -5) v = -5;
-                                setStudents(prev => prev.map(s =>
-                                  s.id === stu.id ? { ...s, manualAdjust: v } : s
-                                ));
-                              }}
-                            />
-                          </td>
-                          <td className="px-4 py-2 text-center text-base font-bold">{total}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                <div className="hidden md:block bg-white border border-gray-200 rounded-lg shadow-sm overflow-x-auto">
+                  <table className="w-full text-sm text-left text-gray-500" style={{ tableLayout: 'fixed', width: `${120 + 100 + 120*4}px` }}>
+                    <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+                      <tr className="bg-gray-50">
+                        <th className={studentIdColClass} style={studentIdColStyle}>學號</th>
+                        <th className={studentNameColClass} style={studentNameColStyle}>姓名</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '120px' }}>平時成績</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '120px' }}>期中評量</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '120px' }}>期末評量</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '120px' }}>特殊加分</th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '120px' }}>總成績</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {students.map((stu) => {
+                        // 平時成績計算
+                        const { weighted: regularScore } = calcRegularScore(stu);
+                        // 定期評量
+                        const first = stu.periodicScores?.['第一次定期評量'] ?? 0;
+                        const second = stu.periodicScores?.['第二次定期評量'] ?? 0;
+                        const final = stu.periodicScores?.['期末評量'] ?? 0;
+                        const midAvg = (Number(first) + Number(second)) / 2;
+                        // 特殊加分
+                        const manualAdjust = typeof stu.manualAdjust === 'number' ? stu.manualAdjust : 0;
+                        // 平時成績顯示：現有平時成績數據 / (平時成績總%/100)
+                        const percentRegularNum = typeof totalSetting.regularPercent === 'number' && !isNaN(totalSetting.regularPercent) ? totalSetting.regularPercent : 0;
+                        const percentPeriodicNum = typeof totalSetting.periodicPercent === 'number' && !isNaN(totalSetting.periodicPercent) ? totalSetting.periodicPercent : 0;
+                        const manualAdjustNum = typeof manualAdjust === 'number' && !isNaN(manualAdjust) ? manualAdjust : 0;
+                        // 匯出時用 totalSetting.periodicEnabled
+                        const periodicEnabledObj = totalSetting.periodicEnabled || {
+                          '第一次定期評量': true,
+                          '第二次定期評量': true,
+                          '期末評量': true,
+                        };
+                        const PERIODIC_SCORE_NAMES = ['第一次定期評量', '第二次定期評量', '期末評量'];
+                        const enabledPeriodic = PERIODIC_SCORE_NAMES.filter(name => periodicEnabledObj[name as PeriodicScoreName]);
+                        const periodicVals: number[] = enabledPeriodic.map(name => {
+                          const v = stu.periodicScores?.[name as PeriodicScoreName];
+                          return typeof v === 'number' && !isNaN(v) ? v : 0;
+                        });
+                        const periodicAvgNum = enabledPeriodic.length > 0 ? (periodicVals as number[]).reduce((a, b) => a + b, 0) / enabledPeriodic.length : 0;
+                        // 修正：正確計算總成績
+                        const total = Math.round(
+                          regularScore * percentRegularNum / 100 +
+                          periodicAvgNum * percentPeriodicNum / 100 +
+                          manualAdjustNum
+                        );
+                        return (
+                          <tr key={stu.id} className="bg-white hover:bg-gray-50">
+                            <td className={studentIdTdClass} style={studentIdColStyle}>{stu.studentId}</td>
+                            <td className={studentNameTdClass} style={studentNameColStyle}>{stu.name}</td>
+                            <td className="px-4 py-2 text-center text-sm text-gray-900">{regularScore.toFixed(1)}</td>
+                            <td className="px-4 py-2 text-center text-sm text-gray-900">{midAvg.toFixed(1)}</td>
+                            <td className="px-4 py-2 text-center text-sm text-gray-900">{final}</td>
+                            <td className="px-4 py-2 text-center text-sm text-gray-900">
+                              <input
+                                type="number"
+                                inputMode="numeric"
+                                className="w-20 border border-gray-300 rounded px-2 py-1 text-center text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                min={-5}
+                                max={5}
+                                step={1}
+                                value={manualAdjust}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                  let v = Number(e.target.value);
+                                  if (isNaN(v)) v = 0;
+                                  if (v > 5) v = 5;
+                                  if (v < -5) v = -5;
+                                  setStudents(prev => prev.map(s =>
+                                    s.id === stu.id ? { ...s, manualAdjust: v } : s
+                                  ));
+                                }}
+                              />
+                            </td>
+                            <td className="px-4 py-2 text-center text-sm font-bold text-gray-900">{total}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               {/* 在總成績表格上方顯示公式 */}
               <div className="mb-2 text-sm text-gray-600 font-mono">
                 總成績 = 小考({totalSetting.regularDetail['小考']?.percent ?? 0}%)
