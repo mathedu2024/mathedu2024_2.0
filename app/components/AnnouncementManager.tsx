@@ -65,7 +65,7 @@ export default function AnnouncementManager() {
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedContentType, setSelectedContentType] = useState<string>('全部');
-  const [selectedSubject, setSelectedSubject] = useState<string>('全部');
+  const [selectedSubject, setSelectedSubject] = useState<string>('');
   const [selectedGrade, setSelectedGrade] = useState<string>('全部');
   const [searchTerm, setSearchTerm] = useState('');
 
