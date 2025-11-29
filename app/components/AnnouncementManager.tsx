@@ -310,7 +310,7 @@ export default function AnnouncementManager() {
           <Dropdown
             value={selectedSubject}
             onChange={setSelectedSubject}
-            options={[{ value: '全部', label: '全部科目' }, ...subjectOptions.filter(o => o.value !== '')]}
+            options={subjectOptions}
             placeholder="全部科目"
             className="w-full md:w-48"
           />
