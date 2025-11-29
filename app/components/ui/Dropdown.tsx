@@ -122,7 +122,7 @@ export default function Dropdown({ value, onChange, options, placeholder = 'Sele
               }}
               static={false}
             >
-              {options.map((option) => (
+            {(options ?? []).map((option, optionIdx) => (
                 <Listbox.Option
                   key={option.value}
                   value={option.value}
@@ -146,7 +146,7 @@ export default function Dropdown({ value, onChange, options, placeholder = 'Sele
               style={style} 
               className={`select-unified pr-16 flex items-center justify-between ${className}`}
             >
-              <span className="truncate">{options.find(o => o.value === value)?.label || placeholder}</span>
+              <span className="truncate">{(options || []).find(o => o.value === value)?.label || placeholder}</span>
               <ChevronUpDownIcon className="w-5 h-5 text-gray-400 absolute right-3 pointer-events-none" />
             </Listbox.Button>
             {isMounted && createPortal(dropdownOptions, document.body)}
