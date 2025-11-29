@@ -323,13 +323,13 @@ export default function AnnouncementManager() {
           <input
             type="text"
             placeholder="搜尋公告標題或內容..."
-            className="w-full md:w-48 p-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full md:flex-1 p-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
           {!isEditing && (
             <button
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 whitespace-nowrap w-full md:w-48"
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 whitespace-nowrap w-full md:w-auto md:flex-shrink-0"
               onClick={() => {
                 setEditingId(null);
                 setForm({
