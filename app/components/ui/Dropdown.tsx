@@ -140,11 +140,11 @@ export default function Dropdown({ value, onChange, options, placeholder = 'Sele
         ) : null;
 
         return (
-          <div className="relative">
+          <div className={`relative ${className}`}>
             <Listbox.Button 
               ref={buttonRef}
               style={style} 
-              className={`select-unified flex items-center justify-between ${className}`}
+              className="select-unified flex items-center justify-between"
             >
               <span className="truncate">{(options || []).find(o => o.value === value)?.label || placeholder}</span>
               <ChevronUpDownIcon className="w-5 h-5 text-gray-400 absolute right-3 pointer-events-none" />
