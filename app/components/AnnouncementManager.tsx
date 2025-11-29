@@ -298,7 +298,7 @@ export default function AnnouncementManager() {
   return (
     <div className="max-w-6xl mx-auto w-full p-4 h-full flex flex-col min-h-0">
       <h2 className="text-2xl font-bold mb-6 flex-shrink-0">公告管理</h2>
-      <div className="bg-white border border-gray-200 p-6 rounded-lg shadow-sm mb-6 flex-shrink-0">
+      <div className="bg-white border border-gray-200 p-4 rounded-lg shadow-sm mb-6 flex-shrink-0">
         <div className="flex flex-col md:flex-row gap-4 items-center">
           <Dropdown
             value={selectedContentType}
