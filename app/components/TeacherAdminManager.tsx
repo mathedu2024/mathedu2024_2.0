@@ -326,70 +326,103 @@ export default function TeacherAdminManager() {
               <p className="text-gray-600 ml-4">載入中...</p>
             </div>
           ) : (
-          <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-x-auto">
-            <table className="w-full text-sm text-left text-gray-500">
-              <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3">姓名</th>
-                  <th scope="col" className="px-6 py-3">帳號</th>
-                  <th scope="col" className="px-6 py-3">權限</th>
-                  <th scope="col" className="px-6 py-3">備註</th>
-                  <th scope="col" className="px-6 py-3">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={5} className="text-center py-10">
-                      <div className="flex flex-col items-center gap-2">
-                        <LoadingSpinner size={8} />
-                        <span className="mt-2 text-gray-500">讀取中...</span>
+            <>
+              {/* Mobile View: Modular Cards */}
+              <div className="block md:hidden bg-white border border-gray-200 rounded-lg shadow-sm divide-y divide-gray-200 mb-4">
+                {filteredTeachers.length > 0 ? (
+                  filteredTeachers.map(item => (
+                    <div key={item.id} className="p-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <h3 className="font-bold text-lg text-gray-900">{item.name}</h3>
+                        <p className="text-sm text-gray-600">{item.account}</p>
                       </div>
-                    </td>
-                  </tr>
-                ) : filteredTeachers.length > 0 ? filteredTeachers.map(item => (
-                  <tr key={item.id} className="bg-white border-b hover:bg-gray-50">
-                    <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{item.name}</td>
-                    <td className="px-6 py-4">{item.account}</td>
-                    <td className="px-6 py-4">{Array.isArray(item.roles) ? item.roles.join(' / ') : (item.roles || '')}</td>
-                    <td className="px-6 py-4">{item.note}</td>
-                    <td className="px-6 py-4">
-                      <div className="flex gap-3 w-full min-w-[180px]">
+                      <div className="space-y-1 text-sm text-gray-700 mb-4">
+                        <p><strong>權限:</strong> {Array.isArray(item.roles) ? item.roles.join(' / ') : (item.roles || '')}</p>
+                        <p><strong>備註:</strong> {item.note || '無'}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2 justify-end">
                         <button 
                           onClick={() => handleEdit(item)} 
-                          className="text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                          className="text-blue-600 hover:text-blue-800 font-medium text-sm"
                         >
                           編輯
                         </button>
                         <button 
                           onClick={() => handleDelete(item.account)} 
-                          className="text-red-600 hover:text-red-800 font-medium transition-colors"
+                          className="text-red-600 hover:text-red-800 font-medium text-sm"
                         >
                           刪除
                         </button>
                         <button 
                           onClick={() => handleResetPassword(item.account)} 
                           disabled={isSubmitting}
-                          className="text-yellow-600 hover:text-yellow-800 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="text-yellow-600 hover:text-yellow-800 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {isSubmitting ? '處理中...' : '復原密碼'}
                         </button>
                       </div>
-                    </td>
-                  </tr>
-                )) : (
-                  <tr>
-                    <td colSpan={5} className="text-center py-10 text-gray-500">
-                      沒有找到符合條件的資料
-                    </td>
-                  </tr>
+                    </div>
+                  ))
+                ) : (
+                  <p className="py-10 text-center text-gray-500">沒有找到符合條件的資料</p>
                 )}
-              </tbody>
-            </table>
-          </div>
+              </div>
+
+              {/* Desktop View: Table */}
+              <div className="hidden md:block bg-white border border-gray-200 rounded-lg shadow-sm overflow-x-auto">
+                <table className="w-full text-sm text-left text-gray-500">
+                  <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-6 py-3">姓名</th>
+                      <th scope="col" className="px-6 py-3">帳號</th>
+                      <th scope="col" className="px-6 py-3">權限</th>
+                      <th scope="col" className="px-6 py-3">備註</th>
+                      <th scope="col" className="px-6 py-3">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredTeachers.length > 0 ? filteredTeachers.map(item => (
+                      <tr key={item.id} className="bg-white border-b hover:bg-gray-50">
+                        <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{item.name}</td>
+                        <td className="px-6 py-4">{item.account}</td>
+                        <td className="px-6 py-4">{Array.isArray(item.roles) ? item.roles.join(' / ') : (item.roles || '')}</td>
+                        <td className="px-6 py-4">{item.note}</td>
+                        <td className="px-6 py-4">
+                          <div className="flex gap-3 w-full min-w-[180px]">
+                            <button 
+                              onClick={() => handleEdit(item)} 
+                              className="text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                            >
+                              編輯
+                            </button>
+                            <button 
+                              onClick={() => handleDelete(item.account)} 
+                              className="text-red-600 hover:text-red-800 font-medium transition-colors"
+                            >
+                              刪除
+                            </button>
+                            <button 
+                              onClick={() => handleResetPassword(item.account)} 
+                              disabled={isSubmitting}
+                              className="text-yellow-600 hover:text-yellow-800 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {isSubmitting ? '處理中...' : '復原密碼'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr>
+                        <td colSpan={5} className="text-center py-10 text-gray-500">
+                          沒有找到符合條件的資料
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
-        </div>
-      )}
       
       
     </div>
