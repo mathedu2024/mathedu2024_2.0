@@ -256,7 +256,7 @@ export default function AnnouncementManager() {
 
   const filteredAnnouncements = announcements.filter(announcement => {
     const contentTypeMatch = selectedContentType === '全部' || announcement.contentType === selectedContentType;
-    const subjectMatch = selectedSubject === '全部' || announcement.subject === selectedSubject;
+    const subjectMatch = selectedSubject === '' || announcement.subject === selectedSubject;
     const gradeMatch = selectedGrade === '全部' || announcement.grade === selectedGrade;
     const searchTermMatch = !searchTerm ||
       announcement.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
