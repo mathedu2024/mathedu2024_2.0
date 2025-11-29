@@ -305,32 +305,31 @@ export default function AnnouncementManager() {
             onChange={setSelectedContentType}
             options={[{ value: '全部', label: '全部類型' }, ...contentTypeOptions]}
             placeholder="全部類型"
-            className="w-full md:flex-1"
+            className="w-full md:w-64"
           />
           <Dropdown
             value={selectedSubject}
             onChange={setSelectedSubject}
             options={subjectOptions}
-            placeholder="全部科目"
-            className="w-full md:flex-1"
+            className="w-full md:w-64"
           />
           <Dropdown
             value={selectedGrade}
             onChange={setSelectedGrade}
             options={[{ value: '全部', label: '全部年級' }, ...gradeOptions.filter(o => o.value !== '')]}
             placeholder="全部年級"
-            className="w-full md:flex-1"
+            className="w-full md:w-64"
           />
           <input
             type="text"
             placeholder="搜尋公告標題或內容..."
-            className="w-full md:flex-1 p-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full md:w-64 p-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
           {!isEditing && (
             <button
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 whitespace-nowrap w-full md:flex-1"
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 whitespace-nowrap w-full md:w-64"
               onClick={() => {
                 setEditingId(null);
                 setForm({
