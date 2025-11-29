@@ -330,7 +330,7 @@ export default function AnnouncementManager() {
           />
           {!isEditing && (
             <button
-              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 whitespace-nowrap"
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 whitespace-nowrap w-full md:w-auto"
               onClick={() => {
                 setEditingId(null);
                 setForm({
@@ -479,60 +479,104 @@ export default function AnnouncementManager() {
 
       {/* 列表區域 */}
       {!isEditing && (
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-x-auto">
-          <table className="w-full text-sm text-left text-gray-500">
-            <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-              <tr>
-                <th scope="col" className="px-6 py-3">標題</th>
-                <th scope="col" className="px-6 py-3">類型</th>
-                <th scope="col" className="px-6 py-3">科目</th>
-                <th scope="col" className="px-6 py-3">年級</th>
-                <th scope="col" className="px-6 py-3">最後更新時間</th>
-                <th scope="col" className="px-6 py-3">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={6} className="text-center py-10">
-                    <div className="flex flex-col items-center gap-2">
-                      <LoadingSpinner size={40} />
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+          {/* Mobile View */}
+          <div className="md:hidden">
+            {loading ? (
+              <div className="p-4 text-center">
+                <LoadingSpinner size={40} />
+              </div>
+            ) : filteredAnnouncements.length > 0 ? (
+              <div className="divide-y divide-gray-200">
+                {filteredAnnouncements.map(announcement => (
+                  <div key={announcement.id} className="p-4">
+                    <div className="flex justify-between items-center mb-3">
+                      <h3 className="font-bold text-lg text-gray-900 break-words">{announcement.title}</h3>
                     </div>
-                  </td>
-                </tr>
-              ) : filteredAnnouncements.length > 0 ? filteredAnnouncements.map(announcement => (
-                <tr key={announcement.id} className="bg-white border-b hover:bg-gray-50">
-                  <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{announcement.title}</td>
-                  <td className="px-6 py-4">{announcement.contentType}</td>
-                  <td className="px-6 py-4">{announcement.subject}</td>
-                  <td className="px-6 py-4">{announcement.grade}</td>
-                  <td className="px-6 py-4">{formatDate(announcement.updatedAt)}</td>
-                  <td className="px-6 py-4">
-                    <div className="flex gap-3 w-full">
+                    <div className="space-y-1 text-sm text-gray-600 mb-4 pt-3">
+                      <p><span className="font-semibold w-20 inline-block">類型:</span> {announcement.contentType}</p>
+                      <p><span className="font-semibold w-20 inline-block">科目:</span> {announcement.subject}</p>
+                      <p><span className="font-semibold w-20 inline-block">年級:</span> {announcement.grade}</p>
+                      <p><span className="font-semibold w-20 inline-block">最後更新:</span> {formatDate(announcement.updatedAt)}</p>
+                    </div>
+                    <div className="flex justify-end gap-3 flex-wrap">
                       <button
-                        className="text-blue-600 hover:text-blue-800 font-medium"
                         onClick={() => handleEdit(announcement)}
+                        className="text-blue-600 hover:text-blue-800 font-medium"
                       >
                         編輯
                       </button>
                       <button
-                        className="text-red-600 hover:text-red-800 font-medium"
                         onClick={() => handleDelete(announcement.id)}
+                        className="text-red-600 hover:text-red-800 font-medium"
                       >
                         刪除
                       </button>
                     </div>
-                  </td>
-                </tr>
-              )) : (
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="py-10 text-center text-gray-500">尚無公告</p>
+            )}
+          </div>
+
+          {/* Desktop View */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-sm text-left text-gray-500">
+              <thead className="text-xs text-gray-700 uppercase bg-gray-50">
                 <tr>
-                  <td colSpan={6} className="text-center py-10 text-gray-500">
-                    尚無公告
-                  </td>
+                  <th scope="col" className="px-6 py-3">標題</th>
+                  <th scope="col" className="px-6 py-3">類型</th>
+                  <th scope="col" className="px-6 py-3">科目</th>
+                  <th scope="col" className="px-6 py-3">年級</th>
+                  <th scope="col" className="px-6 py-3">最後更新時間</th>
+                  <th scope="col" className="px-6 py-3">操作</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={6} className="text-center py-10">
+                      <div className="flex flex-col items-center gap-2">
+                        <LoadingSpinner size={40} />
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredAnnouncements.length > 0 ? filteredAnnouncements.map(announcement => (
+                  <tr key={announcement.id} className="bg-white border-b hover:bg-gray-50">
+                    <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{announcement.title}</td>
+                    <td className="px-6 py-4">{announcement.contentType}</td>
+                    <td className="px-6 py-4">{announcement.subject}</td>
+                    <td className="px-6 py-4">{announcement.grade}</td>
+                    <td className="px-6 py-4">{formatDate(announcement.updatedAt)}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex gap-3 w-full">
+                        <button
+                          className="text-blue-600 hover:text-blue-800 font-medium"
+                          onClick={() => handleEdit(announcement)}
+                        >
+                          編輯
+                        </button>
+                        <button
+                          className="text-red-600 hover:text-red-800 font-medium"
+                          onClick={() => handleDelete(announcement.id)}
+                        >
+                          刪除
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan={6} className="text-center py-10 text-gray-500">
+                      尚無公告
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
