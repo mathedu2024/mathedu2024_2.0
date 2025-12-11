@@ -77,7 +77,7 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
         />
 
         <main
-          className="flex-1 min-w-0 transition-all duration-300 relative bg-gray-100"
+          className="flex-1 min-w-0 transition-all duration-300 relative bg-white"
           style={{
             paddingLeft: sidebarOpen ? '4rem' : '16rem',
             transition: 'padding-left 0.3s'
