@@ -1,38 +1,59 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAttendanceActivity } from '@/services/attendanceService';
-import { getSessionFromCookie } from '@/utils/session'; // Import getSessionFromCookie
+import { adminDb } from '@/firebaseAdmin';
+import { getSessionFromCookie } from '@/utils/session';
 
 export async function POST(req: NextRequest) {
-  const cookieString = req.headers.get('cookie');
-  const session = cookieString ? getSessionFromCookie(cookieString) : null;
-
-  // 安全性：檢查用戶是否為老師
-  if (!session || (Array.isArray(session.role) ? !session.role.includes('teacher') : session.role !== 'teacher')) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   try {
+    const cookie = req.headers.get('cookie');
+    const session = cookie ? getSessionFromCookie(cookie) : null;
+
+    const role = session?.role;
+    const isTeacher = role === 'teacher' || role === '老師' || (Array.isArray(role) && (role.includes('teacher') || role.includes('老師')));
+    const isAdmin = role === 'admin' || role === '管理員' || (Array.isArray(role) && (role.includes('admin') || role.includes('管理員')));
+
+    if (!session || (!isTeacher && !isAdmin)) {
+      return NextResponse.json({ error: '權限不足' }, { status: 403 });
+    }
+
     const body = await req.json();
-    
-    // 驗證輸入資料 (簡易版)
-    const { courseId, title, checkInMethod, startTime, endTime, gracePeriodMinutes } = body;
-    if (!courseId || !title || !checkInMethod || !startTime || !endTime || gracePeriodMinutes === undefined) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    const { courseId, title, checkInMethod, startTime, endTime, gracePeriodMinutes, status } = body;
+
+    if (!courseId || !title || !startTime || !endTime) {
+      return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
+    }
+
+    let checkInCode = null;
+    if (checkInMethod === 'numeric') {
+      checkInCode = Math.floor(100000 + Math.random() * 900000).toString();
     }
 
     const activityData = {
-      ...body,
-      teacherId: session.id, // 從 session 獲取老師 ID
+      title,
+      checkInMethod,
+      checkInCode,
       startTime: new Date(startTime),
       endTime: new Date(endTime),
+      gracePeriodMinutes: Number(gracePeriodMinutes) || 5,
+      status: status || 'scheduled',
+      courseId,
+      createdAt: new Date(),
+      createdBy: session.id || session.account,
     };
 
-    const { activityId, checkInCode } = await createAttendanceActivity(activityData);
+    const docRef = await adminDb
+      .collection('courses')
+      .doc(courseId)
+      .collection('attendance')
+      .add(activityData);
 
-    return NextResponse.json({ message: 'Activity created successfully', activityId, checkInCode }, { status: 201 });
+    return NextResponse.json({ 
+      success: true, 
+      activityId: docRef.id,
+      message: '點名活動建立成功' 
+    });
+
   } catch (error) {
-    console.error('Error in /api/attendance/activities/create: ', error);
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-    return NextResponse.json({ error: errorMessage }, { status: 500 });
+    console.error('[API/attendance/activities/create] Error:', error);
+    return NextResponse.json({ error: '建立點名活動失敗' }, { status: 500 });
   }
 }

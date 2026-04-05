@@ -1,23 +1,59 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
+import { 
+  ChartBarIcon,
+  FunnelIcon, 
+  ExclamationCircleIcon 
+} from '@heroicons/react/24/outline';
 
-import { Modal } from './ui';
-import Dropdown from './ui/Dropdown';
+import StudentCourseSelector from './StudentCourseSelector';
 import LoadingSpinner from './LoadingSpinner';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
+// Simple Modal Component (Local definition to ensure compatibility if ui/Modal is not available or differs)
+const Modal = ({ open, onClose, title, size = 'md', children }: { open: boolean; onClose: () => void; title: string; size?: 'md' | 'lg'; children: React.ReactNode }) => {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!open || !mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex justify-center items-center p-4 animate-fade-in">
+      <div className={`bg-white rounded-2xl shadow-2xl w-full ${size === 'lg' ? 'max-w-4xl' : 'max-w-lg'} max-h-[90vh] overflow-y-auto animate-bounce-in border border-gray-100`}>
+        <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+          <h3 className="text-xl font-bold text-gray-800">{title}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-200">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+        <div className="p-6">
+          {children}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
 interface GradeData {
+  courseId?: string;
   columns: Record<string, { name: string; type: string; date: string; }>;
   student: StudentGradeRow | null;
   totalSetting?: { regularDetail?: Record<string, { calcMethod: string; n?: number; percent: number; }>; periodicEnabled?: Record<string, boolean>; periodicPercent: number; };
   periodicScores?: string[];
 }
 
-interface CourseInfo { id: string; name: string; code: string; teacherName?: string; }
+interface CourseInfo { id: string; name: string; code: string; teacherName?: string; status?: string; archived?: boolean; }
+
+const isCourseArchived = (course: CourseInfo): boolean => course.archived === true || String(course.archived) === 'true';
 
 interface DistributionData {
   statistics: {
@@ -41,7 +77,6 @@ interface StudentGradeViewerProps {
 
 type StudentGradeRow = { studentId: string; regularScores?: Record<string, number>; periodicScores?: Record<string, number>; manualAdjust?: number; };
 
-
 export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerProps) {
   const [courses, setCourses] = useState<CourseInfo[]>([]);
   const [gradeData, setGradeData] = useState<GradeData | null>(null);
@@ -56,21 +91,29 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
   const [distributionData, setDistributionData] = useState<DistributionData | null>(null);
   const [teacherNamesMap, setTeacherNamesMap] = useState<Record<string, string>>({});
 
-  const handleSelectGrade = async (gradeItem: { name: string; type: string; date: string; idx: string; score: number | undefined; }) => {
+  const [allGrades, setAllGrades] = useState<Record<string, GradeData>>({});
+
+  const fetchDistributionForChart = async (gradeItem: { name: string; type: string; date: string; idx: string; score: number | undefined; }) => {
     if (selectedGradeForChart?.idx === gradeItem.idx) {
       setSelectedGradeForChart(null);
       setDistributionData(null);
       return;
     }
 
-    if (!selectedCourse) return;
+    if (!selectedCourse || gradeItem.score === undefined) return;
     setSelectedGradeForChart(gradeItem);
-    setDistributionData(null);
+    setDistributionData(null); // Show loading state in modal
     try {
+      const gd = allGrades[selectedCourse];
       const res = await fetch('/api/grades/distribution', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ courseKey: selectedCourse, columnId: gradeItem.idx }),
+        body: JSON.stringify({
+          courseId: gd?.courseId,
+          courseKey: selectedCourse,
+          columnId: gradeItem.idx,
+          scoreKind: gradeItem.type === '定期評量' ? 'periodic' : 'regular',
+        }),
       });
       if (!res.ok) {
         const errorData = await res.json();
@@ -83,7 +126,23 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
     }
   };
 
-  const [allGrades, setAllGrades] = useState<Record<string, GradeData>>({});
+  const handleSelectGrade = (gradeItem: { name: string; type: string; date: string; idx: string; score: number | undefined; }) => {
+    // Only open modal if there is a score
+    if (gradeItem.score !== undefined) {
+      fetchDistributionForChart(gradeItem);
+    }
+  };
+
+  const handleSelectPeriodicGrade = (name: string, score: number | undefined) => {
+    if (score === undefined) return;
+
+    const gradeItem = {
+      name: name, type: '定期評量', date: '', // Date is not available for periodic scores here
+      idx: name, // Use the name as the identifier for the API call
+      score: score,
+    };
+    fetchDistributionForChart(gradeItem);
+  };
 
   useEffect(() => {
     const loadDashboardData = async () => {
@@ -104,7 +163,10 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
         }
 
         const data = await res.json();
-        setCourses(data.courses);
+        // 過濾掉已封存的課程資料
+        const activeCourses = (data.courses || [])
+          .filter((c: CourseInfo) => c && c.status !== '已封存' && !isCourseArchived(c));
+        setCourses(activeCourses);
         setAllGrades(data.grades);
 
         // Fetch teacher names
@@ -140,31 +202,52 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
 
   const studentGrade = gradeData?.student;
 
-  const calcRegularScore = (student: StudentGradeRow): number => {
-    if (!gradeData || !student) return 0;
-    const { regularDetail } = gradeData.totalSetting || {};
+  // 計算各項加權平均與最終總成績
+  const gradeSummaries = useMemo(() => {
+    if (!gradeData || !studentGrade) return { total: '0', regWeighted: '0.0', pAvg: '0.0' };
+    
+    const { regularDetail, periodicEnabled, periodicPercent = 50 } = gradeData.totalSetting || {};
+    
+    // 1. 平時加權成績計算
     const avg = (v: number[]) => v.length ? v.reduce((a, b) => a + b, 0) / v.length : 0;
-    const byType = (t: string) => Object.entries(student.regularScores || {}).filter(([k]) => gradeData.columns?.[k]?.type === t).map(([,v]) => Number(v)).filter(n => !isNaN(n));
+    const byType = (t: string) => Object.entries(studentGrade.regularScores || {})
+      .filter(([k]) => gradeData.columns?.[k]?.type === t)
+      .map(([,v]) => Number(v))
+      .filter(n => !isNaN(n));
     const bestN = (v: number[], n?: number) => (!n || n <= 0) ? avg(v) : avg([...v].sort((a,b)=>b-a).slice(0, Math.min(n, v.length)));
-    const q = byType('小考'); const h = byType('作業'); const a = byType('上課態度');
+    
+    const q = byType('小考'); 
+    const h = byType('作業'); 
+    const a = byType('上課態度');
+    
     const qAvg = (regularDetail?.['小考']?.calcMethod === 'best') ? bestN(q, regularDetail?.['小考']?.n) : avg(q);
     const hAvg = (regularDetail?.['作業']?.calcMethod === 'best') ? bestN(h, regularDetail?.['作業']?.n) : avg(h);
     const aAvg = (regularDetail?.['上課態度']?.calcMethod === 'best') ? bestN(a, regularDetail?.['上課態度']?.n) : avg(a);
+    
     const qPct = Number(regularDetail?.['小考']?.percent) || 0;
     const hPct = Number(regularDetail?.['作業']?.percent) || 0;
     const aPct = Number(regularDetail?.['上課態度']?.percent) || 0;
-    return qAvg * qPct / 100 + hAvg * hPct / 100 + aAvg * aPct / 100;
-  };
+    
+    const regTotalWeight = qPct + hPct + aPct;
+    const regWeightedNumeric = regTotalWeight > 0 ? (qAvg * qPct + hAvg * hPct + aAvg * aPct) / regTotalWeight : 0;
 
-  const calcRegularDisplay = (student: StudentGradeRow): string => {
-    if (!gradeData || !student) return '0.0';
-    const weighted = calcRegularScore(student);
-    const totalPercent = (Number(gradeData.totalSetting?.regularDetail?.['小考']?.percent) || 0) + (Number(gradeData.totalSetting?.regularDetail?.['作業']?.percent) || 0) + (Number(gradeData.totalSetting?.regularDetail?.['上課態度']?.percent) || 0);
-    if (!weighted || totalPercent === 0) return '0.0';
-    return (weighted / (totalPercent / 100)).toFixed(1);
-  };
+    // 2. 定期評量平均計算 (僅計算有勾選採計的項目)
+    const pEnabledNames = ['第一次定期評量', '第二次定期評量', '期末評量'].filter(name => periodicEnabled?.[name] !== false);
+    const pScores = pEnabledNames.map(name => studentGrade.periodicScores?.[name]).filter((v): v is number => v !== undefined && v !== null);
+    const pAvgNumeric = pScores.length > 0 ? pScores.reduce((a, b) => a + b, 0) / pScores.length : 0;
 
-  const filteredRegularScores = () => {
+    // 3. 最終學期總成績計算
+    const regWeightPct = Number(periodicPercent); // 平時佔比
+    const totalNumeric = Math.round(regWeightedNumeric * (regWeightPct / 100) + pAvgNumeric * ((100 - regWeightPct) / 100));
+
+    return {
+      total: totalNumeric.toString(),
+      regWeighted: regWeightedNumeric.toFixed(1),
+      pAvg: pAvgNumeric.toFixed(1)
+    };
+  }, [gradeData, studentGrade]);
+
+  const filteredRegularScores = useMemo(() => {
     if (!gradeData || !gradeData.student) return [] as { name: string; type: string; date: string; idx: string; score: number | undefined; }[];
     
     const target = gradeData.student;
@@ -173,10 +256,10 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
     return Object.entries(gradeData.columns)
         .filter(([, col]) => (!from && !to) || (!from || col.date >= from) && (!to || col.date <= to))
         .map(([key, col]) => ({ ...col, idx: key, score: target.regularScores?.[key] } as { name: string; type: string; date: string; idx: string; score: number | undefined; }));
-  };
+  }, [gradeData, dateRange]);
 
-  const paginatedScores = filteredRegularScores().slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-  const totalPages = Math.ceil(filteredRegularScores().length / itemsPerPage);
+  const paginatedScores = filteredRegularScores.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const totalPages = Math.ceil(filteredRegularScores.length / itemsPerPage);
 
   const getTeacherNames = () => {
     if (selectedCourse.includes('(') && selectedCourse.includes(')')) {
@@ -202,18 +285,19 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
     return { name: selectedCourse, code: selectedCourse };
   };
 
-  const chartData = {
-    labels: filteredRegularScores().map(s => s.name),
+  const chartData = useMemo(() => ({
+    labels: filteredRegularScores.map(s => s.name),
     datasets: [
       {
         label: '成績',
-        data: filteredRegularScores().map(s => s.score),
-        backgroundColor: 'rgba(54, 162, 235, 0.6)',
+        data: filteredRegularScores.map(s => s.score),
+        backgroundColor: 'rgba(79, 70, 229, 0.6)', // Indigo-600 with opacity
+        borderRadius: 4,
       },
     ],
-  };
+  }), [filteredRegularScores]);
 
-  const chartOptions = {
+  const chartOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -223,296 +307,382 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
       title: {
         display: true,
         text: '個人成績趨勢',
+        color: '#4b5563', // gray-600
+        font: {
+            size: 16,
+            weight: 'bold' as const
+        }
       },
     },
     scales: {
       y: {
         beginAtZero: true,
         max: 100,
+        grid: {
+            color: '#e5e7eb' // gray-200
+        }
       },
+      x: {
+        grid: {
+            display: false
+        }
+      }
     },
-  };
+  }), []);
 
   return (
-      <div className="max-w-6xl mx-auto w-full p-4">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold">成績查詢</h2>
-        </div>
-
-        <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-2">選擇課程</label>
-        <Dropdown
-          value={selectedCourse}
-          onChange={value => {setSelectedCourse(value); setCurrentPage(1);}}
-          options={[{ value: '', label: '請選擇課程' }, ...courses.map(course => ({ value: `${course.name}(${course.code})`, label: `${course.name}（${course.code}）` }))]}
-          placeholder="請選擇課程"
-          className="w-1/3 min-w-[240px]"
+      <div className="w-full">
+        {/* The title has been moved to the parent page (app/student/grades/page.tsx) for consistency. */}
+        
+        <StudentCourseSelector
+            courses={courses}
+            selectedCourse={selectedCourse}
+            onChange={value => {setSelectedCourse(value); setCurrentPage(1);}}
+            error={error}
+            onErrorClear={() => setError(null)}
         />
-        {error && (
-          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-800 text-sm">{error}</p>
-            <button onClick={() => setError(null)} className="mt-2 text-red-600 hover:text-red-800 text-sm underline">關閉錯誤訊息</button>
-          </div>
+    
+        {loading && (
+            <div className="flex flex-col justify-center items-center py-20">
+                <LoadingSpinner size={40} />
+                <p className="text-gray-500 mt-4 font-medium">資料讀取中...</p>
+            </div>
         )}
-    </div>
     
-    {loading && (
-      <div className="flex justify-center py-8">
-          <div className="text-center">
-            <LoadingSpinner size={40} />
-          </div>
-        </div>
-    )}
-    
-      {!selectedCourse && !loading && courses.length === 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center animate-fade-in">
-          <p className="text-yellow-800">您目前沒有選修任何課程，無法查詢成績。</p>
-        </div>
-      )}
+        {!selectedCourse && !loading && courses.length === 0 && (
+            <div className="bg-amber-50 border border-amber-100 rounded-2xl p-8 text-center shadow-sm">
+                <ExclamationCircleIcon className="w-12 h-12 text-amber-300 mx-auto mb-3" />
+                <p className="text-amber-800 font-medium">您目前沒有選修任何課程，無法查詢成績。</p>
+            </div>
+        )}
 
-      {!selectedCourse && !loading && courses.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center animate-fade-in">
-          <p className="text-blue-800">請選擇一個課程來查看成績</p>
-        </div>
-      )}
+        {!selectedCourse && !loading && courses.length > 0 && (
+            <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-8 text-center shadow-sm">
+                <div className="w-16 h-16 bg-indigo-100 text-indigo-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <ChartBarIcon className="w-8 h-8" />
+                </div>
+                <p className="text-indigo-800 font-medium text-lg">請選擇一個課程來查看成績詳情</p>
+            </div>
+        )}
 
-      {selectedCourse && !loading && gradeData && (
-      <div className="animate-fade-in">
-        <div className="text-blue-700 font-bold text-lg mb-2">
-          {getSelectedCourseInfo().name}（{getSelectedCourseInfo().code}）
-          <span className="ml-4 text-base font-normal text-blue-500">授課教師：{getTeacherNames()}</span>
-        </div>
-        
-        <div className="border-b mb-4">
-          <nav className="flex">
-              <button onClick={() => setSelectedTab('total')} className={`px-6 py-3 text-sm font-medium transition-colors duration-200 ${selectedTab === 'total' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>總成績</button>
-              <button onClick={() => setSelectedTab('regular')} className={`px-6 py-3 text-sm font-medium transition-colors duration-200 ${selectedTab === 'regular' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>平時成績</button>
-              <button onClick={() => setSelectedTab('periodic')} className={`px-6 py-3 text-sm font-medium transition-colors duration-200 ${selectedTab === 'periodic' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}>定期評量</button>
-          </nav>
-        </div>
-        
-        <div className="animate-fade-in">
-                    {selectedTab === 'total' && (
-                      <div>
-                        <h4 className="text-lg font-semibold mb-4">總成績概況</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-                          <div className="p-4 border rounded text-center">
-                            <div className="text-sm text-blue-600 font-medium cursor-pointer" onClick={() => setSelectedTab('regular')}>平時成績</div>
-                            <div className="text-2xl font-bold text-blue-800">{studentGrade ? calcRegularDisplay(studentGrade) : '未評分'}</div>
-                          </div>
-                          {['第一次定期評量', '第二次定期評量', '期末評量'].map(name => (
-                            <div key={name} className="p-4 border rounded text-center">
-                              <div className="text-sm text-blue-600 font-medium cursor-pointer">{name}</div>
-                              <div className="text-2xl font-bold text-blue-800">{studentGrade ? (studentGrade.periodicScores?.[name] ?? '未評分') : '未評分'}</div>
-                            </div>
-                          ))}
+        {selectedCourse && !loading && (
+        <div className="space-y-6 animate-fade-in">
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
+                    <div>
+                        <h3 className="text-xl font-bold text-gray-900 mb-1">
+                            {getSelectedCourseInfo().name} <span className="font-normal text-gray-500 text-base ml-1">({getSelectedCourseInfo().code})</span>
+                        </h3>
+                        <div className="flex items-center text-sm text-gray-500 mt-1">
+                            <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-xs font-medium mr-2">授課教師</span>
+                            {getTeacherNames()}
                         </div>
-                      </div>
-                    )}          
-          {selectedTab === 'regular' && (
-            <div>
-              <h4 className="text-lg font-semibold mb-4">平時成績</h4>
-              <div className="mb-4 flex flex-col md:flex-row gap-4">
-                <div className="flex gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">開始日期</label>
-                      <input type="date" value={dateRange.from} onChange={(e) => setDateRange(prev => ({ ...prev, from: e.target.value }))} className="border rounded px-3 py-2" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">結束日期</label>
-                      <input type="date" value={dateRange.to} onChange={(e) => setDateRange(prev => ({ ...prev, to: e.target.value }))} className="border rounded px-3 py-2" />
-                  </div>
+                    </div>
                 </div>
-                <div className="flex items-start md:items-end">
-                    <button onClick={() => setDateRange({ from: '', to: '' })} className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">清除篩選</button>
+                
+                <div className="border-b border-gray-100 mb-6">
+                    <nav className="flex space-x-1">
+                        <button onClick={() => setSelectedTab('total')} className={`px-4 py-3 text-sm font-bold transition-all border-b-2 ${selectedTab === 'total' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-200'}`}>總成績</button>
+                        <button onClick={() => setSelectedTab('regular')} className={`px-4 py-3 text-sm font-bold transition-all border-b-2 ${selectedTab === 'regular' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-200'}`}>平時成績</button>
+                        <button onClick={() => setSelectedTab('periodic')} className={`px-4 py-3 text-sm font-bold transition-all border-b-2 ${selectedTab === 'periodic' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-200'}`}>定期評量</button>
+                    </nav>
                 </div>
-              </div>
-              
-              <div className="mb-6">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full border border-gray-200">
-                    <thead>
-                      <tr className="bg-gray-100">
-                        <th className="border border-gray-200 px-4 py-2">項目</th>
-                        <th className="border border-gray-200 px-4 py-2">類型</th>
-                        <th className="border border-gray-200 px-4 py-2">日期</th>
-                        <th className="border border-gray-200 px-4 py-2">分數</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                        {paginatedScores.map((col, index: number) => (
-                        <tr key={index} onClick={() => handleSelectGrade(col)} className="cursor-pointer hover:bg-gray-50">
-                          <td className="border border-gray-200 px-4 py-2">{col.name}</td>
-                            <td className="border border-gray-200 px-4 py-2">{col.type}</td>
-                            <td className="border border-gray-200 px-4 py-2">{col.date}</td>
-                            <td className="border border-gray-200 px-4 py-2 text-center">{col.score ?? '未評分'}</td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-              
-              {totalPages > 1 && (
-                <div className="flex flex-wrap justify-center gap-2 sm:gap-4 mt-4 md:mt-8">
-                  {Array.from({length: totalPages}).map((_, idx) => (
-                    <button
-                      key={idx}
-                      className={`px-4 py-2 rounded ${currentPage === idx+1 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-blue-100'}`}
-                      onClick={() => setCurrentPage(idx+1)}
-                    >
-                      {idx+1}
-                    </button>
-                  ))}
-                </div>
-              )}
-              
-              <div className="mb-6 mt-6">
-                <h5 className="font-semibold mb-3">趨勢分析</h5>
-                <div style={{ height: '300px' }}>
-                  <Bar data={chartData} options={chartOptions} />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {selectedTab === 'periodic' && (
-            <div>
-              <h4 className="text-lg font-semibold mb-4">定期評量</h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {['第一次定期評量','第二次定期評量','期末評量'].map(name => (
-                  <div key={name} className="p-4 border rounded text-center">
-                    <div className="text-sm text-blue-600 font-medium">{name}</div>
-                    <div className="text-2xl font-bold text-blue-800">{studentGrade ? (studentGrade.periodicScores?.[name] ?? '未評分') : '未評分'}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-      )}
-
-      <Modal
-        open={!!selectedGradeForChart && !!distributionData}
-        onClose={() => {
-          setSelectedGradeForChart(null);
-          setDistributionData(null);
-        }}
-        title={`${selectedGradeForChart?.name} - 成績詳細資料`}
-        size="lg"
-      >
-        {selectedGradeForChart && distributionData && (() => {
-          const studentScore = selectedGradeForChart.score;
-
-          const getFivePointInterval = (score: number, stats: DistributionData['statistics']): string => {
-            if (score === undefined || score === null) return '';
-            if (score >= (stats.頂標 ?? Infinity)) return '頂標';
-            if (score >= (stats.前標 ?? Infinity)) return '前標';
-            if (score >= (stats.均標 ?? Infinity)) return '均標';
-            if (score >= (stats.後標 ?? Infinity)) return '後標';
-            if (score >= (stats.底標 ?? -Infinity)) return '底標';
-            return '未達底標';
-          };
-
-          const isScoreInDistributionRange = (score: number | undefined, range: string): boolean => {
-            if (score === undefined || score === null) return false;
-            switch (range) {
-              case '90-100': return score >= 90 && score <= 100;
-              case '80-89': return score >= 80 && score < 90;
-              case '70-79': return score >= 70 && score < 80;
-              case '60-69': return score >= 60 && score < 70;
-              case '50-59': return score >= 50 && score < 60;
-              case '<50': return score < 50;
-              default: return false;
-            }
-          };
-
-          const fivePointInterval = studentScore !== undefined ? getFivePointInterval(studentScore, distributionData.statistics) : '';
-
-          return (
-            <div className="space-y-6">
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <h5 className="font-semibold text-blue-800 mb-2">您的分數</h5>
-                <div className="text-3xl font-bold text-blue-600">
-                  {selectedGradeForChart.score ?? '未評分'}
-                </div>
-              </div>
-
-              <div>
-                <h5 className="font-semibold mb-3">五標統計</h5>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full border border-gray-200 rounded-lg">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-2 text-left text-sm font-medium text-gray-700 border-b">項目</th>
-                        <th className="px-4 py-2 text-center text-sm font-medium text-gray-700 border-b">分數</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr className={fivePointInterval === '頂標' ? 'bg-blue-100' : ''}>
-                        <td className="px-4 py-2 text-sm text-gray-900 border-b">頂標</td>
-                        <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 border-b">{distributionData.statistics.頂標 ?? '-'}</td>
-                      </tr>
-                      <tr className={fivePointInterval === '前標' ? 'bg-blue-100' : ''}>
-                        <td className="px-4 py-2 text-sm text-gray-900 border-b">前標</td>
-                        <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 border-b">{distributionData.statistics.前標 ?? '-'}</td>
-                      </tr>
-                      <tr className={fivePointInterval === '均標' ? 'bg-blue-100' : ''}>
-                        <td className="px-4 py-2 text-sm text-gray-900 border-b">均標</td>
-                        <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 border-b">{distributionData.statistics.均標 ?? '-'}</td>
-                      </tr>
-                      <tr className={fivePointInterval === '後標' ? 'bg-blue-100' : ''}>
-                        <td className="px-4 py-2 text-sm text-gray-900 border-b">後標</td>
-                        <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 border-b">{distributionData.statistics.後標 ?? '-'}</td>
-                      </tr>
-                      <tr className={fivePointInterval === '底標' ? 'bg-blue-100' : ''}>
-                        <td className="px-4 py-2 text-sm text-gray-900 border-b">底標</td>
-                        <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 border-b">{distributionData.statistics.底標 ?? '-'}</td>
-                      </tr>
-                      <tr className="bg-gray-50">
-                        <td className="px-4 py-2 text-sm font-medium text-gray-900">平均</td>
-                        <td className="px-4 py-2 text-center text-sm font-bold text-gray-900">{distributionData.statistics.平均 ?? '-'}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div>
-                <h5 className="font-semibold mb-3">成績分布</h5>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full border border-gray-200 rounded-lg">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-2 text-left text-sm font-medium text-gray-700 border-b">分數區間</th>
-                        <th className="px-4 py-2 text-center text-sm font-medium text-gray-700 border-b">人數</th>
-                        <th className="px-4 py-2 text-center text-sm font-medium text-gray-700 border-b">長條圖</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {distributionData.distribution.map((d: { range: string; count: number }, index: number) => (
-                        <tr key={index} className={isScoreInDistributionRange(studentScore, d.range) ? 'bg-blue-100' : ''}>
-                          <td className="px-4 py-2 text-sm text-gray-900 border-b">{d.range}</td>
-                          <td className="px-4 py-2 text-center text-sm font-semibold text-gray-900 border-b">{d.count}</td>
-                          <td className="px-4 py-2 border-b">
-                            <div className="flex items-center">
-                              <div className="w-20 bg-gray-200 rounded-full h-2 mr-2">
-                                <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${Math.max(5, (d.count / Math.max(...distributionData.distribution.map((item: { range: string; count: number }) => item.count))) * 100)}%` }}></div>
-                              </div>
-                              <span className="text-xs text-gray-500">{Math.round((d.count / distributionData.distribution.reduce((sum: number, item: { range: string; count: number }) => sum + item.count, 0)) * 100)}%</span>
+        
+                <div className="animate-fade-in">
+                    {selectedTab === 'total' && (
+                        <div>
+                            <h4 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                                <span className="w-1 h-6 bg-indigo-500 rounded-full mr-2"></span>
+                                總成績概況
+                            </h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                                {/* 總成績卡片 - 醒目顯示 */}
+                                <div className="p-5 bg-gradient-to-br from-indigo-600 to-indigo-800 border border-indigo-700 rounded-xl shadow-md text-white">
+                                    <div className="text-xs font-bold text-indigo-100 uppercase tracking-wider mb-1">學期總成績</div>
+                                    <div className="text-4xl font-black">
+                                        {studentGrade ? gradeSummaries.total : '未評分'}
+                                    </div>
+                                    <div className="text-[10px] text-indigo-200 mt-2 flex justify-between">
+                                        <span>依權重比例計算</span>
+                                        {studentGrade && <span className={Number(gradeSummaries.total) < 60 ? 'text-red-300 font-bold' : ''}>{Number(gradeSummaries.total) < 60 ? '不及格' : '及格'}</span>}
+                                    </div>
+                                </div>
+                                
+                                <div className="p-5 bg-gradient-to-br from-indigo-50 to-white border border-indigo-100 rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer group" onClick={() => setSelectedTab('regular')}>
+                                    <div className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-1">平時加權成績</div>
+                                    <div className="text-3xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">
+                                        {studentGrade ? gradeSummaries.regWeighted : '未評分'}
+                                    </div>
+                                    <div className="text-xs text-gray-400 mt-2 flex items-center">
+                                        點擊查看詳情 <svg className="w-3 h-3 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                    </div>
+                                </div>
+                                {['第一次定期評量', '第二次定期評量', '期末評量'].map(name => {
+                                    const score = studentGrade?.periodicScores?.[name];
+                                    const hasScore = score !== undefined && score !== null;
+                                    return (
+                                        <div 
+                                            key={name} 
+                                            className={`p-5 bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-md transition-shadow ${hasScore ? 'cursor-pointer' : ''}`}
+                                            onClick={() => hasScore && handleSelectPeriodicGrade(name, score)}
+                                        >
+                                            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">{name}</div>
+                                            <div className="text-3xl font-bold text-gray-900">
+                                                {hasScore ? score : <span className="text-gray-300 text-xl font-normal">未評分</span>}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                        </div>
+                    )}          
+                    {selectedTab === 'regular' && (
+                        <div>
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                                <h4 className="text-lg font-bold text-gray-800 flex items-center">
+                                    <span className="w-1 h-6 bg-indigo-500 rounded-full mr-2"></span>
+                                    平時成績列表
+                                </h4>
+                                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto bg-gray-50 p-2 rounded-xl border border-gray-100">
+                                    <div className="flex items-center gap-2">
+                                        <FunnelIcon className="w-4 h-4 text-gray-400 ml-2" />
+                                        <input type="date" value={dateRange.from} onChange={(e) => setDateRange(prev => ({ ...prev, from: e.target.value }))} className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
+                                        <span className="text-gray-400">-</span>
+                                        <input type="date" value={dateRange.to} onChange={(e) => setDateRange(prev => ({ ...prev, to: e.target.value }))} className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
+                                    </div>
+                                    <button onClick={() => setDateRange({ from: '', to: '' })} className="text-xs font-medium text-gray-500 hover:text-indigo-600 px-3 py-1.5 hover:bg-white rounded-lg transition-colors">清除篩選</button>
+                                </div>
+                            </div>
+                            
+                            <div className="overflow-hidden rounded-xl border border-gray-200 mb-6">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">項目名稱</th>
+                                            <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">類型</th>
+                                            <th scope="col" className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">日期</th>
+                                            <th scope="col" className="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">分數</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                        {paginatedScores.length > 0 ? (
+                                            paginatedScores.map((col, index) => (
+                                                <tr key={index} onClick={() => handleSelectGrade(col)} className="cursor-pointer hover:bg-indigo-50/50 transition-colors group">
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 group-hover:text-indigo-700">{col.name}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                        <span className={`px-2 py-1 rounded text-xs font-medium ${col.type === '小考' ? 'bg-blue-50 text-blue-700' : col.type === '作業' ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+                                                            {col.type}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">{col.date}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-center">
+                                                        {col.score !== undefined ? (
+                                                            <span className={`text-sm font-bold ${col.score < 60 ? 'text-red-500' : 'text-gray-900'}`}>{col.score}</span>
+                                                        ) : (
+                                                            <span className="text-xs text-gray-400">未評分</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan={4} className="px-6 py-12 text-center text-gray-500">此區間無成績資料</td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                            
+                            {totalPages > 1 && (
+                                <div className="flex justify-center gap-2 mt-6">
+                                    {Array.from({length: totalPages}).map((_, idx) => (
+                                        <button
+                                            key={idx}
+                                            className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${currentPage === idx+1 ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                                            onClick={() => setCurrentPage(idx+1)}
+                                        >
+                                            {idx+1}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                            
+                            <div className="mt-8 pt-8 border-t border-gray-100">
+                                <h5 className="font-bold text-gray-800 mb-4 flex items-center">
+                                    <ChartBarIcon className="w-5 h-5 mr-2 text-indigo-500" />
+                                    成績趨勢分析
+                                </h5>
+                                <div className="bg-white p-4 rounded-xl border border-gray-100 h-[300px]">
+                                    <Bar data={chartData} options={chartOptions} />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {selectedTab === 'periodic' && (
+                        <div>
+                            <h4 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
+                                <span className="w-1 h-6 bg-indigo-500 rounded-full mr-2"></span>
+                                定期評量詳細
+                            </h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                                {['第一次定期評量','第二次定期評量','期末評量'].map(name => {
+                                    const score = studentGrade?.periodicScores?.[name];
+                                    return (
+                                        <div 
+                                            key={name} 
+                                            className={`bg-white border border-gray-200 rounded-xl p-6 text-center hover:border-indigo-300 hover:shadow-md transition-all ${score !== undefined ? 'cursor-pointer' : ''}`}
+                                            onClick={() => score !== undefined && handleSelectPeriodicGrade(name, score)}
+                                        >
+                                            <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">{name}</div>
+                                            <div className={`text-4xl font-bold ${score !== undefined && score < 60 ? 'text-red-500' : 'text-indigo-600'}`}>
+                                                {score ?? <span className="text-gray-300 text-2xl">--</span>}
+                                            </div>
+                                            <div className="mt-2 h-1 w-12 mx-auto bg-gray-100 rounded-full overflow-hidden">
+                                                {score !== undefined && (
+                                                    <div className="h-full bg-indigo-500" style={{ width: `${Math.min(score, 100)}%` }}></div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
                 </div>
-              </div>
             </div>
-          );
-        })()}
-      </Modal>
+        </div>
+        )}
+
+        <Modal
+            open={!!selectedGradeForChart && !!distributionData}
+            onClose={() => {
+                setSelectedGradeForChart(null);
+                setDistributionData(null);
+            }}
+            title={`${selectedGradeForChart?.name} - 成績分布`}
+            size="lg"
+        >
+            {selectedGradeForChart && distributionData && (() => {
+                const studentScore = selectedGradeForChart.score;
+
+                const getFivePointInterval = (score: number, stats: DistributionData['statistics']): string => {
+                    if (score === undefined || score === null) return '';
+                    if (score >= (stats.頂標 ?? Infinity)) return '頂標';
+                    if (score >= (stats.前標 ?? Infinity)) return '前標';
+                    if (score >= (stats.均標 ?? Infinity)) return '均標';
+                    if (score >= (stats.後標 ?? Infinity)) return '後標';
+                    if (score >= (stats.底標 ?? -Infinity)) return '底標';
+                    return '未達底標';
+                };
+
+                const isScoreInDistributionRange = (score: number | undefined, range: string): boolean => {
+                    if (score === undefined || score === null) return false;
+                    switch (range) {
+                        case '90-100': return score >= 90 && score <= 100;
+                        case '80-89': return score >= 80 && score < 90;
+                        case '70-79': return score >= 70 && score < 80;
+                        case '60-69': return score >= 60 && score < 70;
+                        case '50-59': return score >= 50 && score < 60;
+                        case '<50': return score < 50;
+                        default: return false;
+                    }
+                };
+
+                const fivePointInterval = studentScore !== undefined ? getFivePointInterval(studentScore, distributionData.statistics) : '';
+
+                return (
+                    <div className="space-y-8">
+                        <div className="bg-indigo-50 p-6 rounded-xl border border-indigo-100 text-center">
+                            <h5 className="font-bold text-indigo-900 mb-2 uppercase tracking-wide text-xs">您的分數</h5>
+                            <div className="text-5xl font-extrabold text-indigo-600">
+                                {selectedGradeForChart.score ?? '未評分'}
+                            </div>
+                            {fivePointInterval && (
+                                <span className="inline-block mt-2 px-3 py-1 bg-white text-indigo-600 rounded-full text-xs font-bold border border-indigo-100 shadow-sm">
+                                    {fivePointInterval}
+                                </span>
+                            )}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div>
+                                <h5 className="font-bold text-gray-800 mb-4 flex items-center">
+                                    <ChartBarIcon className="w-5 h-5 mr-2 text-indigo-500" /> 五標統計
+                                </h5>
+                                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                                    <table className="min-w-full divide-y divide-gray-100">
+                                        <thead className="bg-gray-50">
+                                            <tr>
+                                                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">項目</th>
+                                                <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">分數</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-50">
+                                            {[
+                                                { label: '頂標', value: distributionData.statistics.頂標 },
+                                                { label: '前標', value: distributionData.statistics.前標 },
+                                                { label: '均標', value: distributionData.statistics.均標 },
+                                                { label: '後標', value: distributionData.statistics.後標 },
+                                                { label: '底標', value: distributionData.statistics.底標 },
+                                                { label: '平均', value: distributionData.statistics.平均, isAvg: true },
+                                            ].map((stat, idx) => (
+                                                <tr key={idx} className={`${fivePointInterval === stat.label ? 'bg-indigo-50' : ''} ${stat.isAvg ? 'bg-gray-50 font-bold' : ''}`}>
+                                                    <td className={`px-4 py-3 text-sm ${fivePointInterval === stat.label ? 'text-indigo-700 font-bold' : 'text-gray-700'}`}>{stat.label}</td>
+                                                    <td className={`px-4 py-3 text-sm text-right ${fivePointInterval === stat.label ? 'text-indigo-700 font-bold' : 'text-gray-900'}`}>{stat.value ?? '-'}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h5 className="font-bold text-gray-800 mb-4 flex items-center">
+                                    <ChartBarIcon className="w-5 h-5 mr-2 text-indigo-500" /> 成績分布
+                                </h5>
+                                <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                                    <table className="min-w-full divide-y divide-gray-100">
+                                        <thead className="bg-gray-50">
+                                            <tr>
+                                                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-20">區間</th>
+                                                <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-16">人數</th>
+                                                <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">比例</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-50">
+                                            {distributionData.distribution.map((d: { range: string; count: number }, index: number) => {
+                                                const totalCount = distributionData.distribution.reduce((sum, item) => sum + item.count, 0);
+                                                const percentage = totalCount > 0 ? Math.round((d.count / totalCount) * 100) : 0;
+                                                const isMyRange = isScoreInDistributionRange(studentScore, d.range);
+                                                
+                                                return (
+                                                    <tr key={index} className={isMyRange ? 'bg-indigo-50' : ''}>
+                                                        <td className={`px-4 py-2 text-sm ${isMyRange ? 'font-bold text-indigo-700' : 'text-gray-600'}`}>{d.range}</td>
+                                                        <td className={`px-4 py-2 text-sm text-center ${isMyRange ? 'font-bold text-indigo-700' : 'text-gray-900'}`}>{d.count}</td>
+                                                        <td className="px-4 py-2 align-middle">
+                                                            <div className="flex items-center">
+                                                                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden mr-2">
+                                                                    <div 
+                                                                        className={`h-full rounded-full ${isMyRange ? 'bg-indigo-500' : 'bg-gray-400'}`} 
+                                                                        style={{ width: `${percentage}%` }}
+                                                                    ></div>
+                                                                </div>
+                                                                <span className="text-xs text-gray-400 w-8 text-right">{percentage}%</span>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
+        </Modal>
     </div>
   );
 }

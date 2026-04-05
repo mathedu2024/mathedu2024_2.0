@@ -1,50 +1,42 @@
+'use client';
+
 import { MoonLoader } from 'react-spinners';
 
 export interface LoadingSpinnerProps {
-  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | number;
-  color?: 'blue' | 'white' | 'gray';
+  size?: number;
   text?: string;
+  color?: 'blue' | 'white' | 'gray';
   className?: string;
   fullScreen?: boolean;
 }
 
-export default function LoadingSpinner({
-  size = 'md',
+export default function LoadingSpinner({ 
+  className = '', 
   color = 'blue',
-  text,
-  className = '',
-  fullScreen = false
+  fullScreen = false,
+  size = 40,
+  text = '',
 }: LoadingSpinnerProps) {
   const colorMap = {
-    blue: '#3B82F6',
+    blue: '#4f46e5', // Updated to Indigo-600
     white: '#FFFFFF',
     gray: '#6B7280'
   };
 
-  const sizeMap = {
-    xs: 20,
-    sm: 30,
-    md: 40,
-    lg: 50,
-    xl: 60
-  };
-  
-  const numericSize = typeof size === 'number' ? size : sizeMap[size];
-
   const content = (
-    <div className={`flex flex-row items-center justify-center ${className}`}>
+    <div className={`flex flex-col items-center justify-center ${className}`}>
       <MoonLoader
         color={colorMap[color]}
-        size={numericSize}
-        speedMultiplier={1}
+        size={size}
+        speedMultiplier={0.8}
       />
-      {text && <span className="ml-2 text-white">{text}</span>}
+      {text && <span className={`mt-3 text-sm font-medium ${color === 'white' ? 'text-white' : 'text-gray-500'}`}>{text}</span>}
     </div>
   );
 
   if (fullScreen) {
     return (
-      <div className="fixed inset-0 bg-white bg-opacity-75 flex flex-col items-center justify-center z-50">
+      <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-[9999]">
         {content}
       </div>
     );
@@ -52,4 +44,3 @@ export default function LoadingSpinner({
 
   return content;
 }
- 

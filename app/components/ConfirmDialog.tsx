@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { confirm } from '../utils/alerts';
+import alerts from '@/utils/alerts';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -17,15 +17,14 @@ export default function ConfirmDialog({
   message,
   onConfirm,
   onCancel,
-  confirmText,
-  cancelText,
+  confirmText: _confirmText,
+  cancelText: _cancelText,
 }: ConfirmDialogProps) {
   useEffect(() => {
     if (open) {
-      confirm(message, {
-        confirmButtonText: confirmText,
-        cancelButtonText: cancelText,
-      }).then(isConfirmed => {
+      // 修正：alerts.confirm 第二個參數預期為字串 (text)，而非物件
+      // 這裡將第一個參數設為標題 '確認'，第二個參數為訊息內容
+      alerts.confirm('確認', message).then(isConfirmed => {
         if (isConfirmed) {
           onConfirm();
         } else {
@@ -33,7 +32,7 @@ export default function ConfirmDialog({
         }
       });
     }
-  }, [open, message, onConfirm, onCancel, confirmText, cancelText]);
+  }, [open, message, onConfirm, onCancel]);
 
   return null;
 }

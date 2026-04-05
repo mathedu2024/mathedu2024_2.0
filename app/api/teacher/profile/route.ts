@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
     if (snapshot.empty) return NextResponse.json({ error: 'User not found' }, { status: 404 });
     
     const doc = snapshot.docs[0];
+    // 以 Firestore 文件 ID 作為 id（溝通橋梁），前端顯示老師時請使用 name
     const userData = { id: doc.id, ...doc.data() };
     console.log('teacher/profile API - Returning user data:', userData);
     

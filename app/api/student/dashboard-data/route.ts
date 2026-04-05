@@ -1,6 +1,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/services/firebase-admin';
+import type { GradeSettingsShape } from '@/services/gradeShape';
+import { settingsToTotalSetting } from '@/services/gradeShape';
 import { parse as parseCookie } from 'cookie';
 
 interface ClassTime {
@@ -115,26 +117,20 @@ async function fetchCourseData(studentId: string, enrolledCourses: string[]) {
         }
     });
 
+    // 老師以 users 集合的「文件 ID」為識別，顯示時使用 name
     const teacherNamesMap: Record<string, string> = {};
     if (teacherIds.size > 0) {
-        // Try fetching from 'users' collection first (more likely to have full user names)
         const userDocs = await adminDb.collection('users').where('__name__', 'in', Array.from(teacherIds)).get();
-        userDocs.forEach(doc => {
+        userDocs.forEach((doc) => {
             const data = doc.data();
-            if (data.name) {
-                teacherNamesMap[doc.id] = data.name;
-            }
+            teacherNamesMap[doc.id] = data.name ?? '';
         });
-
-        // Fallback to 'teachers' collection for any missing names or if 'users' doesn't have the name field
-        const missingTeacherIds = Array.from(teacherIds).filter(id => !teacherNamesMap[id]);
+        const missingTeacherIds = Array.from(teacherIds).filter((id) => !teacherNamesMap[id]);
         if (missingTeacherIds.length > 0) {
             const teacherDocs = await adminDb.collection('teachers').where('__name__', 'in', missingTeacherIds).get();
-            teacherDocs.forEach(doc => {
+            teacherDocs.forEach((doc) => {
                 const data = doc.data();
-                if (data.name) {
-                    teacherNamesMap[doc.id] = data.name;
-                }
+                teacherNamesMap[doc.id] = data.name ?? '';
             });
         }
     }
@@ -149,7 +145,20 @@ async function fetchCourseData(studentId: string, enrolledCourses: string[]) {
         }
     });
 
-    const grades: Record<string, { columns: Record<string, { name: string; type: string; date: string; }>; totalSetting?: { regularDetail?: Record<string, { calcMethod: string; n?: number; percent: number; }>; periodicEnabled?: Record<string, boolean>; periodicPercent: number; }; periodicScores?: string[]; student: StudentGradeRow | null; }> = {};
+    const grades: Record<
+      string,
+      {
+        courseId: string;
+        columns: Record<string, { name: string; type: string; date: string }>;
+        totalSetting?: {
+          regularDetail?: Record<string, { calcMethod: string; n?: number; percent: number }>;
+          periodicEnabled?: Record<string, boolean>;
+          periodicPercent: number;
+        };
+        periodicScores?: string[];
+        student: StudentGradeRow | null;
+      }
+    > = {};
     const gradePromises = courses.map(async (course) => {
         const gradeDocId = `${course.name}(${course.code})`;
         const gradeDoc = await adminDb.collection('courses').doc(course.id).collection('grades').doc('data').get();
@@ -159,8 +168,13 @@ async function fetchCourseData(studentId: string, enrolledCourses: string[]) {
                 const studentGrade = gradeData.students.find((s: StudentGradeRow) => s.studentId === studentId);
                 if (studentGrade) {
                     grades[gradeDocId] = {
-                        columns: gradeData.columns || {},
-                        totalSetting: gradeData.totalSetting || {},
+                        courseId: course.id,
+                        columns: gradeData.columns || gradeData.columnDetails || {},
+                        totalSetting:
+                            gradeData.totalSetting ||
+                            (gradeData.settings
+                                ? settingsToTotalSetting(gradeData.settings as GradeSettingsShape)
+                                : {}),
                         periodicScores: gradeData.periodicScores || [],
                         student: studentGrade,
                     };

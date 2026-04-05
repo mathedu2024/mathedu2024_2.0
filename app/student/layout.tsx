@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, Suspense, useTransition } from 'react';
+import React, { useState, useEffect, useTransition, Suspense } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { clearSession } from '../utils/session';
 import Sidebar from '../components/Sidebar';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { StudentInfoProvider, useStudentInfo } from './StudentInfoContext';
+import { useStudentInfo, StudentInfoProvider } from './StudentInfoContext';
 import { BookOpenIcon, ClipboardDocumentListIcon, CheckCircleIcon, PencilIcon, CalendarIcon, KeyIcon } from '@heroicons/react/24/outline';
 
 const studentFeatures = [
@@ -22,9 +22,15 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // Default to closed on server for safety
   const { studentInfo, loading } = useStudentInfo();
   const [isPending, startTransition] = useTransition();
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+    setSidebarOpen(window.innerWidth >= 768);
+  }, []);
 
   useEffect(() => {
     const pathSegments = pathname.split('/').filter(Boolean);
@@ -32,6 +38,14 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
     const currentTabFromSearch = searchParams.get('tab');
     setActiveTab(currentTabFromPath || currentTabFromSearch);
   }, [pathname, searchParams]);
+
+  // 新增：如果未登入且載入完成，自動導向登入頁面
+  useEffect(() => {
+    // 加入延遲檢查，避免在狀態切換瞬間誤判
+    if (!loading && !studentInfo) {
+      router.push('/login');
+    }
+  }, [loading, studentInfo, router]);
 
   const handleTabChange = (tab: string | null) => {
     setActiveTab(tab);
@@ -51,21 +65,18 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
-  if (loading) {
+  // 修正: 放寬載入條件，只要有資料就先顯示，避免背景更新時畫面卡在 Loading
+  if (!isMounted || (loading && !studentInfo)) {
     return <LoadingSpinner fullScreen size={40} />;
   }
 
   if (!studentInfo) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-gray-500">無法載入學生資料，請重新登入。</div>
-      </div>
-    );
+    return null; // 正在導向登入頁面，不顯示錯誤訊息
   }
 
   return (
-    <div className="flex flex-col h-full font-sans">
-      <div className="flex flex-1 min-h-0 overflow-y-auto">
+    <div className="flex flex-col h-full min-w-0 font-sans overflow-x-hidden">
+      <div className="flex flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden">
         <Sidebar
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
@@ -76,12 +87,11 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
           onLogout={handleLogout}
         />
 
+        {/* 手機不預留側欄寬度（與 back-panel 相同），避免側欄隱藏時左側空白、內容右偏 */}
         <main
-          className="flex-1 min-w-0 transition-all duration-300 relative bg-white"
-          style={{
-            paddingLeft: sidebarOpen ? '4rem' : '16rem',
-            transition: 'padding-left 0.3s'
-          }}
+          className={`flex-1 min-w-0 transition-[padding] duration-300 relative bg-gray-50 pl-0 ${
+            sidebarOpen ? 'md:pl-64' : 'md:pl-20'
+          }`}
         >
           {isPending && (
             <div className="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center z-50">

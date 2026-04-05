@@ -25,25 +25,22 @@ export default function Dropdown({ value, onChange, options, placeholder = 'Sele
   const [position, setPosition] = useState<{ top?: number; bottom?: number; left: number; width: number }>({ left: 0, width: 0 });
   const [isMounted, setIsMounted] = useState(false);
 
-  // 確保在客戶端渲染
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
-  // 計算下拉選單的位置（使用 fixed 定位）
   const calculatePosition = useCallback(() => {
     if (buttonRef.current) {
       const buttonRect = buttonRef.current.getBoundingClientRect();
       const viewportHeight = window.innerHeight;
       const spaceBelow = viewportHeight - buttonRect.bottom;
       const spaceAbove = buttonRect.top;
-      const estimatedMenuHeight = 240; // max-h-60 約為 240px
-      const menuGap = 4; // mt-1 的間距
+      const estimatedMenuHeight = 240; 
+      const menuGap = 4;
 
       setPosition({
         left: buttonRect.left,
         width: buttonRect.width,
-        // 如果下方空間不足，且上方空間更多，則向上顯示
         ...(spaceBelow < estimatedMenuHeight && spaceAbove > spaceBelow
           ? { bottom: viewportHeight - buttonRect.top + menuGap }
           : { top: buttonRect.bottom + menuGap })
@@ -54,35 +51,20 @@ export default function Dropdown({ value, onChange, options, placeholder = 'Sele
   const [isOpen, setIsOpen] = useState(false);
   const openRef = useRef(false);
 
-  // 監聽打開狀態和視窗事件
   useEffect(() => {
     const updatePosition = () => {
       if (openRef.current && buttonRef.current) {
         calculatePosition();
       }
     };
-
-    // 監聽滾動和大小變化
     window.addEventListener('scroll', updatePosition, true);
     window.addEventListener('resize', updatePosition);
-    
     return () => {
       window.removeEventListener('scroll', updatePosition, true);
       window.removeEventListener('resize', updatePosition);
     };
   }, [calculatePosition]);
 
-  // 如果打開，持續更新位置（處理滾動）
-  useEffect(() => {
-    if (isOpen) {
-      const interval = setInterval(() => {
-        calculatePosition();
-      }, 100);
-      return () => clearInterval(interval);
-    }
-  }, [isOpen, calculatePosition]);
-
-  // 監聽 isOpen 狀態變化來更新位置
   useEffect(() => {
     if (isOpen) {
       requestAnimationFrame(() => {
@@ -94,10 +76,8 @@ export default function Dropdown({ value, onChange, options, placeholder = 'Sele
   return (
     <Listbox value={value} onChange={onChange}>
       {({ open }) => {
-        // 當打開狀態改變時，更新狀態
         if (open !== openRef.current) {
           openRef.current = open;
-          // 使用 setTimeout 避免在渲染過程中設置狀態
           setTimeout(() => {
             setIsOpen(open);
           }, 0);
@@ -113,7 +93,7 @@ export default function Dropdown({ value, onChange, options, placeholder = 'Sele
           >
             <Listbox.Options
               ref={optionsRef}
-              className="fixed z-[9999] bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto focus:outline-none"
+              className="fixed z-[9999] bg-white border border-gray-200 rounded-xl shadow-xl max-h-60 overflow-auto focus:outline-none py-1"
               style={{
                 left: `${position.left}px`,
                 width: `${position.width}px`,
@@ -122,17 +102,30 @@ export default function Dropdown({ value, onChange, options, placeholder = 'Sele
               }}
               static={false}
             >
-            {(options ?? []).map((option, optionIdx) => (
+            {(options ?? []).map((option) => (
                 <Listbox.Option
                   key={option.value}
                   value={option.value}
-                  className={({ active }) =>
-                    `cursor-pointer select-none relative py-2 pl-4 pr-10 ${
-                      active ? 'bg-blue-100 text-blue-900' : 'text-gray-900'
-                    }`
+                  className={({ active, selected }) =>
+                    `cursor-pointer select-none relative py-2.5 pl-4 pr-10 transition-colors ${
+                      active ? 'bg-indigo-50 text-indigo-900' : 'text-gray-900'
+                    } ${selected ? 'font-medium' : 'font-normal'}`
                   }
                 >
-                  {option.label}
+                  {({ selected }) => (
+                    <>
+                      <span className={`block truncate ${selected ? 'font-medium' : 'font-normal'}`}>
+                        {option.label}
+                      </span>
+                      {selected ? (
+                        <span className="absolute inset-y-0 right-0 flex items-center pr-3 text-indigo-600">
+                          <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        </span>
+                      ) : null}
+                    </>
+                  )}
                 </Listbox.Option>
               ))}
             </Listbox.Options>
@@ -144,9 +137,11 @@ export default function Dropdown({ value, onChange, options, placeholder = 'Sele
             <Listbox.Button 
               ref={buttonRef}
               style={style} 
-              className="select-unified flex items-center justify-between"
+              className="select-unified flex items-center justify-between w-full px-4 py-2.5 text-left border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all sm:text-sm cursor-pointer shadow-sm"
             >
-              <span className="truncate">{(options || []).find(o => o.value === value)?.label || placeholder}</span>
+              <span className={`truncate ${!value ? 'text-gray-400' : 'text-gray-900'}`}>
+                {(options || []).find(o => o.value === value)?.label || placeholder}
+              </span>
               <ChevronUpDownIcon className="w-5 h-5 text-gray-400 absolute right-3 pointer-events-none" />
             </Listbox.Button>
             {isMounted && createPortal(dropdownOptions, document.body)}

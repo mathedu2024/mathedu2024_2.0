@@ -1,6 +1,8 @@
 export interface TutoringSlot {
   id?: string;
+  /** 老師的 Firestore 文件 ID（users 集合），如 2c8eac7b-d2bc-4f8b-a44d-b5c9b464d54b，作為溝通橋梁 */
   teacherId: string;
+  /** 顯示用：老師姓名，由 users 的 name 欄位解析 */
   teacherName?: string;
   date: string; 
   startTime: string;

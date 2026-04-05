@@ -6,6 +6,7 @@ export interface SessionData {
   account: string;
   role: string | string[];
   currentRole?: string;
+  uid?: string;
 }
 
 export const setSession = (sessionData: SessionData) => {

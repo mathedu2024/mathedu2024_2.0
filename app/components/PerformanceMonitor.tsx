@@ -34,6 +34,7 @@ export default function PerformanceMonitor() {
 
     const updateMetrics = () => {
       if (typeof window !== 'undefined' && 'performance' in window) {
+        // Performance.memory is a non-standard Chrome extension
         const memory = (performance as Performance & { memory?: { usedJSHeapSize: number } }).memory;
         setMetrics(prev => ({
           ...prev,
@@ -81,16 +82,21 @@ export default function PerformanceMonitor() {
   if (!isVisible) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 bg-black bg-opacity-75 text-white p-3 rounded-lg text-xs font-mono z-50 max-w-xs">
-      <div className="mb-2 font-bold">性能監控</div>
-      <div>登入時間: {metrics.loginTime}ms</div>
-      <div>快取命中率: {metrics.cacheHitRate}%</div>
-      <div>快取命中: {metrics.cacheHits}</div>
-      <div>快取未命中: {metrics.cacheMisses}</div>
-      <div>總請求: {metrics.totalRequests}</div>
-      <div>快取大小: {metrics.cacheSize}</div>
-      <div>網路延遲: {metrics.networkLatency}ms</div>
-      <div>記憶體使用: {metrics.memoryUsage}MB</div>
+    <div className="fixed bottom-4 right-4 bg-gray-900/90 text-white p-4 rounded-xl text-xs font-mono z-[9999] max-w-xs shadow-lg backdrop-blur-sm border border-gray-700">
+      <div className="mb-3 font-bold text-indigo-400 flex items-center justify-between">
+        <span>性能監控</span>
+        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+      </div>
+      <div className="space-y-1.5">
+        <div className="flex justify-between"><span>登入時間:</span> <span className="text-gray-300">{metrics.loginTime}ms</span></div>
+        <div className="flex justify-between"><span>快取命中率:</span> <span className={`${metrics.cacheHitRate > 80 ? 'text-green-400' : 'text-yellow-400'}`}>{metrics.cacheHitRate}%</span></div>
+        <div className="flex justify-between"><span>快取命中:</span> <span className="text-gray-300">{metrics.cacheHits}</span></div>
+        <div className="flex justify-between"><span>快取未命中:</span> <span className="text-gray-300">{metrics.cacheMisses}</span></div>
+        <div className="flex justify-between"><span>總請求:</span> <span className="text-gray-300">{metrics.totalRequests}</span></div>
+        <div className="flex justify-between"><span>快取大小:</span> <span className="text-gray-300">{metrics.cacheSize}</span></div>
+        <div className="flex justify-between"><span>網路延遲:</span> <span className="text-gray-300">{metrics.networkLatency}ms</span></div>
+        <div className="flex justify-between"><span>記憶體使用:</span> <span className="text-gray-300">{metrics.memoryUsage}MB</span></div>
+      </div>
     </div>
   );
 }
@@ -100,12 +106,14 @@ export const trackLoginPerformance = (startTime: number, endTime: number, networ
   const loginTime = endTime - startTime;
   
   // 發送性能事件
-  window.dispatchEvent(new CustomEvent('login-performance', {
-    detail: {
-      loginTime,
-      networkLatency
-    }
-  }));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('login-performance', {
+      detail: {
+        loginTime,
+        networkLatency
+      }
+    }));
+  }
 
   // 記錄到控制台
   console.log(`登入性能: ${loginTime}ms, 網路延遲: ${networkLatency}ms`);
@@ -119,4 +127,4 @@ export const trackLoginPerformance = (startTime: number, endTime: number, networ
 export const trackCacheHit = (hit: boolean) => {
   // 這裡可以實現更複雜的快取統計
   console.log(`快取${hit ? '命中' : '未命中'}`);
-}; 
+};

@@ -1,32 +1,25 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/services/firebase-admin';
+import { NextResponse } from 'next/server';
+import { db } from '@/utils/firebase-admin';
 
-export async function POST(req: NextRequest) {
-  const { id } = await req.json();
-  if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
-  const doc = await adminDb.collection('student_data').doc(id).get();
-  if (!doc.exists) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  const studentData = doc.data();
-  const enrolledCoursesRaw = studentData.enrolledCourses || [];
-  
-  const enrolledCourseNames = enrolledCoursesRaw.map((courseString: string) => {
-    const lastParen = courseString.lastIndexOf('(');
-    if (lastParen !== -1) {
-      return courseString.substring(0, lastParen);
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const { id } = body;
+
+    if (!id) {
+      return NextResponse.json({ error: 'Missing ID' }, { status: 400 });
     }
-    return courseString;
-  });
 
-  const profile = {
-    id: doc.id,
-    name: studentData.name,
-    account: studentData.account,
-    role: studentData.role,
-    studentId: studentData.studentId,
-    grade: studentData.grade,
-    email: studentData.email || '',
-    enrolledCourses: enrolledCourseNames,
-  };
+    const docRef = db.collection('student_data').doc(id);
+    const doc = await docRef.get();
 
-  return NextResponse.json(profile);
-} 
+    if (!doc.exists) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    return NextResponse.json(doc.data());
+  } catch (error) {
+    console.error('Error fetching student profile:', error);
+    return NextResponse.json({ error: 'Internal Server Error', details: (error as Error)?.message }, { status: 500 });
+  }
+}

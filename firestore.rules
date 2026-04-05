@@ -14,13 +14,13 @@ service cloud.firestore {
       // 使用者只能讀取和更新自己的資料
       allow read, update: if request.auth != null && request.auth.uid == userId;
       // 允許管理員讀取所有使用者資料
-      allow get: if request.auth != null && request.auth.token.role == 'admin';
+      allow read: if request.auth != null && request.auth.token.role == 'admin';
     }
     
     // 學生資料集合
     match /student_data/{studentId} {
         // 學生本人或老師/管理員可以讀取
-        allow get: if request.auth != null && (request.auth.uid == studentId || request.auth.token.role in ['teacher', 'admin']);
+        allow read: if request.auth != null && (request.auth.uid == studentId || request.auth.token.role in ['teacher', 'admin']);
         // 學生本人可以更新
         allow update: if request.auth != null && request.auth.uid == studentId;
         // 管理員可以建立/刪除
@@ -30,7 +30,7 @@ service cloud.firestore {
     // 老師集合
     match /teachers/{teacherId} {
         // 任何登入者都可讀取老師公開資料
-        allow get: if request.auth != null;
+        allow read: if request.auth != null;
         // 老師本人或管理員可以更新
         allow update: if request.auth != null && (request.auth.uid == teacherId || request.auth.token.role == 'admin');
         // 管理員可以建立/刪除
@@ -40,15 +40,16 @@ service cloud.firestore {
     // 課程集合
     match /courses/{courseId} {
       // 任何登入的使用者都可以讀取課程列表
-      allow get, list: if request.auth != null;
+      allow read: if request.auth != null;
       // 只有老師或管理員可以建立、更新、刪除課程
       allow create, update, delete: if request.auth != null && request.auth.token.role in ['teacher', 'admin'];
     }
 
     // 課程學生列表
     match /course-student-list/{courseKey} {
-        // 老師和管理員有完整權限
+        // 老師和管理員有完整權限，學生只能讀取
         allow read, write: if request.auth != null && request.auth.token.role in ['teacher', 'admin'];
+        allow read: if request.auth != null && request.auth.token.role == 'student';
     }
 
     // 點名活動
@@ -64,33 +65,22 @@ service cloud.firestore {
           // 學生只能為自己建立簽到紀錄
           allow create: if request.auth != null && request.auth.uid == studentId;
           // 老師和管理員可以讀取簽到紀錄
-          allow read: if request.auth != null && (request.auth.token.role in ['teacher', 'admin']);
+          allow read: if request.auth != null && (request.auth.token.role in ['teacher', 'admin'] || request.auth.uid == studentId);
         }
-
-        // 請假申請
-        match /leave_requests/{studentId} {
-            // 老師和管理員可以讀寫
-            allow write: if request.auth != null && (request.auth.token.role in ['teacher', 'admin']);
-            // 學生只能讀取自己的
-            allow read: if request.auth != null && request.auth.uid == studentId;
-        }
-      }
     }
 
-    match /{path=**}/attendees/{docId} {
-      // Allow teachers and admins to read for attendance summary generation
-      allow read: if request.auth != null && (request.auth.token.role in ['teacher', 'admin']);
-    }
-
-    match /{path=**}/leave_requests/{docId} {
-      // Allow teachers and admins to read for attendance summary generation
-      allow read: if request.auth != null && (request.auth.token.role in ['teacher', 'admin']);
+    // 請假申請 (修正：移出 attendance 層級，獨立在課程下)
+    match /courses/{courseId}/leave_requests/{studentId} {
+        // 老師和管理員可以讀寫所有申請
+        allow read, write: if request.auth != null && (request.auth.token.role in ['teacher', 'admin']);
+        // 學生可以建立、讀取、更新自己的申請
+        allow create, read, update: if request.auth != null && request.auth.uid == studentId;
     }
 
     // 公告集合
     match /announcements/{announcementId} {
       // 任何使用者都可以讀取公告
-      allow get, list: if true;
+      allow read: if true;
       // 只有管理員可以建立、更新、刪除公告
       allow create, update, delete: if request.auth != null && request.auth.token.role == 'admin';
     }
@@ -98,7 +88,7 @@ service cloud.firestore {
     // 考試日期集合
     match /exam_dates/{examId} {
       // 任何使用者都可以讀取
-      allow get, list: if true;
+      allow read: if true;
       // 只有管理員可以建立、更新、刪除
       allow create, update, delete: if request.auth != null && request.auth.token.role == 'admin';
     }
@@ -106,7 +96,7 @@ service cloud.firestore {
     // 輔導時段集合
     match /time-slots/{slotId} {
       // 任何登入的使用者都可以讀取時段
-      allow get, list: if request.auth != null;
+      allow read: if request.auth != null;
       // 只有後端 (Admin SDK) 可以寫入
       allow write: if false;
     }
@@ -115,9 +105,9 @@ service cloud.firestore {
     match /courses/{courseId}/{collection}/{documentId} {
        // 老師和管理員有完整權限
        allow read, write: if request.auth != null && request.auth.token.role in ['teacher', 'admin'];
-       // 學生只能讀取 (例如：自己的成績)
-       // 此處需要更細緻的規則，例如檢查學生是否屬於該課程
-       // allow read: if request.auth != null && resource.data.studentId == request.auth.uid;
+       // 學生只能讀取與自己相關的資料 (例如：自己的成績)
+       // 注意：此規則要求客戶端查詢時必須包含 .where('studentId', '==', uid) 條件，否則 list 操作會失敗
+       allow read: if request.auth != null && request.auth.token.role == 'student' && resource.data.studentId == request.auth.uid;
     }
   }
 }

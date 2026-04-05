@@ -1,32 +1,17 @@
-'use client';
-
-import React from 'react';
-import { useStudentInfo } from '../StudentInfoContext';
-import StudentGradeViewer from '../../components/StudentGradeViewer';
-import LoadingSpinner from '../../components/LoadingSpinner';
+import React, { Suspense } from 'react';
+import GradesContent from './GradesContent';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 export default function StudentGradesPage() {
-  const { studentInfo, loading } = useStudentInfo();
-
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <LoadingSpinner size={40} />
-      </div>
-    );
-  }
-
-  if (!studentInfo) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-gray-500">找不到學生資料，請重新登入。</div>
-      </div>
-    );
-  }
-
   return (
-    <div className="w-full p-2 md:p-8 animate-fade-in">
-      <StudentGradeViewer studentInfo={studentInfo} />
-    </div>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <LoadingSpinner size={40} text="載入成績資料中..." />
+        </div>
+      }
+    >
+      <GradesContent />
+    </Suspense>
   );
 }

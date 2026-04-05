@@ -1,1430 +1,865 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import * as ExcelJS from 'exceljs';
-import CourseDetailModal from './CourseDetailModal';
-import Swal from 'sweetalert2';
-import { Modal } from './ui';
-import Dropdown from './ui/Dropdown';
-import { LoadingSpinner } from './ui';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { createPortal, } from 'react-dom';
+import LoadingSpinner from './LoadingSpinner';
+import { 
+  AdjustmentsHorizontalIcon, 
+  CloudArrowUpIcon, ClipboardDocumentListIcon,
+  XMarkIcon, TrashIcon,
+  ChartBarIcon,
+  PlusIcon,
+} from '@heroicons/react/24/outline';
+import CourseFilter from './CourseFilter';
 import GradeRegistrationMobile from './GradeRegistrationMobile';
+import Swal from 'sweetalert2';
+import {
+  DEFAULT_PERIODIC_ITEM_KEYS,
+  defaultGradeSettings,
+  mergePeriodicColumnDetails,
+} from '@/services/gradeShape';
 
-
-interface UserInfo {
-  id: string;
-  name: string;
-  account: string;
-  role: '管理員' | '老師' | '學生';
-}
-
-interface GradeManagerProps {
-  userInfo?: UserInfo | null;
-}
-
-interface CourseInfo {
-  id: string;
-  name: string;
-  code: string;
-}
-
-interface DistributionData {
-  statistics: {
-    平均: number | null;
-    頂標: number | null;
-    前標: number | null;
-    均標: number | null;
-    後標: number | null;
-    底標: number | null;
-  };
-  distribution: { range: string; count: number }[];
-}
-
-interface PercentileStatistics {
-  平均: number | null;
-  頂標: number | null;
-  前標: number | null;
-  均標: number | null;
-  後標: number | null;
-  底標: number | null;
-}
-
-// 型別定義
+// --- 型別定義 ---
+interface UserInfo { id: string; name: string; role: string; }
+interface CourseInfo { id: string; name: string; code: string; gradeTags?: string[]; subjectTag?: string; courseNature?: string; status?: string; }
 type RegularType = '小考' | '作業' | '上課態度';
 
-type RegularScoreSetting = {
-  type: RegularType;
-  percent: number;
-  calcMethod: '平均' | '前N高' | '前N低';
-  n?: number;
-};
-
-type PeriodicScoreName = '第一次定期評量' | '第二次定期評量' | '期末評量';
-
-// 新增：ColumnDetail 類型定義
-type ColumnDetail = {
-  type: string;
-  name: string;
-  date: string;
-};
-
-type StudentGradeRow = {
+interface StudentGradeRow {
   id: string;
   studentId: string;
   name: string;
   grade: string;
-  regularScores: { [columnId: string]: number | undefined };
-  periodicScores: { [name in PeriodicScoreName]?: number };
-  totalScore: number;
-  manualAdjust: number;
-  remark?: string;
+  regularScores: Record<string, number | undefined>;
+  periodicScores: Record<string, number | undefined>;
+  manualAdjust?: number;
+}
+
+interface ComputedStudentGradeRow extends StudentGradeRow {
+  qAvg: number;
+  hAvg: number;
+  aAvg: number;
+  regWeighted: number;
+  pAvg: number;
+  total: number;
+}
+
+
+interface ColumnDetail { type: RegularType; name: string; date: string; nature?: string; }
+
+type PeriodicColumnMeta = { name: string; date: string; type: string };
+
+/** 定期評量欄位固定三欄（與 Firestore / 採計鍵名一致） */
+const FIXED_PERIODIC_KEYS = [...DEFAULT_PERIODIC_ITEM_KEYS] as string[];
+
+interface GradeSettings {
+  percents: { quiz: number; hw: number; att: number; periodic: number; };
+  calcModes: Record<RegularType, { mode: 'all' | 'best'; n: number }>;
+  periodicEnabled: Record<string, boolean>;
+}
+
+
+// --- 核心組件 ---
+const Modal = ({ open, onClose, title, size = 'md', children }: { open?: boolean; onClose?: () => void; title?: string; size?: string; children?: React.ReactNode }) => {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
+  if (!mounted || !open) return null;
+  const maxWidth = { md: 'max-w-lg', lg: 'max-w-4xl', xl: 'max-w-6xl' }[size as 'md'|'lg'|'xl'];
+  
+  return createPortal(
+    <div className="fixed inset-0 z-[99999] flex justify-center items-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
+      <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${maxWidth} max-h-[90vh] flex flex-col border border-gray-100`}>
+        <div className="flex justify-between items-center px-6 py-4 border-b bg-gray-50/50 rounded-t-2xl">
+          <h3 className="text-xl font-bold text-gray-800">{title}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-200">
+            <XMarkIcon className="w-6 h-6" />
+          </button>
+        </div>
+        <div className="p-6 flex-1 overflow-y-auto custom-scrollbar">{children}</div>
+      </div>
+    </div>,
+    document.body
+  );
 };
 
-type TotalScoreSetting = {
-  regularPercent: number;
-  periodicPercent: number;
-  manualAdjust: number; // -5~+5
-  regularDetail: {
-    [type in RegularType]: {
-      percent: number;
-      calcMethod: '平均' | '前N高' | '前N低';
-      n?: number;
-    }
-  };
-  periodicEnabled?: { [name in PeriodicScoreName]?: boolean };
-};
-
-async function saveGrades(courseName: string, courseCode: string, gradeData: unknown) {
-  const res = await fetch('/api/grades/save', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ courseName, courseCode, gradeData }),
-  });
-  if (!res.ok) throw new Error('成績儲存失敗');
-}
-
-
-
-// 恢復 DEFAULT_REGULAR_COLUMNS
-const DEFAULT_REGULAR_COLUMNS = 10;
-// sticky 樣式
-const stickyCell = "bg-white sticky left-0 z-10";
-const stickyCell2 = "bg-white sticky left-20 z-10";
-// 統一三個頁面的學號/姓名欄位寬度與 sticky 樣式
-const studentIdColStyle = { width: '120px', minWidth: '120px', maxWidth: '120px' };
-const studentNameColStyle = { width: '100px', minWidth: '100px', maxWidth: '100px' };
-const studentIdColClass = `px-4 py-2 text-left text-sm font-semibold text-gray-700 whitespace-nowrap ${stickyCell}`;
-const studentNameColClass = `px-4 py-2 text-left text-sm font-semibold text-gray-700 whitespace-nowrap ${stickyCell2}`;
-const studentIdTdClass = `px-4 py-2 text-sm text-gray-800 ${stickyCell}`;
-const studentNameTdClass = `px-4 py-2 text-sm text-gray-800 whitespace-nowrap ${stickyCell2}`;
-// 恢復 removeUndefinedDeep
-function removeUndefinedDeep(obj: unknown): unknown {
-  if (Array.isArray(obj)) {
-    return obj.map(removeUndefinedDeep);
-  } else if (obj && typeof obj === 'object') {
-    return Object.fromEntries(
-      Object.entries(obj as Record<string, unknown>)
-        .filter(([, v]) => v !== undefined)
-        .map(([k, v]) => [k, v === undefined ? null : removeUndefinedDeep(v)])
-    );
-  }
-  return obj === undefined ? null : obj;
-}
-
-// 恢復 getTaiwanPercentileLevels
-function getTaiwanPercentileLevels(scores: number[]): PercentileStatistics {
-  if (scores.length === 0) return { 頂標: null, 前標: null, 均標: null, 後標: null, 底標: null, 平均: null };
-  const sorted = [...scores].sort((a, b) => b - a); // 由高到低
-  const n = sorted.length;
-  const levels: PercentileStatistics = { 頂標: null, 前標: null, 均標: null, 後標: null, 底標: null, 平均: null };
-  // 平均
-  levels['平均'] = parseFloat((scores.reduce((a, b) => a + b, 0) / n).toFixed(2));
-  // 計算各標的分數
-  for (let i = 0; i < n; i++) {
-    const percentile = (n - i) / n;
-    const score = sorted[i];
-    if (percentile >= 0.88 && levels['頂標'] === null) {
-      levels['頂標'] = score;
-    } else if (percentile >= 0.75 && percentile < 0.88 && levels['前標'] === null) {
-      levels['前標'] = score;
-    } else if (percentile >= 0.50 && percentile < 0.75 && levels['均標'] === null) {
-      levels['均標'] = score;
-    } else if (percentile >= 0.25 && percentile < 0.50 && levels['後標'] === null) {
-      levels['後標'] = score;
-    } else if (percentile < 0.25 && levels['底標'] === null) {
-      levels['底標'] = score;
-    }
-  }
-  // 處理相同分數的情況：取高標者
-  const levelOrder = ['頂標', '前標', '均標', '後標', '底標'];
-  for (let i = 0; i < levelOrder.length - 1; i++) {
-    const currentLevel = levelOrder[i];
-    const nextLevel = levelOrder[i + 1];
-    if (levels[currentLevel] !== null && levels[nextLevel] !== null && levels[currentLevel] === levels[nextLevel]) {
-      levels[nextLevel] = null;
-    }
-  }
-  // 處理沒有數值的情況：自動填入較高標的數值
-  for (let i = 1; i < levelOrder.length; i++) {
-    const currentLevel = levelOrder[i];
-    const prevLevel = levelOrder[i - 1];
-    if (levels[currentLevel] === null && levels[prevLevel] !== null) {
-      levels[currentLevel] = levels[prevLevel];
-    }
-  }
-  return levels;
-}
-
-export default function GradeManager({ userInfo }: GradeManagerProps) {
-  const [selectedCourse, setSelectedCourse] = useState<string>('');
-  const [selectedCourseName, setSelectedCourseName] = useState('');
-  const [selectedCourseCode, setSelectedCourseCode] = useState('');
-  const [students, setStudents] = useState<StudentGradeRow[]>([]);
-  const [isSaving, setIsSaving] = useState(false);
-  const [selectedTab, setSelectedTab] = useState<'regular' | 'periodic' | 'total'>('regular');
-  const [regularColumns, setRegularColumns] = useState<number>(DEFAULT_REGULAR_COLUMNS);
-  const [regularSettings, setRegularSettings] = useState<RegularScoreSetting[]>([
-    { type: '小考', percent: 40, calcMethod: '平均', n: undefined },
-    { type: '作業', percent: 40, calcMethod: '平均', n: undefined },
-    { type: '上課態度', percent: 20, calcMethod: '平均', n: undefined },
-  ]);
-  const [periodicScores, setPeriodicScores] = useState<PeriodicScoreName[]>(['第一次定期評量', '第二次定期評量', '期末評量']);
-  const [totalSetting, setTotalSetting] = useState<TotalScoreSetting>({
-    regularPercent: 60,
-    periodicPercent: 40,
-    manualAdjust: 0,
-    regularDetail: {
-      '小考': { percent: 40, calcMethod: '平均' },
-      '作業': { percent: 40, calcMethod: '平均' },
-      '上課態度': { percent: 20, calcMethod: '平均' },
-    },
-  });
-  const [columnDetails, setColumnDetails] = useState<{ [idx: number]: ColumnDetail }>({});
-  const [editingColumn, setEditingColumn] = useState<number | null>(null);
-  const inputRefs = useRef<(HTMLInputElement | null)[][]>([]);
+export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null }) {
+  // --- 狀態管理 ---
   const [courses, setCourses] = useState<CourseInfo[]>([]);
-  const [showPercentModal, setShowPercentModal] = useState(false);
-  // 1. 新增 state：小考p%、作業q%、上課態度r%、特殊加分c、定期評量次數勾選、各項模式
-  const [percentQuizRaw, setPercentQuizRaw] = useState<string>('40');
-  const [percentHomeworkRaw, setPercentHomeworkRaw] = useState<string>('40');
-  const [percentAttitudeRaw, setPercentAttitudeRaw] = useState<string>('20');
-  const percentQuiz = Number(percentQuizRaw);
-  const percentHomework = Number(percentHomeworkRaw);
-  const percentAttitude = Number(percentAttitudeRaw);
-  const percentRegular = percentQuiz + percentHomework + percentAttitude;
-  const percentPeriodic = 100 - percentRegular;
-  const [quizMode, setQuizMode] = useState<'all'|'best'>('all');
-  const [quizBestCount, setQuizBestCount] = useState<number>(3);
-  const [homeworkMode, setHomeworkMode] = useState<'all'|'best'>('all');
-  const [homeworkBestCount, setHomeworkBestCount] = useState<number>(3);
-  const [attitudeMode, setAttitudeMode] = useState<'all'|'best'>('all');
-  const [attitudeBestCount, setAttitudeBestCount] = useState<number>(3);
-  const [periodicEnabled, setPeriodicEnabled] = useState<boolean[]>([true, true, true]); // [第一次, 第二次, 期末]
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
-  const [showCourseDetail, setShowCourseDetail] = useState<{ id: string; name: string; code: string } | null>(null);
-  const [teachers, setTeachers] = useState<{ id: string; name: string }[]>([]);
-  const [isDistributionModalOpen, setIsDistributionModalOpen] = useState(false);
-  const [distributionData, setDistributionData] = useState<DistributionData | null>(null);
-  const [courseStats, setCourseStats] = useState<Record<string, { studentCount: number; examStatus: Record<PeriodicScoreName, boolean> }>>({});
-  const [isCourseListLoading, setIsCourseListLoading] = useState(false);
-  const [isGradeDataLoading, setIsGradeDataLoading] = useState(false);
-  const [loadingCourseId, setLoadingCourseId] = useState<string | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<CourseInfo | null>(null);
+  const [students, setStudents] = useState<StudentGradeRow[]>([]);
+  const [columnDetails, setColumnDetails] = useState<Record<string, ColumnDetail>>({});
+  const [regularColumns, setRegularColumns] = useState(0);
+  const [periodicColumnDetails, setPeriodicColumnDetails] = useState<Record<string, PeriodicColumnMeta>>(() =>
+    mergePeriodicColumnDetails(undefined)
+  );
+  const [settings, setSettings] = useState<GradeSettings | null>(null);
 
-  // Mobile update handlers (used by mobile-only UI)
-  const handleUpdateRegularScore = (studentId: string, colIdx: number, value?: number) => {
-    setStudents(prev => prev.map(s => s.id === studentId ? { ...s, regularScores: { ...s.regularScores, [colIdx]: value } } : s));
-    setHasUnsavedChanges(true);
-  };
+  const [selectedTab, setSelectedTab] = useState<'regular' | 'periodic' | 'total'>('regular');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isCourseLoading, setIsCourseLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleUpdatePeriodicScore = (studentId: string, scoreName: PeriodicScoreName, value?: number) => {
-    setStudents(prev => prev.map(s => s.id === studentId ? { ...s, periodicScores: { ...s.periodicScores, [scoreName]: value } } : s));
-    setHasUnsavedChanges(true);
-  };
+  // UI 輔助狀態
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [columnEditor, setColumnEditor] = useState<
+    { kind: 'regular'; index: number } | { kind: 'periodic'; key: string } | null
+  >(null);
+  const [editorDistribution, setEditorDistribution] = useState<{
+    statistics: Record<string, number | null>;
+    distribution: { range: string; count: number }[];
+  } | null>(null);
+  const [editorDistLoading, setEditorDistLoading] = useState(false);
 
-  const handleUpdateManualAdjust = (studentId: string, value: number) => {
-    setStudents(prev => prev.map(s => s.id === studentId ? { ...s, manualAdjust: value } : s));
-    setHasUnsavedChanges(true);
-  };
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedGrade, setSelectedGrade] = useState('all');
+  const [selectedSubject, setSelectedSubject] = useState('all');
+  const [selectedNature, setSelectedNature] = useState('all');
+  const [selectedStatus, setSelectedStatus] = useState('all');
 
+  // --- 核心計算邏輯 (useMemo 優化) ---
+  const computedData: ComputedStudentGradeRow[] = useMemo(() => {
+    const s = settings ?? defaultGradeSettings;
+    return students.map(stu => {
+      const getAvg = (type: RegularType) => {
+        const scores = Object.entries(stu.regularScores || {})
+          .filter(([idx]) => columnDetails[idx]?.type === type)
+          .map(([, v]) => v).filter((v): v is number => typeof v === 'number' && !isNaN(v));
+        
+        if (scores.length === 0) return 0;
+        const { mode, n } = s.calcModes[type];
+        const targetScores = mode === 'all' ? scores : [...scores].sort((a,b)=>b-a).slice(0, n);
+        return targetScores.reduce((a,b)=>a+b, 0) / targetScores.length;
+      };
 
-  const handleShowSettings = (colIdx: number) => {
-    setEditingColumn(colIdx);
-    const scores = students.map(s => s.regularScores?.[colIdx]).filter(score => typeof score === 'number' && !isNaN(score)) as number[];
-    const stats = getTaiwanPercentileLevels(scores);
-    const distribution = [
-        { range: '90-100', count: 0 },
-        { range: '80-89', count: 0 },
-        { range: '70-79', count: 0 },
-        { range: '60-69', count: 0 },
-        { range: '50-59', count: 0 },
-        { range: '<50', count: 0 },
-    ];
-    scores.forEach(score => {
-        if (score >= 90) distribution[0].count++;
-        else if (score >= 80) distribution[1].count++;
-        else if (score >= 70) distribution[2].count++;
-        else if (score >= 60) distribution[3].count++;
-        else if (score >= 50) distribution[4].count++;
-        else distribution[5].count++;
+      const { percents } = s;
+      const qAvg = getAvg('小考'), hAvg = getAvg('作業'), aAvg = getAvg('上課態度');
+      const regTotalPercent = percents.quiz + percents.hw + percents.att;
+      const regWeighted = regTotalPercent > 0 ? (qAvg * percents.quiz + hAvg * percents.hw + aAvg * percents.att) / regTotalPercent : 0;
+      
+      const pEnabledNames = DEFAULT_PERIODIC_ITEM_KEYS.filter((k) => s.periodicEnabled[k] !== false);
+      const pVals = pEnabledNames.map((n) => stu.periodicScores?.[n]).filter((v): v is number => typeof v === 'number' && !isNaN(v));
+      const pAvg = pVals.length > 0 ? pVals.reduce((a,b)=>a+b,0)/pVals.length : 0;
+
+      const total = Math.round(regWeighted * (percents.periodic / 100) + pAvg * ((100 - percents.periodic) / 100));
+      
+      return { ...stu, qAvg, hAvg, aAvg, regWeighted, pAvg, total };
     });
-    setDistributionData({ statistics: stats, distribution });
-    
-    setIsDistributionModalOpen(true);
-  };
+  }, [students, columnDetails, settings]);
 
-  // 檢查是否有未儲存的變更
-  useEffect(() => {
-    setHasUnsavedChanges(false);
+  // --- 資料處理 Functions ---
+  const handleScoreChange = useCallback((id: string, type: 'reg'|'peri', key: string|number, val: string) => {
+    const num = val === '' ? undefined : parseInt(val, 10);
+    setStudents(prev => prev.map(s => {
+      if (s.id !== id) return s;
+      return type === 'reg' 
+        ? { ...s, regularScores: { ...s.regularScores, [key]: num } }
+        : { ...s, periodicScores: { ...s.periodicScores, [key]: num } };
+    }));
   }, []);
 
-  // 離開頁面檢查
   useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges) {
-        e.preventDefault();
-        e.returnValue = '您有未儲存的變更，確定要離開嗎？';
-      }
-    };
-
-    const handlePopState = async () => {
-      if (hasUnsavedChanges) {
-        const result = await Swal.fire({
-          title: '請確認',
-          text: '您有未儲存的變更，確定要離開嗎？',
-          icon: 'warning',
-          showCancelButton: true,
-          confirmButtonText: '確定離開',
-          cancelButtonText: '取消'
-        });
-        if (!result.isConfirmed) {
-          window.history.pushState(null, '', window.location.href);
-        }
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    window.addEventListener('popstate', handlePopState);
-
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('popstate', handlePopState);
-    };
-  }, [hasUnsavedChanges]);
-
-  // 獲取老師資料
-  const fetchTeachers = async () => {
-    try {
-      const res = await fetch('/api/teacher/list');
-      if (res.ok) {
-        const teachersData = await res.json();
-        setTeachers(teachersData);
-      }
-    } catch (_error) {
-      console.error('獲取老師資料時發生錯誤:', _error);
-    }
-  };
-
-  useEffect(() => {
-    if (!userInfo || !userInfo.id) {
-      setCourses([]);
+    if (!columnEditor || !selectedCourse) {
+      setEditorDistribution(null);
       return;
     }
-    (async () => {
-      setIsCourseListLoading(true);
-      try {
-        const resCourses = await fetch('/api/courses/list');
-        if (!resCourses.ok) {
-          throw new Error('無法獲取課程列表');
-        }
-        const allCourses = await resCourses.json();
-        if (!Array.isArray(allCourses)) {
-          throw new Error('課程資料格式錯誤');
-        }
-        const teacherCourses = allCourses.filter((c: { teachers?: string[], name?: string, code?: string }) => Array.isArray(c.teachers) && c.teachers.includes(userInfo.id) && c.name && c.code);
-        setCourses(teacherCourses);
-
-        const courseStatsPromises = teacherCourses.map(async (course) => {
-          const studentRes = await fetch(`/api/course-student-list/list`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ courseName: course.name, courseCode: course.code }),
+    const columnId = columnEditor.kind === 'regular' ? columnEditor.index : columnEditor.key;
+    const scoreKind = columnEditor.kind === 'periodic' ? 'periodic' : 'regular';
+    let cancelled = false;
+    setEditorDistLoading(true);
+    setEditorDistribution(null);
+    fetch('/api/grades/distribution', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        courseId: selectedCourse.id,
+        courseKey: `${selectedCourse.name}(${selectedCourse.code})`,
+        columnId,
+        scoreKind,
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled && data.statistics && data.distribution) {
+          setEditorDistribution({
+            statistics: data.statistics,
+            distribution: data.distribution,
           });
-          
-          if (!studentRes.ok) {
-            throw new Error(`無法獲取課程 ${course.name} 的學生列表`);
-          }
-          
-          const studentList = await studentRes.json();
-          if (!Array.isArray(studentList)) {
-            throw new Error('學生資料格式錯誤');
-          }
-          const studentCount = studentList.length;
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setEditorDistribution(null);
+      })
+      .finally(() => {
+        if (!cancelled) setEditorDistLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [columnEditor, selectedCourse]);
 
-          const gradeRes = await fetch('/api/grades/list', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ courseKeys: [`${course.name}(${course.code})`] }),
+  const addRegularColumn = useCallback(() => {
+    setRegularColumns((c) => {
+      const nextIdx = c;
+      setColumnDetails((prev) => ({
+        ...prev,
+        [String(nextIdx)]: {
+          type: '小考',
+          name: `平時項目${nextIdx + 1}`,
+          date: '',
+        },
+      }));
+      return c + 1;
+    });
+  }, []);
+
+  const deleteRegularColumn = useCallback(
+    (removeIdx: number) => {
+      setColumnDetails((prev) => {
+        const next: Record<string, ColumnDetail> = {};
+        Object.keys(prev).forEach((k) => {
+          const i = Number(k);
+          if (Number.isNaN(i)) return;
+          if (i < removeIdx) next[k] = prev[k];
+          else if (i > removeIdx) next[String(i - 1)] = prev[k];
+        });
+        return next;
+      });
+      setStudents((prev) =>
+        prev.map((s) => {
+          const rs = { ...s.regularScores };
+          const newRs: Record<string, number | undefined> = {};
+          Object.keys(rs).forEach((k) => {
+            const i = Number(k);
+            if (Number.isNaN(i)) return;
+            if (i < removeIdx) newRs[k] = rs[k];
+            else if (i > removeIdx) newRs[String(i - 1)] = rs[k];
           });
-          
-          if (!gradeRes.ok) {
-            throw new Error(`無法獲取課程 ${course.name} 的成績資料`);
-          }
-          
-          const gradeData = (await gradeRes.json())[`${course.name}(${course.code})`];
-          const examStatus = {
-            '第一次定期評量': false,
-            '第二次定期評量': false,
-            '期末評量': false,
-          };
-          if (gradeData && gradeData.students) {
-            for (const student of gradeData.students) {
-              if (student.periodicScores?.['第一次定期評量'] !== undefined) examStatus['第一次定期評量'] = true;
-              if (student.periodicScores?.['第二次定期評量'] !== undefined) examStatus['第二次定期評量'] = true;
-              if (student.periodicScores?.['期末評量'] !== undefined) examStatus['期末評量'] = true;
-            }
-          }
-          return { courseId: course.id, studentCount, examStatus };
-        });
+          return { ...s, regularScores: newRs };
+        })
+      );
+      setRegularColumns((c) => Math.max(0, c - 1));
+      setColumnEditor(null);
+    },
+    []
+  );
 
-        const courseStatsResults = await Promise.all(courseStatsPromises);
-        const newCourseStats: Record<string, { studentCount: number; examStatus: Record<PeriodicScoreName, boolean> }> = {};
-        courseStatsResults.forEach(stat => {
-          newCourseStats[stat.courseId] = { studentCount: stat.studentCount, examStatus: stat.examStatus };
-        });
-        setCourseStats(newCourseStats);
-      } catch (_error: unknown) {
-        console.error('載入課程資料時發生錯誤:', _error);
-        Swal.fire('錯誤', _error instanceof Error ? _error.message : String(_error), 'error');
-      } finally {
-        setIsCourseListLoading(false);
-      }
-    })()
+  // --- 副作用 (Fetch Data) ---
+  useEffect(() => {
+    if (userInfo) {
+      setIsLoading(true);
+      fetch('/api/courses/list', { method: 'POST' })
+        .then(res => res.json())
+        .then(data => setCourses(data.filter((c: { teachers?: string[] }) => c.teachers?.includes(userInfo.id))))
+        .finally(() => setIsLoading(false));
+    }
   }, [userInfo]);
 
-  // 獲取老師資料
   useEffect(() => {
-    fetchTeachers();
-  }, []);
-
-  useEffect(() => {
-    if (selectedCourseName && selectedCourseCode) {
-      // 載入學生列表
-      (async () => {
-        setIsGradeDataLoading(true);
+    if (selectedCourse) {
+      const fetchGradeData = async () => {
+        setIsCourseLoading(true);
         try {
-          const res = await fetch('/api/course-student-list/list', {
+          const res = await fetch('/api/grades/get', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ courseName: selectedCourseName, courseCode: selectedCourseCode }),
+            body: JSON.stringify({ courseId: selectedCourse.id, courseName: selectedCourse.name, courseCode: selectedCourse.code })
           });
+          if (!res.ok) throw new Error('讀取成績資料失敗');
+          const data = await res.json();
           
-          if (!res.ok) {
-            throw new Error(`無法獲取課程 ${selectedCourseName} 的學生列表`);
-          }
-          
-          const studentList = await res.json();
-          if (!Array.isArray(studentList)) {
-            throw new Error('學生資料格式錯誤');
-          }
-          const initialStudents = studentList.map((stu: { studentId: string; name: string; grade: string }) => ({
-            id: stu.studentId,
-            studentId: stu.studentId,
-            name: stu.name,
-            grade: stu.grade,
-            regularScores: {},
-            periodicScores: {},
-            totalScore: 0,
-            manualAdjust: 0,
-          }));
-
-          // 載入現有成績資料
-          const courseKey = `${selectedCourseName}(${selectedCourseCode})`;
-          const resGrades = await fetch('/api/grades/list', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ courseKeys: [courseKey] }),
+          setStudents(data.students || []);
+          setColumnDetails(data.columnDetails || {});
+          setRegularColumns(data.regularColumns || 0);
+          setSettings(data.settings ?? defaultGradeSettings);
+          setPeriodicColumnDetails(mergePeriodicColumnDetails(data.periodicColumnDetails));
+        } catch (error) {
+          Swal.fire({
+            icon: 'error',
+            title: '讀取失敗',
+            text: error instanceof Error ? error.message : '發生未知錯誤',
+            confirmButtonColor: '#ef4444',
+            customClass: { popup: 'rounded-2xl' }
           });
-          
-          if (!resGrades.ok) {
-            throw new Error(`無法獲取課程 ${selectedCourseName} 的成績資料`);
-          }
-          
-          const gradesResult = await resGrades.json();
-          const gradeData = gradesResult ? gradesResult[courseKey] : null;
-
-          if (gradeData && Array.isArray(gradeData.students)) {
-            const gradeDataStudentsMap = new Map(gradeData.students.map((s: StudentGradeRow) => [s.studentId, s]));
-            const mergedStudents = initialStudents.map((s: StudentGradeRow) => {
-              const savedStudentData = gradeDataStudentsMap.get(s.studentId);
-              return savedStudentData ? { ...s, ...(savedStudentData as StudentGradeRow) } : s;
-            });
-            setStudents(mergedStudents);
-          } else {
-            setStudents(initialStudents);
-          }
-          
-          if (gradeData) {
-            if (gradeData.columns) {
-              setColumnDetails(gradeData.columns);
-            }
-            if (gradeData.regularSettings) {
-              setRegularSettings(gradeData.regularSettings);
-            }
-            if (gradeData.periodicScores) {
-              setPeriodicScores(gradeData.periodicScores);
-            }
-            if (gradeData.totalSetting) {
-              setTotalSetting({
-                ...gradeData.totalSetting,
-                regularPercent: gradeData.totalSetting.regularPercent ?? 60,
-                periodicPercent: gradeData.totalSetting.periodicPercent ?? 40,
-                manualAdjust: gradeData.totalSetting.manualAdjust ?? 0,
-                regularDetail: gradeData.totalSetting.regularDetail ?? {
-                  '小考': { percent: 40, calcMethod: '平均' },
-              '作業': { percent: 40, calcMethod: '平均' },
-              '上課態度': { percent: 20, calcMethod: '平均' },
-                }
-              });
-              // 同步 percentQuiz/percentHomework/percentAttitude
-              setPercentQuizRaw(String(gradeData.totalSetting.regularDetail?.['小考']?.percent ?? '40'));
-              setPercentHomeworkRaw(String(gradeData.totalSetting.regularDetail?.['作業']?.percent ?? '40'));
-              setPercentAttitudeRaw(String(gradeData.totalSetting.regularDetail?.['上課態度']?.percent ?? '20'));
-            } else {
-              setTotalSetting({
-                regularPercent: 60,
-                periodicPercent: 40,
-                manualAdjust: 0,
-                regularDetail: {
-                  '小考': { percent: 40, calcMethod: '平均' },
-                  '作業': { percent: 40, calcMethod: '平均' },
-                  '上課態度': { percent: 20, calcMethod: '平均' },
-                }
-              });
-              setPercentQuizRaw('40');
-              setPercentHomeworkRaw('40');
-              setPercentAttitudeRaw('20');
-            }
-          } else {
-            setTotalSetting({
-              regularPercent: 60,
-              periodicPercent: 40,
-              manualAdjust: 0,
-              regularDetail: {
-                '小考': { percent: 20, calcMethod: '平均' },
-                '作業': { percent: 10, calcMethod: '平均' },
-                '上課態度': { percent: 10, calcMethod: '平均' },
-              }
-            });
-            setPercentQuizRaw('20');
-            setPercentHomeworkRaw('10');
-            setPercentAttitudeRaw('10');
-          }
-        } catch (error: unknown) {
-          console.error('載入成績資料時發生錯誤:', error);
-          Swal.fire('錯誤', error instanceof Error ? error.message : String(error), 'error');
         } finally {
-          setIsGradeDataLoading(false);
-          setLoadingCourseId(null);
+          setIsCourseLoading(false);
         }
-      })();
-    } else {
-      setStudents([]);
-      setTotalSetting({
-        regularPercent: 60,
-        periodicPercent: 40,
-        manualAdjust: 0,
-        regularDetail: {
-          '小考': { percent: 20, calcMethod: '平均' },
-          '作業': { percent: 10, calcMethod: '平均' },
-          '上課態度': { percent: 10, calcMethod: '平均' },
-        }
-      });
-      setPercentQuizRaw('20');
-      setPercentHomeworkRaw('10');
-      setPercentAttitudeRaw('10');
+      };
+      fetchGradeData();
     }
-  }, [selectedCourseName, selectedCourseCode]);
+  }, [selectedCourse]);
 
-  // handleSave: 儲存時同步 periodicEnabled
-  const handleSave = async () => {
-    if (!selectedCourseName || !selectedCourseCode) {
-      Swal.fire('警告', '請先選擇課程', 'warning');
-      return;
-    }
-    const periodicEnabledObj: { [name in PeriodicScoreName]: boolean } = {
-      '第一次定期評量': !!periodicEnabled[0],
-      '第二次定期評量': !!periodicEnabled[1],
-      '期末評量': !!periodicEnabled[2],
-    };
-    const newTotalSetting = {
-      ...totalSetting,
-      regularPercent: percentRegular,
-      periodicPercent: percentPeriodic,
-      regularDetail: {
-        '小考': {
-          ...(totalSetting.regularDetail['小考'] || {}),
-          percent: percentQuiz
-        },
-        '作業': {
-          ...(totalSetting.regularDetail['作業'] || {}),
-          percent: percentHomework
-        },
-        '上課態度': {
-          ...(totalSetting.regularDetail['上課態度'] || {}),
-          percent: percentAttitude
-        }
-      },
-      periodicEnabled: periodicEnabledObj
-    };
+  const handleSaveChanges = async () => {
+    if (!selectedCourse) return;
     setIsSaving(true);
     try {
-      const gradeData = {
-        students,
-        columns: columnDetails,
-        regularSettings,
-        periodicScores,
-        totalSetting: newTotalSetting,
-        teacherId: userInfo?.id,
-        teacherName: userInfo?.name,
-      };
-      const cleanedGradeData = removeUndefinedDeep(gradeData);
-      await saveGrades(selectedCourseName, selectedCourseCode, cleanedGradeData);
-      Swal.fire('成功', '成績已儲存！', 'success');
-    } catch (error: unknown) {
-      console.error('儲存成績時發生錯誤:', error);
-      Swal.fire('錯誤', error instanceof Error ? error.message : String(error), 'error');
+      const res = await fetch('/api/grades/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          courseId: selectedCourse.id,
+          students,
+          columnDetails,
+          regularColumns,
+          settings,
+          periodicColumnDetails,
+        })
+      });
+      if (!res.ok) throw new Error('儲存成績失敗');
+      Swal.fire({
+        icon: 'success',
+        title: '成績已儲存',
+        confirmButtonColor: '#4f46e5',
+        customClass: { popup: 'rounded-2xl' }
+      });
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: '儲存失敗',
+        text: error instanceof Error ? error.message : '發生未知錯誤',
+        confirmButtonColor: '#ef4444',
+        customClass: { popup: 'rounded-2xl' }
+      });
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleExport = () => {
-    if (!selectedCourseName || !selectedCourseCode || students.length === 0) {
-      Swal.fire('警告', '請先選擇課程且有學生資料', 'warning');
-      return;
-    }
+  const filteredCourses = useMemo(() => {
+    return courses.filter(course => {
+      const statusMatch = selectedStatus === 'all' ? course.status !== '已封存' : course.status === selectedStatus;
+      const natureMatch = selectedNature === 'all' || course.courseNature === selectedNature;
 
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet(`${selectedCourseName} 成績`);
-
-    // Define columns
-    const columns: Partial<ExcelJS.Column>[] = [
-      { header: '學號', key: 'studentId', width: 15 },
-      { header: '姓名', key: 'name', width: 15 },
-    ];
-
-    // Add regular score columns
-    const regularScoreColumns: Partial<ExcelJS.Column>[] = [];
-    for (let i = 0; i < regularColumns; i++) {
-      const detail = columnDetails[i];
-      let displayName = `成績${i + 1}`;
-      if (detail && detail.type) {
-        const count = Array.from({ length: i + 1 }).filter((_, k) => (columnDetails[k]?.type) === detail.type).length;
-        displayName = `${detail.type}${count}`;
-      }
-      if (detail.name && detail.name.trim() !== '') {
-        displayName = detail.name;
-      }
-      regularScoreColumns.push({ header: displayName, key: `regular${i}`, width: 12 });
-    }
-
-    // Add periodic score columns
-    const periodicScoreColumns: Partial<ExcelJS.Column>[] = periodicScores.map(scoreName => ({
-        header: scoreName, key: scoreName, width: 15
-    }));
-
-    const totalScoreColumns: Partial<ExcelJS.Column>[] = [
-        { header: '總成績', key: 'totalScore', width: 10 },
-        { header: '備註', key: 'remark', width: 20 },
-    ];
-
-    worksheet.columns = [...columns, ...regularScoreColumns, ...periodicScoreColumns, ...totalScoreColumns];
-
-    // Add rows
-    students.forEach(student => {
-        interface ExcelRow {
-  studentId: string;
-  name: string;
-  remark: string;
-  [key: string]: string | number | undefined;
-}
-
-    const row: ExcelRow = {
-          studentId: student.studentId,
-          name: student.name,
-          remark: student.remark || '',
-        };
-      for (let i = 0; i < regularColumns; i++) {
-        row[`regular${i}`] = student.regularScores[i] ?? '';
-      }
-      
-      // periodic scores
-      periodicScores.forEach(scoreName => {
-        row[scoreName] = student.periodicScores[scoreName] ?? '';
-      });
-
-      // total score
-      const { weighted: regularScore } = calcRegularScore(student);
-      const periodicEnabledObj = totalSetting.periodicEnabled || {};
-      const enabledPeriodic = periodicScores.filter(name => periodicEnabledObj[name as PeriodicScoreName]);
-      const periodicVals: number[] = enabledPeriodic.map(name => {
-        const v = student.periodicScores?.[name as PeriodicScoreName];
-        return typeof v === 'number' && !isNaN(v) ? v : 0;
-      });
-      const periodicAvgNum = enabledPeriodic.length > 0 ? periodicVals.reduce((a, b) => a + b, 0) / enabledPeriodic.length : 0;
-      const manualAdjustNum = typeof student.manualAdjust === 'number' && !isNaN(student.manualAdjust) ? student.manualAdjust : 0;
-      
-      row.totalScore = Math.round(
-        regularScore * (totalSetting.regularPercent / 100) +
-        periodicAvgNum * (totalSetting.periodicPercent / 100) +
-        manualAdjustNum
-      );
-
-      worksheet.addRow(row);
+      return (course.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+             course.code.toLowerCase().includes(searchTerm.toLowerCase())) && 
+             (selectedGrade === 'all' || (course.gradeTags && course.gradeTags.includes(selectedGrade))) && 
+             (selectedSubject === 'all' || course.subjectTag === selectedSubject) &&
+             natureMatch &&
+             statusMatch;
     });
+  }, [courses, searchTerm, selectedGrade, selectedSubject, selectedNature, selectedStatus]);
 
-    workbook.xlsx.writeBuffer().then((buffer: ArrayBuffer) => {
-      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${selectedCourseName}_${selectedCourseCode}_成績.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      
-      Swal.fire({
-        title: '匯出完成',
-        text: 'Excel 檔案已下載到您的電腦',
-        icon: 'success',
-        showConfirmButton: true,
-        confirmButtonText: '確定',
-        timer: 3000,
-        timerProgressBar: true,
-        allowOutsideClick: false,
-        allowEscapeKey: true,
-        customClass: {
-          popup: 'animate-bounce-in',
-          title: 'text-green-600'
-        }
-      });
-    });
-  };
-
-  const handleImport = () => {
-    // TODO: import from CSV/Excel
-    Swal.fire('提示', '匯入功能尚未實作', 'info');
-  };
-
-  // 輔助函數：平時成績計算
-  function calcRegularScore(stu: StudentGradeRow): { quizAvg: number; homeworkAvg: number; attitudeAvg: number; weighted: number } {
-    // 小考
-    const quizScores = Object.entries(stu.regularScores || {})
-      .filter(([idx]) => {
-        const detail: ColumnDetail | undefined = columnDetails[Number(idx)];
-        return detail?.type === '小考';
-      })
-      .map(([, v]) => typeof v === 'number' ? v : undefined)
-      .filter((v): v is number => typeof v === 'number');
-    let quizAvg = 0;
-    if (quizScores.length > 0) {
-      if (quizMode === 'all') {
-        quizAvg = quizScores.reduce((a, b) => a + b, 0) / quizScores.length;
-      } else {
-        const sorted = [...quizScores].sort((a, b) => b - a);
-        const n = Math.min(quizBestCount, sorted.length);
-        quizAvg = sorted.slice(0, n).reduce((a, b) => a + b, 0) / n;
-      }
-    }
-    // 作業
-    const homeworkScores = Object.entries(stu.regularScores || {})
-      .filter(([idx]) => {
-        const detail: ColumnDetail | undefined = columnDetails[Number(idx)];
-        return detail?.type === '作業';
-      })
-      .map(([, v]) => typeof v === 'number' ? v : undefined)
-      .filter((v): v is number => typeof v === 'number');
-    let homeworkAvg = 0;
-    if (homeworkScores.length > 0) {
-      if (homeworkMode === 'all') {
-        homeworkAvg = homeworkScores.reduce((a, b) => a + b, 0) / homeworkScores.length;
-      } else {
-        const sorted = [...homeworkScores].sort((a, b) => b - a);
-        const n = Math.min(homeworkBestCount, sorted.length);
-        homeworkAvg = sorted.slice(0, n).reduce((a, b) => a + b, 0) / n;
-      }
-    }
-    // 上課態度
-    const attitudeScores = Object.entries(stu.regularScores || {})
-      .filter(([idx]) => {
-        const detail: ColumnDetail | undefined = columnDetails[Number(idx)];
-        return detail?.type === '上課態度';
-      })
-      .map(([, v]) => typeof v === 'number' ? v : undefined)
-      .filter((v): v is number => typeof v === 'number');
-    let attitudeAvg = 0;
-    if (attitudeScores.length > 0) {
-      if (attitudeMode === 'all') {
-        attitudeAvg = attitudeScores.reduce((a, b) => a + b, 0) / attitudeScores.length;
-      } else {
-        const sorted = [...attitudeScores].sort((a, b) => b - a);
-        const n = Math.min(attitudeBestCount, sorted.length);
-        attitudeAvg = sorted.slice(0, n).reduce((a, b) => a + b, 0) / n;
-      }
-    }
-    return {
-      quizAvg,
-      homeworkAvg,
-      attitudeAvg,
-      weighted: quizAvg * percentQuiz / 100 + homeworkAvg * percentHomework / 100 + attitudeAvg * percentAttitude / 100
-    };
-  }
-
-  // 百分比調整彈窗開啟時同步最新值
-  const openPercentModal = () => {
-    setShowPercentModal(true);
-  };
-
-  // 處理課程詳細資訊顯示
-  const handleShowCourseDetail = (course: { id: string; name: string; code: string }) => {
-    setShowCourseDetail(course);
-  };
-
-  const handleAddColumn = () => {
-    setRegularColumns(prev => prev + 1);
-  };
-
-  // 處理刪除課程欄位
-  const handleDeleteColumn = () => {
-    if (editingColumn !== null) {
-      // 移除該欄位的成績資料
-      setStudents(prev => prev.map(stu => {
-        const newRegularScores = { ...stu.regularScores };
-        delete newRegularScores[editingColumn];
-        // 重新整理 index 以確保欄位順序
-        const reordered: { [key: string]: number | undefined } = {};
-        let c = 0;
-        for (let i = 0; i < regularColumns; i++) {
-          if (i !== editingColumn) {
-            reordered[c] = newRegularScores[i];
-            c++;
-          }
-        }
-        return { ...stu, regularScores: reordered };
-      }));
-      
-      // 移除欄位詳細資訊
-      setColumnDetails(prev => {
-        const newDetails = { ...prev };
-        delete newDetails[editingColumn];
-        // 重新整理 index
-        const reordered: { [key: string]: { type: string; name: string; date: string } } = {};
-        let c = 0;
-        for (let i = 0; i < regularColumns; i++) {
-          if (i !== editingColumn) {
-            reordered[c] = newDetails[i];
-            c++;
-          }
-        }
-        return reordered;
-      });
-      
-      // 減少欄位數量
-      setRegularColumns(prev => Math.max(1, prev - 1));
-      
-      // 關閉彈窗
-      setEditingColumn(null);
-      setShowCourseDetail(null);
-    }
-  };
-
-  // 讀取時初始化 periodicEnabled 狀態
-  useEffect(() => {
-    if (totalSetting && totalSetting.periodicEnabled) {
-      const PERIODIC_SCORE_NAMES: PeriodicScoreName[] = ['第一次定期評量', '第二次定期評量', '期末評量'];
-      setPeriodicEnabled(PERIODIC_SCORE_NAMES.map(name => !!totalSetting.periodicEnabled?.[name]));
-    }
-  }, [totalSetting]);
-
-  if (isCourseListLoading) {
-    return (
-      <div className="fixed top-16 inset-x-0 bottom-0 bg-white z-50">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center">
-          <LoadingSpinner size={60} text="成績資料載入中..." />
-        </div>
-      </div>
-    );
-  }
+  // --- 渲染部分 ---
+  if (isLoading) return <div className="flex justify-center p-20"><LoadingSpinner size={50} text="載入課程中..." /></div>;
 
   return (
-    <div className="max-w-6xl mx-auto w-full p-4 flex flex-col">
-      <h2 className="text-2xl font-bold mb-6">成績資料管理</h2>
-      {selectedCourse ? (
-        <div className="mb-4">
-          <button className="btn-secondary" onClick={() => { setSelectedCourse(''); setSelectedCourseName(''); setSelectedCourseCode(''); }}>
-            返回課程列表
-          </button>
+    <div className="max-w-7xl mx-auto w-full p-4 md:p-6 space-y-6 animate-fade-in">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center">
+          <ClipboardDocumentListIcon className="w-8 h-8 mr-3 text-indigo-600" />
+          <h2 className="text-2xl font-bold text-gray-800">成績管理系統</h2>
         </div>
-      ) : (
+        {selectedCourse && (
+          <button onClick={() => setSelectedCourse(null)} className="text-sm text-indigo-600 hover:underline">返回列表</button>
+        )}
+      </div>
+
+      {!selectedCourse ? (
         <>
-          {/* Mobile Card View for Course Selection */}
-          <div className="md:hidden">
-            {courses.map(course => (
-              <div key={course.id} className="bg-white border border-gray-200 rounded-lg shadow-sm mb-4 p-4">
-                <div className="font-medium text-gray-900 mb-2">{course.name} ({course.code})</div>
-                <div className="text-sm text-gray-500 mb-2">學生人數: {courseStats[course.id]?.studentCount ?? '...'}</div>
-                <div className="text-sm text-gray-500 mb-2">第一次段考: {courseStats[course.id]?.examStatus['第一次定期評量'] ? '已上傳' : '未上傳'}</div>
-                <div className="text-sm text-gray-500 mb-2">第二次段考: {courseStats[course.id]?.examStatus['第二次定期評量'] ? '已上傳' : '未上傳'}</div>
-                <div className="text-sm text-gray-500 mb-4">期末考: {courseStats[course.id]?.examStatus['期末評量'] ? '已上傳' : '未上傳'}</div>
-                <button
-                  className="btn-primary w-full"
-                  disabled={isGradeDataLoading}
-                  onClick={() => {
-                    setIsGradeDataLoading(true);
-                    setLoadingCourseId(course.id);
-                    setSelectedCourse(course.id);
-                    setSelectedCourseName(course.name);
-                    setSelectedCourseCode(course.code);
-                  }}
-                >
-                  {isGradeDataLoading && loadingCourseId === course.id ? (
-                    <LoadingSpinner size={20} color="white" />
-                  ) : (
-                    '管理成績'
-                  )}
-                </button>
-              </div>
-            ))}
-          </div>
-
-          {/* Desktop Table View for Course Selection */}
-          <div className="hidden md:block bg-white border border-gray-200 rounded-lg shadow-sm overflow-x-auto mb-8">
-            <table className="w-full text-sm text-left text-gray-500">
-              <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">課程</th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">學生人數</th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">第一次段考</th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">第二次段考</th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">期末考</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {courses.map(course => (
-                  <tr key={course.id} className="bg-white border-b hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="font-medium text-gray-900">{course.name}</div>
-                      <div className="text-sm text-gray-500">{course.code}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center text-gray-800">{courseStats[course.id]?.studentCount ?? '...'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      {courseStats[course.id]?.examStatus['第一次定期評量'] ? (
-                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">已上傳</span>
-                      ) : (
-                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">未上傳</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      {courseStats[course.id]?.examStatus['第二次定期評量'] ? (
-                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">已上傳</span>
-                      ) : (
-                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">未上傳</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center">
-                      {courseStats[course.id]?.examStatus['期末評量'] ? (
-                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">已上傳</span>
-                      ) : (
-                        <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">未上傳</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button
-                        className="btn-primary"
-                        disabled={isGradeDataLoading}
-                        onClick={() => {
-                          setIsGradeDataLoading(true);
-                          setLoadingCourseId(course.id);
-                          setSelectedCourse(course.id);
-                          setSelectedCourseName(course.name);
-                          setSelectedCourseCode(course.code);
-                        }}
-                      >
-                        {isGradeDataLoading && loadingCourseId === course.id ? (
-                          <LoadingSpinner size={20} color="white" />
-                        ) : (
-                          '管理成績'
-                        )}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {!isCourseListLoading && courses.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="text-center py-4 text-gray-500">
-                      尚無授課課程
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-      {(userInfo && courses.length === 0) && (
-        <div className="text-red-500 mb-4">尚未設定授課課程，請聯絡管理員。</div>
-      )}
-      {/* 已選課但無學生時顯示提示 */}
-      {selectedCourse && students.length === 0 && (
-        <div className="text-gray-500 mb-4">本課程暫無學生</div>
-      )}
-      {/* 已選課且有學生才顯示主功能區塊與匯入/出按鈕 */}
-      {selectedCourse && students.length > 0 && (
-        <div className="relative">
-          {isGradeDataLoading && (
-            <div className="fixed top-16 inset-x-0 bottom-0 bg-white z-50">
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center">
-                <LoadingSpinner size={60} text="成績資料載入中..." />
-              </div>
-            </div>
+          {/* 篩選器 */}
+          {!isLoading && courses.length > 0 && (
+            <CourseFilter
+              searchTerm={searchTerm}
+              onSearchChange={setSearchTerm}
+              selectedGrade={selectedGrade}
+              onGradeChange={setSelectedGrade}
+              selectedSubject={selectedSubject}
+              onSubjectChange={setSelectedSubject}
+              selectedNature={selectedNature}
+              onNatureChange={setSelectedNature}
+              selectedStatus={selectedStatus}
+              onStatusChange={setSelectedStatus}
+              onReset={() => {
+                setSearchTerm('');
+                setSelectedGrade('all');
+                setSelectedSubject('all');
+                setSelectedNature('all');
+                setSelectedStatus('all');
+              }}
+            />
           )}
-          <div className="flex gap-4 mb-6 items-center flex-wrap">
-            <button className={`px-4 py-2 rounded ${selectedTab === 'regular' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`} onClick={() => setSelectedTab('regular')}>平時成績</button>
-            <button className={`px-4 py-2 rounded ${selectedTab === 'periodic' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`} onClick={() => setSelectedTab('periodic')}>定期評量</button>
-            <button className={`px-4 py-2 rounded ${selectedTab === 'total' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`} onClick={() => setSelectedTab('total')}>總成績</button>
-          </div>
-          {/* 分頁內容 */}
-          {selectedTab === 'regular' && (
-            <div className="mb-8">
-              {/* 按鈕區塊 */}
-              {/* Mobile: grid, Desktop: flex */}
-              <div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4 md:hidden">
-                  <button className="btn-primary w-full" onClick={handleExport}>匯出成績</button>
-                  <button className="btn-success w-full" onClick={handleImport}>匯入成績</button>
-                  <button className="btn-warning w-full" onClick={openPercentModal}>百分比調整</button>
-                  <button type="button" className="btn-info w-full" onClick={handleAddColumn}>新增欄位</button>
-                  <button
-                    className="btn-danger w-full"
-                    onClick={handleSave}
-                    disabled={isSaving}
-                  >{isSaving ? '儲存中...' : '儲存成績'}</button>
-                </div>
-                <div className="hidden md:flex md:gap-2 md:flex-nowrap md:overflow-x-auto mb-4">
-                  <button className="btn-primary min-w-[110px] flex-shrink-0" onClick={handleExport}>匯出成績</button>
-                  <button className="btn-success min-w-[110px] flex-shrink-0" onClick={handleImport}>匯入成績</button>
-                  <button className="btn-warning min-w-[110px] flex-shrink-0" onClick={openPercentModal}>百分比調整</button>
-                  <button type="button" className="btn-info min-w-[110px] flex-shrink-0" onClick={handleAddColumn}>新增欄位</button>
-                  <button
-                    className="btn-danger min-w-[110px] flex-shrink-0"
-                    onClick={handleSave}
-                    disabled={isSaving}
-                  >{isSaving ? '儲存中...' : '儲存成績'}</button>
-                </div>
+
+          {filteredCourses.length === 0 ? (
+              <div className="text-center py-16 px-6 bg-white rounded-2xl border border-dashed border-gray-300">
+                  <h3 className="mt-2 text-xl font-bold text-gray-900">尚無符合的課程</h3>
               </div>
-              <div className="overflow-x-auto" style={{ maxWidth: '100%' }}>
-                {/* Mobile card view */}
-                <div className="md:hidden mb-4">
-                  <GradeRegistrationMobile
-                    tab="regular"
-                    students={students}
-                    regularColumns={regularColumns}
-                    columnDetails={columnDetails}
-                    _periodicScores={periodicScores}
-                    onUpdateRegularScore={handleUpdateRegularScore}
-                    _onUpdatePeriodicScore={handleUpdatePeriodicScore}
-                    _onUpdateManualAdjust={handleUpdateManualAdjust}
-                  />
-                </div>
-                <div className="hidden md:block bg-white border border-gray-200 rounded-lg shadow-sm overflow-x-auto">
-                  <table className="w-full text-sm text-left text-gray-500" style={{ tableLayout: 'fixed', width: `${120 + 100 + (regularColumns * 120)}px` }}>
-                    <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+          ) : (
+            <>
+          {/* 桌面版表格視圖 */}
+          <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden hidden md:block">
+              <table className="w-full text-sm text-left text-gray-500">
+                  <thead className="text-xs text-gray-700 uppercase bg-gray-50">
                       <tr>
-                        <th className={studentIdColClass} style={studentIdColStyle}>學號</th>
-                        <th className={studentNameColClass} style={studentNameColStyle}>姓名</th>
-                        {Array.from({ length: regularColumns }).map((_, idx) => {
-                          const detail = columnDetails[idx];
-                          // 依 type 自動產生顯示名稱
-                          let displayName = '';
-                          if (detail?.type === '作業') {
-                            const count = Array.from({ length: idx + 1 }).filter((_, i) => (columnDetails[i]?.type) === '作業').length;
-                            displayName = `作業${count}`;
-                          } else if (detail?.type === '上課態度') {
-                            const count = Array.from({ length: idx + 1 }).filter((_, i) => (columnDetails[i]?.type) === '上課態度').length;
-                            displayName = `上課態度${count}`;
-                          } else if (detail?.type === '小考') {
-                            const count = Array.from({ length: idx + 1 }).filter((_, i) => (columnDetails[i]?.type) === '小考').length;
-                            displayName = `小考${count}`;
-                          } else {
-                            displayName = detail?.name?.trim() ? detail.name : `成績${idx + 1}`;
-                          }
-                          return (
-                            <th key={idx} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '120px' }}>
-                              <div className="flex flex-col items-start">
-                                <span>{displayName}</span>
-                                <button
-                                  className="mt-1 text-blue-500 hover:text-blue-700 text-xs border border-blue-400 rounded px-2 py-0.5"
-                                  type="button"
-                                  onClick={() => handleShowSettings(idx)}
-                                >成績設定</button>
-                              </div>
-                            </th>
-                          );
-                        })}
+                          <th className="px-6 py-4 font-bold min-w-[200px]">課程名稱</th>
+                          <th className="px-6 py-4 font-bold text-right w-[150px]">操作</th>
                       </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {students.map((stu, rowIdx) => (
-                        <tr key={stu.id} className="bg-white hover:bg-gray-50">
-                          <td className={studentIdTdClass} style={studentIdColStyle}>{stu.studentId}</td>
-                          <td className={studentNameTdClass} style={studentNameColStyle}>{stu.name}</td>
-                          {Array.from({ length: regularColumns }).map((_, colIdx) => {
-                            const score = stu.regularScores?.[colIdx];
-                            const isLow = typeof score === 'number' && score < 60;
-                            return (
-                              <td key={colIdx} className="px-2 py-4 whitespace-nowrap text-sm text-gray-900" style={{ width: '120px' }}>
-                                <input
-                                  inputMode="numeric"
-                                  className="w-16 border border-gray-300 rounded p-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  value={score ?? ''}
-                                  ref={el => {
-                                    if (!inputRefs.current[rowIdx]) inputRefs.current[rowIdx] = [];
-                                    inputRefs.current[rowIdx][colIdx] = el;
-                                  }}
-                                  onChange={e => {
-                                    const value = e.target.value;
-                                    setStudents(prev => prev.map(s =>
-                                      s.id === stu.id
-                                        ? { ...s, regularScores: { ...s.regularScores, [colIdx]: value === '' ? undefined : parseInt(value, 10) } }
-                                        : s
-                                    ));
-                                  }}
-                                  onKeyDown={e => {
-                                    if (e.key === 'Enter') {
-                                      e.preventDefault();
-                                      if (rowIdx < students.length - 1) {
-                                        inputRefs.current[rowIdx + 1]?.[colIdx]?.focus();
-                                      }
-                                    }
-                                  }}
-                                  onBlur={e => {
-                                    const value = e.target.value;
-                                    if (value !== '') {
-                                      const numValue = parseInt(value, 10);
-                                      if (numValue < 0) {
-                                        setStudents(prev => prev.map(s =>
-                                          s.id === stu.id
-                                            ? { ...s, regularScores: { ...s.regularScores, [colIdx]: 0 } }
-                                            : s
-                                        ));
-                                      } else if (numValue > 100) {
-                                        setStudents(prev => prev.map(s =>
-                                          s.id === stu.id
-                                            ? { ...s, regularScores: { ...s.regularScores, [colIdx]: 100 } }
-                                            : s
-                                        ));
-                                      }
-                                    }
-                                  }}
-                                />
-                                {/* 4. 低於60分標示* */}
-                                {isLow && (
-                                  <span className="text-red-500 ml-1 font-bold">*</span>
-                                )}
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                      {filteredCourses.map(course => (
+                          <tr key={course.id} className="hover:bg-indigo-50/30 transition-colors group">
+                              <td className="px-6 py-4">
+                                  <div className="font-bold text-gray-900 text-base whitespace-nowrap overflow-hidden text-ellipsis">{course.name}</div>
+                                  <div className="text-xs font-mono text-gray-500 mt-1">{course.code}</div>
                               </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              {/* 平時成績設定與統計彈窗 */}
-              <CourseDetailModal
-                course={showCourseDetail}
-                teachers={teachers}
-                open={!!showCourseDetail && selectedTab === 'regular'}
-                onClose={() => {
-                  setShowCourseDetail(null);
-                  setEditingColumn(null);
-                }}
-                showDescription={false}
-                showStudents={false}
-                showDeleteButton={true}
-                onDelete={handleDeleteColumn}
-                isGradeInfo={true}
-                isPeriodic={false}
-                editingColumn={editingColumn}
-                columnDetails={columnDetails}
-                onColumnDetailsChange={setColumnDetails}
-                students={students}
-                getTaiwanPercentileLevels={getTaiwanPercentileLevels}
-                _periodicScores={periodicScores}
-              />
-
-              {/* 平時成績百分比調整彈窗 */}
-            </div>
-          )}
-          {selectedTab === 'periodic' && (
-            <div className="mb-8">
-              {/* 按鈕區塊 */}
-              <div className="grid grid-cols-2 gap-2 mb-4 md:flex md:gap-2 md:flex-nowrap md:overflow-x-auto">
-                <button className="btn-primary min-w-[110px] flex-shrink-0" onClick={handleExport}>匯出成績</button>
-                <button className="btn-success min-w-[110px] flex-shrink-0" onClick={handleImport}>匯入成績</button>
-                <button className="btn-warning min-w-[110px] flex-shrink-0" onClick={openPercentModal}>百分比調整</button>
-                <button
-                  className="btn-danger min-w-[110px] flex-shrink-0"
-                  onClick={handleSave}
-                  disabled={isSaving}
-                >{isSaving ? '儲存中...' : '儲存成績'}</button>
-              </div>
-              <div className="overflow-x-auto" style={{ maxWidth: '100%' }}>
-                {/* Mobile card view */}
-                <div className="md:hidden mb-4">
-                  <GradeRegistrationMobile
-                    tab="periodic"
-                    students={students}
-                    regularColumns={regularColumns}
-                    columnDetails={columnDetails}
-                    _periodicScores={periodicScores}
-                    onUpdateRegularScore={handleUpdateRegularScore}
-                    _onUpdatePeriodicScore={handleUpdatePeriodicScore}
-                    _onUpdateManualAdjust={handleUpdateManualAdjust}
-                  />
-                </div>
-                <div className="hidden md:block bg-white border border-gray-200 rounded-lg shadow-sm overflow-x-auto">
-                  <table className="w-full text-sm text-left text-gray-500" style={{ tableLayout: 'fixed', width: `${120 + 100 + (periodicScores.length * 120)}px` }}>
-                    <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                      <tr>
-                        <th className={studentIdColClass} style={studentIdColStyle}>學號</th>
-                        <th className={studentNameColClass} style={studentNameColStyle}>姓名</th>
-                        {periodicScores.map((scoreName, idx) => (
-                          <th key={idx} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '120px' }}>
-                            <div className="flex flex-col items-start">
-                              <span>{scoreName}</span>
-                              <button
-                                className="mt-1 text-blue-500 hover:text-blue-700 text-xs border border-blue-400 rounded px-2 py-0.5"
-                                type="button"
-                                onClick={() => {
-                                  setEditingColumn(idx);
-                                  // 偽造 course 物件以顯示彈窗
-                                  const tempCourse = {
-                                    id: `periodic-${idx}`,
-                                    name: `${periodicScores[idx]}成績`,
-                                    code: `PERIODIC-${idx + 1}`
-                                  };
-                                  handleShowCourseDetail(tempCourse);
-                                }}
-                              >成績統計</button>
-                            </div>
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {students.map((stu, rowIdx) => (
-                        <tr key={stu.id} className="bg-white hover:bg-gray-50">
-                          <td className={studentIdTdClass} style={studentIdColStyle}>{stu.studentId}</td>
-                          <td className={studentNameTdClass} style={studentNameColStyle}>{stu.name}</td>
-                          {periodicScores.map((scoreName, colIdx) => {
-                            const score = stu.periodicScores?.[scoreName];
-                            const isLow = typeof score === 'number' && score < 60;
-                            return (
-                              <td key={colIdx} className="px-2 py-4 whitespace-nowrap text-sm text-gray-900" style={{ width: '120px' }}>
-                                <input
-                                  inputMode="numeric"
-                                  className="w-16 border border-gray-300 rounded p-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  value={score ?? ''}
-                                  ref={el => {
-                                    if (!inputRefs.current[rowIdx]) inputRefs.current[rowIdx] = [];
-                                    inputRefs.current[rowIdx][colIdx] = el;
-                                  }}
-                                  onChange={e => {
-                                    const value = e.target.value;
-                                    setStudents(prev => prev.map(s =>
-                                      s.id === stu.id
-                                        ? {
-                                            ...s,
-                                            periodicScores: {
-                                              ...s.periodicScores,
-                                              [scoreName]: value === '' ? undefined : parseInt(value, 10)
-                                            }
-                                          }
-                                        : s
-                                    ));
-                                  }}
-                                  onKeyDown={e => {
-                                    if (e.key === 'Enter') {
-                                      e.preventDefault();
-                                      if (rowIdx < students.length - 1) {
-                                        inputRefs.current[rowIdx + 1]?.[colIdx]?.focus();
-                                      }
-                                    }
-                                  }}
-                                />
-                                {/* 低於60分標示* */}
-                                {isLow && (
-                                  <span className="text-red-500 ml-1 font-bold">*</span>
-                                )}
+                              <td className="px-6 py-4 text-right whitespace-nowrap">
+                                  <button onClick={() => setSelectedCourse(course)} className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
+                                      管理成績
+                                  </button>
                               </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              {/* 定期評量設定與統計彈窗 */}
-              <CourseDetailModal
-                course={showCourseDetail}
-                teachers={teachers}
-                open={!!showCourseDetail && selectedTab === 'periodic'}
-                onClose={() => {
-                  setShowCourseDetail(null);
-                  setEditingColumn(null);
-                }}
-                showDescription={false}
-                showStudents={false}
-                showDeleteButton={false}
-                isGradeInfo={true}
-                isPeriodic={true}
-                editingColumn={editingColumn}
-                columnDetails={columnDetails}
-                onColumnDetailsChange={setColumnDetails}
-                students={students}
-                getTaiwanPercentileLevels={getTaiwanPercentileLevels}
-                _periodicScores={periodicScores}
-              />
-
-
-            </div>
-          )}
-          {selectedTab === 'total' && (
-            <div className="mb-8">
-              {/* 按鈕區塊移到上方 */}
-              <div className="flex gap-2 mb-4 flex-nowrap overflow-x-auto">
-                <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 min-w-[110px] flex-shrink-0" onClick={handleExport}>匯出成績</button>
-                <button className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 min-w-[110px] flex-shrink-0" onClick={handleImport}>匯入成績</button>
-                <button className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600 min-w-[110px] flex-shrink-0" onClick={openPercentModal}>百分比調整</button>
-                <button
-                  className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 min-w-[110px] flex-shrink-0"
-                  onClick={handleSave}
-                  disabled={isSaving}
-                >{isSaving ? '儲存中...' : '儲存成績'}</button>
-              </div>
-              <div className="overflow-x-auto" style={{ maxWidth: '100%' }}>
-                {/* Mobile card view */}
-                <div className="md:hidden mb-4">
-                  <GradeRegistrationMobile
-                    tab="total"
-                    students={students}
-                    regularColumns={regularColumns}
-                    columnDetails={columnDetails}
-                    _periodicScores={periodicScores}
-                    onUpdateRegularScore={handleUpdateRegularScore}
-                    _onUpdatePeriodicScore={handleUpdatePeriodicScore}
-                    _onUpdateManualAdjust={handleUpdateManualAdjust}
-                  />
-                </div>
-                <div className="hidden md:block bg-white border border-gray-200 rounded-lg shadow-sm overflow-x-auto">
-                  <table className="w-full text-sm text-left text-gray-500" style={{ tableLayout: 'fixed', width: `${120 + 100 + 120*4}px` }}>
-                    <thead className="text-xs text-gray-700 uppercase bg-gray-50">
-                      <tr className="bg-gray-50">
-                        <th className={studentIdColClass} style={studentIdColStyle}>學號</th>
-                        <th className={studentNameColClass} style={studentNameColStyle}>姓名</th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '120px' }}>平時成績</th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '120px' }}>期中評量</th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '120px' }}>期末評量</th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '120px' }}>特殊加分</th>
-                        <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style={{ width: '120px' }}>總成績</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {students.map((stu) => {
-                        // 平時成績計算
-                        const { weighted: regularScore } = calcRegularScore(stu);
-                        // 定期評量
-                        const first = stu.periodicScores?.['第一次定期評量'] ?? 0;
-                        const second = stu.periodicScores?.['第二次定期評量'] ?? 0;
-                        const final = stu.periodicScores?.['期末評量'] ?? 0;
-                        const midAvg = (Number(first) + Number(second)) / 2;
-                        // 特殊加分
-                        const manualAdjust = typeof stu.manualAdjust === 'number' ? stu.manualAdjust : 0;
-                        // 平時成績顯示：現有平時成績數據 / (平時成績總%/100)
-                        const percentRegularNum = typeof totalSetting.regularPercent === 'number' && !isNaN(totalSetting.regularPercent) ? totalSetting.regularPercent : 0;
-                        const percentPeriodicNum = typeof totalSetting.periodicPercent === 'number' && !isNaN(totalSetting.periodicPercent) ? totalSetting.periodicPercent : 0;
-                        const manualAdjustNum = typeof manualAdjust === 'number' && !isNaN(manualAdjust) ? manualAdjust : 0;
-                        // 匯出時用 totalSetting.periodicEnabled
-                        const periodicEnabledObj = totalSetting.periodicEnabled || {
-                          '第一次定期評量': true,
-                          '第二次定期評量': true,
-                          '期末評量': true,
-                        };
-                        const PERIODIC_SCORE_NAMES = ['第一次定期評量', '第二次定期評量', '期末評量'];
-                        const enabledPeriodic = PERIODIC_SCORE_NAMES.filter(name => periodicEnabledObj[name as PeriodicScoreName]);
-                        const periodicVals: number[] = enabledPeriodic.map(name => {
-                          const v = stu.periodicScores?.[name as PeriodicScoreName];
-                          return typeof v === 'number' && !isNaN(v) ? v : 0;
-                        });
-                        const periodicAvgNum = enabledPeriodic.length > 0 ? (periodicVals as number[]).reduce((a, b) => a + b, 0) / enabledPeriodic.length : 0;
-                        // 修正：正確計算總成績
-                        const total = Math.round(
-                          regularScore * percentRegularNum / 100 +
-                          periodicAvgNum * percentPeriodicNum / 100 +
-                          manualAdjustNum
-                        );
-                        return (
-                          <tr key={stu.id} className="bg-white hover:bg-gray-50">
-                            <td className={studentIdTdClass} style={studentIdColStyle}>{stu.studentId}</td>
-                            <td className={studentNameTdClass} style={studentNameColStyle}>{stu.name}</td>
-                            <td className="px-4 py-2 text-center text-sm text-gray-900">{regularScore.toFixed(1)}</td>
-                            <td className="px-4 py-2 text-center text-sm text-gray-900">{midAvg.toFixed(1)}</td>
-                            <td className="px-4 py-2 text-center text-sm text-gray-900">{String(final)}</td>
-                            <td className="px-4 py-2 text-center text-sm text-gray-900">
-                              <input
-                                type="number"
-                                inputMode="numeric"
-                                className="w-20 border border-gray-300 rounded px-2 py-1 text-center text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                min={-5}
-                                max={5}
-                                step={1}
-                                value={manualAdjust}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                  let v = Number(e.target.value);
-                                  if (isNaN(v)) v = 0;
-                                  if (v > 5) v = 5;
-                                  if (v < -5) v = -5;
-                                  setStudents(prev => prev.map(s =>
-                                    s.id === stu.id ? { ...s, manualAdjust: v } : s
-                                  ));
-                                }}
-                              />
-                            </td>
-                            <td className="px-4 py-2 text-center text-sm font-bold text-gray-900">{total}</td>
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-              {/* 在總成績表格上方顯示公式 */}
-              <div className="mb-2 text-sm text-gray-600 font-mono">
-                總成績 = 小考({totalSetting.regularDetail['小考']?.percent ?? 0}%)
-                + 作業({totalSetting.regularDetail['作業']?.percent ?? 0}%)
-                + 上課態度({totalSetting.regularDetail['上課態度']?.percent ?? 0}%)
-                + 定期評量({totalSetting.periodicPercent ?? 0}%)
-              </div>
-            </div>
-          )}
+                      ))}
+                  </tbody>
+              </table>
+          </div>
 
-          {/* 離開確認彈窗 */}
+          {/* 手機版卡片視圖 */}
+          <div className="md:hidden space-y-4">
+              {filteredCourses.map(course => (
+                  <div key={course.id} className="bg-white border border-gray-100 rounded-xl shadow-sm p-5 flex flex-col gap-3 active:scale-[0.99] transition-transform" onClick={() => setSelectedCourse(course)}>
+                      <div className="flex justify-between items-start">
+                           <div>
+                               <h3 className="font-bold text-gray-900 text-lg">{course.name}</h3>
+                               <p className="text-xs font-mono text-gray-500 mt-1">{course.code}</p>
+                           </div>
+                      </div>
+                      <div className="border-t border-gray-100 pt-3 flex justify-end">
+                           <button onClick={(e) => { e.stopPropagation(); setSelectedCourse(course); }} className="w-full flex items-center justify-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
+                               管理成績
+                           </button>
+                      </div>
+                  </div>
+              ))}
+          </div>
+            </>
+          )}
+        </>
+      ) : (
+        /* 管理主畫面 */
+        <div className="space-y-4">
+          {/* 工具列 */}
+          <div className="flex flex-wrap items-center gap-3 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+            <div className="flex bg-gray-100 p-1 rounded-xl">
+              {(['regular', 'periodic', 'total'] as const).map(t => (
+                <button key={t} onClick={() => setSelectedTab(t)} className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${selectedTab === t ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500'}`}>
+                  {t === 'regular' ? '平時' : t === 'periodic' ? '定期' : '總成績'}
+                </button>
+              ))}
+            </div>
+            <button className="btn-secondary flex items-center" onClick={() => setShowSettingsModal(true)}><AdjustmentsHorizontalIcon className="w-4 h-4 mr-2" />權重設定</button>
+            {selectedTab === 'regular' && (
+              <button
+                type="button"
+                className="btn-secondary flex items-center border-dashed border-2 border-indigo-200 text-indigo-700"
+                onClick={addRegularColumn}
+              >
+                <PlusIcon className="w-4 h-4 mr-2" />
+                新增平時欄位
+              </button>
+            )}
+            <button className="btn-primary ml-auto flex items-center" onClick={handleSaveChanges} disabled={isSaving}>
+              {isSaving ? <LoadingSpinner size={16} color="white" className="mr-2" /> : <CloudArrowUpIcon className="w-5 h-5 mr-2" />}
+              {isSaving ? '儲存中...' : '儲存變更'}
+            </button>
+          </div>
+
           
 
-
-  </div>
+          {/* 表格主體 (簡化邏輯呈現) */}
+          <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+            {isCourseLoading ? (
+              <div className="p-20 flex justify-center items-center">
+                <LoadingSpinner text="載入成績資料..." />
+              </div>
+            ) : (
+            <>
+            {/* Mobile View */}
+            <GradeRegistrationMobile 
+              tab={selectedTab} // The 'tab' prop is already typed as 'regular' | 'periodic' | 'total'
+              students={computedData} // 'computedData' is now correctly typed as 'ComputedStudentGradeRow[]'
+              regularColumns={regularColumns}
+              columnDetails={columnDetails}
+              _periodicScores={FIXED_PERIODIC_KEYS}
+              periodicColumnDetails={periodicColumnDetails}
+              onUpdateRegularScore={(studentId, colIdx, value) => handleScoreChange(studentId, 'reg', colIdx, String(value ?? ''))}
+              _onUpdatePeriodicScore={(studentId, scoreName, value) => handleScoreChange(studentId, 'peri', scoreName, String(value ?? ''))}
+            />
+            <div className="hidden md:block overflow-x-auto custom-scrollbar">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-gray-50 text-gray-700 uppercase text-xs font-bold">
+                  <tr>
+                    <th className="px-6 py-4 sticky left-0 bg-gray-50 z-10 w-32 border-r">學號</th>
+                    <th className="px-6 py-4 sticky left-32 bg-gray-50 z-10 w-24 border-r shadow-sm">姓名</th>
+                    {selectedTab === 'regular' && Array.from({ length: regularColumns }).map((_, i) => (
+                      <th key={i} className="px-4 py-4 min-w-[120px] text-center border-b">
+                        <div className="text-[10px] text-gray-400 mb-1">{columnDetails[i]?.type || '未設定'}</div>
+                        <div className="cursor-pointer hover:text-indigo-600" onClick={() => setColumnEditor({ kind: 'regular', index: i })}>
+                          {columnDetails[i]?.name || `成績${i + 1}`}
+                        </div>
+                        {columnDetails[i]?.date ? (
+                          <div className="text-[10px] text-gray-400 font-mono mt-0.5">{columnDetails[i].date}</div>
+                        ) : null}
+                      </th>
+                    ))}
+                    {selectedTab === 'periodic' &&
+                      FIXED_PERIODIC_KEYS.map((pk) => {
+                        const meta = periodicColumnDetails[pk];
+                        return (
+                          <th key={pk} className="px-4 py-4 min-w-[140px] text-center border-b">
+                            <div className="text-[10px] text-gray-400 mb-1">{meta?.type || '定期評量'}</div>
+                            <div className="cursor-pointer hover:text-indigo-600 text-sm font-bold text-gray-800" onClick={() => setColumnEditor({ kind: 'periodic', key: pk })}>
+                              {pk}
+                            </div>
+                            {meta?.date ? (
+                              <div className="text-[10px] text-gray-400 font-mono mt-0.5">{meta.date}</div>
+                            ) : null}
+                          </th>
+                        );
+                      })}
+                    {selectedTab === 'total' && (
+                      <>
+                        <th className="px-4 py-4 text-center">平時加權</th>
+                        <th className="px-4 py-4 text-center">定期平均</th>
+                        <th className="px-4 py-4 text-center text-indigo-600">總成績</th>
+                      </>
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {computedData.map((stu) => (
+                    <tr key={stu.id} className="group">
+                      <td className="px-6 py-4 font-mono sticky left-0 bg-white group-hover:bg-indigo-50/30 z-20 border-r">{stu.studentId}</td>
+                      <td className="px-6 py-4 font-medium sticky left-32 bg-white group-hover:bg-indigo-50/30 z-20 border-r shadow-sm">{stu.name}</td>
+                      {selectedTab === 'regular' && Array.from({ length: regularColumns }).map((_, colIdx) => (
+                        <td key={colIdx} className="px-4 py-2 text-center">
+                          <input 
+                            type="number" 
+                            className={`w-20 border rounded-lg px-2 py-1.5 text-center focus:ring-2 focus:ring-indigo-500 outline-none ${ (stu.regularScores[colIdx] ?? 0) < 60 ? 'text-red-500 font-bold' : ''}`}
+                            value={stu.regularScores[colIdx] ?? ''}
+                            onChange={(e) => handleScoreChange(stu.id, 'reg', colIdx, e.target.value)}
+                          />
+                        </td>
+                      ))}
+                      {selectedTab === 'periodic' &&
+                        FIXED_PERIODIC_KEYS.map((pk) => (
+                          <td key={pk} className="px-4 py-2 text-center">
+                            <input
+                              type="number"
+                              className={`w-20 border rounded-lg px-2 py-1.5 text-center focus:ring-2 focus:ring-indigo-500 outline-none ${(stu.periodicScores?.[pk] ?? 0) < 60 ? 'text-red-500 font-bold' : ''}`}
+                              value={stu.periodicScores?.[pk] ?? ''}
+                              onChange={(e) => handleScoreChange(stu.id, 'peri', pk, e.target.value)}
+                            />
+                          </td>
+                        ))}
+                      {selectedTab === 'total' && (
+                        <>
+                          <td className="px-4 py-4 text-center font-mono">{stu.regWeighted.toFixed(1)}</td>
+                          <td className="px-4 py-4 text-center font-mono">{stu.pAvg.toFixed(1)}</td>
+                          <td className={`px-4 py-4 text-center font-bold text-lg ${stu.total < 60 ? 'text-red-600' : 'text-indigo-600'}`}>{stu.total}</td>
+                        </>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            </>
+            )}
+          </div>
+        </div>
       )}
+
+      {/* 權重設定 Modal */}
+      <Modal open={showSettingsModal} onClose={() => setShowSettingsModal(false)} title="成績比例與採計設定" size="lg">
+        {(() => {
+          const s = settings ?? defaultGradeSettings;
+          const regSum = s.percents.quiz + s.percents.hw + s.percents.att;
+          const finalPeriodicPct = 100 - s.percents.periodic;
+          return (
+            <div className="space-y-6">
+              <p className="text-sm text-gray-600">
+                下方「小考／作業／上課態度」為<strong>平時成績內部</strong>加權（可為 0，未填視為 0）。「平時佔總成績」決定平時加權與定期平均在<strong>總成績</strong>中的比例。
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {([['quiz', '小考'], ['hw', '作業'], ['att', '上課態度']] as const).map(([key, label]) => (
+                  <div key={key}>
+                    <label className="text-xs text-gray-500">{label} 佔平時加權（%）</label>
+                    <input
+                      type="number"
+                      className="w-full border rounded-lg p-2 mt-1"
+                      value={s.percents[key]}
+                      onChange={(e) =>
+                        setSettings((prev) => {
+                          const base = prev ?? defaultGradeSettings;
+                          return {
+                            ...base,
+                            percents: { ...base.percents, [key]: Number(e.target.value) || 0 },
+                          };
+                        })
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+              <div>
+                <label className="text-xs text-gray-500">平時加權占總成績（%）</label>
+                <input
+                  type="number"
+                  className="w-full border rounded-lg p-2 mt-1 max-w-xs"
+                  value={s.percents.periodic}
+                  onChange={(e) =>
+                    setSettings((prev) => {
+                      const base = prev ?? defaultGradeSettings;
+                      return {
+                        ...base,
+                        percents: { ...base.percents, periodic: Number(e.target.value) || 0 },
+                      };
+                    })
+                  }
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  定期平均約占總成績：{finalPeriodicPct}%（100 − 上列數值）
+                </p>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-xl text-sm text-gray-700">
+                <div>平時內部權重加總：{regSum}%（建議 100%，僅用於計算平時加權）</div>
+              </div>
+              <div className="border-t pt-4 space-y-2">
+                <div className="text-sm font-bold text-gray-700">採計「定期平均」時納入的項目</div>
+                <p className="text-xs text-gray-500">
+                  畫面上固定顯示：第一次定期評量、第二次定期評量、期末評量（可登記分數）。取消勾選者仍會顯示欄位，但不計入定期平均與總成績中的定期部分。
+                </p>
+                <div className="flex flex-col gap-2">
+                  {DEFAULT_PERIODIC_ITEM_KEYS.map((k) => (
+                    <label key={k} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={s.periodicEnabled[k] !== false}
+                        onChange={(e) =>
+                          setSettings((prev) => {
+                            const base = prev ?? defaultGradeSettings;
+                            return {
+                              ...base,
+                              periodicEnabled: { ...base.periodicEnabled, [k]: e.target.checked },
+                            };
+                          })
+                        }
+                      />
+                      {k}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <button
+                className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-100"
+                onClick={() => setShowSettingsModal(false)}
+              >
+                確認設定
+              </button>
+            </div>
+          );
+        })()}
+      </Modal>
+
+      {/* 成績細項：名稱／日期／類別 + 五標 + 分布 */}
+      <Modal
+        open={columnEditor !== null}
+        onClose={() => setColumnEditor(null)}
+        title={columnEditor?.kind === 'regular' ? '平時成績項目設定' : '定期評量項目設定'}
+        size="xl"
+      >
+        {columnEditor && (
+          <div className="space-y-6">
+            {columnEditor.kind === 'regular' ? (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="sm:col-span-1">
+                  <label className="text-xs text-gray-500">項目名稱</label>
+                  <input
+                    type="text"
+                    className="w-full border rounded-lg p-2 mt-1"
+                    value={columnDetails[columnEditor.index]?.name ?? ''}
+                    onChange={(e) =>
+                      setColumnDetails((prev) => ({
+                        ...prev,
+                        [String(columnEditor.index)]: {
+                          type: prev[String(columnEditor.index)]?.type ?? '小考',
+                          name: e.target.value,
+                          date: prev[String(columnEditor.index)]?.date ?? '',
+                        },
+                      }))
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">日期</label>
+                  <input
+                    type="date"
+                    className="w-full border rounded-lg p-2 mt-1"
+                    value={columnDetails[columnEditor.index]?.date ?? ''}
+                    onChange={(e) =>
+                      setColumnDetails((prev) => ({
+                        ...prev,
+                        [String(columnEditor.index)]: {
+                          type: prev[String(columnEditor.index)]?.type ?? '小考',
+                          name: prev[String(columnEditor.index)]?.name ?? '',
+                          date: e.target.value,
+                        },
+                      }))
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">成績類別</label>
+                  <select
+                    className="w-full border rounded-lg p-2 mt-1"
+                    value={columnDetails[columnEditor.index]?.type ?? '小考'}
+                    onChange={(e) =>
+                      setColumnDetails((prev) => ({
+                        ...prev,
+                        [String(columnEditor.index)]: {
+                          type: e.target.value as RegularType,
+                          name: prev[String(columnEditor.index)]?.name ?? '',
+                          date: prev[String(columnEditor.index)]?.date ?? '',
+                        },
+                      }))
+                    }
+                  >
+                    <option value="小考">小考</option>
+                    <option value="作業">作業</option>
+                    <option value="上課態度">上課態度</option>
+                  </select>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2 rounded-lg bg-gray-50 border border-gray-100 px-4 py-3">
+                  <div className="text-xs text-gray-500">評量名稱（固定）</div>
+                  <div className="text-base font-bold text-gray-900 mt-1">{columnEditor.key}</div>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">日期</label>
+                  <input
+                    type="date"
+                    className="w-full border rounded-lg p-2 mt-1"
+                    value={periodicColumnDetails[columnEditor.key]?.date ?? ''}
+                    onChange={(e) =>
+                      setPeriodicColumnDetails((prev) => ({
+                        ...prev,
+                        [columnEditor.key]: {
+                          name: columnEditor.key,
+                          date: e.target.value,
+                          type: prev[columnEditor.key]?.type ?? '定期評量',
+                        },
+                      }))
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">成績類別</label>
+                  <input
+                    type="text"
+                    className="w-full border rounded-lg p-2 mt-1"
+                    value={periodicColumnDetails[columnEditor.key]?.type ?? '定期評量'}
+                    onChange={(e) =>
+                      setPeriodicColumnDetails((prev) => ({
+                        ...prev,
+                        [columnEditor.key]: {
+                          name: columnEditor.key,
+                          date: prev[columnEditor.key]?.date ?? '',
+                          type: e.target.value,
+                        },
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+            )}
+
+            {editorDistLoading ? (
+              <div className="flex justify-center py-8">
+                <LoadingSpinner text="載入班級統計…" />
+              </div>
+            ) : editorDistribution ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                  <h5 className="font-bold text-gray-800 mb-3 flex items-center">
+                    <ChartBarIcon className="w-5 h-5 mr-2 text-indigo-500" /> 五標與平均
+                  </h5>
+                  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <table className="min-w-full divide-y divide-gray-100 text-sm">
+                      <tbody className="divide-y divide-gray-50">
+                        {[
+                          ['頂標', editorDistribution.statistics.頂標],
+                          ['前標', editorDistribution.statistics.前標],
+                          ['均標', editorDistribution.statistics.均標],
+                          ['後標', editorDistribution.statistics.後標],
+                          ['底標', editorDistribution.statistics.底標],
+                          ['平均', editorDistribution.statistics.平均],
+                        ].map(([label, val]) => (
+                          <tr key={String(label)}>
+                            <td className="px-4 py-2 text-gray-700">{label}</td>
+                            <td className="px-4 py-2 text-right font-mono">{val ?? '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <div>
+                  <h5 className="font-bold text-gray-800 mb-3 flex items-center">
+                    <ChartBarIcon className="w-5 h-5 mr-2 text-indigo-500" /> 分數分布
+                  </h5>
+                  <div className="space-y-2">
+                    {(() => {
+                      const total = editorDistribution.distribution.reduce((sum, d) => sum + d.count, 0);
+                      return editorDistribution.distribution.map((d) => {
+                        const pct = total > 0 ? Math.round((d.count / total) * 100) : 0;
+                        return (
+                          <div key={d.range} className="flex items-center gap-2 text-sm">
+                            <span className="w-16 text-gray-600">{d.range}</span>
+                            <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                              <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${pct}%` }} />
+                            </div>
+                            <span className="w-20 text-right text-gray-500">
+                              {d.count} 人 ({pct}%)
+                            </span>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 text-center py-4">尚無分數資料或無法載入統計（儲存後全班有分數時會顯示）</p>
+            )}
+
+            {columnEditor.kind === 'regular' && (
+              <div className="border-t pt-4">
+                <button
+                  type="button"
+                  className="w-full py-2 text-red-600 font-medium hover:bg-red-50 rounded-lg transition-colors flex items-center justify-center"
+                  onClick={() => {
+                    Swal.fire({
+                      icon: 'warning',
+                      title: '確定刪除此欄？',
+                      text: '將一併移除所有學生此欄成績，且欄位會重新編號。',
+                      showCancelButton: true,
+                      confirmButtonText: '確定刪除',
+                      cancelButtonText: '取消',
+                      confirmButtonColor: '#dc2626',
+                      cancelButtonColor: '#6b7280',
+                    }).then((r) => {
+                      if (r.isConfirmed) deleteRegularColumn(columnEditor.index);
+                    });
+                  }}
+                >
+                  <TrashIcon className="w-4 h-4 mr-2" /> 刪除此平時欄位
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

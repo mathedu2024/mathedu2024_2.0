@@ -1,17 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { setSession } from '../utils/session';
-import alerts from '../utils/alerts';
-import { LoadingSpinner } from '@/components/ui';;
-import Dropdown from '../components/ui/Dropdown';
+import Link from 'next/link';
+// 使用 @/ 別名引用
+import { setSession } from '@/utils/session';
+import alerts from '@/utils/alerts';
+import LoadingSpinner from '@/components/LoadingSpinner';
+import Dropdown from '@/components/ui/Dropdown';
 
-
-export default function PanelLoginPage() {
-  const router = useRouter();
+export default function LoginPage() {
   const [formData, setFormData] = useState({
-    role: 'teacher', // Default, though API will determine final role
+    role: 'teacher',
     account: '',
     password: '',
   });
@@ -27,16 +26,11 @@ export default function PanelLoginPage() {
     setFormData({ ...formData, role: value });
   };
 
-
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
-    console.log('Panel - Starting login process...');
-
     try {
-      console.log('Panel - Sending login request with:', { account: formData.account, password: formData.password, loginType: 'admin' });
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
@@ -49,56 +43,40 @@ export default function PanelLoginPage() {
         }),
       });
 
-      console.log('Panel - Response status:', response.status);
-      console.log('Panel - Response headers:', response.headers);
-
       let data = null;
       try {
         const contentType = response.headers.get('content-type');
-        console.log('Panel - Content-Type:', contentType);
         if (contentType && contentType.includes('application/json')) {
           data = await response.json();
-          console.log('Panel - Response data:', data);
         } else {
-          const textResponse = await response.text();
-          console.log('Panel - Non-JSON response:', textResponse);
           throw new Error('伺服器回傳格式錯誤');
         }
-      } catch (e) {
-        console.error('Panel - Error parsing response:', e);
+      } catch {
         throw new Error('伺服器錯誤，請稍後再試');
       }
 
       if (!response.ok) {
-        console.error('Panel - Login failed:', data);
         throw new Error((data && data.error) || '登入失敗');
       }
 
-      console.log('Panel - Login successful, data:', data);
-
-      // The API returns the authoritative role
       const sessionData = { ...data, currentRole: formData.role };
+      setSession(sessionData);
+
       if (data.role.includes('student')) {
-        setSession(sessionData);
-        console.log('Panel - Redirecting student to /student');
-        router.push('/student');
+        window.location.href = '/student';
       } else {
-        setSession(sessionData);
-        console.log('Panel - Redirecting admin/teacher to /back-panel');
-        router.push('/back-panel');
+        window.location.href = '/back-panel';
       }
     } catch (err: unknown) {
-      console.error('Panel - Login error:', err);
+      console.error('Login error:', err);
       const message = err instanceof Error ? err.message : '發生未知錯誤';
       
-      
-      // 根據錯誤類型顯示對應的 SweetAlert2 對話框
       if (message.includes('Invalid password') || message.includes('密碼')) {
-        alerts.showPasswordError();
+        alerts.showError('登入失敗', '密碼錯誤，請檢查後再試。');
       } else if (message.includes('Account not found') || message.includes('查無') || message.includes('not found')) {
-        alerts.showAccountNotFound();
-      } else if (message.includes('伺服器錯誤') || message.includes('伺服器回傳格式錯誤')) {
-        alerts.showErrorCode('500');
+        alerts.showError('登入失敗', '查無此帳號，請確認輸入是否正確。');
+      } else if (message.includes('伺服器錯誤')) {
+        alerts.showError('系統錯誤', '伺服器發生錯誤 (500)，請稍後再試。');
       } else {
         alerts.showError(message);
       }
@@ -108,105 +86,116 @@ export default function PanelLoginPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-gray-100 flex items-center justify-center py-2 px-4">
-      <div className="w-full max-w-4xl flex flex-row bg-white shadow-2xl rounded-2xl overflow-hidden animate-fade-in">
-        {/* Left Panel */}
-        <div className="w-1/2 bg-blue-600 p-12 text-white hidden md:flex flex-col justify-center items-center text-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-24 w-24 mb-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0112 20.055a11.952 11.952 0 01-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5zm0 0v6" />
-            </svg>
-            <h1 className="text-4xl font-bold mb-3">高中學習資源教育網</h1>
-            <p className="text-xl">管理後台</p>
+    // 1. 背景：統一使用 cubes 紋理 + 淺灰底色
+    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center bg-gray-50 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] px-4">
+      
+      {/* 2. 卡片：資料庫風格 */}
+      <div className="bg-white p-8 md:p-10 rounded-2xl shadow-xl w-full max-w-md text-center border-t-4 border-indigo-600 animate-fade-in relative">
+        
+        {/* 3. 圖示：管理員/老師專用 Icon (盾牌/人像) */}
+        <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6 text-3xl shadow-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
         </div>
 
-        {/* Right Panel - Login Form */}
-        <div className="w-full md:w-1/2 p-8 md:p-12">
-          <h2 className="text-3xl font-bold text-center mb-8 text-gray-800">管理員/老師登入</h2>
-          <form className="flex flex-col gap-6" onSubmit={handleSubmit}>
-            <div>
-              <label htmlFor="role" className="block text-base font-medium text-gray-700 mb-2">
-                身分
-              </label>
-              <Dropdown
-                value={formData.role}
-                onChange={handleRoleChange}
-                options={[{ value: 'teacher', label: '老師' }, { value: 'admin', label: '管理員' }]} 
-                placeholder="請選擇身分"
-                className="w-full"
+        <h1 className="text-2xl font-bold text-gray-800 mb-2">網站管理登入</h1>
+        <p className="text-gray-500 mb-8 text-sm">老師與管理員專用後台</p>
+
+        <form onSubmit={handleSubmit} className="space-y-5 text-left">
+          
+          {/* 身分選擇 */}
+          <div>
+            <label htmlFor="role" className="block text-sm font-semibold text-gray-700 mb-1">
+              登入身分
+            </label>
+            <Dropdown
+              value={formData.role}
+              onChange={handleRoleChange}
+              options={[{ value: 'teacher', label: '老師' }, { value: 'admin', label: '管理員' }]} 
+              placeholder="請選擇身分"
+              className="w-full"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="account" className="block text-sm font-semibold text-gray-700 mb-1">
+              帳號
+            </label>
+            <input
+              id="account"
+              name="account"
+              type="text"
+              autoComplete="username"
+              required
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+              placeholder="請輸入帳號"
+              value={formData.account}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-1">
+              密碼
+            </label>
+            <div className="relative">
+              <input
+                id="password"
+                type={showPassword ? 'text' : 'password'}
+                name="password"
+                placeholder="請輸入密碼"
+                value={formData.password}
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all pr-10"
+                required
+                autoComplete="current-password"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(v => !v)}
+                className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-indigo-600 focus:outline-none transition-colors"
+                tabIndex={-1}
+              >
+                {showPassword ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                )}
+              </button>
             </div>
-            
-            <div>
-              <label htmlFor="account" className="block text-base font-medium text-gray-700 mb-2">
-                帳號
-              </label>
-              <div className="mt-1">
-                <input
-                  id="account"
-                  name="account"
-                  type="text"
-                  autoComplete="account"
-                  required
-                  className="block w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors,transition-shadow"
-                  placeholder="請輸入您的帳號"
-                  value={formData.account}
-                  onChange={handleChange}
-                />
-              </div>
-            </div>
-            
-            <div>
-              <label htmlFor="password" className="block text-base font-medium text-gray-700 mb-2">
-                密碼
-              </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  name="password"
-                  placeholder="請輸入您的密碼"
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="block w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors,transition-shadow pr-10"
-                  required
-                  autoComplete="current-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(v => !v)}
-                  className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-600 focus:outline-none"
-                  tabIndex={-1}
-                >
-                  {showPassword ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12.001C3.226 16.273 7.24 19.5 12 19.5c1.658 0 3.237-.336 4.646-.94M21 12.001c-.362-1.007-.893-1.957-1.573-2.803M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
-                    </svg>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12s3.75-7.5 9.75-7.5 9.75 7.5 9.75 7.5-3.75 7.5-9.75 7.5S2.25 12 2.25 12z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  )}
-                </button>
-              </div>
-            </div>
+          </div>
 
-            
-            
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3 mt-2 btn-primary text-lg flex justify-center items-center whitespace-nowrap"
-            >
-              {isLoading ? (
-                <LoadingSpinner size={20} color="white" text="登入中..." textPosition="right" />
-              ) : '登入'}
-            </button>
-          </form>
+          <button
+            type="submit"
+            disabled={isLoading}
+            className={`w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center mt-6 ${isLoading ? 'opacity-80 cursor-not-allowed' : 'hover:-translate-y-0.5'}`}
+          >
+            {isLoading ? (
+              <>
+                <LoadingSpinner size={20} color="white" />
+                <span className="ml-2">驗證中...</span>
+              </>
+            ) : (
+              '登入後台'
+            )}
+          </button>
+        </form>
+        
+        <div className="mt-8 border-t border-gray-100 pt-6">
+          <Link href="/student-login" className="text-sm text-gray-500 hover:text-indigo-600 transition-colors flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+            切換至學生登入
+          </Link>
         </div>
+
       </div>
     </div>
   );

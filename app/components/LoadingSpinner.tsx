@@ -1,3 +1,5 @@
+'use client';
+
 import { MoonLoader } from 'react-spinners';
 
 export interface LoadingSpinnerProps {
@@ -8,7 +10,6 @@ export interface LoadingSpinnerProps {
   fullScreen?: boolean;
 }
 
-// 統一使用主視覺藍色 blue-600
 export default function LoadingSpinner({ 
   className = '', 
   color = 'blue',
@@ -17,29 +18,30 @@ export default function LoadingSpinner({
   text = '',
 }: LoadingSpinnerProps) {
   const colorMap = {
-    blue: '#3B82F6',
+    // Updated blue to Indigo-600 to match the new theme
+    blue: '#4f46e5', 
     white: '#FFFFFF',
     gray: '#6B7280'
   };
 
   const content = (
-    <div className={`flex items-center justify-center ${className}`}>
+    <div className={`flex flex-col items-center justify-center ${className}`}>
       <MoonLoader
         color={colorMap[color]}
         size={size}
-        speedMultiplier={1}
+        speedMultiplier={0.8}
       />
-      {text && <span className="ml-2">{text}</span>}
+      {text && <span className={`mt-3 text-sm font-medium ${color === 'white' ? 'text-white' : 'text-gray-500'}`}>{text}</span>}
     </div>
   );
 
   if (fullScreen) {
     return (
-      <div className="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center z-50">
+      <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-[9999]">
         {content}
       </div>
     );
   }
 
   return content;
-} 
+}

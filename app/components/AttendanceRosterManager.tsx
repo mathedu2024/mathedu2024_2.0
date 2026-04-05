@@ -9,6 +9,7 @@ interface RosterManagerProps {
   activityId: string;
   courseId: string;
   courseName: string;
+  students: { id: string; name: string; studentId: string }[];
   onClose: () => void;
 }
 
@@ -23,7 +24,7 @@ export interface RosterStudent {
 
 const leaveTypes: RosterStudent['leaveType'][] = ['事假', '病假', '公假', '喪假', '身心調適假', '生理假', '其他'];
 
-export default function AttendanceRosterManager({ activityId, courseId, courseName, onClose }: RosterManagerProps) {
+export default function AttendanceRosterManager({ activityId, courseId, courseName, students, onClose }: RosterManagerProps) {
   const router = useRouter();
   const [roster, setRoster] = useState<RosterStudent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,7 +46,20 @@ export default function AttendanceRosterManager({ activityId, courseId, courseNa
           throw new Error(errData.error || 'Failed to fetch roster');
         }
         const data = await response.json();
-        setRoster(data);
+        
+        // 整合邏輯：若 API 回傳有資料則使用，否則使用傳入的 students 建立預設名單
+        if (Array.isArray(data) && data.length > 0) {
+          setRoster(data);
+        } else {
+          const initialData: RosterStudent[] = students.map(s => ({
+            id: s.id,
+            name: s.name,
+            studentId: s.studentId,
+            status: 'present',
+            remarks: ''
+          }));
+          setRoster(initialData);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : '無法載入學生名單');
       } finally {
@@ -54,7 +68,7 @@ export default function AttendanceRosterManager({ activityId, courseId, courseNa
     };
 
     fetchRoster();
-  }, [activityId, courseId]);
+  }, [activityId, courseId, students]);
 
   const handleStatusChange = (studentId: string, newStatus: RosterStudent['status']) => {
     setRoster(prevRoster => 
@@ -129,122 +143,59 @@ export default function AttendanceRosterManager({ activityId, courseId, courseNa
         ) : error ? (
           <div className="text-center text-red-500 p-8">{error}</div>
         ) : (
-          <div>
-            {/* Mobile Card View */}
-            <div className="md:hidden space-y-4">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-100 sticky top-0 z-10">
+              <tr>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">學號</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">姓名</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">狀態</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">備註</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
               {roster.map(student => (
-                <div key={student.id} className="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
-                  <div className="flex justify-between items-center mb-3">
-                    <h3 className="font-bold text-lg text-gray-900">{student.name}</h3>
-                    <p className="text-sm text-gray-500">{student.studentId}</p>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <p className="text-sm font-medium text-gray-700">狀態</p>
-                    <div className="flex flex-wrap gap-x-4 gap-y-2">
+                <tr key={student.id}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.studentId}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{student.name}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <div className="flex items-center gap-4">
                       <div className="flex items-center">
-                        <input id={`present-mobile-${student.id}`} name={`status-mobile-${student.id}`} type="radio" checked={student.status === 'present'} onChange={() => handleStatusChange(student.id, 'present')} className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
-                        <label htmlFor={`present-mobile-${student.id}`} className="ml-2 block text-sm text-gray-900">出席</label>
+                        <input id={`present-${student.id}`} name={`status-${student.id}`} type="radio" checked={student.status === 'present'} onChange={() => handleStatusChange(student.id, 'present')} className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
+                        <label htmlFor={`present-${student.id}`} className="ml-2 block text-sm text-gray-900">出席</label>
                       </div>
                       <div className="flex items-center">
-                        <input id={`absent-mobile-${student.id}`} name={`status-mobile-${student.id}`} type="radio" checked={student.status === 'absent'} onChange={() => handleStatusChange(student.id, 'absent')} className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
-                        <label htmlFor={`absent-mobile-${student.id}`} className="ml-2 block text-sm text-gray-900">曠課</label>
+                        <input id={`absent-${student.id}`} name={`status-${student.id}`} type="radio" checked={student.status === 'absent'} onChange={() => handleStatusChange(student.id, 'absent')} className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
+                        <label htmlFor={`absent-${student.id}`} className="ml-2 block text-sm text-gray-900">曠課</label>
                       </div>
                       <div className="flex items-center">
-                        <input id={`leave-mobile-${student.id}`} name={`status-mobile-${student.id}`} type="radio" checked={student.status === 'leave'} onChange={() => handleStatusChange(student.id, 'leave')} className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
-                        <label htmlFor={`leave-mobile-${student.id}`} className="ml-2 block text-sm text-gray-900">請假</label>
+                        <input id={`leave-${student.id}`} name={`status-${student.id}`} type="radio" checked={student.status === 'leave'} onChange={() => handleStatusChange(student.id, 'leave')} className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
+                        <label htmlFor={`leave-${student.id}`} className="ml-2 block text-sm text-gray-900">請假</label>
                       </div>
+                      <select 
+                        value={student.leaveType || '事假'} 
+                        onChange={(e) => handleLeaveTypeChange(student.id, e.target.value as RosterStudent['leaveType'])}
+                        className="ml-2 p-1 border border-gray-300 rounded-md bg-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        style={{ visibility: student.status === 'leave' ? 'visible' : 'hidden' }}
+                      >
+                        {leaveTypes.map(type => (
+                          <option key={type} value={type}>{type}</option>
+                        ))}
+                      </select>
                     </div>
-                    
-                    {student.status === 'leave' && (
-                      <div className="pl-2">
-                        <label htmlFor={`leaveType-mobile-${student.id}`} className="text-sm font-medium text-gray-700 sr-only">請假類別</label>
-                        <select 
-                          id={`leaveType-mobile-${student.id}`}
-                          value={student.leaveType || '事假'} 
-                          onChange={(e) => handleLeaveTypeChange(student.id, e.target.value as RosterStudent['leaveType'])}
-                          className="w-full p-2 border border-gray-300 rounded-md bg-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        >
-                          {leaveTypes.map(type => (
-                            <option key={type} value={type}>{type}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="mt-4">
-                    <label htmlFor={`remarks-mobile-${student.id}`} className="text-sm font-medium text-gray-700">備註</label>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
                     <input 
-                      id={`remarks-mobile-${student.id}`}
                       type="text" 
                       value={student.remarks || ''} 
                       onChange={(e) => handleRemarksChange(student.id, e.target.value)}
-                      className="mt-1 w-full p-2 border border-gray-300 rounded-md text-sm"
+                      className="w-full p-1 border border-gray-300 rounded-md text-sm"
                       placeholder="新增備註..."
                     />
-                  </div>
-                </div>
+                  </td>
+                </tr>
               ))}
-            </div>
-
-            {/* Desktop Table View */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-100 sticky top-0 z-10">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">學號</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">姓名</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">狀態</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">備註</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {roster.map(student => (
-                    <tr key={student.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.studentId}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{student.name}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center">
-                            <input id={`present-${student.id}`} name={`status-${student.id}`} type="radio" checked={student.status === 'present'} onChange={() => handleStatusChange(student.id, 'present')} className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
-                            <label htmlFor={`present-${student.id}`} className="ml-2 block text-sm text-gray-900">出席</label>
-                          </div>
-                          <div className="flex items-center">
-                            <input id={`absent-${student.id}`} name={`status-${student.id}`} type="radio" checked={student.status === 'absent'} onChange={() => handleStatusChange(student.id, 'absent')} className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
-                            <label htmlFor={`absent-${student.id}`} className="ml-2 block text-sm text-gray-900">曠課</label>
-                          </div>
-                          <div className="flex items-center">
-                            <input id={`leave-${student.id}`} name={`status-${student.id}`} type="radio" checked={student.status === 'leave'} onChange={() => handleStatusChange(student.id, 'leave')} className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
-                            <label htmlFor={`leave-${student.id}`} className="ml-2 block text-sm text-gray-900">請假</label>
-                          </div>
-                          <select 
-                            value={student.leaveType || '事假'} 
-                            onChange={(e) => handleLeaveTypeChange(student.id, e.target.value as RosterStudent['leaveType'])}
-                            className="ml-2 p-1 border border-gray-300 rounded-md bg-white text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-                            style={{ visibility: student.status === 'leave' ? 'visible' : 'hidden' }}
-                          >
-                            {leaveTypes.map(type => (
-                              <option key={type} value={type}>{type}</option>
-                            ))}
-                          </select>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <input 
-                          type="text" 
-                          value={student.remarks || ''} 
-                          onChange={(e) => handleRemarksChange(student.id, e.target.value)}
-                          className="w-full p-1 border border-gray-300 rounded-md text-sm"
-                          placeholder="新增備註..."
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+            </tbody>
+          </table>
         )}
         </div>
       </div>

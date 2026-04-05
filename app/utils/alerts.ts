@@ -1,143 +1,42 @@
-import Swal, { SweetAlertIcon, SweetAlertOptions } from 'sweetalert2';
+import Swal from 'sweetalert2';
 
-// 通用配置
-const commonConfig = {
-	confirmButtonText: '確定',
-	confirmButtonColor: '#3B82F6', // 主視覺藍色
-	scrollbarPadding: false,
-	heightAuto: false,
-	allowOutsideClick: false,
-	allowEscapeKey: true,
-	backdrop: true,
-  showClass: {
-    popup: 'animate-bounce-in'
+const alerts = {
+  showSuccess: (title: string, text?: string) => {
+    Swal.fire({
+      icon: 'success',
+      title,
+      text,
+      timer: 1500,
+      showConfirmButton: false
+    });
   },
-  hideClass: {
-    popup: 'animate-fade-out'
+  showError: (title: string, text?: string) => {
+    Swal.fire({
+      icon: 'error',
+      title,
+      text
+    });
   },
-	...Swal.mixin({
-		customClass: {
-			confirmButton: 'swal2-confirm-blue'
-		}
-	})
-};
-
-export const showSuccess = (message: string, options: SweetAlertOptions = {}) => {
-	return Swal.fire({
-		icon: 'success',
-		title: '成功',
-		text: message,
-		...commonConfig,
-		...options,
-	});
-};
-
-export const showError = (message: string, options: SweetAlertOptions = {}) => {
-	return Swal.fire({
-		icon: 'error',
-		title: '發生錯誤',
-		text: message,
-		...commonConfig,
-		...options,
-	});
-};
-
-// 類型一：錯誤代號
-export const showErrorCode = (errorCode: string, options: SweetAlertOptions = {}) => {
-	return Swal.fire({
-		icon: 'error',
-		title: `錯誤${errorCode}`,
-		text: '請稍後再試一次或聯絡管理員(電子郵件：mathedu2024.class@gmail.com)',
-		...commonConfig,
-		...options,
-	});
-};
-
-// 類型二：密碼輸入錯誤
-export const showPasswordError = (options: SweetAlertOptions = {}) => {
-	return Swal.fire({
-		icon: 'error',
-		title: '密碼錯誤',
-		...commonConfig,
-		...options,
-	});
-};
-
-// 類型三：查無此帳號
-export const showAccountNotFound = (options: SweetAlertOptions = {}) => {
-	return Swal.fire({
-		icon: 'error',
-		title: '查無此帳號',
-		text: '請聯絡管理員(電子郵件：mathedu2024.class@gmail.com)',
-		...commonConfig,
-		...options,
-	});
-};
-
-export const showInfo = (message: string, options: SweetAlertOptions = {}) => {
-	return Swal.fire({
-		icon: 'info',
-		title: message,
-		confirmButtonText: '知道了',
-		...commonConfig,
-		...options,
-	});
-};
-
-export const showWarning = (message: string, options: SweetAlertOptions = {}) => {
-	return Swal.fire({
-		icon: 'warning',
-		title: message,
-		confirmButtonText: '知道了',
-		...commonConfig,
-		...options,
-	});
-};
-
-export const confirm = (message: string, options: SweetAlertOptions = {}) => {
-	return Swal.fire({
-		icon: 'question' as SweetAlertIcon,
-		title: message,
-		showCancelButton: true,
-		confirmButtonText: '確認',
-		cancelButtonText: '取消',
-		focusCancel: true,
-		confirmButtonColor: '#16a34a',
-		cancelButtonColor: '#dc2626',
-		scrollbarPadding: false,
-		heightAuto: false,
-		allowOutsideClick: false,
-		allowEscapeKey: true,
-		backdrop: true,
-		...options,
-	}).then(result => result.isConfirmed);
-};
-
-export const toast = (message: string, icon: SweetAlertIcon = 'success', options: SweetAlertOptions = {}) => {
-	return Swal.fire({
-		toast: true,
-		position: 'top-end',
-		showConfirmButton: false,
-		timer: 2000,
-		timerProgressBar: true,
-		icon,
-		title: message,
-		...options,
-	});
-};
-
-const alerts = { 
-	showSuccess, 
-	showError, 
-	showErrorCode, 
-	showPasswordError, 
-	showAccountNotFound, 
-	showInfo, 
-	showWarning, 
-	confirm, 
-	toast 
+  showWarning: (title: string, text?: string) => {
+    Swal.fire({
+      icon: 'warning',
+      title,
+      text
+    });
+  },
+  confirm: async (title: string, text?: string): Promise<boolean> => {
+    const result = await Swal.fire({
+      title,
+      text,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: '確定',
+      cancelButtonText: '取消'
+    });
+    return result.isConfirmed;
+  }
 };
 
 export default alerts;
-
-

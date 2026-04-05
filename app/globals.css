@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* 文字層次與排版 */
 .text-main {
   color: #1A1A1A;
@@ -61,9 +65,6 @@
 .tag-homework { @apply bg-tag-homework; }
 .tag-exam { @apply bg-tag-exam; }
 .tag-custom { @apply bg-tag-custom; }
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 
 @layer components {
   /*
@@ -732,7 +733,7 @@ html, body {
   font-size: 1rem;
 }
 
-/* SweetAlert2 修復撐高問題 */
+/* SweetAlert2 修復撐高問題（須高於全站 Modal，例如 z-[99999]） */
 .swal2-container {
   padding: 0 !important;
   margin: 0 !important;
@@ -741,7 +742,7 @@ html, body {
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
-  z-index: 9999 !important;
+  z-index: 200000 !important;
   overflow: hidden !important;
 }
 

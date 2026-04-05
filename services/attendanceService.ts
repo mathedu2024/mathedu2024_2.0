@@ -316,8 +316,8 @@ export async function createAttendanceActivity(data: AttendanceActivityData): Pr
     const activityPayload = {
       ...activityData,
       courseId, // Keep courseId in the activity doc for collection group queries
-      startTime: admin.firestore.Timestamp.fromDate(data.startTime),
-      endTime: admin.firestore.Timestamp.fromDate(data.endTime),
+      startTime: admin.firestore.Timestamp.fromDate(new Date(data.startTime)),
+      endTime: admin.firestore.Timestamp.fromDate(new Date(data.endTime)),
       status,
       checkInCode,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
