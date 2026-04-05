@@ -60,11 +60,13 @@ export default function Sidebar({
   useEffect(() => {
     setMounted(true);
     
-    // 強化：確保手機版初始載入時側邊欄絕對是關閉的，避免佔據空間
+    // 修正：僅在組件初次掛載時執行初始化檢查
+    // 移除 sidebarOpen 依賴，避免每次打開選單時又觸發自動關閉邏輯
     if (typeof window !== 'undefined' && window.innerWidth < 768) {
       if (sidebarOpen) onToggleSidebar();
     }
-  }, [onToggleSidebar, sidebarOpen]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 當點選功能時自動關閉側邊欄
   const handleTabChange = (tab: string | null) => {
