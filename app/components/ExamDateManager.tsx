@@ -32,7 +32,15 @@ export default function ExamDateManager() {
       const response = await fetch('/api/exam-dates/list');
       if (!response.ok) throw new Error('Failed to fetch exam dates');
       const data = await response.json();
-      const examMap = data.reduce((acc: Record<string, { name: string; startDate: string; endDate: string; }>, exam: { id: string; name: string; startDate: string; endDate: string; }) => {
+
+      // 安全檢查：確保 data 為陣列，避免在生產環境 API 異常時導致 reduce 崩潰
+      if (!Array.isArray(data)) {
+        console.warn('考試日期 API 回傳格式異常:', data);
+        setExams({});
+        return;
+      }
+
+      const examMap = data.filter(e => e && e.id).reduce((acc: Record<string, { name: string; startDate: string; endDate: string; }>, exam: { id: string; name: string; startDate: string; endDate: string; }) => {
         acc[exam.id] = { name: exam.name, startDate: exam.startDate, endDate: exam.endDate };
         return acc;
       }, {});
