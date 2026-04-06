@@ -26,7 +26,7 @@ export default function ExamDateManager() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  async function fetchExams() {
+  const fetchExams = async (isMounted: boolean = true) => {
     try {
       setLoading(true);
       const response = await fetch('/api/exam-dates/list');
@@ -36,7 +36,7 @@ export default function ExamDateManager() {
       // 安全檢查：確保 data 為陣列，避免在生產環境 API 異常時導致 reduce 崩潰
       if (!Array.isArray(data)) {
         console.warn('考試日期 API 回傳格式異常:', data);
-        setExams({});
+        if (isMounted) setExams({});
         return;
       }
 
@@ -44,7 +44,7 @@ export default function ExamDateManager() {
         acc[exam.id] = { name: exam.name, startDate: exam.startDate, endDate: exam.endDate };
         return acc;
       }, {});
-      setExams(examMap);
+      if (isMounted) setExams(examMap);
     } catch (error) {
       console.error('Error fetching exam dates:', error);
       Swal.fire({ 
@@ -55,12 +55,14 @@ export default function ExamDateManager() {
         customClass: { popup: 'rounded-2xl' }
       });
     } finally {
-      setLoading(false);
+      if (isMounted) setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchExams();
+    let isMounted = true;
+    fetchExams(isMounted);
+    return () => { isMounted = false; };
   }, []);
 
   function handleEdit(examId: string) {

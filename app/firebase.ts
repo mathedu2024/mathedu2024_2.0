@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore"; // 引入 getFirestore
+import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -11,8 +11,13 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app); // 初始化 Firestore 實例
+// 確保 Firebase App 單例 (Singleton)
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
-export { app, auth, db }; // 將 db 加入匯出列表
+// 確保 Auth 單例
+const auth = getAuth(app);
+
+// 確保 Firestore 單例。
+const db = getFirestore(app);
+
+export { app, auth, db };
