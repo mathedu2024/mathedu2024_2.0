@@ -1,15 +1,7 @@
-// 建立測試管理員帳號腳本
-// 請在 Firebase Console 中執行此腳本，或使用 Firebase Admin SDK
-
 const admin = require('firebase-admin');
 
-// 初始化 Firebase Admin SDK（請替換為您的服務帳號金鑰）
-// const serviceAccount = require('./path-to-your-service-account-key.json');
-// admin.initializeApp({
-//   credential: admin.credential.cert(serviceAccount)
-// });
 
-// 測試管理員帳號資訊
+
 const testAdmin = {
   account: 'admin',
   password: 'admin123',
@@ -54,5 +46,4 @@ async function createTestAdmin() {
   }
 }
 
-// 執行建立帳號
 createTestAdmin(); 

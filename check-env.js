@@ -18,10 +18,8 @@ if (!envLine) {
   process.exit(1);
 }
 
-// Extract the value part after the first '=' 
 const jsonString = envLine.substring(envLine.indexOf('=') + 1).trim();
 
-// Handle if the value is enclosed in single or double quotes
 let finalJsonString = jsonString;
 if ((jsonString.startsWith("'" ) && jsonString.endsWith("'")) || (jsonString.startsWith('"') && jsonString.endsWith('"'))) {
     finalJsonString = jsonString.slice(1, -1);

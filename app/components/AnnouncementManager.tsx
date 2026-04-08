@@ -11,7 +11,8 @@ import {
   MagnifyingGlassIcon, 
   MegaphoneIcon, 
   FunnelIcon, 
-  LinkIcon, 
+  LinkIcon,
+  ChevronDownIcon,
   XMarkIcon,
   CheckIcon
 } from '@heroicons/react/24/outline';
@@ -79,6 +80,7 @@ export default function AnnouncementManager() {
   const [selectedSubject, setSelectedSubject] = useState<string>('');
   const [selectedGrade, setSelectedGrade] = useState<string>('全部');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   useEffect(() => {
     fetchAnnouncements();
@@ -391,43 +393,66 @@ export default function AnnouncementManager() {
 
       {/* 篩選器 */}
       {!isEditing && (
-          <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-sm mb-8 flex-shrink-0">
-            <div className="flex items-center gap-2 mb-4 text-gray-600 font-semibold">
+        <>
+          {/* 手機版：展開/收合觸發按鈕 */}
+          <div className="md:hidden mb-4">
+            <button
+              onClick={() => setIsFilterOpen(!isFilterOpen)}
+              className="w-full flex items-center justify-between bg-white px-5 py-4 rounded-xl shadow-sm border border-gray-100 transition-all active:scale-[0.99]"
+            >
+              <span className="font-bold text-gray-700 flex items-center text-sm">
+                <FunnelIcon className="w-5 h-5 mr-2 text-indigo-500" />
+                條件篩選與搜尋
+              </span>
+              <ChevronDownIcon 
+                className={`w-5 h-5 text-gray-400 transform transition-transform duration-300 ${isFilterOpen ? 'rotate-180' : ''}`} 
+              />
+            </button>
+          </div>
+
+          <div className={`
+            md:block mb-8 transition-all duration-300 ease-in-out
+            ${isFilterOpen ? 'max-h-[1000px] opacity-100 overflow-visible' : 'max-h-0 md:max-h-none opacity-0 md:opacity-100 overflow-hidden md:overflow-visible'}
+          `}>
+            <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-sm flex-shrink-0">
+              <div className="flex items-center gap-2 mb-4 text-gray-600 font-semibold">
                 <FunnelIcon className="w-5 h-5" /> 篩選條件
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Dropdown
-                    value={selectedContentType}
-                    onChange={setSelectedContentType}
-                    options={[{ value: '全部', label: '全部類型' }, ...contentTypeOptions]}
-                    placeholder="全部類型"
-                    className="w-full"
-                />
-                <Dropdown
-                    value={selectedSubject}
-                    onChange={setSelectedSubject}
-                    options={subjectOptions}
-                    className="w-full"
-                />
-                <Dropdown
-                    value={selectedGrade}
-                    onChange={setSelectedGrade}
-                    options={[{ value: '全部', label: '全部年級' }, ...gradeOptions.filter(o => o.value !== '')]}
-                    placeholder="全部年級"
-                    className="w-full"
-                />
-                <div className="relative">
-                    <input
-                        type="text"
-                        placeholder="搜尋公告..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                    />
-                    <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <Dropdown
+                      value={selectedContentType}
+                      onChange={setSelectedContentType}
+                      options={[{ value: '全部', label: '全部類型' }, ...contentTypeOptions]}
+                      placeholder="全部類型"
+                      className="w-full"
+                  />
+                  <Dropdown
+                      value={selectedSubject}
+                      onChange={setSelectedSubject}
+                      options={subjectOptions}
+                      className="w-full"
+                  />
+                  <Dropdown
+                      value={selectedGrade}
+                      onChange={setSelectedGrade}
+                      options={[{ value: '全部', label: '全部年級' }, ...gradeOptions.filter(o => o.value !== '')]}
+                      placeholder="全部年級"
+                      className="w-full"
+                  />
+                  <div className="relative">
+                      <input
+                          type="text"
+                          placeholder="搜尋公告..."
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                      />
+                      <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+              </div>
             </div>
           </div>
+        </>
       )}
 
       {/* 表單區域 */}

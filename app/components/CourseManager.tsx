@@ -17,6 +17,8 @@ import {
   ArchiveBoxIcon, 
   TrashIcon, 
   PlusIcon,
+  FunnelIcon,
+  ChevronDownIcon,
   MagnifyingGlassIcon,
   MapPinIcon,
   CalendarIcon,
@@ -102,6 +104,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
     const [selectedGrade, setSelectedGrade] = useState('all');
     const [selectedStatus, setSelectedStatus] = useState('all');
     const [selectedCourseNature, setSelectedCourseNature] = useState('all');
+    const [isFilterOpen, setIsFilterOpen] = useState(false);
 
     const courseImages = useCourseImages();
 
@@ -579,10 +582,30 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                 </button>
             </div>
 
-            {/* Filter Area - Updated Style */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-8">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                    <div className="relative">
+            {/* 手機版：展開/收合觸發按鈕 */}
+            <div className="md:hidden mb-4">
+                <button
+                    onClick={() => setIsFilterOpen(!isFilterOpen)}
+                    className="w-full flex items-center justify-between bg-white px-5 py-4 rounded-xl shadow-sm border border-gray-100 transition-all active:scale-[0.99]"
+                >
+                    <span className="font-bold text-gray-700 flex items-center text-sm">
+                        <FunnelIcon className="w-5 h-5 mr-2 text-indigo-500" />
+                        條件篩選與搜尋
+                    </span>
+                    <ChevronDownIcon 
+                        className={`w-5 h-5 text-gray-400 transform transition-transform duration-300 ${isFilterOpen ? 'rotate-180' : ''}`} 
+                    />
+                </button>
+            </div>
+
+            {/* 篩選器內容：手機版具備收合動畫，電腦版保持顯示 */}
+            <div className={`
+                md:block mb-8 transition-all duration-300 ease-in-out
+                ${isFilterOpen ? 'max-h-[1000px] opacity-100 overflow-visible' : 'max-h-0 md:max-h-none opacity-0 md:opacity-100 overflow-hidden md:overflow-visible'}
+            `}>
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                        <div className="relative">
                         <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                         <input
                             type="text"
@@ -616,6 +639,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                         options={[{ value: 'all', label: '全部狀態' }, ...courseStatuses.map(s => ({ value: s, label: s }))]}
                         className="w-full"
                     />
+                </div>
                 </div>
             </div>
 

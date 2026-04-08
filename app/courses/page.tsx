@@ -125,7 +125,7 @@ export default function CoursesPage() {
       const matchesNature = selectedNature === 'all' || course.courseNature === selectedNature;
       const matchesStatus = selectedStatus === 'all' || course.status === selectedStatus;
       
-      return course.showInIntroduction && matchesGrade && matchesSubject && matchesNature && matchesStatus;
+      return !course.archived && course.showInIntroduction && matchesGrade && matchesSubject && matchesNature && matchesStatus;
     });
   }, [courses, selectedGrade, selectedSubject, selectedNature, selectedStatus]);
 
@@ -190,7 +190,7 @@ export default function CoursesPage() {
       </div>
 
       {/* 手機版篩選器 (Accordion) */}
-      <div className="md:hidden mb-6 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className={`md:hidden mb-6 bg-white rounded-xl shadow-sm border border-gray-100 ${isFilterOpen ? 'overflow-visible' : 'overflow-hidden'}`}>
         <button 
           onClick={() => setIsFilterOpen(!isFilterOpen)} 
           className="w-full px-5 py-4 flex justify-between items-center bg-gray-50 hover:bg-gray-100 transition-colors"
@@ -201,7 +201,7 @@ export default function CoursesPage() {
           <i className={`fas fa-chevron-down text-gray-400 transform transition-transform duration-300 ${isFilterOpen ? 'rotate-180' : ''}`}></i>
         </button>
         
-        <div className={`transition-all duration-300 ease-in-out ${isFilterOpen ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'}`}>
+        <div className={`transition-all duration-300 ease-in-out ${isFilterOpen ? 'max-h-[600px] opacity-100 overflow-visible' : 'max-h-0 opacity-0 overflow-hidden'}`}>
           <div className="p-5 space-y-4">
             <Dropdown
               value={selectedGrade}

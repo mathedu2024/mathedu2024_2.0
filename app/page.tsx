@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { collection, getDocs, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import Dropdown from '@/components/ui/Dropdown';
 
@@ -122,12 +122,13 @@ export default function Home() {
   const [countdowns, setCountdowns] = useState<number[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [expandedAnnouncement, setExpandedAnnouncement] = useState<string | null>(null);
-  const [announcementPage] = useState<number>(1);
+  const [announcementPage, setAnnouncementPage] = useState<number>(1);
   const ANNOUNCEMENTS_PER_PAGE = 5; 
 
   const [selectedContentType, setSelectedContentType] = useState<string>('全部');
   const [selectedSubject, setSelectedSubject] = useState<string>('全部');
   const [selectedGrade, setSelectedGrade] = useState<string>('全部');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   // 更新倒數數值
   useEffect(() => {
@@ -136,26 +137,24 @@ export default function Home() {
     }
   }, [exams]);
 
-  // 抓取公告資料 (使用 getDocs，元件掛載時執行一次)
+  // 監聽公告資料 (改用 onSnapshot 實現即時更新)
   useEffect(() => {
-    const fetchAnnouncements = async () => {
-      try {
-        const annQ = query(collection(db, 'announcements'), orderBy('createdAt', 'desc'));
-        const annSnap = await getDocs(annQ);
+    const annQ = query(collection(db, 'announcements'), orderBy('createdAt', 'desc'));
+    
+    const unsubscribe = onSnapshot(annQ, (snapshot) => {
+      const annList = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        contentType: doc.data().contentType || doc.data().category || '公告事項',
+        createdAt: doc.data().createdAt || doc.data().date
+      })) as Announcement[];
+      setAnnouncements(annList);
+    }, (err) => {
+      console.error('Listen announcements error:', err);
+    });
 
-        const annList = annSnap.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          contentType: doc.data().contentType || doc.data().category || '公告事項',
-          createdAt: doc.data().createdAt || doc.data().date
-        })) as Announcement[];
-        setAnnouncements(annList);
-      } catch (err) {
-        console.error('Fetch announcements error:', err);
-      }
-    };
-    fetchAnnouncements();
-  }, []); // 空依賴陣列，表示只在元件掛載時執行一次
+    return () => unsubscribe();
+  }, []);
 
   // 監聽考試日期 (使用 onSnapshot 實現即時更新)
   useEffect(() => {
@@ -179,12 +178,22 @@ export default function Home() {
     return () => unsubscribe();
   }, []);
 
-  const filteredAnnouncements = announcements.filter(ann => {
+  // 使用 useMemo 優化篩選效能，並加入關鍵字搜尋
+  const filteredAnnouncements = React.useMemo(() => {
+    return announcements.filter(ann => {
     const ctMatch = selectedContentType === '全部' || ann.contentType === selectedContentType;
     const subMatch = selectedSubject === '全部' || ann.subject === selectedSubject;
     const gradeMatch = selectedGrade === '全部' || ann.grade === selectedGrade;
     return ctMatch && subMatch && gradeMatch;
-  });
+    });
+  }, [announcements, selectedContentType, selectedSubject, selectedGrade]);
+
+  // 當篩選條件變動時，自動重置到第一頁
+  useEffect(() => {
+    setAnnouncementPage(1);
+  }, [selectedContentType, selectedSubject, selectedGrade]);
+
+  const totalPages = Math.ceil(filteredAnnouncements.length / ANNOUNCEMENTS_PER_PAGE);
 
   return (
     <main className="min-h-screen bg-gray-50 pb-20">
@@ -245,15 +254,30 @@ export default function Home() {
         <section id="announcements">
           <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-6">
             <h2 className="text-2xl md:text-3xl font-bold text-gray-800 border-l-4 border-indigo-500 pl-4">網站公告</h2>
-            <div className="flex flex-wrap gap-4 w-full md:w-auto">
-              <div className="min-w-[150px] flex-1 md:flex-none">
-                <Dropdown value={selectedContentType} onChange={setSelectedContentType} options={contentTypeOptions} placeholder="全部類型" className="w-full" />
-              </div>
-              <div className="min-w-[150px] flex-1 md:flex-none">
-                <Dropdown value={selectedSubject} onChange={setSelectedSubject} options={subjectOptions} placeholder="全部科目" className="w-full" />
-              </div>
-              <div className="min-w-[150px] flex-1 md:flex-none">
-                <Dropdown value={selectedGrade} onChange={setSelectedGrade} options={gradeOptions} placeholder="全部年級" className="w-full" />
+
+            {/* 手機版：展開/收合觸發按鈕 */}
+            <div className="md:hidden">
+              <button
+                onClick={() => setIsFilterOpen(!isFilterOpen)}
+                className="w-full flex items-center justify-between bg-white px-5 py-4 rounded-xl shadow-sm border border-gray-100 transition-all active:scale-[0.99]"
+              >
+                <span className="font-bold text-gray-700 flex items-center text-sm">
+                  <i className="fas fa-filter mr-2 text-indigo-500"></i>
+                  條件篩選與搜尋
+                </span>
+                <i className={`fas fa-chevron-down text-gray-400 transform transition-transform duration-300 ${isFilterOpen ? 'rotate-180' : ''}`}></i>
+              </button>
+            </div>
+
+            {/* 篩選器內容：手機版具備收合動畫，電腦版保持顯示 */}
+            <div className={`
+              md:block transition-all duration-300 ease-in-out w-full md:w-auto
+              ${isFilterOpen ? 'max-h-[1000px] opacity-100 overflow-visible mt-2' : 'max-h-0 md:max-h-none opacity-0 md:opacity-100 overflow-hidden md:overflow-visible'}
+            `}>
+              <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                <Dropdown value={selectedContentType} onChange={setSelectedContentType} options={contentTypeOptions} placeholder="類型" className="w-full sm:w-32" />
+                <Dropdown value={selectedSubject} onChange={setSelectedSubject} options={subjectOptions} placeholder="科目" className="w-full sm:w-32" />
+                <Dropdown value={selectedGrade} onChange={setSelectedGrade} options={gradeOptions} placeholder="年級" className="w-full sm:w-32" />
               </div>
             </div>
           </div>
@@ -286,6 +310,27 @@ export default function Home() {
               })
             ) : (
               <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300 text-gray-500">目前沒有符合篩選條件的公告</div>
+            )}
+
+            {/* 分頁控制 UI */}
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center gap-4 pt-6">
+                <button 
+                  onClick={() => setAnnouncementPage(p => Math.max(1, p - 1))}
+                  disabled={announcementPage === 1}
+                  className="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors shadow-sm"
+                >
+                  <i className="fas fa-chevron-left text-xs"></i>
+                </button>
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">第 {announcementPage} / {totalPages} 頁</span>
+                <button 
+                  onClick={() => setAnnouncementPage(p => Math.min(totalPages, p + 1))}
+                  disabled={announcementPage === totalPages}
+                  className="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors shadow-sm"
+                >
+                  <i className="fas fa-chevron-right text-xs"></i>
+                </button>
+              </div>
             )}
           </div>
         </section>

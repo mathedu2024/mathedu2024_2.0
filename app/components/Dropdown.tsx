@@ -73,11 +73,11 @@ export default function Dropdown({ options, value, onChange, placeholder = 'è«‹é
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
-            className="absolute z-10 mt-1 w-full bg-white shadow-lg border border-gray-100 rounded-xl max-h-60 overflow-y-auto"
+            className="absolute z-50 mt-1 w-full bg-white shadow-lg border border-gray-100 rounded-xl max-h-60 overflow-y-auto"
             role="listbox"
           >
             <ul>
-              {options.map((option) => (
+              {options.filter(Boolean).map((option) => (
                 <li
                   key={option.value}
                   className={`px-4 py-2.5 text-sm cursor-pointer transition-colors ${
