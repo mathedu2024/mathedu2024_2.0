@@ -76,11 +76,11 @@ export default function Dropdown({ options, value, onChange, placeholder = 'è«‹é
             className="absolute z-50 mt-1 w-full bg-white shadow-lg border border-gray-100 rounded-xl max-h-60 overflow-y-auto"
             role="listbox"
           >
-            <ul>
+            <ul className="p-1">
               {options.filter(Boolean).map((option) => (
                 <li
                   key={option.value}
-                  className={`px-4 py-2.5 text-sm cursor-pointer transition-colors ${
+                  className={`px-4 py-2.5 text-sm cursor-pointer rounded-lg transition-colors ${
                     value === option.value
                       ? 'bg-indigo-50 text-indigo-700 font-semibold'
                       : 'text-gray-800 hover:bg-gray-50'

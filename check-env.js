@@ -11,25 +11,25 @@ if (!fs.existsSync(envPath)) {
 
 const envFileContent = fs.readFileSync(envPath, 'utf8');
 const lines = envFileContent.split('\n');
-const envLine = lines.find(line => line.trim().startsWith('FIREBASE_SERVICE_ACCOUNT_JSON='));
+const envLine = lines.find(line => line.trim().match(/^FIREBASE_SERVICE_ACCOUNT_JSON\s*=/));
 
 if (!envLine) {
-  console.error('❌ 錯誤：在您的 .env.local 檔案中找不到以 `FIREBASE_SERVICE_ACCOUNT_JSON=` 開頭的行。');
+  console.error('❌ 錯誤：在您的 .env.local 檔案中找不到 FIREBASE_SERVICE_ACCOUNT_JSON 配置。');
+  console.log('提示：如果您使用的是分開的環境變數（PROJECT_ID, PRIVATE_KEY 等），請確保它們已正確設定。');
   process.exit(1);
 }
 
-const jsonString = envLine.substring(envLine.indexOf('=') + 1).trim();
+let jsonString = envLine.substring(envLine.indexOf('=') + 1).trim();
 
-let finalJsonString = jsonString;
-if ((jsonString.startsWith("'" ) && jsonString.endsWith("'")) || (jsonString.startsWith('"') && jsonString.endsWith('"'))) {
-    finalJsonString = jsonString.slice(1, -1);
+if (/^['"].*['"]$/.test(jsonString)) {
+    jsonString = jsonString.slice(1, -1);
 }
 
 
 console.log('找到了 FIREBASE_SERVICE_ACCOUNT_JSON，正在嘗試解析...');
 
 try {
-  JSON.parse(finalJsonString);
+  JSON.parse(jsonString);
   console.log('✅ 成功！ .env.local 檔案中的 FIREBASE_SERVICE_ACCOUNT_JSON 是有效的 JSON 格式。');
   console.log('看來 500 錯誤可能是由其他原因引起的。請檢查您啟動伺服器（npm run dev）的終端機視窗，尋找更詳細的錯誤訊息。');
 } catch (error) {

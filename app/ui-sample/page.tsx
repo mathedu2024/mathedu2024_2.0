@@ -1,9 +1,18 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Script from 'next/script';
+import Dropdown from '../components/Dropdown';
+
+const contentTypeOptions = [
+  { value: '全部', label: '全部類型' },
+  { value: '公告事項', label: '公告事項' },
+  { value: '課程資訊', label: '課程資訊' },
+];
 
 export default function UISample() {
+  const [selectedType, setSelectedType] = useState('全部');
+
   const showSuccessAlert = () => {
     // @ts-expect-error: Swal is loaded via script tag
     if (typeof Swal !== 'undefined') {
@@ -145,16 +154,15 @@ export default function UISample() {
                 {/* Select Dropdown */}
                 <div>
                     <span className="text-xs font-mono text-gray-400 mb-2 block">Select Dropdown</span>
-                    <label className="text-gray-700 text-sm font-bold mb-2 block">資源類型</label>
+                    <label className="text-gray-700 text-sm font-bold mb-2 block">網站公告篩選樣式</label>
                     <div className="relative">
-                        <select className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 appearance-none">
-                            <option>📺 YouTube 影片</option>
-                            <option>📄 PDF 文件</option>
-                            <option>🔗 外部連結</option>
-                        </select>
-                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
-                            <i className="fas fa-chevron-down text-xs"></i>
-                        </div>
+                        <Dropdown 
+                            value={selectedType} 
+                            onChange={setSelectedType} 
+                            options={contentTypeOptions} 
+                            placeholder="公告類型"
+                            className="w-full"
+                        />
                     </div>
                 </div>
 

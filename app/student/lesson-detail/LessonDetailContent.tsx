@@ -30,7 +30,7 @@ interface LessonDetail {
   title: string;
   date: string;
   progress: string;
-  attachments: string[];
+  attachments: Array<string | { url: string; name?: string; visibleToStudents?: boolean }>;
   videos: string[];
   homework: string;
   onlineExam: string;
@@ -159,8 +159,8 @@ export default function LessonDetailPage() {
   // Loading Skeleton
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f3f4f6] p-8 flex justify-center">
-        <div className="w-full max-w-7xl animate-pulse grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pt-6 md:pt-8 pb-10 flex flex-col h-full">
+        <div className="w-full animate-pulse grid grid-cols-1 lg:grid-cols-3 gap-8">
            {/* Header Skeleton */}
           <div className="lg:col-span-3 h-20 bg-gray-200 rounded-2xl mb-4"></div>
            {/* Video Skeleton */}
@@ -180,7 +180,7 @@ export default function LessonDetailPage() {
   // Error State (Fallback)
   if (!lesson) {
     return (
-      <div className="min-h-screen bg-[#f3f4f6] flex items-center justify-center p-4">
+      <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pt-6 md:pt-8 pb-10 flex flex-col h-full items-center justify-center">
         <div className="bg-white p-8 rounded-2xl shadow-sm text-center max-w-md w-full">
           <div className="text-red-500 text-5xl mb-4">⚠️</div>
           <h2 className="text-2xl font-bold text-gray-900 mb-4">找不到課程資訊</h2>
@@ -201,8 +201,7 @@ export default function LessonDetailPage() {
     : null;
 
   return (
-    <div className="min-h-screen bg-[#f3f4f6] font-sans p-4 md:p-8 pb-20">
-      <div className="max-w-7xl mx-auto">
+    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pt-6 md:pt-8 pb-10 flex flex-col h-full animate-fade-in">
         
         {/* Header Section */}
         <div className="mb-8">
@@ -428,7 +427,10 @@ export default function LessonDetailPage() {
             {/* Attachments Card (Moved Down) */}
             {Array.isArray(lesson.attachments) && (lesson.attachments as unknown[]).some(a => {
                 if (typeof a === 'string') return a && a.trim() !== '';
-                if (a && typeof a === 'object' && 'url' in a) return (a as { url: string }).url;
+                if (a && typeof a === 'object' && 'url' in a) {
+                  const typed = a as { url: string; visibleToStudents?: boolean };
+                  return typed.url && typed.visibleToStudents !== false;
+                }
                 return false;
             }) && (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
@@ -437,7 +439,10 @@ export default function LessonDetailPage() {
                     {(lesson.attachments as unknown[])
                       .filter(a => {
                         if (typeof a === 'string') return a && a.trim() !== '';
-                        if (a && typeof a === 'object' && 'url' in a) return (a as { url: string }).url;
+                        if (a && typeof a === 'object' && 'url' in a) {
+                          const typed = a as { url: string; visibleToStudents?: boolean };
+                          return typed.url && typed.visibleToStudents !== false;
+                        }
                         return false;
                       })
                       .map((attachment, idx) => {
@@ -476,7 +481,6 @@ export default function LessonDetailPage() {
             )}
           </div>
         </div>
-      </div>
     </div>
   );
 }

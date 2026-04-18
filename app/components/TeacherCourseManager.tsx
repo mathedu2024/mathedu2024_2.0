@@ -18,7 +18,9 @@ import {
   PaperClipIcon,
   LinkIcon,
   VideoCameraIcon,
-  ClockIcon // 新增
+  ClockIcon,
+  EyeIcon,
+  EyeSlashIcon,
 } from '@heroicons/react/24/outline';
 import CourseFilter from './CourseFilter';
 
@@ -67,6 +69,12 @@ interface Teacher {
   uid?: string;
 }
 
+interface LessonAttachment {
+  name: string;
+  url: string;
+  visibleToStudents?: boolean;
+}
+
 export interface Course {
   id: string;
   name: string;
@@ -98,8 +106,9 @@ interface LessonData {
   id: string;
   title: string;
   date: string;
+  visibleToStudents?: boolean;
   progress: string;
-  attachments?: { name: string, url: string }[];
+  attachments?: LessonAttachment[];
   noAttachment?: boolean;
   videos?: string[];
   homework?: string;
@@ -135,7 +144,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
   const [editingLesson, setEditingLesson] = useState<LessonData | null>(null);
 
   const [form, setForm] = useState<Omit<LessonData, 'id' | 'order' | 'createdAt' | 'updatedAt'>>({
-    title: '', date: '', progress: '', attachments: [{ name: '', url: '' }], noAttachment: false, videos: [''], homework: '', noHomework: false, onlineExam: '', noOnlineExam: false, examScope: '', noExamScope: false, notes: '', noNotes: false,
+    title: '', date: '', visibleToStudents: true, progress: '', attachments: [{ name: '', url: '', visibleToStudents: true }], noAttachment: false, videos: [''], homework: '', noHomework: false, onlineExam: '', noOnlineExam: false, examScope: '', noExamScope: false, notes: '', noNotes: false,
   });
 
   const [isOrderDirty, setIsOrderDirty] = useState<boolean>(false);
@@ -203,14 +212,24 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
 
   const openAddModal = () => {
     setEditingLesson(null);
-    setForm({ title: '', date: '', progress: '', attachments: [{ name: '', url: '' }], noAttachment: false, videos: [''], homework: '', noHomework: false, onlineExam: '', noOnlineExam: false, examScope: '', noExamScope: false, notes: '', noNotes: false });
+    setForm({ title: '', date: '', visibleToStudents: true, progress: '', attachments: [{ name: '', url: '', visibleToStudents: true }], noAttachment: false, videos: [''], homework: '', noHomework: false, onlineExam: '', noOnlineExam: false, examScope: '', noExamScope: false, notes: '', noNotes: false });
     setIsModalOpen(true);
   };
 
   const handleEditClick = (lesson: LessonData) => {
+    const normalizedAttachments = (lesson.attachments || [{ name: '', url: '', visibleToStudents: true }]).map((att, idx) => {
+      if (typeof att === 'string') {
+        return { name: `附件${idx + 1}`, url: att, visibleToStudents: true };
+      }
+      return {
+        name: att?.name || `附件${idx + 1}`,
+        url: att?.url || '',
+        visibleToStudents: att?.visibleToStudents !== false,
+      };
+    });
     setEditingLesson(lesson);
     setForm({
-      title: lesson.title, date: lesson.date, progress: lesson.progress, attachments: lesson.attachments || [{ name: '', url: '' }], noAttachment: lesson.noAttachment || false, videos: lesson.videos || [''], homework: lesson.homework || '', noHomework: lesson.noHomework || false, onlineExam: lesson.onlineExam || '', noOnlineExam: lesson.noOnlineExam || false, examScope: lesson.examScope || '', noExamScope: lesson.noExamScope || false, notes: lesson.notes || '', noNotes: lesson.noNotes || false,
+      title: lesson.title, date: lesson.date, visibleToStudents: lesson.visibleToStudents !== false, progress: lesson.progress, attachments: normalizedAttachments, noAttachment: lesson.noAttachment || false, videos: lesson.videos || [''], homework: lesson.homework || '', noHomework: lesson.noHomework || false, onlineExam: lesson.onlineExam || '', noOnlineExam: lesson.noOnlineExam || false, examScope: lesson.examScope || '', noExamScope: lesson.noExamScope || false, notes: lesson.notes || '', noNotes: lesson.noNotes || false,
     });
     setIsModalOpen(true);
   };
@@ -220,7 +239,13 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
     try {
       const lessonData = {
         ...form,
-        attachments: (form.attachments || []).filter((a: { name: string; url: string } | string) => (typeof a === 'string' ? a.trim() !== '' : a.url && a.url.trim() !== '')).map((a: { name: string; url: string } | string, idx: number) => typeof a === 'string' ? { name: `附件${idx + 1}`, url: a } : a),
+        attachments: (form.attachments || [])
+          .filter((a) => a.url && a.url.trim() !== '')
+          .map((a, idx) => ({
+            name: a.name?.trim() ? a.name.trim() : `附件${idx + 1}`,
+            url: a.url.trim(),
+            visibleToStudents: a.visibleToStudents !== false,
+          })),
         updatedAt: new Date().toISOString(),
       };
 
@@ -235,7 +260,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
   };
 
   const handleDeleteLesson = async (lessonId: string) => {
-    const result = await Swal.fire({ title: '請確認', text: '確定要刪除此課堂嗎？', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: '刪除', cancelButtonText: '取消' });
+    const result = await Swal.fire({ title: '請確認', text: '確定要刪除此課堂嗎？', icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', confirmButtonText: '刪除', cancelButtonText: '取消', customClass: { popup: 'rounded-2xl' } });
     if (!result.isConfirmed) return;
     try {
       await fetch('/api/lessons/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ courseId, lessonId }) });
@@ -244,33 +269,64 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
     } catch { Swal.fire('錯誤', '刪除失敗', 'error'); }
   };
 
+  const handleToggleLessonVisibility = async (lesson: LessonData) => {
+    const nextVisible = !(lesson.visibleToStudents !== false);
+    try {
+      setIsSubmitting(true);
+      const res = await fetch('/api/lessons/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          courseId,
+          lessonId: lesson.id,
+          visibleToStudents: nextVisible,
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setLessons((prev) => prev.map((l) => (l.id === lesson.id ? { ...l, visibleToStudents: nextVisible } : l)));
+      Swal.fire('成功', `已${nextVisible ? '開放' : '隱藏'}此課堂給學生查看。`, 'success');
+    } catch (error) {
+      console.error('更新課堂可見性失敗:', error);
+      Swal.fire('錯誤', '更新課堂可見性失敗', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleAttachmentChange = (idx: number, key: 'name' | 'url', value: string) => setForm((f) => { const att = [...(f.attachments || [])]; att[idx] = { ...att[idx], [key]: value }; return { ...f, attachments: att }; });
+  const handleAttachmentVisibilityChange = (idx: number, visible: boolean) => setForm((f) => {
+    const att = [...(f.attachments || [])];
+    att[idx] = { ...att[idx], visibleToStudents: visible };
+    return { ...f, attachments: att };
+  });
   const handleVideoChange = (idx: number, value: string) => setForm((f) => { const v = [...(f.videos || [])]; v[idx] = value; return { ...f, videos: v }; });
 
   if (isLoading) return <div className="fixed inset-0 bg-white z-[9999] flex items-center justify-center"><LoadingSpinner size={60} text="課堂資料載入中..." /></div>;
 
   return (
-    <div className="max-w-7xl mx-auto w-full flex flex-col h-full animate-fade-in pb-10">
-      <div className="flex items-center mb-6">
-        <BookOpenIcon className="w-8 h-8 mr-3 text-indigo-600" />
-        <div>
-            <h2 className="text-2xl font-bold text-gray-800">{courseName}</h2>
-            <p className="text-sm text-gray-500 font-mono">{courseCode}</p>
+    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pb-10 flex flex-col h-full animate-fade-in">
+      {/* Header Area */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
+        <div className="border-l-4 border-indigo-500 pl-4">
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+            <BookOpenIcon className="h-8 w-8 text-indigo-600" />
+            {courseName}
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">{courseCode}</p>
         </div>
-      </div>
-
-      <div className="flex flex-wrap gap-3 mb-4">
-        <button className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors shadow-sm font-medium flex items-center" onClick={onClose}>
-          <ArrowLeftIcon className="w-4 h-4 mr-2" /> 返回列表
-        </button>
-        <button className="btn-secondary flex items-center" onClick={openAddModal}>
+        <div className="flex flex-wrap gap-3">
+          <button className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors shadow-sm font-medium flex items-center" onClick={onClose}>
+            <ArrowLeftIcon className="w-4 h-4 mr-2" /> 返回列表
+          </button>
+          <button className="btn-secondary flex items-center" onClick={openAddModal}>
             <PlusIcon className="w-4 h-4 mr-2" /> 新增課堂
-        </button>
-        {isOrderDirty && (
+          </button>
+          {isOrderDirty && (
             <button className="btn-primary flex items-center ml-auto" onClick={handleSaveChanges} disabled={isSubmitting}>
-               {isSubmitting ? <LoadingSpinner size={16} color="white" /> : <><CloudArrowUpIcon className="w-4 h-4 mr-2" /> 儲存排序</>}
+              {isSubmitting ? <LoadingSpinner size={16} color="white" /> : <><CloudArrowUpIcon className="w-4 h-4 mr-2" /> 儲存排序</>}
             </button>
-        )}
+          )}
+        </div>
       </div>
 
       <DragDropContext onDragEnd={onDragEnd}>
@@ -282,14 +338,15 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
                         <th className="px-6 py-4 font-bold w-[100px]">堂數</th>
                         <th className="px-6 py-4 font-bold min-w-[200px]">課堂標題</th>
                         <th className="px-6 py-4 font-bold w-[140px]">日期</th>
-                        <th className="px-6 py-4 font-bold text-right w-[140px]">操作</th>
+                        <th className="px-6 py-4 font-bold text-center w-[140px]">學生可見</th>
+                        <th className="px-6 py-4 font-bold text-right w-[160px]">操作</th>
                     </tr>
                 </thead>
                 <Droppable droppableId="lesson-list">
                     {(provided: DroppableProvided) => (
                         <tbody className="divide-y divide-gray-100" ref={provided.innerRef} {...provided.droppableProps}>
                             {lessons.length === 0 ? (
-                                <tr><td colSpan={5} className="text-center py-8 text-gray-400">目前沒有課堂資料</td></tr>
+                                <tr><td colSpan={6} className="text-center py-8 text-gray-400">目前沒有課堂資料</td></tr>
                             ) : (
                                 lessons.map((lesson, idx) => (
                                     <Draggable key={lesson.id} draggableId={lesson.id} index={idx}>
@@ -306,6 +363,19 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
                                                 </td>
                                                 <td className="px-6 py-4 font-mono whitespace-nowrap">
                                                     {lesson.date}
+                                                </td>
+                                                <td className="px-6 py-4 text-center whitespace-nowrap">
+                                                    <button
+                                                      onClick={() => handleToggleLessonVisibility(lesson)}
+                                                      className={`px-2.5 py-1 rounded-full text-xs font-bold border inline-flex items-center gap-1 ${
+                                                        lesson.visibleToStudents !== false
+                                                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                          : 'bg-gray-100 text-gray-600 border-gray-200'
+                                                      }`}
+                                                    >
+                                                      {lesson.visibleToStudents !== false ? <EyeIcon className="w-3.5 h-3.5" /> : <EyeSlashIcon className="w-3.5 h-3.5" />}
+                                                      {lesson.visibleToStudents !== false ? '開放' : '隱藏'}
+                                                    </button>
                                                 </td>
                                                 <td className="px-6 py-4 text-right whitespace-nowrap">
                                                     <div className="flex justify-end gap-2">
@@ -350,6 +420,19 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
                                             </div>
                                             <span className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600 font-mono">{lesson.date}</span>
                                         </div>
+                                        <div>
+                                          <button
+                                            onClick={() => handleToggleLessonVisibility(lesson)}
+                                            className={`px-2.5 py-1 rounded-full text-xs font-bold border inline-flex items-center gap-1 ${
+                                              lesson.visibleToStudents !== false
+                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                : 'bg-gray-100 text-gray-600 border-gray-200'
+                                            }`}
+                                          >
+                                            {lesson.visibleToStudents !== false ? <EyeIcon className="w-3.5 h-3.5" /> : <EyeSlashIcon className="w-3.5 h-3.5" />}
+                                            學生端{lesson.visibleToStudents !== false ? '開放' : '隱藏'}
+                                          </button>
+                                        </div>
                                         <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
                                             <button onClick={() => handleEditClick(lesson)} className="flex items-center text-sm text-indigo-600 font-medium">
                                                 <PencilIcon className="w-4 h-4 mr-1" /> 編輯
@@ -380,6 +463,17 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
                     <label className="block text-sm font-bold text-gray-700 mb-1.5">課程日期 <span className="text-red-500">*</span></label>
                     <input type="date" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all outline-none" value={form.date} onChange={e => setForm((f) => ({ ...f, date: e.target.value }))} />
                  </div>
+                 <div className="flex items-end">
+                    <label className="inline-flex items-center text-sm font-medium text-gray-700">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 text-indigo-600 rounded mr-2"
+                        checked={form.visibleToStudents !== false}
+                        onChange={(e) => setForm((f) => ({ ...f, visibleToStudents: e.target.checked }))}
+                      />
+                      此課堂開放學生查看
+                    </label>
+                 </div>
                  <div className="md:col-span-2">
                     <label className="block text-sm font-bold text-gray-700 mb-1.5">課程進度</label>
                     <textarea className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all outline-none" value={form.progress} onChange={e => setForm((f) => ({ ...f, progress: e.target.value }))} rows={3} placeholder="本堂課的教學重點..." />
@@ -401,6 +495,15 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
                            <div key={idx} className="flex gap-2 items-center">
                               <input type="text" className="border border-gray-300 rounded-lg px-3 py-2 w-1/3 text-sm focus:ring-indigo-500" placeholder="檔案名稱" value={att.name} onChange={e => handleAttachmentChange(idx, 'name', e.target.value)} />
                               <input type="url" className="border border-gray-300 rounded-lg px-3 py-2 flex-1 text-sm focus:ring-indigo-500" placeholder="檔案連結 (URL)" value={att.url} onChange={e => handleAttachmentChange(idx, 'url', e.target.value)} />
+                              <label className="flex items-center text-xs text-gray-600 whitespace-nowrap px-2">
+                                <input
+                                  type="checkbox"
+                                  className="w-4 h-4 text-indigo-600 rounded mr-1.5"
+                                  checked={att.visibleToStudents !== false}
+                                  onChange={(e) => handleAttachmentVisibilityChange(idx, e.target.checked)}
+                                />
+                                學生可見
+                              </label>
                               {(form.attachments || []).length > 1 && (
                                 <button type="button" className="text-red-400 hover:text-red-600 p-1" onClick={() => setForm(f => ({...f, attachments: f.attachments?.filter((_, i) => i !== idx)}))}>
                                    <XMarkIcon className="w-5 h-5"/>
@@ -408,7 +511,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
                               )}
                            </div>
                         ))}
-                        <button type="button" className="text-indigo-600 text-xs font-bold hover:text-indigo-800 flex items-center" onClick={() => setForm(f => ({...f, attachments: [...(f.attachments || []), {name:'', url:''}]}))}>
+                        <button type="button" className="text-indigo-600 text-xs font-bold hover:text-indigo-800 flex items-center" onClick={() => setForm(f => ({...f, attachments: [...(f.attachments || []), {name:'', url:'', visibleToStudents: true}]}))}>
                            <PlusIcon className="w-3 h-3 mr-1" /> 新增附件欄位
                         </button>
                     </div>
@@ -604,6 +707,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
       case '已額滿': return 'bg-rose-100 text-rose-800 border border-rose-200';
       case '未開課': return 'bg-amber-100 text-amber-800 border border-amber-200';
       case '已結束': return 'bg-gray-100 text-gray-600 border border-gray-200';
+      case '已封存': return 'bg-red-50 text-red-700 border border-red-200';
       default: return 'bg-gray-50 text-gray-600 border border-gray-200';
     }
   };
@@ -627,10 +731,16 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
   if (loading) return <div className="fixed inset-0 bg-white z-[9999] flex items-center justify-center"><LoadingSpinner size={60} /></div>;
 
   return (
-    <div className="w-full max-w-7xl mx-auto flex flex-col animate-fade-in">
-      <div className="flex items-center mb-6">
-        <BookOpenIcon className="w-8 h-8 text-indigo-600 mr-3" />
-        <h2 className="text-2xl font-bold text-gray-800">授課管理</h2>
+    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 flex flex-col h-full animate-fade-in">
+      {/* Header Area */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
+        <div className="border-l-4 border-indigo-500 pl-4">
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+            <BookOpenIcon className="h-8 w-8 text-indigo-600" />
+            授課管理
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">查看您的授課清單並管理各課堂教學進度。</p>
+        </div>
       </div>
 
       {/* 篩選器 */}
@@ -669,13 +779,14 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                           <th className="px-6 py-4 font-bold min-w-[150px] w-[200px]">授課老師</th>
                           <th className="px-6 py-4 font-bold text-center w-[120px]">學生人數</th>
                           <th className="px-6 py-4 font-bold min-w-[220px]">上課時間</th>
+                          <th className="px-6 py-4 font-bold text-center min-w-[120px]">會議室</th>
                           <th className="px-6 py-4 font-bold text-center w-[100px]">狀態</th>
                           <th className="px-6 py-4 font-bold text-right w-[180px]">操作</th>
                       </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                       {filteredCourses.map(course => (
-                          <tr key={course.id} className="hover:bg-gray-50 transition-colors">
+                          <tr key={course.id} className="hover:bg-indigo-50/30 transition-colors">
                               <td className="px-6 py-4">
                                   <div className="font-bold text-gray-900 whitespace-nowrap overflow-hidden text-ellipsis">{course.name}</div>
                                   <div className="text-xs font-mono text-gray-500 mt-1">{course.code}</div>
@@ -691,6 +802,13 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                               </td>
                               <td className="px-6 py-4 text-gray-600 whitespace-nowrap">
                                   {(course.classTimes || []).map((ct, i) => <div key={i}>{`${(ct as unknown as ClassTime).day} ${(ct as unknown as ClassTime).startTime}-${(ct as unknown as ClassTime).endTime}`}</div>)}
+                              </td>
+                              <td className="px-6 py-4 text-center whitespace-nowrap">
+                                  {course.liveStreamURL ? (
+                                      <a href={course.liveStreamURL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-indigo-600 hover:text-indigo-800 transition-colors bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-md text-xs font-bold">
+                                          <VideoCameraIcon className="w-3.5 h-3.5 mr-1" /> 進入會議室
+                                      </a>
+                                  ) : <span className="text-gray-400 text-xs">無</span>}
                               </td>
                               <td className="px-6 py-4 text-center whitespace-nowrap">
                                   <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${getStatusColor(course.status)}`}>{course.status}</span>
@@ -716,6 +834,14 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                       <span className={`px-2 py-1 rounded text-xs ${getStatusColor(course.status)}`}>{course.status}</span>
                   </div>
                   <div className="text-xs text-gray-500 mb-4">{course.code}</div>
+                  {course.liveStreamURL && (
+                      <div className="mb-4">
+                          <a href={course.liveStreamURL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center w-full py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-sm font-bold transition-colors">
+                              <VideoCameraIcon className="w-5 h-5 mr-2" />
+                              進入線上會議室
+                          </a>
+                      </div>
+                  )}
                   <div className="flex justify-end gap-2">
                       <button className="btn-primary w-full py-2 text-sm" onClick={() => setShowLessonManager(course)}>管理課程</button>
                       <button className="btn-secondary w-full py-2 text-sm" onClick={() => handleShowCourseDetail(course)}>詳情</button>

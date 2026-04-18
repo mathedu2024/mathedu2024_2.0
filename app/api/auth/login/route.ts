@@ -56,7 +56,8 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Role mismatch' }, { status: 403, headers: { 'Content-Type': 'application/json' } });
     }
     
-    const userRole = roles; // For use in token + response
+    const userRole = roles; // For response/session display
+    const roleForToken = loginType; // Firestore rules 用單一角色字串判斷
     console.log('API - Role validation successful.');
     // --- End Role Validation ---
 
@@ -99,7 +100,7 @@ export async function POST(req: NextRequest) {
         }
     }
 
-    const customToken = await auth.createCustomToken(uid, { role: userRole });
+    const customToken = await auth.createCustomToken(uid, { role: roleForToken });
 
     const responseData = {
       token: customToken,

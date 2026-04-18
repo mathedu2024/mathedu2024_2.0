@@ -6,10 +6,6 @@ import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import Dropdown from '@/components/ui/Dropdown';
 
-// ==========================================
-// 介面定義
-// ==========================================
-
 export interface Exam {
   id: string;
   name: string;
@@ -26,10 +22,6 @@ interface Announcement {
   grade?: '國一' | '國二' | '國三' | '高一' | '高二' | '高三' | '職一' | '職二' | '職三' | '大一' | '進修';
   createdAt: unknown;
 }
-
-// ==========================================
-// 預設/模擬資料 (確保 UI 不會消失)
-// ==========================================
 
 const mockExams: Exam[] = [
   { id: 'gsat', name: '學科能力測驗 (學測)', startDate: '2025-01-18', endDate: '2025-01-20' },
@@ -68,8 +60,6 @@ const itemVariants = {
   hidden: { y: 20, opacity: 0 },
   visible: { y: 0, opacity: 1, transition: { duration: 0.5 } },
 };
-
-// Utility Functions moved outside component to be stable references
 
 const formatDate = (dateInput: unknown) => {
   if (!dateInput) return '無日期';
@@ -112,10 +102,6 @@ const sortExams = (list: Exam[]) => {
   });
 };
 
-// ==========================================
-// 主程式
-// ==========================================
-
 export default function Home() {
 
   const [exams, setExams] = useState<Exam[]>(sortExams(mockExams));
@@ -130,14 +116,12 @@ export default function Home() {
   const [selectedGrade, setSelectedGrade] = useState<string>('全部');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  // 更新倒數數值
   useEffect(() => {
     if (exams.length > 0) {
       setCountdowns(exams.map(exam => calculateDaysLeft(exam.startDate)));
     }
   }, [exams]);
 
-  // 監聽公告資料 (改用 onSnapshot 實現即時更新)
   useEffect(() => {
     const annQ = query(collection(db, 'announcements'), orderBy('createdAt', 'desc'));
     
@@ -156,11 +140,9 @@ export default function Home() {
     return () => unsubscribe();
   }, []);
 
-  // 監聽考試日期 (使用 onSnapshot 實現即時更新)
   useEffect(() => {
     const exmQ = query(collection(db, 'exam_dates'), orderBy('startDate', 'asc'));
 
-    // 設定 Firestore 即時監聽器
     const unsubscribe = onSnapshot(exmQ, (snapshot) => {
       const exmList = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -168,17 +150,14 @@ export default function Home() {
         startDate: doc.data().startDate || '',
         endDate: doc.data().endDate || ''
       })) as Exam[];
-      setExams(sortExams(exmList)); // 更新 exams 狀態，這會觸發 countdowns 的 useEffect
+      setExams(sortExams(exmList));
     }, (error) => {
-      // 處理監聽錯誤
       console.error('Listen exam dates error:', error);
     });
 
-    // 返回清理函數，在元件卸載時取消訂閱監聽器
     return () => unsubscribe();
   }, []);
 
-  // 使用 useMemo 優化篩選效能，並加入關鍵字搜尋
   const filteredAnnouncements = React.useMemo(() => {
     return announcements.filter(ann => {
     const ctMatch = selectedContentType === '全部' || ann.contentType === selectedContentType;
@@ -188,7 +167,6 @@ export default function Home() {
     });
   }, [announcements, selectedContentType, selectedSubject, selectedGrade]);
 
-  // 當篩選條件變動時，自動重置到第一頁
   useEffect(() => {
     setAnnouncementPage(1);
   }, [selectedContentType, selectedSubject, selectedGrade]);
@@ -209,7 +187,7 @@ export default function Home() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         
-        {/* 重要考試時程 - 已修正 UI 顯示邏輯 */}
+      
         <div className="bg-indigo-600 rounded-2xl p-6 md:p-10 shadow-xl text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl"></div>
           <h2 className="text-2xl md:text-3xl font-bold text-center mb-8 flex items-center justify-center">

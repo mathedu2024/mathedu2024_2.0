@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import LoadingSpinner from './LoadingSpinner';
 import Swal from 'sweetalert2';
-import { deleteExam } from '@/services/examService';
 import { 
   CalendarDaysIcon, 
   PencilIcon, 
@@ -129,7 +128,15 @@ export default function ExamDateManager() {
     if (result.isConfirmed) {
       setSaving(true);
       try {
-        await deleteExam(examId);
+        const response = await fetch('/api/exam-dates/delete', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: examId }),
+        });
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || 'Failed to delete exam date');
+        }
         await fetchExams();
 
         Swal.fire({
@@ -156,11 +163,17 @@ export default function ExamDateManager() {
   const displayExams = MAIN_EXAMS;
 
   return (
-    <div className="max-w-7xl mx-auto w-full p-4 md:p-6 flex flex-col h-full">
-      <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center">
-        <CalendarDaysIcon className="w-8 h-8 mr-3 text-indigo-600" />
-        考試日期管理
-      </h2>
+    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 flex flex-col h-full animate-fade-in">
+      {/* Header Area */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
+        <div className="border-l-4 border-indigo-500 pl-4">
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+            <CalendarDaysIcon className="h-8 w-8 text-indigo-600" />
+            考試日期管理
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">管理重要考試日期，供首頁倒數計時參考。</p>
+        </div>
+      </div>
 
       {/* Editing Form Card */}
       {editingId && (

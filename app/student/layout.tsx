@@ -6,15 +6,16 @@ import { clearSession } from '../utils/session';
 import Sidebar from '../components/Sidebar';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useStudentInfo, StudentInfoProvider } from './StudentInfoContext';
-import { BookOpenIcon, ClipboardDocumentListIcon, CheckCircleIcon, PencilIcon, CalendarIcon, KeyIcon } from '@heroicons/react/24/outline';
+import { BookOpenIcon, ClipboardDocumentListIcon, CheckCircleIcon, PencilIcon, CalendarIcon, KeyIcon, CloudArrowDownIcon } from '@heroicons/react/24/outline';
 
 const studentFeatures = [
   { id: 'courses', title: '我的課程', icon: <BookOpenIcon /> },
+  { id: 'resources', title: '線上資源', icon: <CloudArrowDownIcon /> },
   { id: 'grades', title: '成績查詢', icon: <ClipboardDocumentListIcon /> },
   { id: 'attendance', title: '線上點名', icon: <CheckCircleIcon /> },
   { id: 'counseling', title: '輔導預約', icon: <CalendarIcon /> },
-  { id: 'change-password', title: '修改密碼', icon: <KeyIcon /> },
   { id: 'exam', title: '線上測驗', icon: <PencilIcon />, disabled: true },
+  { id: 'change-password', title: '修改密碼', icon: <KeyIcon /> },
 ];
 
 function StudentLayoutContent({ children }: { children: React.ReactNode }) {
@@ -52,7 +53,7 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
     startTransition(() => {
       if (tab === null) {
         router.push('/student');
-      } else if (['courses', 'grades', 'counseling', 'attendance'].includes(tab)) {
+      } else if (['courses', 'resources', 'grades', 'counseling', 'attendance'].includes(tab)) {
         router.push(`/student/${tab}`);
       } else {
         router.push(`/student?tab=${tab}`);

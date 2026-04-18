@@ -10,7 +10,7 @@ import { BookOpenIcon, ClockIcon, MapPinIcon, UserIcon, VideoCameraIcon } from '
 // Interfaces
 interface ClassTime { day: string; startTime: string; endTime: string; }
 interface Course { id: string; name: string; code: string; status: string; archived?: boolean; gradeTags: string[]; subjectTag: string; startDate: string; endDate: string; teachers: string[]; teacherName?: string; description: string; teachingMethod: string; courseNature: string; location?: string; liveStreamURL?: string; coverImageURL?: string; classTimes?: ClassTime[]; }
-interface Lesson { id: string; title: string; date: string; progress: string; attachments: string[]; videos: string[]; homework: string; onlineExam: string; examScope: string; notes: string; createdAt: string | number | { toDate: () => Date }; order?: number; }
+interface Lesson { id: string; title: string; date: string; progress: string; attachments: Array<string | { url: string; name?: string; visibleToStudents?: boolean }>; videos: string[]; homework: string; onlineExam: string; examScope: string; notes: string; createdAt: string | number | { toDate: () => Date }; order?: number; }
 
 const isCourseArchived = (course: Course): boolean => course.archived === true || String(course.archived) === 'true';
 
@@ -188,14 +188,18 @@ export default function StudentCoursesContent() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto w-full p-4 md:p-8 animate-fade-in">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center">
-          <BookOpenIcon className="w-8 h-8 text-indigo-600 mr-3" />
-          <h2 className="text-2xl font-bold text-gray-800">我的課程</h2>
+    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pt-6 md:pt-8 pb-10 flex flex-col h-full animate-fade-in">
+      {/* Header Area */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div className="border-l-4 border-indigo-500 pl-4">
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+            <BookOpenIcon className="h-8 w-8 text-indigo-600" />
+            我的課程
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">查看並進入您所選修的課程與教材內容。</p>
         </div>
         {courses.length > 0 && (
-          <span className="bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-bold border border-indigo-100 shadow-sm">
+          <span className="bg-indigo-50 text-indigo-700 px-4 py-2 rounded-full text-sm font-bold border border-indigo-100 shadow-sm self-start md:self-auto">
             目前選修 {courses.length} 門有效課程
           </span>
         )}

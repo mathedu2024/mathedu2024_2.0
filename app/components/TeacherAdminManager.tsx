@@ -218,16 +218,25 @@ export default function TeacherAdminManager() {
   });
 
   return (
-    <div className="max-w-7xl mx-auto w-full p-4 md:p-6 flex flex-col h-full">
-      <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center">
-        <ShieldCheckIcon className="w-8 h-8 mr-3 text-indigo-600" />
-        老師/管理員管理
-      </h2>
-      
-      <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center mb-6">
-        <div className="text-sm text-gray-500">
-          管理系統後台的使用者帳號、權限與基本資料。
+    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 flex flex-col h-full animate-fade-in">
+      {/* Header Area */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
+        <div className="border-l-4 border-indigo-500 pl-4">
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+            <ShieldCheckIcon className="h-8 w-8 text-indigo-600" />
+            老師/管理員管理
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">管理系統後台的使用者帳號、權限與基本資料。</p>
         </div>
+        {!isEditing && (
+          <button
+            onClick={handleAdd}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2"
+          >
+            <PlusIcon className="h-5 w-5" />
+            新增帳號
+          </button>
+        )}
       </div>
 
       {!isEditing && (
@@ -245,12 +254,6 @@ export default function TeacherAdminManager() {
                     className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                 />
             </div>
-            <button
-              onClick={handleAdd}
-              className="w-full md:w-auto inline-flex items-center justify-center px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors shadow-sm font-medium"
-            >
-              <PlusIcon className="w-5 h-5 mr-2" /> 新增帳號
-            </button>
           </div>
         </div>
       )}
@@ -449,7 +452,7 @@ export default function TeacherAdminManager() {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {filteredTeachers.length > 0 ? filteredTeachers.map(item => (
-                      <tr key={item.id} className="bg-white hover:bg-gray-50 transition-colors group">
+                      <tr key={item.id} className="bg-white hover:bg-indigo-50/30 transition-colors group">
                         <td className="px-6 py-4 font-bold text-gray-900">
                             {item.name}
                         </td>

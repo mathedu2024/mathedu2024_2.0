@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/services/firebase';
-import { doc, deleteDoc } from 'firebase/firestore';
+import { adminDb } from '@/services/firebase-admin';
 
 export async function DELETE(req: NextRequest) {
   try {
@@ -16,8 +15,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ message: 'Cannot delete main exam dates' }, { status: 403 });
     }
 
-    const examRef = doc(db, 'exam_dates', id);
-    await deleteDoc(examRef);
+    await adminDb.collection('exam_dates').doc(id).delete();
 
     return NextResponse.json({ message: 'Exam date deleted successfully' });
   } catch (error) {

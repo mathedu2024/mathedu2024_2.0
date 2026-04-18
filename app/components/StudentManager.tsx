@@ -5,7 +5,7 @@ import MultiSelectDropdown from './MultiSelectDropdown';
 import LoadingSpinner from './LoadingSpinner';
 import Dropdown from './ui/Dropdown';
 import Swal from 'sweetalert2';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { 
   PlusIcon, 
   PencilIcon, 
@@ -16,7 +16,9 @@ import {
   KeyIcon,
   PhoneIcon,
   EnvelopeIcon,
-  MapPinIcon
+  MapPinIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
 } from '@heroicons/react/24/outline';
 
 interface Student {
@@ -46,6 +48,20 @@ interface MinimalCourse {
   archived?: boolean | string;
 }
 
+interface ImportStudentPayload {
+  studentId: string;
+  name: string;
+  gender: 'male' | 'female';
+  grade: string;
+  account: string;
+  email: string;
+  phone: string;
+  address: string;
+  remarks: string;
+  enrolledCourses: string[];
+  password: string;
+}
+
 export default function StudentManager() {
   const [students, setStudents] = useState<Student[]>([]);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
@@ -55,6 +71,11 @@ export default function StudentManager() {
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [batchGrade, setBatchGrade] = useState<string>('');
+  const [batchCourses, setBatchCourses] = useState<string[]>([]);
+  const [batchRemoveCourses, setBatchRemoveCourses] = useState<string[]>([]);
+  const [mobileBatchPanelOpen, setMobileBatchPanelOpen] = useState(false);
   const [formErrors, setFormErrors] = useState<{ studentId?: string; email?: string }>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -290,6 +311,100 @@ export default function StudentManager() {
     return matchesSearch && matchesGrade;
   });
 
+  useEffect(() => {
+    const currentIds = new Set(students.map((s) => s.id));
+    setSelectedStudentIds((prev) => prev.filter((id) => currentIds.has(id)));
+  }, [students]);
+
+  const isAllFilteredSelected =
+    filteredStudents.length > 0 && filteredStudents.every((student) => selectedStudentIds.includes(student.id));
+
+  const toggleStudentSelection = (studentId: string) => {
+    setSelectedStudentIds((prev) =>
+      prev.includes(studentId) ? prev.filter((id) => id !== studentId) : [...prev, studentId]
+    );
+  };
+
+  const toggleSelectAllFiltered = () => {
+    if (isAllFilteredSelected) {
+      const filteredIdSet = new Set(filteredStudents.map((s) => s.id));
+      setSelectedStudentIds((prev) => prev.filter((id) => !filteredIdSet.has(id)));
+      return;
+    }
+    const merged = new Set([...selectedStudentIds, ...filteredStudents.map((s) => s.id)]);
+    setSelectedStudentIds(Array.from(merged));
+  };
+
+  const handleBatchUpdate = async () => {
+    if (selectedStudentIds.length === 0) {
+      Swal.fire('提示', '請先勾選要批次修改的學生。', 'info');
+      return;
+    }
+    if (!batchGrade && batchCourses.length === 0 && batchRemoveCourses.length === 0) {
+      Swal.fire('提示', '請至少設定要更新的年級、加入課程或移除課程。', 'info');
+      return;
+    }
+
+    const result = await Swal.fire({
+      title: '確認批次修改',
+      html: `
+        <div style="text-align:left;line-height:1.8">
+          <div>選取學生數：<b>${selectedStudentIds.length}</b></div>
+          <div>調整年級：<b>${batchGrade || '不變更'}</b></div>
+          <div>加入課程數：<b>${batchCourses.length}</b></div>
+          <div>移除課程數：<b>${batchRemoveCourses.length}</b></div>
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: '確認執行',
+      cancelButtonText: '取消',
+      confirmButtonColor: '#4f46e5',
+    });
+    if (!result.isConfirmed) return;
+
+    try {
+      setLoading(true);
+      const res = await fetch('/api/student/bulk-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentIds: selectedStudentIds,
+          grade: batchGrade || undefined,
+          addCourses: batchCourses,
+          removeCourses: batchRemoveCourses,
+        }),
+      });
+      if (!res.ok) {
+        throw new Error(`批次修改失敗（${res.status}）`);
+      }
+      const data = await res.json();
+      Swal.fire({
+        icon: 'success',
+        title: '批次修改完成',
+        html: `
+          <div style="text-align:left;line-height:1.8">
+            <div>成功更新學生：<b>${data.updatedCount}</b> 筆</div>
+            <div>更新年級：<b>${batchGrade ? '是' : '否'}</b></div>
+            <div>加入課程：<b>${batchCourses.length}</b> 堂</div>
+            <div>移除課程：<b>${batchRemoveCourses.length}</b> 堂</div>
+          </div>
+        `,
+        confirmButtonColor: '#4f46e5',
+      });
+      setSelectedStudentIds([]);
+      setBatchGrade('');
+      setBatchCourses([]);
+      setBatchRemoveCourses([]);
+      fetchStudents();
+    } catch (error) {
+      console.error('批次修改失敗:', error);
+      Swal.fire('錯誤', '批次修改失敗，請稍後再試。', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const updateStudentCourses = async (studentDocId: string, oldCourses: string[], newCourses: string[], studentInfo?: Record<string, unknown>) => {
     await fetch('/api/course-student-list/save', {
       method: 'POST',
@@ -299,7 +414,7 @@ export default function StudentManager() {
   };
 
   // --- Excel 模板下載功能 ---
-  const _handleDownloadTemplate = () => {
+  const handleDownloadTemplate = async () => {
     const templateData = [
       {
         '學號': 'S112001',
@@ -312,15 +427,35 @@ export default function StudentManager() {
         '備註': '範例資料 (請刪除此列)'
       }
     ];
+    
+    // 1. 建立活頁簿與工作表
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('學生匯入模板');
 
-    const ws = XLSX.utils.json_to_sheet(templateData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, '學生匯入模板');
-    XLSX.writeFile(wb, '學生資料匯入模板.xlsx');
+    // 2. 定義欄位與標題 (設定 key 以便對應資料)
+    worksheet.columns = Object.keys(templateData[0]).map(key => ({
+      header: key,
+      key: key,
+      width: 20
+    }));
+
+    // 3. 填入範例資料
+    worksheet.addRows(templateData);
+
+    // 4. 生成 Buffer 並觸發瀏覽器下載
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = '學生資料匯入模板.xlsx';
+    anchor.click();
+    window.URL.revokeObjectURL(url);
   };
 
   // --- Excel 檔案讀取與大量上傳功能 ---
-  const _handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -328,80 +463,103 @@ export default function StudentManager() {
     reader.onload = async (evt) => {
       try {
         setLoading(true);
-        const arrayBuffer = evt.target?.result;
-        const wb = XLSX.read(arrayBuffer, { type: 'array' });
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
-        const data = XLSX.utils.sheet_to_json(ws) as Record<string, string | number>[];
+        const arrayBuffer = evt.target?.result as ArrayBuffer;
+        
+        // 1. 載入 Excel 檔案
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(arrayBuffer);
+        
+        const worksheet = workbook.getWorksheet(1); // 取得第一個工作表
+        if (!worksheet) throw new Error('讀取不到工作表內容');
+
+        const data: Record<string, string | number>[] = [];
+        const headers: string[] = [];
+        
+        // 2. 獲取標題列 (第一列) 用於欄位對應
+        const headerRow = worksheet.getRow(1);
+        headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+          headers[colNumber] = cell.text.trim();
+        });
+
+        // 3. 遍歷資料列 (從第二列開始)
+        worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+          if (rowNumber === 1) return; // 跳過標題
+          const rowObject: Record<string, string | number> = {};
+          row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+            const header = headers[colNumber];
+            if (header) rowObject[header] = cell.text.trim();
+          });
+          data.push(rowObject);
+        });
 
         if (data.length === 0) {
           Swal.fire('提示', 'Excel 檔案中沒有資料', 'info');
           return;
         }
 
-        let successCount = 0;
-        let errorCount = 0;
-
+        const importRows: ImportStudentPayload[] = [];
+        const parseErrors: string[] = [];
         for (const row of data) {
           const studentId = String(row['學號'] || '').trim();
           const name = String(row['姓名'] || '').trim();
           
           if (!studentId || !name) {
-            errorCount++;
+            parseErrors.push(`資料不完整：學號或姓名缺漏（學號: ${studentId || '空白'}）`);
+            continue;
+          }
+          if (/[\u4e00-\u9fa5\u3000-\u303F\uFF00-\uFFEF\p{P}\p{S}]/u.test(studentId)) {
+            parseErrors.push(`學號格式錯誤：${studentId}`);
             continue;
           }
 
           // 性別轉換
           const genderMap: { [key: string]: 'male' | 'female' } = { '男': 'male', '女': 'female' };
-          const gender = genderMap[row['性別']] || 'male';
+          const rawGender = String(row['性別'] || '').trim();
+          const gender = genderMap[rawGender] || 'male';
 
           // 組合存檔資料
-          const studentData = {
-            id: studentId,
+          const studentData: ImportStudentPayload = {
             studentId: studentId,
             name: name,
             gender: gender,
-            grade: row['年級'] || '高一',
+            grade: String(row['年級'] || '高一').trim(),
             account: studentId,
-            email: row['電子郵件'] || '',
+            email: String(row['電子郵件'] || '').trim(),
             phone: String(row['電話'] || ''),
-            address: row['地址'] || '',
-            remarks: row['備註'] || '',
+            address: String(row['地址'] || '').trim(),
+            remarks: String(row['備註'] || '').trim(),
             enrolledCourses: [],
             password: 'abcd1234' // 預設密碼
           };
-
-          try {
-            // 呼叫 API 儲存單筆資料
-            const res = await fetch('/api/student/save', {
-              method: 'POST',
-              body: JSON.stringify(studentData)
-            });
-            
-            if (res.ok) {
-              // 同步更新課程關聯（雖然新匯入預設無課程，但為求邏輯一致呼叫一次）
-              await updateStudentCourses(studentId, [], [], {
-                id: studentId,
-                name: name,
-                account: studentId,
-                studentId: studentId,
-                grade: studentData.grade,
-              });
-              successCount++;
-            } else {
-              errorCount++;
-            }
-          } catch (err) {
-            console.error(`匯入學生 ${name} 失敗:`, err);
-            errorCount++;
-          }
+          importRows.push(studentData);
         }
 
+        if (importRows.length === 0) {
+          Swal.fire('提示', '沒有可匯入的有效資料，請檢查 Excel 內容。', 'info');
+          return;
+        }
+
+        const res = await fetch('/api/student/bulk-import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ students: importRows }),
+        });
+        if (!res.ok) {
+          throw new Error(`批次匯入失敗（${res.status}）`);
+        }
+        const result = await res.json();
+
         Swal.fire({
-          icon: errorCount > 0 ? 'warning' : 'success',
+          icon: (result.skippedCount > 0 || parseErrors.length > 0) ? 'warning' : 'success',
           title: '匯入完成',
-          text: `成功匯入 ${successCount} 筆，失敗 ${errorCount} 筆。`,
-          confirmButtonColor: '#4f46e5'
+          html: `
+            <div style="text-align:left;line-height:1.8">
+              <div>成功新增：<b>${result.createdCount}</b> 筆</div>
+              <div>略過重複學號：<b>${result.skippedCount}</b> 筆</div>
+              <div>資料格式錯誤：<b>${parseErrors.length}</b> 筆</div>
+            </div>
+          `,
+          confirmButtonColor: '#4f46e5',
         });
 
         fetchStudents();
@@ -419,15 +577,66 @@ export default function StudentManager() {
       setLoading(false);
     };
 
-    reader.readAsBinaryString(file);
+    reader.readAsArrayBuffer(file); // exceljs 使用 ArrayBuffer 讀取
   };
 
   return (
-    <div className="max-w-7xl mx-auto w-full p-4 md:p-6 flex flex-col h-full">
-      <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center">
-        <UserGroupIcon className="w-8 h-8 mr-3 text-indigo-600" />
-        學生資料管理
-      </h2>
+    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 flex flex-col h-full animate-fade-in">
+      {/* Header Area */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
+        <div className="border-l-4 border-indigo-500 pl-4">
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+            <UserGroupIcon className="h-8 w-8 text-indigo-600" />
+            學生資料管理
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">管理學生基本資料、選修課程與帳號狀態。</p>
+        </div>
+        {!isEditing && (
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleDownloadTemplate}
+              className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 font-bold py-2.5 px-4 rounded-xl shadow-sm transition-all"
+            >
+              下載 Excel 模板
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-sm transition-all"
+            >
+              匯入 Excel 批次新增
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              className="hidden"
+              onChange={handleImportExcel}
+            />
+            <button
+              onClick={() => {
+                setEditingStudent({
+                  id: '',
+                  studentId: '',
+                  name: '',
+                  gender: 'male',
+                  grade: '高一',
+                  account: '',
+                  email: '',
+                  phone: '',
+                  address: '',
+                  remarks: '',
+                  enrolledCourses: []
+                });
+                setIsEditing(true);
+              }}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2"
+            >
+              <PlusIcon className="h-5 w-5" />
+              新增學生
+            </button>
+          </div>
+        )}
+      </div>
 
       {!isEditing && (
         <div className="bg-white border border-gray-200 p-4 rounded-xl shadow-sm mb-6 flex-shrink-0">
@@ -454,28 +663,53 @@ export default function StudentManager() {
                   className="w-full"
                 />
             </div>
-
+          </div>
+          <div className="mt-4 pt-4 border-t border-gray-100">
             <button
-              onClick={() => {
-                setEditingStudent({
-                  id: '',
-                  studentId: '',
-                  name: '',
-                  gender: 'male',
-                  grade: '高一',
-                  account: '',
-                  email: '',
-                  phone: '',
-                  address: '',
-                  remarks: '',
-                  enrolledCourses: []
-                });
-                setIsEditing(true);
-              }}
-              className="w-full md:w-auto inline-flex items-center justify-center px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors shadow-sm font-medium flex-shrink-0"
+              type="button"
+              onClick={() => setMobileBatchPanelOpen((prev) => !prev)}
+              className="md:hidden w-full mb-3 flex items-center justify-between px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-700 font-medium"
             >
-              <PlusIcon className="w-5 h-5 mr-2" /> 新增學生
+              <span>批次修改操作</span>
+              {mobileBatchPanelOpen ? <ChevronUpIcon className="w-5 h-5" /> : <ChevronDownIcon className="w-5 h-5" />}
             </button>
+            <div className="flex flex-col lg:flex-row gap-3 lg:items-center">
+              <div className={`${mobileBatchPanelOpen ? 'flex' : 'hidden'} md:flex text-sm text-gray-600 font-medium`}>
+                已選取 <span className="text-indigo-600 font-bold">{selectedStudentIds.length}</span> 位學生
+              </div>
+              <div className={`${mobileBatchPanelOpen ? 'block' : 'hidden'} md:block w-full lg:w-44`}>
+                <Dropdown
+                  value={batchGrade}
+                  onChange={setBatchGrade}
+                  options={[{ value: '', label: '年級不變更' }, ...grades.map((g) => ({ value: g, label: `改為 ${g}` }))]}
+                  placeholder="年級不變更"
+                  className="w-full"
+                />
+              </div>
+              <div className={`${mobileBatchPanelOpen ? 'block' : 'hidden'} md:block flex-1 min-w-0`}>
+                <MultiSelectDropdown
+                  options={courses.map(course => ({ label: `${course.name} (${course.code})`, value: course.id }))}
+                  selectedOptions={batchCourses}
+                  onChange={setBatchCourses}
+                  placeholder="選擇要加入的課程（可複選）"
+                />
+              </div>
+              <div className={`${mobileBatchPanelOpen ? 'block' : 'hidden'} md:block flex-1 min-w-0`}>
+                <MultiSelectDropdown
+                  options={courses.map(course => ({ label: `${course.name} (${course.code})`, value: course.id }))}
+                  selectedOptions={batchRemoveCourses}
+                  onChange={setBatchRemoveCourses}
+                  placeholder="選擇要移除的課程（可複選）"
+                />
+              </div>
+              <button
+                onClick={handleBatchUpdate}
+                disabled={loading || selectedStudentIds.length === 0 || (!batchGrade && batchCourses.length === 0 && batchRemoveCourses.length === 0)}
+                className={`${mobileBatchPanelOpen ? 'flex' : 'hidden'} md:flex bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-2.5 px-5 rounded-xl shadow-sm transition-all items-center justify-center`}
+              >
+                批次修改
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -658,6 +892,15 @@ export default function StudentManager() {
                       <div key={student.id} className="bg-white border border-gray-200 rounded-xl shadow-sm p-5 relative overflow-hidden">
                         <div className="flex justify-between items-start mb-3">
                           <div>
+                              <label className="inline-flex items-center gap-2 mb-2 text-xs text-gray-600">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedStudentIds.includes(student.id)}
+                                  onChange={() => toggleStudentSelection(student.id)}
+                                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                />
+                                選取此學生
+                              </label>
                               <h3 className="font-bold text-lg text-gray-900">{student.name}</h3>
                               <p className="text-sm font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded mt-1 inline-block">{student.studentId}</p>
                           </div>
@@ -716,6 +959,15 @@ export default function StudentManager() {
                   <table className="w-full text-sm text-left text-gray-500">
                     <thead className="text-xs text-gray-700 uppercase bg-gray-50 border-b border-gray-200">
                       <tr>
+                        <th scope="col" className="px-4 py-4 font-bold w-10">
+                          <input
+                            type="checkbox"
+                            checked={isAllFilteredSelected}
+                            onChange={toggleSelectAllFiltered}
+                            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                            title="全選目前篩選結果"
+                          />
+                        </th>
                         <th scope="col" className="px-6 py-4 font-bold">姓名</th>
                         <th scope="col" className="px-6 py-4 font-bold">學號</th>
                         <th scope="col" className="px-6 py-4 font-bold">帳號</th>
@@ -727,7 +979,15 @@ export default function StudentManager() {
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {filteredStudents.length > 0 ? filteredStudents.map(student => (
-                        <tr key={student.id} className="bg-white hover:bg-gray-50 transition-colors group">
+                        <tr key={student.id} className="bg-white hover:bg-indigo-50/30 transition-colors group">
+                          <td className="px-4 py-4">
+                            <input
+                              type="checkbox"
+                              checked={selectedStudentIds.includes(student.id)}
+                              onChange={() => toggleStudentSelection(student.id)}
+                              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                            />
+                          </td>
                           <td className="px-6 py-4 font-bold text-gray-900">{student.name}</td>
                           <td className="px-6 py-4 font-mono text-gray-600">{student.studentId}</td>
                           <td className="px-6 py-4 font-mono text-gray-600">{student.account}</td>
@@ -774,7 +1034,7 @@ export default function StudentManager() {
                         </tr>
                       )) : (
                         <tr>
-                          <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                          <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
                             沒有找到符合條件的學生資料
                           </td>
                         </tr>

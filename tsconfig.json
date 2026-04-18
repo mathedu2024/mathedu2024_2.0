@@ -27,7 +27,8 @@
         "./lib/*"
       ],
       "@/components/*": [
-        "./app/components/*"
+        "./app/components/*",
+        "./components/*"
       ],
       "@/components/ui/*": [
         "./app/components/ui/*"

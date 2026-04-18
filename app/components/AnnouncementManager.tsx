@@ -123,9 +123,9 @@ export default function AnnouncementManager() {
       const announcementData = {
         title: form.title,
         content: form.content,
-        contentType: form.contentType,
-        subject: form.subject,
-        grade: form.grade,
+        contentType: form.contentType || '公告事項',
+        subject: form.subject || '',
+        grade: form.grade || '',
         links: form.links || []
       };
 
@@ -147,7 +147,13 @@ export default function AnnouncementManager() {
           });
           setAnnouncements(prev => prev.map(ann => 
             ann.id === editingId 
-              ? { ...ann, ...announcementData, updatedAt: new Date() }
+              ? { 
+                  ...ann, 
+                  ...announcementData, 
+                  subject: (announcementData.subject || undefined) as Announcement['subject'],
+                  grade: (announcementData.grade || undefined) as Announcement['grade'],
+                  updatedAt: new Date() 
+                } as Announcement
               : ann
           ));
         } else {
@@ -177,9 +183,11 @@ export default function AnnouncementManager() {
             confirmButtonColor: '#4f46e5',
             customClass: { popup: 'rounded-2xl' }
           });
-          const newAnnouncement = {
+          const newAnnouncement: Announcement = {
             id: result.id,
             ...announcementData,
+            subject: (announcementData.subject || undefined) as Announcement['subject'],
+            grade: (announcementData.grade || undefined) as Announcement['grade'],
             createdAt: new Date(),
             updatedAt: new Date()
           };
@@ -364,30 +372,28 @@ export default function AnnouncementManager() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto w-full p-4 md:p-6 flex flex-col h-full overflow-y-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 flex items-center">
-            <MegaphoneIcon className="w-8 h-8 mr-3 text-indigo-600" />
+    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 flex flex-col h-full overflow-y-auto animate-fade-in">
+      {/* Header Area */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
+        <div className="border-l-4 border-indigo-500 pl-4">
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+            <MegaphoneIcon className="h-8 w-8 text-indigo-600" />
             公告管理
-        </h2>
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">發佈與管理網站公告、課程資訊與相關連結。</p>
+        </div>
         {!isEditing && (
-            <button
-                onClick={() => {
-                  setEditingId(null);
-                  setForm({
-                    title: '',
-                    content: '',
-                    contentType: '公告事項',
-                    subject: undefined,
-                    grade: undefined,
-                    links: []
-                  });
-                  setIsEditing(true);
-                }}
-                className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors shadow-sm font-medium"
-            >
-                <PlusIcon className="w-5 h-5 mr-2" /> 建立公告
-            </button>
+          <button
+            onClick={() => {
+              setEditingId(null);
+              setForm({ title: '', content: '', contentType: '公告事項', links: [] });
+              setIsEditing(true);
+            }}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2"
+          >
+            <PlusIcon className="h-5 w-5" />
+            建立公告
+          </button>
         )}
       </div>
 

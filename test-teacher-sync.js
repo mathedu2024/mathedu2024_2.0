@@ -1,14 +1,12 @@
 const { initializeApp, cert } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 
-// Initialize Firebase Admin from environment variables
 const serviceAccount = {
   projectId: process.env.FIREBASE_PROJECT_ID,
   clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
   privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\n/g, '\n'),
 };
 
-// 初始化 Firebase Admin
 initializeApp({
   credential: cert(serviceAccount)
 });
@@ -16,7 +14,6 @@ initializeApp({
 const adminDb = getFirestore();
 
 
-// 模擬課程創建API邏輯
 async function createCourse(data) {
   const id = data.id || Date.now().toString();
   
@@ -25,10 +22,8 @@ async function createCourse(data) {
   if (!('startDate' in data)) data.startDate = '';
   if (!('endDate' in data)) data.endDate = '';
   
-  // 創建課程
   await adminDb.collection('courses').doc(id).set(data, { merge: true });
   
-  // 如果指定了老師，同步更新老師的授課清單
   if (data.teachers && Array.isArray(data.teachers) && data.teachers.length > 0) {
     try {
       const courseKey = `${data.name}(${data.code})`;
@@ -42,7 +37,6 @@ async function createCourse(data) {
             const teacherData = teacherDoc.data();
             const currentCourses = teacherData?.courses || [];
             
-            // 檢查課程是否已經在清單中
             if (!currentCourses.includes(courseKey)) {
               const updatedCourses = [...currentCourses, courseKey];
               
@@ -70,7 +64,6 @@ async function createCourse(data) {
   return { success: true, id };
 }
 
-// 模擬課程更新API邏輯
 async function updateCourse(data) {
   const id = data.id || Date.now().toString();
   
@@ -79,20 +72,16 @@ async function updateCourse(data) {
   if (!('startDate' in data)) data.startDate = '';
   if (!('endDate' in data)) data.endDate = '';
   
-  // 獲取舊的課程資料以比較老師變更
   const oldCourseDoc = await adminDb.collection('courses').doc(id).get();
   const oldCourseData = oldCourseDoc.exists ? oldCourseDoc.data() : null;
   const oldTeacherIds = oldCourseData?.teachers || [];
   
-  // 更新課程資料
   await adminDb.collection('courses').doc(id).set(data, { merge: true });
   
-  // 如果老師有變更，同步更新老師的授課清單
   if (data.teachers && Array.isArray(data.teachers)) {
     try {
       const courseKey = `${data.name}(${data.code})`;
       
-      // 從舊老師的授課清單中移除（如果不再擔任該課程）
       for (const oldTeacherId of oldTeacherIds) {
         if (!data.teachers.includes(oldTeacherId)) {
           try {
@@ -117,7 +106,6 @@ async function updateCourse(data) {
         }
       }
       
-      // 為新老師添加課程到授課清單
       for (const teacherId of data.teachers) {
         try {
           const teacherRef = adminDb.collection('users').doc(teacherId);
@@ -127,7 +115,6 @@ async function updateCourse(data) {
             const teacherData = teacherDoc.data();
             const currentCourses = teacherData?.courses || [];
             
-            // 檢查課程是否已經在清單中
             if (!currentCourses.includes(courseKey)) {
               const updatedCourses = [...currentCourses, courseKey];
               
@@ -155,11 +142,9 @@ async function updateCourse(data) {
   return { success: true, id };
 }
 
-// 模擬課程刪除API邏輯
 async function deleteCourse(id) {
   console.log('courses/delete API - Deleting course:', id);
   
-  // 獲取課程資料以取得老師資訊
   const courseDoc = await adminDb.collection('courses').doc(id).get();
   if (!courseDoc.exists) {
     throw new Error('Course not found');
@@ -176,7 +161,6 @@ async function deleteCourse(id) {
     teacherIds
   });
   
-  // 從老師的授課清單中移除課程
   if (teacherIds.length > 0) {
     const courseKey = `${courseName}(${courseCode})`;
     
@@ -189,7 +173,6 @@ async function deleteCourse(id) {
           const teacherData = teacherDoc.data();
           const currentCourses = teacherData?.courses || [];
           
-          // 移除課程
           const updatedCourses = currentCourses.filter((course) => course !== courseKey);
           
           await teacherRef.update({
@@ -207,7 +190,6 @@ async function deleteCourse(id) {
     }
   }
   
-  // 刪除課程
   await adminDb.collection('courses').doc(id).delete();
   
   return { success: true };
@@ -217,7 +199,6 @@ async function testTeacherCourseSync() {
   console.log('開始測試老師課程同步功能...\n');
 
   try {
-    // 1. 創建測試老師
     console.log('1. 創建測試老師...');
     const teacherId = 'test-teacher-' + Date.now();
     await adminDb.collection('users').doc(teacherId).set({
@@ -232,7 +213,6 @@ async function testTeacherCourseSync() {
     });
     console.log(`✅ 創建老師成功: ${teacherId}\n`);
 
-    // 2. 創建測試課程（使用API邏輯）
     console.log('2. 創建測試課程...');
     const courseId = '測試課程(2024-TEST-001)';
     await createCourse({
@@ -252,7 +232,6 @@ async function testTeacherCourseSync() {
     });
     console.log(`✅ 創建課程成功: ${courseId}\n`);
 
-    // 3. 檢查老師的授課清單是否自動更新
     console.log('3. 檢查老師授課清單...');
     const teacherDoc = await adminDb.collection('users').doc(teacherId).get();
     const teacherData = teacherDoc.data();
@@ -264,7 +243,6 @@ async function testTeacherCourseSync() {
       console.log('❌ 老師授課清單未更新\n');
     }
 
-    // 4. 更新課程（更換老師）
     console.log('4. 測試課程更新...');
     const newTeacherId = 'test-teacher-2-' + Date.now();
     await adminDb.collection('users').doc(newTeacherId).set({
@@ -294,7 +272,6 @@ async function testTeacherCourseSync() {
     });
     console.log('✅ 課程更新成功\n');
 
-    // 5. 檢查老師授課清單更新
     console.log('5. 檢查老師授課清單更新...');
     const oldTeacherDoc = await adminDb.collection('users').doc(teacherId).get();
     const newTeacherDoc = await adminDb.collection('users').doc(newTeacherId).get();
@@ -311,12 +288,10 @@ async function testTeacherCourseSync() {
       console.log('❌ 老師授課清單更新失敗\n');
     }
 
-    // 6. 刪除課程（使用API邏輯）
     console.log('6. 測試課程刪除...');
     await deleteCourse(courseId);
     console.log('✅ 課程刪除成功\n');
 
-    // 7. 檢查老師授課清單是否自動清除
     console.log('7. 檢查老師授課清單清除...');
     const finalTeacherDoc = await adminDb.collection('users').doc(newTeacherId).get();
     const finalTeacherData = finalTeacherDoc.data();
@@ -328,7 +303,6 @@ async function testTeacherCourseSync() {
       console.log('❌ 老師授課清單未清除\n');
     }
 
-    // 8. 清理測試資料
     console.log('8. 清理測試資料...');
     await adminDb.collection('users').doc(teacherId).delete();
     await adminDb.collection('users').doc(newTeacherId).delete();
@@ -341,5 +315,4 @@ async function testTeacherCourseSync() {
   }
 }
 
-// 執行測試
 testTeacherCourseSync(); 

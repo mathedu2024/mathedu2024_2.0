@@ -1,8 +1,6 @@
 'use client';
 
 import { useEffect } from 'react';
-// Note: global-error.tsx 必須包含 <html> 和 <body> 標籤
-// 因為它會替換掉 root layout
 
 export default function GlobalError({
   error,

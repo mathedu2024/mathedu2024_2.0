@@ -47,11 +47,12 @@ export async function GET(req: NextRequest) {
       .where('__name__', 'in', enrolledCourses)
       .get();
 
-    const courses = coursesSnapshot.docs.map(doc => ({
-      id: doc.id,
-      name: doc.data().name || '未知課程',
-      code: doc.data().code || '',
-    }));
+    const courses = coursesSnapshot.docs
+      .map(doc => ({
+        id: doc.id,
+        name: doc.data().name || '未知課程',
+        code: doc.data().code || '',
+      }));
 
     return NextResponse.json(courses);
   } catch (error) {

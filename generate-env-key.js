@@ -1,7 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 
-// IMPORTANT: If your service account file has a different name, change it here. 
 const serviceAccountFileName = 'service-account.json'; 
 
 try {
@@ -21,7 +20,6 @@ try {
   }
 
   const privateKey = serviceAccount.private_key;
-  // No need to manually replace \n, the string from JSON is already correct for this purpose.
 
   console.log('\n✅ Successfully generated your FIREBASE_PRIVATE_KEY value.\n');
   console.log('Copy the following line and paste it into your .env.local file:');

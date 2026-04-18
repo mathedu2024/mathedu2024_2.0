@@ -17,6 +17,7 @@ import {
   BeakerIcon,
   Cog6ToothIcon,
   UserCircleIcon,
+  CloudArrowDownIcon,
 } from '@heroicons/react/24/outline';
 
 // Utils & Types
@@ -37,6 +38,7 @@ const TeacherAdminManager = dynamic(() => import('@/components/TeacherAdminManag
 const PasswordManager = dynamic(() => import('@/components/PasswordManager'), { ssr: false, ...loadingFallback });
 const TeacherCourseManager = dynamic(() => import('@/components/TeacherCourseManager'), { ssr: false, ...loadingFallback });
 const GradeManager = dynamic(() => import('@/components/GradeManager'), { ssr: false, ...loadingFallback });
+const ResourceManagement = dynamic(() => import('@/components/ResourceManagement'), { ssr: false, ...loadingFallback });
 const TutoringManager = dynamic(() => import('@/components/TutoringManager'), { ssr: false, ...loadingFallback });
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const AttendanceManagementComponent = dynamic<{ courses: Course[] }>(() => import('@/components/AttendanceManagementComponent') as any, { ssr: false, ...loadingFallback });
@@ -45,8 +47,8 @@ const AttendanceManagementComponent = dynamic<{ courses: Course[] }>(() => impor
 // 類型定義
 // ============================================================================
 
-type AdminTab = 'announcements' | 'exam-dates' | 'students' | 'courses' | 'admin-teachers';
-type TeacherTab = 'teacher-courses' | 'teacher-grades' | 'teacher-exams' | 'tutoring' | 'teacher-attendance';
+type AdminTab = 'announcements' | 'exam-dates' | 'students' | 'courses' | 'admin-teachers' | 'resources';
+type TeacherTab = 'teacher-courses' | 'teacher-grades' | 'teacher-exams' | 'tutoring' | 'teacher-attendance' | 'resources';
 type CommonTab = 'password';
 type Tab = AdminTab | TeacherTab | CommonTab | null;
 type UserRole = '管理員' | '老師' | '學生';
@@ -57,6 +59,18 @@ interface BackPanelUserInfo {
   account: string;
   role: string | string[];
   currentRole?: string;
+}
+
+type TeacherColor = 'indigo' | 'emerald' | 'orange' | 'amber' | 'purple' | 'rose';
+
+interface MenuConfigItem {
+  id: string;
+  title: string;
+  description: string;
+  icon: React.ReactElement;
+  color: TeacherColor;
+  href: string;
+  disabled?: boolean;
 }
 
 // ============================================================================
@@ -77,6 +91,40 @@ function TeacherExamManager() {
     </div>
   );
 }
+
+// UI 設計系統配色對照 (搬移至元件外作為純函式)
+const getColorClasses = (color: string) => {
+  switch (color) {
+    case 'indigo': return { border: 'border-indigo-100', iconBg: 'bg-indigo-50', iconText: 'text-indigo-600', ring: 'ring-indigo-200' };
+    case 'emerald': return { border: 'border-emerald-100', iconBg: 'bg-emerald-50', iconText: 'text-emerald-600', ring: 'ring-emerald-200' };
+    case 'orange': return { border: 'border-orange-100', iconBg: 'bg-orange-50', iconText: 'text-orange-500', ring: 'ring-orange-200' };
+    case 'amber': return { border: 'border-amber-100', iconBg: 'bg-amber-50', iconText: 'text-amber-500', ring: 'ring-amber-200' };
+    case 'purple': return { border: 'border-purple-100', iconBg: 'bg-purple-50', iconText: 'text-purple-600', ring: 'ring-purple-200' };
+    case 'rose': return { border: 'border-rose-100', iconBg: 'bg-rose-50', iconText: 'text-rose-600', ring: 'ring-rose-200' };
+    default: return { border: 'border-gray-100', iconBg: 'bg-gray-50', iconText: 'text-gray-600', ring: 'ring-gray-200' };
+  }
+};
+
+// 標準化選單配置
+const ADMIN_MENU_CONFIG: MenuConfigItem[] = [
+  { id: 'announcements', title: '公告管理', description: '發布與管理最新公告', icon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.354a1.76 1.76 0 013.417-.592z" /></svg>, color: 'indigo', href: '/back-panel/announcements' },
+  { id: 'exam-dates', title: '考試日期管理', description: '管理考試時程與重要日期', icon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>, color: 'emerald', href: '/back-panel/exam-dates' },
+  { id: 'students', title: '學生管理', description: '管理學生資訊與註冊狀態', icon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>, color: 'amber', href: '/back-panel/students' },
+  { id: 'courses', title: '課程管理', description: '新增、編輯、管理所有課程', icon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v11.494m-9-5.747h18" /></svg>, color: 'purple', href: '/back-panel/courses' },
+  { id: 'resources', title: '線上資源管理', description: '管理教學影片連結、PDF 教材與外部網頁', icon: <CloudArrowDownIcon />, color: 'indigo', href: '/back-panel/resources' },
+  { id: 'admin-teachers', title: '老師/管理員管理', description: '管理教師與管理員帳號', icon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>, color: 'orange', href: '/back-panel/admin-teachers' },
+  { id: 'password', title: '個人資料', description: '檢視與修改個人資料與密碼', icon: <UserCircleIcon />, color: 'rose', href: '/back-panel/password' },
+];
+
+const TEACHER_MENU_CONFIG: MenuConfigItem[] = [
+  { id: 'teacher-courses', title: '授課管理', description: '管理您的授課課程、學生與內容', icon: <AcademicCapIcon />, color: 'indigo', href: '/back-panel/teacher-courses' },
+  { id: 'teacher-grades', title: '成績管理', description: '上傳、查詢、與分析學生成績', icon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>, color: 'emerald', href: '/back-panel/teacher-grades' },
+  { id: 'teacher-attendance', title: '點名管理', description: '管理課堂點名紀錄', icon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>, color: 'orange', href: '/back-panel/teacher-attendance' },
+  { id: 'resources', title: '線上資源管理', description: '管理教學影片連結、PDF 教材與外部網頁', icon: <CloudArrowDownIcon />, color: 'indigo', href: '/back-panel/resources' },
+  { id: 'teacher-exams', title: '測驗管理', description: '建立、管理與查詢課堂測驗', icon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>, color: 'amber', disabled: true, href: '/back-panel/teacher-exams' },
+  { id: 'tutoring', title: '課程輔導', description: '管理老師與學生的輔導排程', icon: <CalendarIcon />, color: 'purple', href: '/back-panel/tutoring' },
+  { id: 'password', title: '個人資料', description: '檢視與修改個人資料與密碼', icon: <UserCircleIcon />, color: 'rose', href: '/back-panel/password' },
+];
 
 function BackPanel() {
   const router = useRouter();
@@ -133,16 +181,12 @@ function BackPanel() {
   }, [isChildProcessing, lastActivity, router, handleActivity]);
 
   useEffect(() => {
-    console.time('back-panel-load');
     setLoading(true);
     setError(null);
     const session = getSession();
-    console.log('Back Panel - Session:', session);
     if (!session) {
-      console.log('Back Panel - No session, redirecting to /panel');
       router.push('/panel');
       setLoading(false);
-      console.timeEnd('back-panel-load');
       return;
     }
     const getRole = (role: string | string[], currentRole?: string): UserRole => {
@@ -160,18 +204,14 @@ function BackPanel() {
       return '學生';
     };
     const userRole = getRole(session.role, session.currentRole);
-    console.log('Back Panel - User Role:', userRole);
 
     if (userRole === '學生') {
-      console.log('Back Panel - Student role, logging out');
       handleLogout();
       setLoading(false);
-      console.timeEnd('back-panel-load');
       return;
     }
 
     const fetchTeacher = async () => {
-      console.log('Back Panel - Fetching teacher data for account:', session.account);
       try {
         const res = await fetch('/api/teacher/profile', {
           method: 'POST',
@@ -196,7 +236,6 @@ function BackPanel() {
         setError('連線發生錯誤，請檢查網路連線。');
       } finally {
         setLoading(false);
-        console.timeEnd('back-panel-load');
       }
     };
 
@@ -204,10 +243,8 @@ function BackPanel() {
       fetchTeacher();
     } else {
       const adminUserInfo = { ...session, name: session.name, account: session.account, id: session.id, role: userRole };
-      console.log('Back Panel - Setting admin userInfo:', adminUserInfo);
       setUserInfo(adminUserInfo);
       setLoading(false);
-      console.timeEnd('back-panel-load');
     }
   }, [router, handleLogout]);
 
@@ -217,7 +254,7 @@ function BackPanel() {
     const tab = Array.isArray(p) ? p[0] : p;
     if (tab) setActiveTab(tab as Tab);
     else setActiveTab(null);
-  }, [params]);
+  }, [params?.tab]); // 修正：只依賴具體的 tab 參數，避免整個 params 物件變動導致循環觸發
 
   // 切換分頁時，更新網址 path
   const handleTabChange = useCallback((tab: Tab | null) => {
@@ -268,7 +305,6 @@ function BackPanel() {
       const res = await fetch('/api/courses/list', { method: 'GET' });
       if (res.ok) {
         const allCourses: Course[] = await res.json();
-        console.log('Fetched admin courses:', allCourses);
         setCourses(allCourses);
       } else {
         const errorMsg = await res.text().catch(() => '');
@@ -318,80 +354,26 @@ function BackPanel() {
     }
   }, [userInfo?.account, userInfo?.id, userInfo?.role, fetchAdminCourses]);
 
-  const sidebarMenuItems: { [K in '管理員' | '老師']: { id: string; title: string; icon: React.JSX.Element }[] } = {
-    '管理員': [
-      { id: 'announcements', title: '公告管理', icon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.354a1.76 1.76 0 013.417-.592z" /></svg> },
-      { id: 'exam-dates', title: '考試日期管理', icon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg> },
-      { id: 'students', title: '學生管理', icon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg> },
-      { id: 'courses', title: '課程管理', icon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v11.494m-9-5.747h18" /></svg> },
-      { id: 'admin-teachers', title: '老師/管理員管理', icon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg> },
-      { id: 'password', title: '個人資料', icon: <UserCircleIcon className="h-6 w-6" /> },
-    ],
-    '老師': [
-      { id: 'teacher-courses', title: '授課管理', icon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6l4 2" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12V6a2 2 0 00-2-2H6a2 2 0 00-2 2v6" /></svg> },
-      { id: 'teacher-grades', title: '成績管理', icon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg> },
-      { id: 'teacher-exams', title: '測驗管理', icon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2a4 4 0 014-4h2" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h.01" /></svg> },
-      { id: 'tutoring', title: '課程輔導', icon: <CalendarIcon /> },
-      { id: 'password', title: '個人資料', icon: <UserCircleIcon className="h-6 w-6" /> },
-    ],
-  };
+  // 統一處理快速操作項目的樣式與圖標
+  const processedQuickActions = useMemo(() => {
+    if (!userInfo) return [];
+    const config = isAdmin ? ADMIN_MENU_CONFIG : TEACHER_MENU_CONFIG;
 
-  type TeacherColor = 'indigo' | 'emerald' | 'orange' | 'amber' | 'purple' | 'rose';
-  
-  // 老師端側邊選單與快速操作順序與顏色 (對應模板顏色)
-  const teacherSidebarMenu: { id: string; title: string; icon: React.ReactElement; color: TeacherColor; disabled?: boolean; href: string }[] = [
-    { id: 'teacher-courses', title: '授課管理', icon: <AcademicCapIcon />, color: 'indigo', href: '/back-panel/teacher-courses' },
-    { id: 'teacher-grades', title: '成績管理', icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>, color: 'emerald', href: '/back-panel/teacher-grades' },
-    { id: 'teacher-attendance', title: '點名管理', icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>, color: 'orange', href: '/back-panel/teacher-attendance' },
-    { id: 'teacher-exams', title: '測驗管理', icon: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>, color: 'amber', disabled: true, href: '/back-panel/teacher-exams' },
-    { id: 'tutoring', title: '課程輔導', icon: <CalendarIcon />, color: 'purple', disabled: false, href: '/back-panel/tutoring' },
-    { id: 'password', title: '個人資料', icon: <UserCircleIcon />, color: 'rose', href: '/back-panel/password' },
-  ];
-
-  // UI 設計系統配色對照
-  const getColorClasses = (color: string) => {
-    switch(color) {
-      case 'indigo': return { border: 'border-indigo-100', iconBg: 'bg-indigo-50', iconText: 'text-indigo-600', ring: 'ring-indigo-200' };
-      case 'emerald': return { border: 'border-emerald-100', iconBg: 'bg-emerald-50', iconText: 'text-emerald-600', ring: 'ring-emerald-200' };
-      case 'orange': return { border: 'border-orange-100', iconBg: 'bg-orange-50', iconText: 'text-orange-500', ring: 'ring-orange-200' };
-      case 'amber': return { border: 'border-amber-100', iconBg: 'bg-amber-50', iconText: 'text-amber-500', ring: 'ring-amber-200' };
-      case 'purple': return { border: 'border-purple-100', iconBg: 'bg-purple-50', iconText: 'text-purple-600', ring: 'ring-purple-200' };
-      case 'rose': return { border: 'border-rose-100', iconBg: 'bg-rose-50', iconText: 'text-rose-600', ring: 'ring-rose-200' };
-      default: return { border: 'border-gray-100', iconBg: 'bg-gray-50', iconText: 'text-gray-600', ring: 'ring-gray-200' };
-    }
-  };
-
-  const teacherQuickActions = teacherSidebarMenu.map(item => {
-    const c = getColorClasses(item.color);
-    let iconEl = item.icon;
-    if (React.isValidElement(item.icon)) {
-      iconEl = React.cloneElement(item.icon as React.ReactElement<React.SVGProps<SVGSVGElement>>, { className: `h-6 w-6 ${c.iconText}` });
-    }
-    return {
-      id: item.id,
-      title: item.title,
-      description: item.id === 'teacher-courses' ? '管理您的授課課程、學生與內容'
-        : item.id === 'teacher-grades' ? '上傳、查詢、與分析學生成績'
-        : item.id === 'teacher-attendance' ? '管理課堂點名紀錄'
-        : item.id === 'teacher-exams' ? '建立、管理與查詢課堂測驗'
-        : item.id === 'tutoring' ? '管理老師與學生的輔導排程'
-        : item.id === 'password' ? '檢視與修改個人資料與密碼'
-        : '',
-      icon: iconEl,
-      ...c,
-      disabled: item.disabled,
-      href: item.href,
-    };
-  });
-
-  const adminQuickActions = [
-    { id: 'announcements', title: '公告管理', description: '發布與管理最新公告', icon: <svg className="h-6 w-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.354a1.76 1.76 0 013.417-.592z" /></svg>, color: 'indigo', href: '/back-panel/announcements' },
-    { id: 'exam-dates', title: '考試日期管理', description: '管理考試時程與重要日期', icon: <svg className="h-6 w-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>, color: 'emerald', href: '/back-panel/exam-dates' },
-    { id: 'students', title: '學生管理', description: '管理學生資訊與註冊狀態', icon: <svg className="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>, color: 'amber', href: '/back-panel/students' },
-    { id: 'courses', title: '課程管理', description: '新增、編輯、管理所有課程', icon: <svg className="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v11.494m-9-5.747h18" /></svg>, color: 'purple', href: '/back-panel/courses' },
-    { id: 'admin-teachers', title: '老師/管理員管理', description: '管理教師與管理員帳號', icon: <svg className="h-6 w-6 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>, color: 'orange', href: '/back-panel/admin-teachers' },
-    { id: 'password', title: '個人資料', description: '檢視與修改個人資料與密碼', icon: <UserCircleIcon className="h-6 w-6 text-rose-600" />, color: 'rose', href: '/back-panel/password' },
-  ].map(item => ({...item, ...getColorClasses(item.color), href: item.href}));
+    return config.map(item => {
+      const style = getColorClasses(item.color);
+      let iconEl = item.icon;
+      if (React.isValidElement(item.icon)) {
+        iconEl = React.cloneElement(item.icon as React.ReactElement<React.SVGProps<SVGSVGElement>>, { 
+          className: `h-6 w-6 ${style.iconText}` 
+        });
+      }
+      return {
+        ...item,
+        ...style,
+        icon: iconEl
+      };
+    });
+  }, [isAdmin, userInfo]);
 
   const renderDashboard = () => {
     if (isAdmin || isTeacher) {
@@ -459,7 +441,7 @@ function BackPanel() {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {(isAdmin ? adminQuickActions : (isTeacher ? teacherQuickActions : [])).map(action => {
+              {processedQuickActions.map(action => {
                 const isActive = activeTab === action.id;
                 const Component = action.disabled ? 'button' : Link;
                 return (
@@ -536,7 +518,6 @@ function BackPanel() {
   }, [userInfo]);
 
   const renderContent = () => {
-    console.log('renderContent - activeTab:', activeTab, 'userInfo:', !!userInfo);
     if (error) {
       return (
         <div className="flex flex-col items-center justify-center h-full text-gray-600">
@@ -579,6 +560,7 @@ function BackPanel() {
         case 'tutoring': return <TutoringManager userInfo={normalizedUserInfo} courses={courses} />;
         case 'teacher-attendance':
           return <AttendanceManagementComponent courses={courses} />;
+        case 'resources': return <ResourceManagement />;
         default: return null;
       }
     })();
@@ -601,17 +583,9 @@ function BackPanel() {
     );
   };
 
-  let currentMenuItems: { id: string; title: string; icon: React.JSX.Element; disabled?: boolean; href?: string }[] = [];
-  if (isAdmin) {
-    currentMenuItems = sidebarMenuItems['管理員'].map(item => ({ ...item, href: `/back-panel/${item.id}` }));
-  } else if (isTeacher) {
-    currentMenuItems = teacherSidebarMenu;
-  }
-  
-  const allSidebarMenuItems = currentMenuItems.map(item => ({
-    ...item,
-    disabled: item.disabled || false,
-  }));
+  const allSidebarMenuItems = useMemo(() => {
+    return processedQuickActions.map(({ id, title, icon, disabled, href }) => ({ id, title, icon, disabled: !!disabled, href }));
+  }, [processedQuickActions]);
 
   return (
     <div className="flex h-full min-w-0 bg-gray-50 overflow-x-hidden">

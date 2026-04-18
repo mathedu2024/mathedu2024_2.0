@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom';
 import Swal from 'sweetalert2';
 import LoadingSpinner from './LoadingSpinner'; 
+import ExcelJS from 'exceljs'; // 使用 ES Module 匯入 exceljs
 // 引入您的外部表單元件
 import CreateAttendanceActivityForm from './CreateAttendanceActivityForm';
 import CourseFilter from './CourseFilter';
@@ -344,55 +345,51 @@ function AttendanceRosterManager({ activityId, courseId, courseName, students = 
   if (loading) return <div className="fixed inset-0 bg-white z-[9999] flex items-center justify-center"><LoadingSpinner size={60} text="載入名單中..." /></div>;
 
   return (
-    <div className="max-w-7xl mx-auto w-full flex flex-col h-full animate-fade-in pb-20">
-      
-      {/* Header */}
-      <div className="flex flex-col gap-4 mb-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-center">
-                <button onClick={onClose} className="mr-3 p-2 rounded-full hover:bg-gray-100 text-gray-500 transition-colors">
-                    <ArrowLeftIcon className="w-6 h-6" />
-                </button>
-                <div>
-                    <div className="flex items-center gap-2">
-                        <h2 className="text-2xl font-bold text-gray-800">{activityInfo?.name || '點名活動'}</h2>
-                        {activityInfo?.mode === 'digital' && (
-                            <span className="bg-indigo-100 text-indigo-700 px-2 py-1 rounded text-xs font-bold flex items-center shadow-sm border border-indigo-200">
-                                <QrCodeIcon className="w-3 h-3 mr-1"/>
-                                簽到碼: <span className="text-lg ml-1 font-mono">{activityInfo.checkInCode}</span>
-                            </span>
-                        )}
-                    </div>
-                    <p className="text-sm text-gray-500 font-mono mt-1">{courseName} • 共 {safeStudents.length} 人</p>
-                </div>
-              </div>
-              
-              <div className="flex gap-2 self-end md:self-auto">
-                  <button onClick={markAllPresent} className="btn-secondary text-sm flex items-center">
-                     <CheckCircleIcon className="w-4 h-4 mr-1" /> 一鍵全到
-                  </button>
-                  <button onClick={handleSave} disabled={saving} className="btn-primary flex items-center shadow-lg transform active:scale-95 transition-all">
-                     {saving ? <LoadingSpinner size={16} color="white" /> : <><CloudArrowUpIcon className="w-5 h-5 mr-1" /> 儲存紀錄</>}
-                  </button>
-              </div>
+    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pb-20 flex flex-col h-full animate-fade-in">
+      {/* Header Area */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
+        <div className="border-l-4 border-indigo-500 pl-4">
+          <div className="flex items-center gap-2">
+            <button onClick={onClose} className="mr-1 p-2 rounded-full hover:bg-gray-100 text-gray-500 transition-colors">
+              <ArrowLeftIcon className="w-6 h-6" />
+            </button>
+            <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+              {activityInfo?.name || '點名活動'}
+              {activityInfo?.mode === 'digital' && (
+                <span className="bg-indigo-100 text-indigo-700 px-2 py-1 rounded text-xs font-bold flex items-center shadow-sm border border-indigo-200">
+                  <QrCodeIcon className="w-3 h-3 mr-1"/>
+                  簽到碼: <span className="text-lg ml-1 font-mono">{activityInfo.checkInCode}</span>
+                </span>
+              )}
+            </h1>
           </div>
+          <p className="text-gray-500 text-sm mt-1">{courseName} • 共 {safeStudents.length} 人</p>
+        </div>
+        <div className="flex gap-2 self-end md:self-auto">
+          <button onClick={markAllPresent} className="btn-secondary text-sm flex items-center">
+            <CheckCircleIcon className="w-4 h-4 mr-1" /> 一鍵全到
+          </button>
+          <button onClick={handleSave} disabled={saving} className="btn-primary flex items-center shadow-lg transform active:scale-95 transition-all">
+            {saving ? <LoadingSpinner size={16} color="white" /> : <><CloudArrowUpIcon className="w-5 h-5 mr-1" /> 儲存紀錄</>}
+          </button>
+        </div>
+      </div>
 
-          {/* Stats Bar */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4">
-              <div className="bg-emerald-50 border border-emerald-100 p-2 rounded-lg text-center"><div className="text-xs text-emerald-600 font-bold">出席</div><div className="text-lg font-bold text-emerald-700">{stats.present}</div></div>
-              <div className="bg-rose-50 border border-rose-100 p-2 rounded-lg text-center"><div className="text-xs text-rose-600 font-bold">曠課</div><div className="text-lg font-bold text-rose-700">{stats.absent}</div></div>
-              <div className="bg-blue-50 border border-blue-100 p-2 rounded-lg text-center"><div className="text-xs text-blue-600 font-bold">請假</div><div className="text-lg font-bold text-blue-700">{stats.leave}</div></div>
-              <div className="bg-amber-50 border border-amber-100 p-2 rounded-lg text-center"><div className="text-xs text-amber-600 font-bold">遲到</div><div className="text-lg font-bold text-amber-700">{stats.late}</div></div>
-              <div className="bg-gray-50 border border-gray-100 p-2 rounded-lg text-center col-span-2 md:col-span-1"><div className="text-xs text-gray-500 font-bold">未點</div><div className="text-lg font-bold text-gray-600">{unrecorded}</div></div>
-          </div>
+      {/* Stats Bar */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4 mb-4">
+        <div className="bg-emerald-50 border border-emerald-100 p-2 rounded-lg text-center"><div className="text-xs text-emerald-600 font-bold">出席</div><div className="text-lg font-bold text-emerald-700">{stats.present}</div></div>
+        <div className="bg-rose-50 border border-rose-100 p-2 rounded-lg text-center"><div className="text-xs text-rose-600 font-bold">曠課</div><div className="text-lg font-bold text-rose-700">{stats.absent}</div></div>
+        <div className="bg-blue-50 border border-blue-100 p-2 rounded-lg text-center"><div className="text-xs text-blue-600 font-bold">請假</div><div className="text-lg font-bold text-blue-700">{stats.leave}</div></div>
+        <div className="bg-amber-50 border border-amber-100 p-2 rounded-lg text-center"><div className="text-xs text-amber-600 font-bold">遲到</div><div className="text-lg font-bold text-amber-700">{stats.late}</div></div>
+        <div className="bg-gray-50 border border-gray-100 p-2 rounded-lg text-center col-span-2 md:col-span-1"><div className="text-xs text-gray-500 font-bold">未點</div><div className="text-lg font-bold text-gray-600">{unrecorded}</div></div>
+      </div>
 
-          {/* Filter Bar */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-              <FunnelIcon className="w-4 h-4 text-gray-400 shrink-0" />
-              {['全部', '未點', '出席', '曠課', '請假', '遲到'].map((status) => (
-                  <button key={status} onClick={() => setFilterStatus(status)} className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors border ${filterStatus === status ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>{status}</button>
-              ))}
-          </div>
+      {/* Filter Bar */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar mb-4">
+        <FunnelIcon className="w-4 h-4 text-gray-400 shrink-0" />
+        {['全部', '未點', '出席', '曠課', '請假', '遲到'].map((status) => (
+          <button key={status} onClick={() => setFilterStatus(status)} className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors border ${filterStatus === status ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>{status}</button>
+        ))}
       </div>
 
       {/* Roster Table */}
@@ -416,7 +413,7 @@ function AttendanceRosterManager({ activityId, courseId, courseName, students = 
                                 const currentStatus = records[student.studentId] || '';
                                 
                                 return (
-                                    <tr key={student.studentId} className={`hover:bg-gray-50 transition-colors ${!currentStatus ? 'bg-orange-50/10' : ''}`}>
+                                    <tr key={student.studentId} className={`hover:bg-indigo-50/30 transition-colors ${!currentStatus ? 'bg-orange-50/10' : ''}`}>
                                         <td className="px-6 py-4 font-mono text-gray-900">{student.studentId}</td>
                                         <td className="px-6 py-4 font-bold text-gray-900">{student.name}</td>
                                         <td className="px-6 py-4">
@@ -608,12 +605,13 @@ function AttendanceActivityList({ courseId, courseName, courseCode, onBack, onSe
     });
 
     try {
-      const { Workbook } = await import('exceljs');
-      const workbook = new Workbook();
+      // 1. 建立 Excel 活頁簿
+      const workbook = new ExcelJS.Workbook();
       
       // --- 第一個工作表：活動摘要 ---
       const worksheet = workbook.addWorksheet('點名活動摘要');
 
+      // 定義摘要表欄位
       worksheet.columns = [
         { header: '日期 / 開始時間', key: 'date', width: 22 },
         { header: '類型', key: 'type', width: 16 },
@@ -622,6 +620,7 @@ function AttendanceActivityList({ courseId, courseName, courseCode, onBack, onSe
         { header: '點名代碼', key: 'checkInCode', width: 16 },
       ];
 
+      // 填入點名活動資料
       activities.forEach((a) => {
         worksheet.addRow({
           date: formatDate(a.date),
@@ -632,10 +631,17 @@ function AttendanceActivityList({ courseId, courseName, courseCode, onBack, onSe
         });
       });
 
+      // 設定摘要表標題樣式 (藍色背景、白色文字)
+      worksheet.getRow(1).eachCell((cell) => {
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      });
+
       // --- 第二個工作表：學生出缺席總表 ---
       const worksheet2 = workbook.addWorksheet('學生出缺席詳細名單');
       
-      // 1. 抓取學生名單
+      // 抓取該課程學生名單
       const stuRes = await fetch('/api/course-student-list/list', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -643,7 +649,7 @@ function AttendanceActivityList({ courseId, courseName, courseCode, onBack, onSe
       });
       const students: Student[] = await stuRes.json();
 
-      // 2. 抓取所有活動的紀錄資料
+      // 抓取所有點名活動的詳細紀錄 (併行處理以提升效能)
       const allRecordsPromises = activities.map(async (a) => {
         const res = await fetch('/api/attendance/records/get', {
           method: 'POST',
@@ -658,18 +664,20 @@ function AttendanceActivityList({ courseId, courseName, courseCode, onBack, onSe
       });
       const allRecordsData = await Promise.all(allRecordsPromises);
 
-      // 3. 設定欄位 (學號, 姓名, 然後是各個點名日期)
+      // 設定總表欄位 (基礎欄位：學號、姓名)
       const columns = [
         { header: '學號', key: 'studentId', width: 15 },
         { header: '姓名', key: 'name', width: 15 },
       ];
 
+      // 動態增加點名日期欄位 (每個活動一欄)
       activities.forEach(a => {
-        columns.push({ header: `${formatDate(a.date).split(' ')[0]}\n${a.name}`, key: a.id, width: 20 });
+        const headerDate = formatDate(a.date).split(' ')[0];
+        columns.push({ header: `${headerDate}\n${a.name}`, key: a.id, width: 20 });
       });
       worksheet2.columns = columns;
 
-      // 4. 填充學生資料列
+      // 填充學生資料列
       students.forEach(student => {
         const rowData: Record<string, string> = {
           studentId: student.studentId,
@@ -682,12 +690,28 @@ function AttendanceActivityList({ courseId, courseName, courseCode, onBack, onSe
           rowData[activity.id] = record ? record.status : '未點名';
         });
         
-        worksheet2.addRow(rowData);
+        const row = worksheet2.addRow(rowData);
+        
+        // 針對不同狀態標記顏色 (選擇性功能)
+        row.eachCell((cell, colNumber) => {
+          if (colNumber > 2) { // 狀態欄位
+            if (cell.value === '出席') cell.font = { color: { argb: 'FF10B981' } }; // 綠色
+            if (cell.value === '曠課') cell.font = { color: { argb: 'FFEF4444' } }; // 紅色
+            if (cell.value === '遲到') cell.font = { color: { argb: 'FFF59E0B' } }; // 橘色
+          }
+        });
       });
 
-      // 美化標題列 (自動換行)
-      worksheet2.getRow(1).alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+      // 標題列美化 (自動換行、置中)
+      const headerRow2 = worksheet2.getRow(1);
+      headerRow2.height = 40;
+      headerRow2.eachCell((cell) => {
+        cell.font = { bold: true };
+        cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
+      });
 
+      // 2. 生成 Buffer 並觸發下載
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], {
         type:
@@ -713,7 +737,7 @@ function AttendanceActivityList({ courseId, courseName, courseCode, onBack, onSe
   const handleDelete = async (activityId: string) => {
     const result = await Swal.fire({
       title: '確定刪除?', text: "刪除後資料無法復原！", icon: 'warning',
-      showCancelButton: true, confirmButtonColor: '#d33', confirmButtonText: '刪除', cancelButtonText: '取消'
+      showCancelButton: true, confirmButtonColor: '#ef4444', confirmButtonText: '刪除', cancelButtonText: '取消', customClass: { popup: 'rounded-2xl' }
     });
     if (result.isConfirmed) {
       try {
@@ -727,25 +751,33 @@ function AttendanceActivityList({ courseId, courseName, courseCode, onBack, onSe
   if (loading) return <div className="fixed inset-0 bg-white z-[9999] flex items-center justify-center"><LoadingSpinner size={60} /></div>;
 
   return (
-    <div className="max-w-7xl mx-auto w-full flex flex-col h-full animate-fade-in pb-10">
-      <div className="flex items-center mb-6">
-        <CalendarDaysIcon className="w-8 h-8 mr-3 text-indigo-600" />
-        <div><h2 className="text-2xl font-bold text-gray-800">{courseName}</h2><p className="text-sm text-gray-500 font-mono">點名活動列表</p></div>
-      </div>
-
-      <div className="flex flex-wrap justify-between items-center mb-4">
-        <div className="flex gap-3">
-            <button className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors shadow-sm font-medium flex items-center" onClick={onBack}>
-            <ArrowLeftIcon className="w-4 h-4 mr-2" /> 返回課程
-            </button>
-            {/* 彈出視窗觸發 */}
-            <button className="btn-secondary flex items-center" onClick={() => setIsCreateModalOpen(true)}>
-                <PlusIcon className="w-4 h-4 mr-2" /> 新增點名
-            </button>
+    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pb-10 flex flex-col h-full animate-fade-in">
+      {/* Header Area */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
+        <div className="border-l-4 border-indigo-500 pl-4">
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+            <CalendarDaysIcon className="h-8 w-8 text-indigo-600" />
+            {courseName}
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">點名活動列表</p>
         </div>
-        <button onClick={handleExport} className="btn-secondary flex items-center text-emerald-700 border-emerald-200 hover:bg-emerald-50">
+        <div className="flex flex-wrap gap-3">
+          <button
+            className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors shadow-sm font-medium flex items-center"
+            onClick={onBack}
+          >
+            <ArrowLeftIcon className="w-4 h-4 mr-2" /> 返回課程
+          </button>
+          <button className="btn-secondary flex items-center" onClick={() => setIsCreateModalOpen(true)}>
+            <PlusIcon className="w-4 h-4 mr-2" /> 新增點名
+          </button>
+          <button
+            onClick={handleExport}
+            className="btn-secondary flex items-center text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+          >
             <ArrowDownTrayIcon className="w-4 h-4 mr-2" /> 匯出紀錄
-        </button>
+          </button>
+        </div>
       </div>
 
       {/* 外部表單 Modal Wrapper */}
@@ -950,10 +982,16 @@ export default function AttendanceManagementComponent({ courses: externalCourses
   if (loading) return <div className="fixed inset-0 bg-white z-[9999] flex items-center justify-center"><LoadingSpinner size={60} text="資料載入中..." /></div>;
 
   return (
-    <div className="max-w-7xl mx-auto w-full flex flex-col h-full animate-fade-in pb-10">
-      <div className="flex items-center mb-6">
-        <CalendarDaysIcon className="w-8 h-8 mr-3 text-indigo-600" />
-        <h2 className="text-2xl font-bold text-gray-800">點名管理</h2>
+    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pb-10 flex flex-col h-full animate-fade-in">
+      {/* Header Area */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
+        <div className="border-l-4 border-indigo-500 pl-4">
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+            <CalendarDaysIcon className="h-8 w-8 text-indigo-600" />
+            點名管理
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">記錄學生的出缺席狀況，包含手動點名與數字簽到。</p>
+        </div>
       </div>
 
       {!loading && courses.length === 0 ? (

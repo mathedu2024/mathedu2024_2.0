@@ -24,7 +24,6 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    // 1. html 加上 overflow-hidden 確保最外層絕對不會出現滾軸
     <html lang="zh-TW" className="h-full scroll-smooth overflow-hidden">
       <head>
         <link rel="icon" href="/learn.png" type="image/png" />

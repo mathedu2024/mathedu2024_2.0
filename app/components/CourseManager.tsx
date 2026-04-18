@@ -566,20 +566,25 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
     };
 
     return (
-        <div className="max-w-7xl mx-auto w-full p-4 md:p-6 flex flex-col h-full animate-fade-in">
+        <div className="max-w-7xl mx-auto w-full px-4 md:px-6 flex flex-col h-full animate-fade-in">
             {/* Header Area */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-                <h1 className="text-2xl font-bold text-gray-900 flex items-center">
-                    <UserGroupIcon className="w-8 h-8 mr-2 text-indigo-600" />
-                    課程管理
-                </h1>
-                <button
-                    onClick={() => setEditingCourse({ id: '', name: '', code: '', coverImageURL: '', description: '', teachingMethod: '實體上課', teachers: [], startDate: '', endDate: '', classTimes: [], status: '未開課', gradeTags: [], subjectTag: '', courseNature: '', examScope: [], showInIntroduction: true, timeArrangementType: '依時段安排', location: '', liveStreamURL: '', archived: false } as Course)}
-                    className="btn-primary flex items-center shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all"
-                >
-                    <PlusIcon className="w-5 h-5 mr-1" />
-                    新增課程
-                </button>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
+                <div className="border-l-4 border-indigo-500 pl-4">
+                    <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+                        <UserGroupIcon className="h-8 w-8 text-indigo-600" />
+                        課程管理
+                    </h1>
+                    <p className="text-gray-500 text-sm mt-1">維護系統課程、授課老師與開課狀態。</p>
+                </div>
+                {!editingCourse && (
+                    <button
+                        onClick={() => setEditingCourse({ id: '', name: '', code: '', coverImageURL: '', description: '', teachingMethod: '實體上課', teachers: [], startDate: '', endDate: '', classTimes: [], status: '未開課', gradeTags: [], subjectTag: '', courseNature: '', examScope: [], showInIntroduction: true, timeArrangementType: '依時段安排', location: '', liveStreamURL: '', archived: false } as Course)}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2"
+                    >
+                        <PlusIcon className="h-5 w-5" />
+                        新增課程
+                    </button>
+                )}
             </div>
 
             {/* 手機版：展開/收合觸發按鈕 */}
@@ -675,7 +680,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
                                         {filteredCourses.map(course => (
-                                            <tr key={course.id} className="bg-white hover:bg-gray-50 transition-colors group">
+                                            <tr key={course.id} className="bg-white hover:bg-indigo-50/30 transition-colors group">
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-3">
                                                         {course.coverImageURL ? (

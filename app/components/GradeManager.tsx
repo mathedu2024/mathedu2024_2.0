@@ -9,6 +9,7 @@ import {
   XMarkIcon, TrashIcon,
   ChartBarIcon,
   PlusIcon,
+  ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline';
 import CourseFilter from './CourseFilter';
 import GradeRegistrationMobile from './GradeRegistrationMobile';
@@ -325,6 +326,68 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
     }
   };
 
+  const handleExportGrades = useCallback(() => {
+    if (!selectedCourse || computedData.length === 0) {
+      Swal.fire({
+        icon: 'info',
+        title: '沒有可匯出資料',
+        text: '請先選擇課程並確認已有成績資料。',
+        confirmButtonColor: '#4f46e5',
+        customClass: { popup: 'rounded-2xl' },
+      });
+      return;
+    }
+
+    const escapeCsv = (value: string | number | undefined | null) => {
+      const raw = value === undefined || value === null ? '' : String(value);
+      if (raw.includes('"') || raw.includes(',') || raw.includes('\n')) {
+        return `"${raw.replace(/"/g, '""')}"`;
+      }
+      return raw;
+    };
+
+    const regularHeaders = Array.from({ length: regularColumns }).map((_, i) => {
+      const detail = columnDetails[i];
+      return detail?.name || `平時${i + 1}`;
+    });
+    const periodicHeaders = [...FIXED_PERIODIC_KEYS];
+
+    const headers: string[] = [
+      '學號',
+      '姓名',
+      ...regularHeaders,
+      ...periodicHeaders,
+      '平時加權',
+      '定期平均',
+      '總成績',
+    ];
+
+    const rows: (string | number)[][] = computedData.map((stu) => [
+      stu.studentId,
+      stu.name,
+      ...Array.from({ length: regularColumns }).map((_, i) => stu.regularScores[i] ?? ''),
+      ...FIXED_PERIODIC_KEYS.map((key) => stu.periodicScores?.[key] ?? ''),
+      stu.regWeighted.toFixed(1),
+      stu.pAvg.toFixed(1),
+      stu.total,
+    ]);
+
+    const csv = [headers, ...rows]
+      .map((line) => line.map((cell) => escapeCsv(cell)).join(','))
+      .join('\n');
+
+    const bom = '\uFEFF';
+    const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${selectedCourse.name}_完整成績匯出.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [selectedCourse, computedData, regularColumns, columnDetails]);
+
   const filteredCourses = useMemo(() => {
     return courses.filter(course => {
       const statusMatch = selectedStatus === 'all' ? course.status !== '已封存' : course.status === selectedStatus;
@@ -343,11 +406,15 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
   if (isLoading) return <div className="flex justify-center p-20"><LoadingSpinner size={50} text="載入課程中..." /></div>;
 
   return (
-    <div className="max-w-7xl mx-auto w-full p-4 md:p-6 space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center">
-          <ClipboardDocumentListIcon className="w-8 h-8 mr-3 text-indigo-600" />
-          <h2 className="text-2xl font-bold text-gray-800">成績管理系統</h2>
+    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 flex flex-col h-full animate-fade-in">
+      {/* Header Area */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
+        <div className="border-l-4 border-indigo-500 pl-4">
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+            <ClipboardDocumentListIcon className="h-8 w-8 text-indigo-600" />
+            成績管理系統
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">設定評量比例並登記學生的平時與定期成績。</p>
         </div>
         {selectedCourse && (
           <button onClick={() => setSelectedCourse(null)} className="text-sm text-indigo-600 hover:underline">返回列表</button>
@@ -456,6 +523,10 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                 新增平時欄位
               </button>
             )}
+            <button className="btn-secondary flex items-center" onClick={handleExportGrades}>
+              <ArrowDownTrayIcon className="w-4 h-4 mr-2" />
+              匯出成績
+            </button>
             <button className="btn-primary ml-auto flex items-center" onClick={handleSaveChanges} disabled={isSaving}>
               {isSaving ? <LoadingSpinner size={16} color="white" className="mr-2" /> : <CloudArrowUpIcon className="w-5 h-5 mr-2" />}
               {isSaving ? '儲存中...' : '儲存變更'}

@@ -514,10 +514,16 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
   if (!mounted) return <div className="p-20 flex justify-center"><LoadingSpinner size={40} /></div>;
 
   return (
-    <div className="max-w-7xl mx-auto w-full animate-fade-in">
-        <div className="flex items-center mb-6">
-            <CalendarIcon className="w-8 h-8 text-indigo-600 mr-3" />
-            <h2 className="text-2xl font-bold text-gray-800">課程輔導</h2>
+    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 flex flex-col h-full animate-fade-in">
+        {/* Header Area */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
+          <div className="border-l-4 border-indigo-500 pl-4">
+            <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+              <CalendarIcon className="h-8 w-8 text-indigo-600" />
+              課程輔導
+            </h1>
+            <p className="text-gray-500 text-sm mt-1">安排您的輔導時段並查看學生的預約名單。</p>
+          </div>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8">

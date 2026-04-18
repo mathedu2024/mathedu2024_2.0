@@ -11,10 +11,8 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
-    // 記錄錯誤到控制台以利後續追蹤
     console.error('捕捉到未處理錯誤:', error);
 
-    // 使用 SweetAlert2 顯示提示
     Swal.fire({
       title: '系統發生錯誤',
       text: '很抱歉，頁面載入時發生了預期外的錯誤。',
@@ -22,8 +20,8 @@ export default function Error({
       showCancelButton: true,
       confirmButtonText: '重新整理頁面',
       cancelButtonText: '返回首頁',
-      confirmButtonColor: '#4f46e5', // indigo-600
-      cancelButtonColor: '#9ca3af', // gray-400
+      confirmButtonColor: '#4f46e5', 
+      cancelButtonColor: '#9ca3af', 
       allowOutsideClick: false,
       allowEscapeKey: false,
       customClass: {
@@ -34,9 +32,9 @@ export default function Error({
       }
     }).then((result) => {
       if (result.isConfirmed) {
-        reset(); // 嘗試恢復元件
+        reset(); 
       } else if (result.dismiss === Swal.DismissReason.cancel) {
-        window.location.href = '/'; // 跳轉至首頁
+        window.location.href = '/'; 
       }
     });
   }, [error, reset]);

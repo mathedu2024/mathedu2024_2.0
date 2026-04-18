@@ -8,7 +8,8 @@ import {
   PencilIcon, 
   CalendarIcon, 
   SparklesIcon,
-  UserCircleIcon
+  UserCircleIcon,
+  CloudArrowDownIcon
 } from '@heroicons/react/24/outline';
 
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -54,11 +55,12 @@ export default function StudentPanel() {
 
   const studentQuickActions = [
     { id: 'courses', title: '我的課程', description: '查看課程內容與進度', icon: <BookOpenIcon className="h-6 w-6" />, onClick: () => router.push('/student/courses'), disabled: false },
+    { id: 'resources', title: '線上資源', description: '搜尋與下載教學資源', icon: <CloudArrowDownIcon className="h-6 w-6" />, onClick: () => router.push('/student/resources'), disabled: false },
     { id: 'grades', title: '成績查詢', description: '查看各科成績與評量', icon: <ClipboardDocumentListIcon className="h-6 w-6" />, onClick: () => router.push('/student/grades'), disabled: false },
-    { id: 'counseling', title: '輔導預約', description: '預約老師或助教的輔導時段', icon: <CalendarIcon className="h-6 w-6" />, onClick: () => router.push('/student/counseling'), disabled: false },
-    { id: 'information', title: '個人資料', description: '查看個人資料與修改密碼', icon: <UserCircleIcon className="h-6 w-6" />, onClick: () => router.push('/student/information'), disabled: false },
     { id: 'attendance', title: '線上點名', description: '查看點名記錄與狀態', icon: <CheckCircleIcon className="h-6 w-6" />, onClick: () => router.push('/student/attendance'), disabled: false },
+    { id: 'counseling', title: '輔導預約', description: '預約老師或助教的輔導時段', icon: <CalendarIcon className="h-6 w-6" />, onClick: () => router.push('/student/counseling'), disabled: false },
     { id: 'exam', title: '線上測驗', description: '功能暫時關閉', icon: <PencilIcon className="h-6 w-6" />, onClick: () => {}, disabled: true },
+    { id: 'information', title: '個人資料', description: '查看個人資料與修改密碼', icon: <UserCircleIcon className="h-6 w-6" />, onClick: () => router.push('/student/information'), disabled: false },
   ];
 
   // 修正: 只有在載入中且尚未取得資料時才顯示載入動畫，避免資料已讀取但 loading 狀態卡住導致畫面無法顯示

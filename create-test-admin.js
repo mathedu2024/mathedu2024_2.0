@@ -13,16 +13,14 @@ const testAdmin = {
   updatedAt: new Date().toISOString()
 };
 
-// 建立管理員帳號的函數
 async function createTestAdmin() {
   try {
     const db = admin.firestore();
     
-    // 在 users 集合中建立管理員帳號
     const userRef = db.collection('users').doc(testAdmin.account);
     await userRef.set({
       account: testAdmin.account,
-      password: testAdmin.password, // 注意：實際應用中應該加密
+      password: testAdmin.password,
       name: testAdmin.name,
       role: testAdmin.role,
       email: testAdmin.email,

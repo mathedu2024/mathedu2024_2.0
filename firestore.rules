@@ -2,52 +2,57 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
 
-    // 預設規則：拒絕所有未明確允許的讀寫
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.role == 'admin';
+    }
+
+    function isTeacher() {
+      return isSignedIn() && request.auth.token.role == 'teacher';
+    }
+
+    function isStudent() {
+      return isSignedIn() && request.auth.token.role == 'student';
+    }
+
+    function isResourceOwner() {
+      return isSignedIn() && resource.data.teacherId == request.auth.uid;
+    }
+
+    function isCreatingOwnResource() {
+      return isSignedIn() && request.resource.data.teacherId == request.auth.uid;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // 使用者資料 (students, teachers)
-    // 假設您的使用者集合名稱為 "users" 且文件 ID 為 user.uid
     match /users/{userId} {
-      // 使用者只能讀取和更新自己的資料
       allow read, update: if request.auth != null && request.auth.uid == userId;
-      // 允許管理員讀取所有使用者資料
       allow read: if request.auth != null && request.auth.token.role == 'admin';
     }
     
-    // 學生資料集合
     match /student_data/{studentId} {
-        // 學生本人或老師/管理員可以讀取
         allow read: if request.auth != null && (request.auth.uid == studentId || request.auth.token.role in ['teacher', 'admin']);
-        // 學生本人可以更新
         allow update: if request.auth != null && request.auth.uid == studentId;
-        // 管理員可以建立/刪除
         allow create, delete: if request.auth != null && request.auth.token.role == 'admin';
     }
 
-    // 老師集合
     match /teachers/{teacherId} {
-        // 任何登入者都可讀取老師公開資料
         allow read: if request.auth != null;
-        // 老師本人或管理員可以更新
         allow update: if request.auth != null && (request.auth.uid == teacherId || request.auth.token.role == 'admin');
-        // 管理員可以建立/刪除
         allow create, delete: if request.auth != null && request.auth.token.role == 'admin';
     }
 
-    // 課程集合
     match /courses/{courseId} {
-      // 任何登入的使用者都可以讀取課程列表
       allow read: if request.auth != null;
-      // 只有老師或管理員可以建立、更新、刪除課程
       allow create, update, delete: if request.auth != null && request.auth.token.role in ['teacher', 'admin'];
     }
 
-    // 課程學生列表
     match /course-student-list/{courseKey} {
-        // 老師和管理員有完整權限，學生只能讀取
         allow read, write: if request.auth != null && request.auth.token.role in ['teacher', 'admin'];
         allow read: if request.auth != null && request.auth.token.role == 'student';
     }
@@ -77,36 +82,33 @@ service cloud.firestore {
         allow create, read, update: if request.auth != null && request.auth.uid == studentId;
     }
 
-    // 公告集合
     match /announcements/{announcementId} {
-      // 任何使用者都可以讀取公告
       allow read: if true;
-      // 只有管理員可以建立、更新、刪除公告
       allow create, update, delete: if request.auth != null && request.auth.token.role == 'admin';
     }
 
-    // 考試日期集合
     match /exam_dates/{examId} {
-      // 任何使用者都可以讀取
       allow read: if true;
-      // 只有管理員可以建立、更新、刪除
       allow create, update, delete: if request.auth != null && request.auth.token.role == 'admin';
     }
 
-    // 輔導時段集合
     match /time-slots/{slotId} {
-      // 任何登入的使用者都可以讀取時段
       allow read: if request.auth != null;
       // 只有後端 (Admin SDK) 可以寫入
       allow write: if false;
     }
 
-    // 課程成績、學生列表等子集合
+    match /resources/{resourceId} {
+
+      allow read: if isAdmin() || isStudent() || (isTeacher() && resource.data.teacherId == request.auth.uid);
+      
+
+      allow create: if isAdmin() || (isTeacher() && isCreatingOwnResource());
+      allow update, delete: if isAdmin() || (isTeacher() && isResourceOwner());
+    }
+合
     match /courses/{courseId}/{collection}/{documentId} {
-       // 老師和管理員有完整權限
        allow read, write: if request.auth != null && request.auth.token.role in ['teacher', 'admin'];
-       // 學生只能讀取與自己相關的資料 (例如：自己的成績)
-       // 注意：此規則要求客戶端查詢時必須包含 .where('studentId', '==', uid) 條件，否則 list 操作會失敗
        allow read: if request.auth != null && request.auth.token.role == 'student' && resource.data.studentId == request.auth.uid;
     }
   }

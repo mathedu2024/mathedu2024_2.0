@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { setSession } from '../utils/session'; // 維持相對路徑
 import alerts from '../utils/alerts';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { signInWithCustomToken } from 'firebase/auth';
+import { auth } from '@/lib/firebase-client';
 
 export default function StudentLoginPage() {
   const [formData, setFormData] = useState({
@@ -56,6 +58,9 @@ export default function StudentLoginPage() {
         role: 'student',
         account: formData.account,
       });
+      if (data.token) {
+        await signInWithCustomToken(auth, data.token);
+      }
 
       // 3. 移除 SweetAlert 成功提示，直接導向至學生首頁
       window.location.href = '/student';

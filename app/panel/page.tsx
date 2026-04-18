@@ -7,6 +7,8 @@ import { setSession } from '@/utils/session';
 import alerts from '@/utils/alerts';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import Dropdown from '@/components/ui/Dropdown';
+import { signInWithCustomToken } from 'firebase/auth';
+import { auth } from '@/lib/firebase-client';
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -61,6 +63,9 @@ export default function LoginPage() {
 
       const sessionData = { ...data, currentRole: formData.role };
       setSession(sessionData);
+      if (data.token) {
+        await signInWithCustomToken(auth, data.token);
+      }
 
       if (data.role.includes('student')) {
         window.location.href = '/student';

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '../../../../services/firebase-admin';
+import { adminDb } from '../../../firebaseAdmin';
 
 export async function POST(req: NextRequest) {
   try {
@@ -7,14 +7,12 @@ export async function POST(req: NextRequest) {
     const { id: rawId, ...data } = raw;
     const id = rawId || Date.now().toString();
     
-    // 添加創建時間
     const announcementData = {
       ...data,
       createdAt: new Date(),
       updatedAt: new Date()
     };
     
-    // TODO: session 驗證與權限檢查
     await adminDb.collection('announcements').doc(id).set(announcementData, { merge: true });
     return NextResponse.json({ success: true, id });
   } catch (error) {

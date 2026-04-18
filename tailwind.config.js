@@ -10,7 +10,7 @@ module.exports = {
       colors: {
         primary: {
           DEFAULT: '#2D6DF6',
-          light: '#E9F0FF', // 4%主題藍
+          light: '#E9F0FF', 
           hover: '#1B4FC1',
         },
         success: {
@@ -66,7 +66,6 @@ module.exports = {
         'lg': '1024px',
         'xl': '1280px',
         '2xl': '1536px',
-        // 新增更多斷點以支援不同裝置
         'mobile': '320px',
         'mobile-landscape': '568px',
         'tablet': '768px',
