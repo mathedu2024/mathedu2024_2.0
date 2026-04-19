@@ -11,7 +11,6 @@ export async function POST(req: NextRequest) {
 
     console.log(`API - Creating/updating user: ${data.account} (ID: ${data.id})`);
 
-    // Saving data with plain text password as per user request.
     await adminDb.collection('users').doc(data.id).set(data, { merge: true });
     
     console.log(`API - User ${data.account} created/updated successfully`);

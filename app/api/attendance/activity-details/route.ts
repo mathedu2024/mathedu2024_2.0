@@ -27,17 +27,15 @@ export async function GET(req: NextRequest) {
     const activityData = activityDoc.data();
     let courseName = '未知課程';
 
-    // The courseId is now known from the request, but we still need the course name.
     const courseDoc = await adminDb.collection('courses').doc(courseId).get();
     if (courseDoc.exists) {
       courseName = courseDoc.data()?.name || '未知課程';
     }
     
-    // We should only return the necessary data, not everything.
     const responseData = {
       id: activityDoc.id,
       title: activityData?.title,
-      courseName: courseName, // Add courseName here
+      courseName: courseName, 
       checkInMethod: activityData?.checkInMethod,
       startTime: activityData?.startTime.toDate(),
       endTime: activityData?.endTime.toDate(),

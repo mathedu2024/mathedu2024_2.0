@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const studentId = session.id; // Assuming session.id is the student's ID
+    const studentId = session.id; 
 
     const studentProfileDoc = await adminDb.collection('student_data').doc(studentId).get();
 
@@ -27,7 +27,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json([]);
     }
 
-    // 2. Get courses using the enrolled course IDs
     const enrolledCoursesSnapshot = await adminDb.collection('courses')
       .where('__name__', 'in', enrolledCourses)
       .get();
@@ -35,7 +34,7 @@ export async function GET(req: NextRequest) {
     const enrolledCourseIds = enrolledCoursesSnapshot.docs.map(doc => doc.id);
 
     if (enrolledCourseIds.length === 0) {
-      return NextResponse.json([]); // Student is not enrolled in any courses
+      return NextResponse.json([]); 
     }
 
     const allActivities = [];
@@ -51,11 +50,11 @@ export async function GET(req: NextRequest) {
 
       for (const activityDoc of activitiesSnapshot.docs) {
         const activityData = activityDoc.data();
-        let studentStatus = ''; // Default to empty string
+        let studentStatus = ''; 
 
         const rosterDoc = await adminDb.collection('courses').doc(courseId).collection('attendance').doc(activityDoc.id).collection('roster').doc(studentId).get();
         if (rosterDoc.exists) {
-          studentStatus = rosterDoc.data()?.status || ''; // Default to empty string
+          studentStatus = rosterDoc.data()?.status || ''; 
         }
 
         allActivities.push({
@@ -72,7 +71,6 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Sort by startTime, upcoming first, then active, then past
     allActivities.sort((a, b) => {
       if (a.status === 'upcoming' && b.status !== 'upcoming') return -1;
       if (a.status !== 'upcoming' && b.status === 'upcoming') return 1;

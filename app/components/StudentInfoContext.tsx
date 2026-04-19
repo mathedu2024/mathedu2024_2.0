@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { getSession } from '@/utils/session';
 
 // 定義學生資訊介面
 export interface StudentInfo {
@@ -30,23 +31,32 @@ export function StudentInfoProvider({ children }: { children: ReactNode }) {
   const refreshStudentInfo = async () => {
     setLoading(true);
     try {
-      // TODO: 替換為實際的 API 請求
-      // const response = await fetch('/api/auth/me');
-      // const data = await response.json();
+      // 從系統 Session 獲取真實登入的使用者資料
+      interface SessionUser {
+        id?: string; uid?: string; userId?: string;
+        name?: string; studentId?: string; account?: string;
+        class?: string; grade?: string; email?: string;
+        enrolledCourses?: string[]; currentRole?: string; role?: string;
+      }
+      const session = getSession() as ({ user?: SessionUser } & SessionUser) | null;
       
-      // 模擬 API 延遲與資料
-      await new Promise(resolve => setTimeout(resolve, 600));
-      
+      if (!session) {
+        setStudentInfo(null);
+        return;
+      }
+
+      const user = session.user || session;
+
       setStudentInfo({
-        id: 'mock-user-001',
-        name: '陳小明',
-        studentId: '112305',
-        class: '三年二班', // This is a class name, not a grade
-        grade: '高一', // Added a valid grade for qualification checks
-        email: 'student@example.edu.tw',
-        enrolledCourses: ['A班', '數學班'], // 範例資料，請根據實際情況調整
-        account: 'student112305',
-        role: 'student'
+        id: user.id || user.uid || user.userId || '',
+        name: user.name || '未知使用者',
+        studentId: user.studentId || user.account || '',
+        class: user.class || '', 
+        grade: user.grade || '', 
+        email: user.email || '',
+        enrolledCourses: user.enrolledCourses || [], 
+        account: user.account || '',
+        role: user.currentRole || user.role || 'student'
       });
     } catch (error) {
       console.error('Failed to fetch student info:', error);

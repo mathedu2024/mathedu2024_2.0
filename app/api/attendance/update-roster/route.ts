@@ -17,15 +17,14 @@ export async function POST(request: Request) {
     }
 
     roster.forEach((student: RosterItem) => {
-      // 使用 activityId + studentId 作為文件 ID 以確保唯一性
       const docRef = db.collection('attendance').doc(`${activityId}_${student.id}`);
       
       batch.set(docRef, {
         activityId,
         courseId,
-        studentId: student.id, // UUID
-        studentName: student.name, // Denormalize
-        studentCode: student.studentId, // 學號
+        studentId: student.id, 
+        studentName: student.name, 
+        studentCode: student.studentId,
         status: student.status,
         leaveType: student.leaveType || null,
         remarks: student.remarks || null,

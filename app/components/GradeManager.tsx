@@ -20,7 +20,6 @@ import {
   mergePeriodicColumnDetails,
 } from '@/services/gradeShape';
 
-// --- 型別定義 ---
 interface UserInfo { id: string; name: string; role: string; }
 interface CourseInfo { id: string; name: string; code: string; gradeTags?: string[]; subjectTag?: string; courseNature?: string; status?: string; }
 type RegularType = '小考' | '作業' | '上課態度';
@@ -59,7 +58,6 @@ interface GradeSettings {
 }
 
 
-// --- 核心組件 ---
 const Modal = ({ open, onClose, title, size = 'md', children }: { open?: boolean; onClose?: () => void; title?: string; size?: string; children?: React.ReactNode }) => {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
@@ -85,7 +83,6 @@ const Modal = ({ open, onClose, title, size = 'md', children }: { open?: boolean
 };
 
 export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null }) {
-  // --- 狀態管理 ---
   const [courses, setCourses] = useState<CourseInfo[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<CourseInfo | null>(null);
   const [students, setStudents] = useState<StudentGradeRow[]>([]);
@@ -118,9 +115,8 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
   const [selectedNature, setSelectedNature] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
 
-  // --- 核心計算邏輯 (useMemo 優化) ---
   const computedData: ComputedStudentGradeRow[] = useMemo(() => {
-    const s = settings ?? defaultGradeSettings;
+    const s = (settings ?? defaultGradeSettings) as GradeSettings;
     return students.map(stu => {
       const getAvg = (type: RegularType) => {
         const scores = Object.entries(stu.regularScores || {})
@@ -272,7 +268,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
           setStudents(data.students || []);
           setColumnDetails(data.columnDetails || {});
           setRegularColumns(data.regularColumns || 0);
-          setSettings(data.settings ?? defaultGradeSettings);
+          setSettings((data.settings ?? defaultGradeSettings) as GradeSettings);
           setPeriodicColumnDetails(mergePeriodicColumnDetails(data.periodicColumnDetails));
         } catch (error) {
           Swal.fire({
@@ -545,8 +541,8 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
             <>
             {/* Mobile View */}
             <GradeRegistrationMobile 
-              tab={selectedTab} // The 'tab' prop is already typed as 'regular' | 'periodic' | 'total'
-              students={computedData} // 'computedData' is now correctly typed as 'ComputedStudentGradeRow[]'
+              tab={selectedTab} 
+              students={computedData} 
               regularColumns={regularColumns}
               columnDetails={columnDetails}
               _periodicScores={FIXED_PERIODIC_KEYS}
@@ -642,14 +638,11 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
       {/* 權重設定 Modal */}
       <Modal open={showSettingsModal} onClose={() => setShowSettingsModal(false)} title="成績比例與採計設定" size="lg">
         {(() => {
-          const s = settings ?? defaultGradeSettings;
+          const s = (settings ?? defaultGradeSettings) as GradeSettings;
           const regSum = s.percents.quiz + s.percents.hw + s.percents.att;
           const finalPeriodicPct = 100 - s.percents.periodic;
           return (
             <div className="space-y-6">
-              <p className="text-sm text-gray-600">
-                下方「小考／作業／上課態度」為<strong>平時成績內部</strong>加權（可為 0，未填視為 0）。「平時佔總成績」決定平時加權與定期平均在<strong>總成績</strong>中的比例。
-              </p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {([['quiz', '小考'], ['hw', '作業'], ['att', '上課態度']] as const).map(([key, label]) => (
                   <div key={key}>
@@ -660,7 +653,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                       value={s.percents[key]}
                       onChange={(e) =>
                         setSettings((prev) => {
-                          const base = prev ?? defaultGradeSettings;
+                          const base = (prev ?? defaultGradeSettings) as GradeSettings;
                           return {
                             ...base,
                             percents: { ...base.percents, [key]: Number(e.target.value) || 0 },
@@ -679,7 +672,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                   value={s.percents.periodic}
                   onChange={(e) =>
                     setSettings((prev) => {
-                      const base = prev ?? defaultGradeSettings;
+                      const base = (prev ?? defaultGradeSettings) as GradeSettings;
                       return {
                         ...base,
                         percents: { ...base.percents, periodic: Number(e.target.value) || 0 },
@@ -692,13 +685,10 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                 </p>
               </div>
               <div className="bg-gray-50 p-4 rounded-xl text-sm text-gray-700">
-                <div>平時內部權重加總：{regSum}%（建議 100%，僅用於計算平時加權）</div>
+                <div>平時權重加總：{regSum}%</div>
               </div>
               <div className="border-t pt-4 space-y-2">
                 <div className="text-sm font-bold text-gray-700">採計「定期平均」時納入的項目</div>
-                <p className="text-xs text-gray-500">
-                  畫面上固定顯示：第一次定期評量、第二次定期評量、期末評量（可登記分數）。取消勾選者仍會顯示欄位，但不計入定期平均與總成績中的定期部分。
-                </p>
                 <div className="flex flex-col gap-2">
                   {DEFAULT_PERIODIC_ITEM_KEYS.map((k) => (
                     <label key={k} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
@@ -707,7 +697,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                         checked={s.periodicEnabled[k] !== false}
                         onChange={(e) =>
                           setSettings((prev) => {
-                            const base = prev ?? defaultGradeSettings;
+                            const base = (prev ?? defaultGradeSettings) as GradeSettings;
                             return {
                               ...base,
                               periodicEnabled: { ...base.periodicEnabled, [k]: e.target.checked },
@@ -719,6 +709,29 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                     </label>
                   ))}
                 </div>
+              </div>
+              <div className="border-t pt-4 space-y-2">
+                <div className="text-sm font-bold text-gray-700">學生端顯示設定</div>
+                <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                    checked={s.periodicEnabled?.['showTotalGradeToStudents'] !== false}
+                    onChange={(e) =>
+                      setSettings((prev) => {
+                        const base = (prev ?? defaultGradeSettings) as GradeSettings;
+                        return {
+                          ...base,
+                          periodicEnabled: {
+                            ...base.periodicEnabled,
+                            showTotalGradeToStudents: e.target.checked,
+                          },
+                        };
+                      })
+                    }
+                  />
+                  允許學生查看「總成績」
+                </label>
               </div>
               <button
                 className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-100"

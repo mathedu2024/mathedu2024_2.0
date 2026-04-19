@@ -179,7 +179,7 @@ export default function ResourcesContent() {
             <MagnifyingGlassIcon className="w-6 h-6 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
             <input 
               type="text"
-              placeholder="輸入老師提供的 6 位數搜尋碼、資源名稱或老師姓名..."
+              placeholder="輸入老師提供的 6 位數索引碼"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-12 pr-4 py-3.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-gray-800 bg-gray-50 focus:bg-white text-base md:text-lg shadow-inner"

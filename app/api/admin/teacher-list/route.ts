@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '../../../../services/firebase-admin';
 
-// 老師列表：id 為 users 集合的文件 ID（溝通橋梁），顯示時請使用 name
 export async function GET() {
   try {
     const snapshot = await adminDb.collection('users').where('role', '==', 'teacher').get();

@@ -5,7 +5,6 @@ export async function POST(req: NextRequest) {
   try {
     const { id } = await req.json();
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 });
-    // 先查找 account 欄位等於 id 的文件
     const snapshot = await adminDb.collection('users').where('account', '==', id).get();
     if (snapshot.empty) return NextResponse.json({ error: 'User not found' }, { status: 404 });
     const batch = adminDb.batch();

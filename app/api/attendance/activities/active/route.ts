@@ -5,7 +5,6 @@ import { getActiveActivityForCourse } from '@/services/attendanceService';
 export async function GET(req: NextRequest) {
   const session = await getSession();
 
-  // 確保用戶是登入的學生
   if (!session || !session.id || (session.currentRole || session.role) !== 'student') {
     return NextResponse.json({ error: '未授權' }, { status: 401 });
   }
@@ -19,7 +18,6 @@ export async function GET(req: NextRequest) {
   try {
     const activeActivity = await getActiveActivityForCourse(courseId);
 
-    // 找不到進行中的活動並非錯誤，直接回傳 null
     return NextResponse.json(activeActivity, { status: 200 });
 
   } catch (error) {

@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { 
   collection, 
   query, 
-  where, 
   onSnapshot, 
   addDoc, 
   updateDoc, 
@@ -113,6 +112,32 @@ export default function ResourceManagement() {
     return '未命名建立者';
   };
 
+  const getIsAdmin = () => {
+    const session = getSession() as {
+      user?: { currentRole?: string; activeRole?: string; role?: string | string[]; roles?: string | string[] };
+      currentRole?: string;
+      activeRole?: string;
+      role?: string | string[];
+      roles?: string | string[];
+    } | null;
+    if (!session) return false;
+    
+    const user = session.user || session;
+    // 優先檢查「當前選定的身分 (currentRole / activeRole)」，防範老師與管理員身分共存時，以老師身分登入卻拿到管理員權限
+    const activeRole = user.currentRole || user.activeRole || user.role || user.roles || '';
+    
+    // 若明確為字串，嚴格比對當前登入的身分
+    if (typeof activeRole === 'string') {
+      return activeRole === 'admin' || activeRole === '管理員';
+    }
+    // 若系統僅提供陣列，則退而求其次檢查陣列中是否包含管理員
+    if (Array.isArray(activeRole)) {
+      return activeRole.includes('admin') || activeRole.includes('管理員');
+    }
+    return false;
+  };
+  const isAdmin = getIsAdmin();
+
   useEffect(() => {
     setMounted(true);
     return () => setMounted(false);
@@ -138,10 +163,8 @@ export default function ResourceManagement() {
 
       if (teacherId) {
         setLoading(true);
-        const q = query(
-          collection(db, 'resources'),
-          where('teacherId', '==', teacherId)
-        );
+        // 取消 where 限制，抓取全部資源以支援跨老師搜尋，前端再來做過濾
+        const q = query(collection(db, 'resources'));
 
         unsubscribeSnap = onSnapshot(q, (snapshot) => {
           const getTimestampSeconds = (value: ResourceFolder['createdAt']) => {
@@ -390,10 +413,24 @@ export default function ResourceManagement() {
     }
   };
 
-  const filteredFolders = folders.filter(folder => 
-    folder.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    folder.indexCode.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredFolders = folders.filter(folder => {
+    const isOwner = folder.teacherId === currentTeacherId;
+
+    // 1. 如果搜尋框是空的
+    if (!searchQuery.trim()) {
+      if (isAdmin) return true; // 管理員看全部
+      return isOwner;           // 老師只看自己的
+    }
+
+    // 2. 如果有輸入搜尋條件 (全域搜尋)
+    const q = searchQuery.toLowerCase();
+    const matchTitle = folder.title.toLowerCase().includes(q);
+    const matchIndex = folder.indexCode.toLowerCase().includes(q);
+    const matchName = (folder.createdByName || '').toLowerCase().includes(q) || 
+                      (folder.createdByAccount || '').toLowerCase().includes(q) ||
+                      getCreatorDisplayName(folder).toLowerCase().includes(q);
+    return matchTitle || matchIndex || matchName;
+  });
 
   if (loading) return <div className="p-8 text-center"><LoadingSpinner text="正在載入資源庫..." /></div>;
 
@@ -448,62 +485,74 @@ export default function ResourceManagement() {
             </thead>
             <tbody className="divide-y divide-gray-50 bg-white">
               {filteredFolders.length > 0 ? (
-                filteredFolders.map((folder) => (
-                  <tr key={folder.id} className="hover:bg-indigo-50/30 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
-                          <FolderIcon className="h-5 w-5" />
+                filteredFolders.map((folder) => {
+                  const isOwner = folder.teacherId === currentTeacherId;
+                  const canEdit = isAdmin || isOwner;
+
+                  return (
+                    <tr key={folder.id} className="hover:bg-indigo-50/30 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+                            <FolderIcon className="h-5 w-5" />
+                          </div>
+                          <span className="font-bold text-gray-800">{folder.title}</span>
                         </div>
-                        <span className="font-bold text-gray-800">{folder.title}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm font-mono bg-gray-100 px-2 py-1 rounded text-gray-600 flex items-center gap-1 w-fit">
-                        <KeyIcon className="h-3 w-3" /> {folder.indexCode}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-700">
-                        {getCreatorDisplayName(folder)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-600 flex items-center gap-1">
-                        <LinkIcon className="h-4 w-4 text-gray-400" /> {folder.items.length} 個連結
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <button
-                        onClick={() => toggleFolderPrivacy(folder)}
-                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold transition-all shadow-sm ${
-                          folder.status === 'public'
-                            ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                        }`}
-                      >
-                        {folder.status === 'public' ? <GlobeAsiaAustraliaIcon className="h-3 w-3" /> : <LockClosedIcon className="h-3 w-3" />}
-                        {folder.status === 'public' ? '公開' : '私有'}
-                      </button>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right space-x-2">
-                      <button 
-                        onClick={() => openModal(folder)}
-                        className="p-2 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                        title="編輯"
-                      >
-                        <PencilSquareIcon className="h-5 w-5" />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(folder.id)}
-                        className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                        title="刪除"
-                      >
-                        <TrashIcon className="h-5 w-5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm font-mono bg-gray-100 px-2 py-1 rounded text-gray-600 flex items-center gap-1 w-fit">
+                          <KeyIcon className="h-3 w-3" /> {folder.indexCode}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-700">
+                          {getCreatorDisplayName(folder)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm text-gray-600 flex items-center gap-1">
+                          <LinkIcon className="h-4 w-4 text-gray-400" /> {folder.items.length} 個連結
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <button
+                          onClick={() => canEdit && toggleFolderPrivacy(folder)}
+                          disabled={!canEdit}
+                          className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold transition-all shadow-sm ${
+                            folder.status === 'public'
+                              ? 'bg-emerald-100 text-emerald-700 ' + (canEdit ? 'hover:bg-emerald-200' : '')
+                              : 'bg-gray-100 text-gray-500 ' + (canEdit ? 'hover:bg-gray-200' : '')
+                          } ${!canEdit ? 'opacity-60 cursor-not-allowed' : ''}`}
+                        >
+                          {folder.status === 'public' ? <GlobeAsiaAustraliaIcon className="h-3 w-3" /> : <LockClosedIcon className="h-3 w-3" />}
+                          {folder.status === 'public' ? '公開' : '私有'}
+                        </button>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right space-x-2">
+                        {canEdit ? (
+                          <>
+                            <button 
+                              onClick={() => openModal(folder)}
+                              className="p-2 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                              title="編輯"
+                            >
+                              <PencilSquareIcon className="h-5 w-5" />
+                            </button>
+                            <button 
+                              onClick={() => handleDelete(folder.id)}
+                              className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                              title="刪除"
+                            >
+                              <TrashIcon className="h-5 w-5" />
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-xs text-gray-400 italic">無編輯權限</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
@@ -520,43 +569,51 @@ export default function ResourceManagement() {
       {/* 手機版卡片視圖 */}
       <div className="md:hidden space-y-4 mt-4">
         {filteredFolders.length > 0 ? (
-          filteredFolders.map(folder => (
-            <div key={folder.id} className="bg-white border border-gray-100 rounded-xl shadow-sm p-5 flex flex-col gap-3 active:scale-[0.99] transition-transform">
-              <div className="flex justify-between items-start">
-                 <div>
-                     <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2">
-                       <FolderIcon className="w-5 h-5 text-indigo-500" />
-                       {folder.title}
-                     </h3>
-                     <p className="text-xs font-mono text-gray-500 mt-1 flex items-center gap-1">
-                       <KeyIcon className="w-3 h-3" /> {folder.indexCode}
-                     </p>
-                 </div>
-                 <button
-                   onClick={() => toggleFolderPrivacy(folder)}
-                   className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold transition-colors shadow-sm ${
-                     folder.status === 'public'
-                       ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                   }`}
-                 >
-                   {folder.status === 'public' ? <GlobeAsiaAustraliaIcon className="h-3 w-3" /> : <LockClosedIcon className="h-3 w-3" />}
-                   {folder.status === 'public' ? '公開' : '私有'}
-                 </button>
+          filteredFolders.map(folder => {
+            const isOwner = folder.teacherId === currentTeacherId;
+            const canEdit = isAdmin || isOwner;
+
+            return (
+              <div key={folder.id} className="bg-white border border-gray-100 rounded-xl shadow-sm p-5 flex flex-col gap-3 active:scale-[0.99] transition-transform">
+                <div className="flex justify-between items-start">
+                   <div>
+                       <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2">
+                         <FolderIcon className="w-5 h-5 text-indigo-500" />
+                         {folder.title}
+                       </h3>
+                       <p className="text-xs font-mono text-gray-500 mt-1 flex items-center gap-1">
+                         <KeyIcon className="w-3 h-3" /> {folder.indexCode} | {getCreatorDisplayName(folder)}
+                       </p>
+                   </div>
+                   <button
+                     onClick={() => canEdit && toggleFolderPrivacy(folder)}
+                     disabled={!canEdit}
+                     className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold transition-colors shadow-sm ${
+                       folder.status === 'public'
+                         ? 'bg-emerald-50 text-emerald-700 ' + (canEdit ? 'hover:bg-emerald-100' : '')
+                         : 'bg-gray-100 text-gray-600 ' + (canEdit ? 'hover:bg-gray-200' : '')
+                     } ${!canEdit ? 'opacity-60 cursor-not-allowed' : ''}`}
+                   >
+                     {folder.status === 'public' ? <GlobeAsiaAustraliaIcon className="h-3 w-3" /> : <LockClosedIcon className="h-3 w-3" />}
+                     {folder.status === 'public' ? '公開' : '私有'}
+                   </button>
+                </div>
+                <div className="text-sm text-gray-600 flex items-center gap-1">
+                  <LinkIcon className="w-4 h-4 text-gray-400" /> {folder.items.length} 個資源
+                </div>
+                {canEdit && (
+                  <div className="border-t border-gray-100 pt-3 flex justify-end gap-2">
+                     <button onClick={(e) => { e.stopPropagation(); openModal(folder); }} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all">
+                       <PencilSquareIcon className="w-5 h-5" />
+                     </button>
+                     <button onClick={(e) => { e.stopPropagation(); handleDelete(folder.id); }} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all">
+                       <TrashIcon className="w-5 h-5" />
+                     </button>
+                  </div>
+                )}
               </div>
-              <div className="text-sm text-gray-600 flex items-center gap-1">
-                <LinkIcon className="w-4 h-4 text-gray-400" /> {folder.items.length} 個資源
-              </div>
-              <div className="border-t border-gray-100 pt-3 flex justify-end gap-2">
-                 <button onClick={(e) => { e.stopPropagation(); openModal(folder); }} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all">
-                   <PencilSquareIcon className="w-5 h-5" />
-                 </button>
-                 <button onClick={(e) => { e.stopPropagation(); handleDelete(folder.id); }} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all">
-                   <TrashIcon className="w-5 h-5" />
-                 </button>
-              </div>
-            </div>
-          ))
+            );
+          })
         ) : (
           <div className="text-center py-12 text-gray-400 border border-dashed rounded-xl bg-white">
             沒有符合的資源資料夾

@@ -201,7 +201,6 @@ export default function Home() {
             animate="visible"
           >
             {exams.map((exam, index) => {
-              // 確保倒數數值已計算完成，否則顯示計算中或預設值
               const daysLeft = countdowns[index] !== undefined ? countdowns[index] : calculateDaysLeft(exam.startDate);
               let statusColor = "text-emerald-300";
               if (daysLeft < 0) statusColor = "text-gray-400";

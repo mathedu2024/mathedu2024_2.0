@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 
-// Local PeriodicScoreName definition
 export type PeriodicScoreName = '第一次定期評量' | '第二次定期評量' | '期末評量';
 
 type ColumnDetail = { type: string; name: string; date: string };

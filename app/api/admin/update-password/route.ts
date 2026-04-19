@@ -18,7 +18,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Save the plain text password directly
     const userDoc = snapshot.docs[0];
     await userDoc.ref.update({ password: password });
 

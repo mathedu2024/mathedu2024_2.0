@@ -20,7 +20,6 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Get student's enrolled courses from student_data collection (same logic as student courses list API)
     const studentProfileDoc = await adminDb.collection('student_data').doc(studentId).get();
     let enrolledCourses: string[] = [];
 
@@ -41,7 +40,6 @@ export async function GET(req: NextRequest) {
       return NextResponse.json([]);
     }
 
-    // Get courses using the enrolled course IDs
     const coursesSnapshot = await adminDb.collection('courses')
       .where('__name__', 'in', enrolledCourses)
       .get();

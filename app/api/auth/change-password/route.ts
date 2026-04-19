@@ -4,7 +4,6 @@ import { adminDb } from '../../../../services/firebase-admin';
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. Get session from cookie
     const cookieStore = await cookies();
     const sessionCookie = cookieStore.get('session');
     if (!sessionCookie) {
@@ -17,14 +16,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Invalid session' }, { status: 401 });
     }
 
-    // 2. Get passwords from request body
     const { currentPassword, newPassword } = await req.json();
 
     if (!currentPassword || !newPassword) {
       return NextResponse.json({ message: '請提供目前密碼與新密碼' }, { status: 400 });
     }
 
-    // 3. Fetch user document from the correct 'users' collection
     const userRef = adminDb.collection('users').doc(userId);
     const userDoc = await userRef.get();
 
@@ -34,17 +31,14 @@ export async function POST(req: NextRequest) {
 
     const userData = userDoc.data();
 
-    // Prevent students from using this generic user password change route
     if (userData?.role === 'student') {
       return NextResponse.json({ message: 'Unauthorized: Students must use their specific password change route.' }, { status: 403 });
     }
 
-    // 4. Verify current password (plain text storage, as per user request)
     if (userData?.password !== currentPassword) {
       return NextResponse.json({ message: '目前密碼不正確' }, { status: 400 });
     }
 
-    // 5. Update to new password (plain text)
     await userRef.update({
       password: newPassword,
     });

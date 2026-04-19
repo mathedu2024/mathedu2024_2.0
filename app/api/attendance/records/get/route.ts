@@ -33,7 +33,6 @@ export async function POST(req: NextRequest) {
       .collection('attendance')
       .doc(activityId);
 
-    // 讀取活動基本資訊（供前端 Header 顯示）
     const activityDoc = await activityRef.get();
     let activity: AttendanceActivityResponse | null = null;
 
@@ -75,7 +74,6 @@ export async function POST(req: NextRequest) {
       };
     }
 
-    // 1. 先讀取專用的 records 子集合（老師在新 UI 儲存的紀錄）
     const recordsRef = activityRef.collection('records');
     const recordsSnap = await recordsRef.get();
 
@@ -88,7 +86,6 @@ export async function POST(req: NextRequest) {
       };
     });
 
-    // 2. 若 records 為空，嘗試從舊的 roster 結構帶入既有點名狀態
     if (records.length === 0) {
       const rosterRef = activityRef.collection('roster');
       const rosterSnap = await rosterRef.get();

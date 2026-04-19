@@ -57,28 +57,19 @@ service cloud.firestore {
         allow read: if request.auth != null && request.auth.token.role == 'student';
     }
 
-    // 點名活動
     match /courses/{courseId}/attendance/{activityId} {
-      // 老師和管理員可以建立、讀取、更新、刪除點名活動
       allow write: if request.auth != null && (request.auth.token.role in ['teacher', 'admin']);
       
-      // 學生只能讀取活動
       allow read: if request.auth != null && request.auth.token.role == 'student';
 
-        // 點名參與者 (學生簽到)
         match /attendees/{studentId} {
-          // 學生只能為自己建立簽到紀錄
           allow create: if request.auth != null && request.auth.uid == studentId;
-          // 老師和管理員可以讀取簽到紀錄
           allow read: if request.auth != null && (request.auth.token.role in ['teacher', 'admin'] || request.auth.uid == studentId);
         }
     }
 
-    // 請假申請 (修正：移出 attendance 層級，獨立在課程下)
     match /courses/{courseId}/leave_requests/{studentId} {
-        // 老師和管理員可以讀寫所有申請
         allow read, write: if request.auth != null && (request.auth.token.role in ['teacher', 'admin']);
-        // 學生可以建立、讀取、更新自己的申請
         allow create, read, update: if request.auth != null && request.auth.uid == studentId;
     }
 
@@ -94,19 +85,16 @@ service cloud.firestore {
 
     match /time-slots/{slotId} {
       allow read: if request.auth != null;
-      // 只有後端 (Admin SDK) 可以寫入
       allow write: if false;
     }
 
     match /resources/{resourceId} {
 
-      allow read: if isAdmin() || isStudent() || (isTeacher() && resource.data.teacherId == request.auth.uid);
-      
+      allow read: if isSignedIn();
 
       allow create: if isAdmin() || (isTeacher() && isCreatingOwnResource());
       allow update, delete: if isAdmin() || (isTeacher() && isResourceOwner());
     }
-合
     match /courses/{courseId}/{collection}/{documentId} {
        allow read, write: if request.auth != null && request.auth.token.role in ['teacher', 'admin'];
        allow read: if request.auth != null && request.auth.token.role == 'student' && resource.data.studentId == request.auth.uid;

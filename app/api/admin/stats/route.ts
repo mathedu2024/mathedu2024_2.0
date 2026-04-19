@@ -8,7 +8,6 @@ export async function GET() {
     adminDb.collection('courses').get(),
   ]);
 
-  // 只統計 users 集合的教師數
   let teacherCount = 0;
   usersSnap.docs.forEach(doc => {
     const data = doc.data();

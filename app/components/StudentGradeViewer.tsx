@@ -47,7 +47,7 @@ interface GradeData {
   courseId?: string;
   columns: Record<string, { name: string; type: string; date: string; }>;
   student: StudentGradeRow | null;
-  totalSetting?: { regularDetail?: Record<string, { calcMethod: string; n?: number; percent: number; }>; periodicEnabled?: Record<string, boolean>; periodicPercent: number; };
+  totalSetting?: { regularDetail?: Record<string, { calcMethod: string; n?: number; percent: number; }>; periodicEnabled?: Record<string, boolean>; periodicPercent: number; showTotalGradeToStudents?: boolean; };
   periodicScores?: string[];
 }
 
@@ -260,6 +260,8 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
 
   const paginatedScores = filteredRegularScores.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   const totalPages = Math.ceil(filteredRegularScores.length / itemsPerPage);
+  
+  const showTotalGrade = gradeData?.totalSetting?.periodicEnabled?.['showTotalGradeToStudents'] !== false;
 
   const getTeacherNames = () => {
     if (selectedCourse.includes('(') && selectedCourse.includes(')')) {
@@ -400,11 +402,11 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
                                 <div className="p-5 bg-gradient-to-br from-indigo-600 to-indigo-800 border border-indigo-700 rounded-xl shadow-md text-white">
                                     <div className="text-xs font-bold text-indigo-100 uppercase tracking-wider mb-1">學期總成績</div>
                                     <div className="text-4xl font-black">
-                                        {studentGrade ? gradeSummaries.total : '未評分'}
+                                        {!showTotalGrade ? '未公布' : studentGrade ? gradeSummaries.total : '未評分'}
                                     </div>
                                     <div className="text-[10px] text-indigo-200 mt-2 flex justify-between">
-                                        <span>依權重比例計算</span>
-                                        {studentGrade && <span className={Number(gradeSummaries.total) < 60 ? 'text-red-300 font-bold' : ''}>{Number(gradeSummaries.total) < 60 ? '不及格' : '及格'}</span>}
+                                        <span>{showTotalGrade ? '依權重比例計算' : '老師尚未公布總成績'}</span>
+                                        {showTotalGrade && studentGrade && <span className={Number(gradeSummaries.total) < 60 ? 'text-red-300 font-bold' : ''}>{Number(gradeSummaries.total) < 60 ? '不及格' : '及格'}</span>}
                                     </div>
                                 </div>
                                 

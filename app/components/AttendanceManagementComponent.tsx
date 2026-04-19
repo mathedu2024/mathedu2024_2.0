@@ -15,6 +15,7 @@ import {
   QrCodeIcon, ChevronDownIcon, UserGroupIcon, ChevronRightIcon,
   ArrowDownTrayIcon
 } from '@heroicons/react/24/outline';
+import { getSession } from '@/utils/session';
 
 // ==========================================
 // 1. 型別定義
@@ -28,6 +29,8 @@ interface Course {
   subjectTag?: string;
   courseNature?: string;
   status?: string;
+  teachers?: string[];
+  teacherUids?: string[];
 }
 
 interface Student {
@@ -871,9 +874,10 @@ function AttendanceActivityList({ courseId, courseName, courseCode, onBack, onSe
 
 interface AttendanceManagementComponentProps {
   courses?: Course[];
+  userInfo?: { id: string; name?: string; role?: string | string[] } | null;
 }
 
-export default function AttendanceManagementComponent({ courses: externalCourses }: AttendanceManagementComponentProps = {}) {
+export default function AttendanceManagementComponent({ courses: externalCourses, userInfo }: AttendanceManagementComponentProps = {}) {
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [selectedActivity, setSelectedActivity] = useState<AttendanceActivity | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
@@ -889,8 +893,28 @@ export default function AttendanceManagementComponent({ courses: externalCourses
   const [selectedStatus, setSelectedStatus] = useState('all');
 
   useEffect(() => {
+    const filterCoursesForUser = (courseList: Course[]) => {
+      // 優先使用傳入的 userInfo，否則從 session 取得
+      let currentUserId = userInfo?.id;
+      if (!currentUserId) {
+        const session = getSession() as { user?: { id?: string; userId?: string; uid?: string }; id?: string; userId?: string; uid?: string } | null;
+        if (!session) return [];
+        const user = session.user || session;
+        currentUserId = user.id || user.userId || user.uid;
+      }
+
+      if (!currentUserId) return []; // 無識別 ID 時，不回傳任何課程
+
+      return courseList.filter(c => {
+        if (!c.teachers || !Array.isArray(c.teachers)) return false;
+        
+        // 嚴格比對 teachers 陣列，不再給予管理員豁免，以確保與成績系統行為完全一致
+        return c.teachers.includes(currentUserId);
+      });
+    };
+
     if (externalCourses && externalCourses.length > 0) {
-      setCourses(externalCourses);
+      setCourses(filterCoursesForUser(externalCourses));
       setLoading(false);
       return;
     }
@@ -899,7 +923,7 @@ export default function AttendanceManagementComponent({ courses: externalCourses
         const response = await fetch('/api/courses/list', { method: 'POST' });
         if (response.ok) {
           const coursesData: Course[] = await response.json();
-          setCourses(coursesData);
+          setCourses(filterCoursesForUser(coursesData));
           const studentCountsPromises = coursesData.map(async (course) => {
             try {
               const res = await fetch('/api/course-student-list/list', {
@@ -922,7 +946,7 @@ export default function AttendanceManagementComponent({ courses: externalCourses
       } catch (error) { console.error(error); } finally { setLoading(false); }
     };
     fetchCourses();
-  }, [externalCourses]);
+  }, [externalCourses, userInfo?.id]);
 
   useEffect(() => {
     if (selectedActivity && selectedCourse) {
