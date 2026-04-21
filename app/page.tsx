@@ -174,7 +174,7 @@ export default function Home() {
   const totalPages = Math.ceil(filteredAnnouncements.length / ANNOUNCEMENTS_PER_PAGE);
 
   return (
-    <main className="min-h-screen bg-gray-50 pb-20">
+    <main className="min-h-screen bg-gray-50">
       
       <div className="pt-8 pb-6 md:pt-16 md:pb-12 text-center px-4">
         <div className="max-w-4xl mx-auto">
@@ -291,19 +291,35 @@ export default function Home() {
 
             {/* 分頁控制 UI */}
             {totalPages > 1 && (
-              <div className="flex justify-center items-center gap-4 pt-6">
+              <div className="flex justify-center items-center gap-2 pt-6 flex-wrap">
                 <button 
                   onClick={() => setAnnouncementPage(p => Math.max(1, p - 1))}
                   disabled={announcementPage === 1}
-                  className="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors shadow-sm"
+                  className="w-10 h-10 flex items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors shadow-sm"
                 >
                   <i className="fas fa-chevron-left text-xs"></i>
                 </button>
-                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">第 {announcementPage} / {totalPages} 頁</span>
+                
+                {Array.from({ length: totalPages }).map((_, idx) => {
+                  const pageNumber = idx + 1;
+                  const isCurrentPage = announcementPage === pageNumber;
+                  return (
+                    <button
+                      key={pageNumber}
+                      onClick={() => setAnnouncementPage(pageNumber)}
+                      className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm ${
+                        isCurrentPage ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-indigo-600 hover:border-indigo-200'
+                      }`}
+                    >
+                      {pageNumber}
+                    </button>
+                  );
+                })}
+
                 <button 
                   onClick={() => setAnnouncementPage(p => Math.min(totalPages, p + 1))}
                   disabled={announcementPage === totalPages}
-                  className="p-2 rounded-lg border border-gray-200 bg-white text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors shadow-sm"
+                  className="w-10 h-10 flex items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors shadow-sm"
                 >
                   <i className="fas fa-chevron-right text-xs"></i>
                 </button>
@@ -313,7 +329,7 @@ export default function Home() {
         </section>
       </div>
       
-      <footer className="bg-gray-50 border-t border-gray-200 py-8 mt-20">
+      <footer className="bg-gray-50 border-t border-gray-200 pt-8 pb-6 mt-20">
         <div className="max-w-7xl mx-auto px-4 text-center text-gray-500 text-sm">© 2024 高中學習資源教育網. All rights reserved.</div>
       </footer>
     </main>

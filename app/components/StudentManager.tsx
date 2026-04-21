@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import MultiSelectDropdown from './MultiSelectDropdown';
 import LoadingSpinner from './LoadingSpinner';
 import Dropdown from './ui/Dropdown';
@@ -19,6 +20,8 @@ import {
   MapPinIcon,
   ChevronDownIcon,
   ChevronUpIcon,
+  XMarkIcon,
+  CloudArrowUpIcon,
 } from '@heroicons/react/24/outline';
 
 interface Student {
@@ -78,6 +81,9 @@ export default function StudentManager() {
   const [mobileBatchPanelOpen, setMobileBatchPanelOpen] = useState(false);
   const [formErrors, setFormErrors] = useState<{ studentId?: string; email?: string }>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
   
   const grades = ['國一', '國二', '國三', '高一', '高二', '高三', '職一', '職二', '職三', '大一', '進修'];
 
@@ -153,6 +159,13 @@ export default function StudentManager() {
     // 檢查學號不可為中文或標點符號
     if (/[\u4e00-\u9fa5\u3000-\u303F\uFF00-\uFFEF\p{P}\p{S}]/u.test(editingStudent.studentId)) {
       setFormErrors(prev => ({ ...prev, studentId: '學號不可包含中文或標點符號' }));
+      return;
+    }
+    // 檢查學號是否重複
+    const isDuplicate = students.some(s => s.studentId === editingStudent.studentId && s.id !== editingStudent.id);
+    if (isDuplicate) {
+      setFormErrors(prev => ({ ...prev, studentId: '此學號已被使用' }));
+      Swal.fire('警告', '此學號已被使用，請更換學號！', 'warning');
       return;
     }
     // 檢查 email 格式
@@ -417,7 +430,7 @@ export default function StudentManager() {
   const handleDownloadTemplate = async () => {
     const templateData = [
       {
-        '學號': 'S112001',
+        '學號': '112001',
         '姓名': '王小明',
         '性別': '男',
         '年級': '高一',
@@ -442,6 +455,24 @@ export default function StudentManager() {
     // 3. 填入範例資料
     worksheet.addRows(templateData);
 
+    // 加上填寫說明
+    worksheet.addRow([]);
+    const titleRow = worksheet.addRow(['【填寫說明】(請在匯入前將本說明與上方範例列刪除)']);
+    titleRow.font = { bold: true, color: { argb: 'FFFF0000' } }; // 紅色粗體字
+    worksheet.mergeCells(`A${titleRow.number}:H${titleRow.number}`);
+
+    const instructions = [
+      '1. 學號、姓名、性別、年級為必填欄位。',
+      '2. 性別請務必填寫「男」或「女」（不可填寫男生、女生等）。',
+      '3. 年級請填寫：國一、國二、國三、高一、高二、高三、職一、職二、職三、大一、進修。',
+      '4. 匯入前請確保學號未與檔案內其他資料或系統中現有學生重複。'
+    ];
+    instructions.forEach(text => {
+      const row = worksheet.addRow([text]);
+      row.font = { color: { argb: 'FF555555' } }; // 深灰色字體
+      worksheet.mergeCells(`A${row.number}:H${row.number}`);
+    });
+
     // 4. 生成 Buffer 並觸發瀏覽器下載
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -455,9 +486,32 @@ export default function StudentManager() {
   };
 
   // --- Excel 檔案讀取與大量上傳功能 ---
-  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      processExcelFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const processExcelFile = async (file: File) => {
+    // exceljs 不支援舊版的 .xls 或其他格式，需在此攔截以避免解析錯誤
+    if (!file.name.match(/\.xlsx$/i)) {
+      Swal.fire('格式錯誤', '僅支援 .xlsx 格式的 Excel 檔案，請將檔案「另存新檔」為 .xlsx 格式後再試。', 'error');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = async (evt) => {
@@ -472,7 +526,7 @@ export default function StudentManager() {
         const worksheet = workbook.getWorksheet(1); // 取得第一個工作表
         if (!worksheet) throw new Error('讀取不到工作表內容');
 
-        const data: Record<string, string | number>[] = [];
+        const data: (Record<string, string | number> & { _rowNum: number })[] = [];
         const headers: string[] = [];
         
         // 2. 獲取標題列 (第一列) 用於欄位對應
@@ -489,32 +543,68 @@ export default function StudentManager() {
             const header = headers[colNumber];
             if (header) rowObject[header] = cell.text.trim();
           });
-          data.push(rowObject);
+          
+          const studentId = String(rowObject['學號'] || '').trim();
+          const name = String(rowObject['姓名'] || '').trim();
+          const gender = String(rowObject['性別'] || '').trim();
+          const grade = String(rowObject['年級'] || '').trim();
+
+          // 略過說明列或全空列
+          if (studentId.includes('【填寫說明】') || studentId.match(/^\d+\./)) return;
+          if (!studentId && !name && !gender && !grade) return;
+
+          data.push({ ...rowObject, _rowNum: rowNumber });
         });
 
         if (data.length === 0) {
-          Swal.fire('提示', 'Excel 檔案中沒有資料', 'info');
+          Swal.fire('提示', 'Excel 檔案中沒有有效資料', 'info');
           return;
         }
 
         const importRows: ImportStudentPayload[] = [];
         const parseErrors: string[] = [];
+        const excelStudentIds = new Set<string>();
+
         for (const row of data) {
+          const rowNum = row._rowNum;
           const studentId = String(row['學號'] || '').trim();
           const name = String(row['姓名'] || '').trim();
+          const rawGender = String(row['性別'] || '').trim();
+          const rawGrade = String(row['年級'] || '').trim();
           
-          if (!studentId || !name) {
-            parseErrors.push(`資料不完整：學號或姓名缺漏（學號: ${studentId || '空白'}）`);
+          if (!studentId || !name || !rawGender || !rawGrade) {
+            parseErrors.push(`第 ${rowNum} 列：學號、姓名、性別、年級為必填欄位。`);
             continue;
           }
+
           if (/[\u4e00-\u9fa5\u3000-\u303F\uFF00-\uFFEF\p{P}\p{S}]/u.test(studentId)) {
-            parseErrors.push(`學號格式錯誤：${studentId}`);
+            parseErrors.push(`第 ${rowNum} 列：學號格式錯誤（不可包含中文或標點符號）。`);
+            continue;
+          }
+
+          if (rawGender !== '男' && rawGender !== '女') {
+            parseErrors.push(`第 ${rowNum} 列：性別必須填寫「男」或「女」。`);
+            continue;
+          }
+
+          if (!grades.includes(rawGrade)) {
+            parseErrors.push(`第 ${rowNum} 列：年級「${rawGrade}」不符合系統設定。`);
+            continue;
+          }
+
+          if (excelStudentIds.has(studentId)) {
+            parseErrors.push(`第 ${rowNum} 列：檔案內學號重複（${studentId}）。`);
+            continue;
+          }
+          excelStudentIds.add(studentId);
+
+          if (students.some(s => s.studentId === studentId)) {
+            parseErrors.push(`第 ${rowNum} 列：系統中已存在相同學號的學生（${studentId}）。`);
             continue;
           }
 
           // 性別轉換
           const genderMap: { [key: string]: 'male' | 'female' } = { '男': 'male', '女': 'female' };
-          const rawGender = String(row['性別'] || '').trim();
           const gender = genderMap[rawGender] || 'male';
 
           // 組合存檔資料
@@ -522,7 +612,7 @@ export default function StudentManager() {
             studentId: studentId,
             name: name,
             gender: gender,
-            grade: String(row['年級'] || '高一').trim(),
+            grade: rawGrade,
             account: studentId,
             email: String(row['電子郵件'] || '').trim(),
             phone: String(row['電話'] || ''),
@@ -532,6 +622,23 @@ export default function StudentManager() {
             password: 'abcd1234' // 預設密碼
           };
           importRows.push(studentData);
+        }
+
+        if (parseErrors.length > 0) {
+          Swal.fire({
+            icon: 'error',
+            title: '匯入失敗',
+            html: `
+              <div style="text-align:left; max-height: 250px; overflow-y: auto;">
+                <p class="mb-2 font-bold text-red-600">請修正以下錯誤後再重新匯入（整批資料尚未建立）：</p>
+                <ul style="list-style-type: decimal; padding-left: 20px; font-size: 0.9em; line-height: 1.5;">
+                  ${parseErrors.map(err => `<li>${err}</li>`).join('')}
+                </ul>
+              </div>
+            `,
+            confirmButtonColor: '#ef4444',
+          });
+          return;
         }
 
         if (importRows.length === 0) {
@@ -550,18 +657,17 @@ export default function StudentManager() {
         const result = await res.json();
 
         Swal.fire({
-          icon: (result.skippedCount > 0 || parseErrors.length > 0) ? 'warning' : 'success',
+          icon: 'success',
           title: '匯入完成',
           html: `
             <div style="text-align:left;line-height:1.8">
               <div>成功新增：<b>${result.createdCount}</b> 筆</div>
-              <div>略過重複學號：<b>${result.skippedCount}</b> 筆</div>
-              <div>資料格式錯誤：<b>${parseErrors.length}</b> 筆</div>
             </div>
           `,
           confirmButtonColor: '#4f46e5',
         });
 
+        setIsImportModalOpen(false);
         fetchStudents();
       } catch (error) {
         console.error("讀取 Excel 失敗:", error);
@@ -578,6 +684,15 @@ export default function StudentManager() {
     };
 
     reader.readAsArrayBuffer(file); // exceljs 使用 ArrayBuffer 讀取
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      processExcelFile(e.target.files[0]);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   return (
@@ -600,7 +715,7 @@ export default function StudentManager() {
               下載 Excel 模板
             </button>
             <button
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => setIsImportModalOpen(true)}
               className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-sm transition-all"
             >
               匯入 Excel 批次新增
@@ -608,9 +723,9 @@ export default function StudentManager() {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".xlsx,.xls"
+              accept=".xlsx"
               className="hidden"
-              onChange={handleImportExcel}
+              onChange={handleFileSelect}
             />
             <button
               onClick={() => {
@@ -1047,6 +1162,38 @@ export default function StudentManager() {
           </div>
         )}
       </div>
+
+      {/* Import Excel Modal */}
+      {isImportModalOpen && createPortal(
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 relative animate-bounce-in">
+            <button onClick={() => setIsImportModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+              <XMarkIcon className="w-6 h-6" />
+            </button>
+            <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+              <CloudArrowUpIcon className="w-6 h-6 text-indigo-600 mr-2" />
+              匯入 Excel 檔案
+            </h2>
+            
+            <div 
+              className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${dragActive ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 bg-gray-50 hover:bg-gray-100'}`}
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <CloudArrowUpIcon className={`w-16 h-16 mx-auto mb-4 ${dragActive ? 'text-indigo-500' : 'text-gray-400'}`} />
+              <p className="text-gray-800 font-bold mb-2">點擊選擇檔案，或將檔案拖曳至此處</p>
+            <p className="text-gray-500 text-sm mb-6">支援 .xlsx 格式</p>
+              <button className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-colors shadow-sm">
+                瀏覽檔案
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

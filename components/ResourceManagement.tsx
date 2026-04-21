@@ -28,7 +28,10 @@ import {
   MagnifyingGlassIcon,
   Bars3Icon,
   EyeIcon,
-  EyeSlashIcon
+  EyeSlashIcon,
+  FunnelIcon,
+  ChevronDownIcon,
+  ChevronUpIcon
 } from '@heroicons/react/24/outline';
 import { db, auth } from '@/lib/firebase-client'; // 確保有匯出 auth
 import { onAuthStateChanged } from 'firebase/auth';
@@ -84,6 +87,9 @@ export default function ResourceManagement() {
   const [currentTeacherId, setCurrentTeacherId] = useState<string | null>(null);
   const [authInitialized, setAuthInitialized] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterType, setFilterType] = useState<string>('all');
+  const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
   const resolveTeacherId = () => {
     const session = getSession();
@@ -213,8 +219,15 @@ export default function ResourceManagement() {
   const generateIndexCode = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 排除容易混淆的字元
     let result = '';
-    for (let i = 0; i < 6; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    let isUnique = false;
+
+    while (!isUnique) {
+      result = '';
+      for (let i = 0; i < 6; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      // 檢查是否與現有資料夾的索引碼重複
+      isUnique = !folders.some(folder => folder.indexCode === result);
     }
     return result;
   };
@@ -416,28 +429,41 @@ export default function ResourceManagement() {
   const filteredFolders = folders.filter(folder => {
     const isOwner = folder.teacherId === currentTeacherId;
 
-    // 1. 如果搜尋框是空的
+    // 1. 搜尋關鍵字判斷
+    let meetsSearch = false;
     if (!searchQuery.trim()) {
-      if (isAdmin) return true; // 管理員看全部
-      return isOwner;           // 老師只看自己的
+      meetsSearch = isAdmin || isOwner; 
+    } else {
+      const q = searchQuery.toLowerCase();
+      const matchTitle = folder.title.toLowerCase().includes(q);
+      const matchIndex = folder.indexCode.toLowerCase().includes(q);
+      const matchName = (folder.createdByName || '').toLowerCase().includes(q) || 
+                        (folder.createdByAccount || '').toLowerCase().includes(q) ||
+                        getCreatorDisplayName(folder).toLowerCase().includes(q);
+      meetsSearch = matchTitle || matchIndex || matchName;
+    }
+    if (!meetsSearch) return false;
+
+    // 2. 狀態篩選判斷
+    if (filterStatus !== 'all' && folder.status !== filterStatus) {
+      return false;
     }
 
-    // 2. 如果有輸入搜尋條件 (全域搜尋)
-    const q = searchQuery.toLowerCase();
-    const matchTitle = folder.title.toLowerCase().includes(q);
-    const matchIndex = folder.indexCode.toLowerCase().includes(q);
-    const matchName = (folder.createdByName || '').toLowerCase().includes(q) || 
-                      (folder.createdByAccount || '').toLowerCase().includes(q) ||
-                      getCreatorDisplayName(folder).toLowerCase().includes(q);
-    return matchTitle || matchIndex || matchName;
+    // 3. 資源類型篩選判斷
+    if (filterType !== 'all') {
+      const hasMatchingType = folder.items.some(item => item.type === filterType);
+      if (!hasMatchingType) return false;
+    }
+
+    return true;
   });
 
   if (loading) return <div className="p-8 text-center"><LoadingSpinner text="正在載入資源庫..." /></div>;
 
   return (
-    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pt-6 md:pt-8 pb-10 flex flex-col h-full animate-fade-in">
+    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 flex flex-col h-full animate-fade-in">
       {/* Header Area */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
         <div className="border-l-4 border-indigo-500 pl-4">
           <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
             <CloudArrowDownIcon className="h-8 w-8 text-indigo-600" />
@@ -455,16 +481,55 @@ export default function ResourceManagement() {
       </div>
 
       {/* 篩選器 */}
-      <div className="mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center">
-        <div className="w-full md:w-1/2 relative">
-          <input
-            type="text"
-            placeholder="輸入名稱或索引碼搜尋..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none text-sm"
-          />
-          <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+      <div className="mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+        <button
+          type="button"
+          onClick={() => setIsMobileFilterOpen(!isMobileFilterOpen)}
+          className="md:hidden w-full flex items-center justify-between px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-700 font-medium"
+        >
+          <span className="flex items-center gap-2">
+            <FunnelIcon className="w-5 h-5 text-gray-500" /> 篩選與搜尋
+          </span>
+          {isMobileFilterOpen ? <ChevronUpIcon className="w-5 h-5 text-gray-500" /> : <ChevronDownIcon className="w-5 h-5 text-gray-500" />}
+        </button>
+
+        <div className={`${isMobileFilterOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row gap-4 mt-4 md:mt-0 items-center`}>
+          <div className="w-full md:w-40 flex-shrink-0">
+            <Dropdown
+              value={filterStatus}
+              onChange={setFilterStatus}
+              options={[
+                { value: 'all', label: '所有狀態' },
+                { value: 'public', label: '🌐 公開' },
+                { value: 'private', label: '🔒 私有' }
+              ]}
+              className="w-full"
+            />
+          </div>
+          <div className="w-full md:w-48 flex-shrink-0">
+            <Dropdown
+              value={filterType}
+              onChange={setFilterType}
+              options={[
+                { value: 'all', label: '所有資源類型' },
+                { value: 'video', label: '📺 包含影片' },
+                { value: 'document', label: '📄 包含文件' },
+                { value: 'pdf', label: '📄 包含 PDF' },
+                { value: 'link', label: '🔗 包含連結' }
+              ]}
+              className="w-full"
+            />
+          </div>
+          <div className="w-full md:flex-1 relative">
+            <input
+              type="text"
+              placeholder="輸入名稱或索引碼搜尋..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none text-sm"
+            />
+            <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
         </div>
       </div>
 
