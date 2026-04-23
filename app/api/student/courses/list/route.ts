@@ -52,6 +52,8 @@ export async function GET(req: NextRequest) {
         id: doc.id,
         name: doc.data().name || '未知課程',
         code: doc.data().code || '',
+        status: doc.data().status || '',
+        archived: doc.data().archived ?? false,
       }));
 
     return NextResponse.json(courses);

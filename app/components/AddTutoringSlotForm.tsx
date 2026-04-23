@@ -1,7 +1,10 @@
+'use client';
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import MultiSelectDropdown from './MultiSelectDropdown';
 import { XMarkIcon } from '@heroicons/react/24/outline';
+import { isCourseArchived } from './StudentCourseSelector';
 
 interface Course {
   name: string;
@@ -61,7 +64,7 @@ const AddTutoringSlotForm: React.FC<AddTutoringSlotFormProps> = ({ onClose, onSa
   // 動態生成班級選項，排除已封存的課程
   const classOptions = useMemo(() => {
     return (courses || [])
-      .filter(course => course && course.status !== '已封存' && course.archived !== true && String(course.archived) !== 'true')
+      .filter(course => course && !isCourseArchived(course))
       .map(course => ({
         label: course.name,
         value: course.name

@@ -10,7 +10,7 @@ import {
   ExclamationCircleIcon 
 } from '@heroicons/react/24/outline';
 
-import StudentCourseSelector from './StudentCourseSelector';
+import StudentCourseSelector, { isCourseArchived } from './StudentCourseSelector';
 import LoadingSpinner from './LoadingSpinner';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
@@ -52,8 +52,6 @@ interface GradeData {
 }
 
 interface CourseInfo { id: string; name: string; code: string; teacherName?: string; status?: string; archived?: boolean; }
-
-const isCourseArchived = (course: CourseInfo): boolean => course.archived === true || String(course.archived) === 'true';
 
 interface DistributionData {
   statistics: {
@@ -165,7 +163,7 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
         const data = await res.json();
         // 過濾掉已封存的課程資料
         const activeCourses = (data.courses || [])
-          .filter((c: CourseInfo) => c && c.status !== '已封存' && !isCourseArchived(c));
+          .filter((c: CourseInfo) => c && !isCourseArchived(c));
         setCourses(activeCourses);
         setAllGrades(data.grades);
 

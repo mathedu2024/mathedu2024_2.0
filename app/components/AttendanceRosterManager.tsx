@@ -17,7 +17,7 @@ export interface RosterStudent {
   id: string;
   name: string;
   studentId: string; // 學號
-  status: 'present' | 'absent' | 'leave';
+  status: 'present' | 'absent' | 'leave' | 'late';
   leaveType?: '事假' | '病假' | '公假' | '喪假' | '身心調適假' | '生理假' | '其他';
   remarks?: string;
 }
@@ -162,6 +162,10 @@ export default function AttendanceRosterManager({ activityId, courseId, courseNa
                       <div className="flex items-center">
                         <input id={`present-${student.id}`} name={`status-${student.id}`} type="radio" checked={student.status === 'present'} onChange={() => handleStatusChange(student.id, 'present')} className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
                         <label htmlFor={`present-${student.id}`} className="ml-2 block text-sm text-gray-900">出席</label>
+                      </div>
+                      <div className="flex items-center">
+                        <input id={`late-${student.id}`} name={`status-${student.id}`} type="radio" checked={student.status === 'late'} onChange={() => handleStatusChange(student.id, 'late')} className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
+                        <label htmlFor={`late-${student.id}`} className="ml-2 block text-sm text-gray-900">遲到</label>
                       </div>
                       <div className="flex items-center">
                         <input id={`absent-${student.id}`} name={`status-${student.id}`} type="radio" checked={student.status === 'absent'} onChange={() => handleStatusChange(student.id, 'absent')} className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" />

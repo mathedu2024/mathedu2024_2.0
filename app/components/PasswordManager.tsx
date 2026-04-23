@@ -7,6 +7,7 @@ import * as z from 'zod';
 import Swal from 'sweetalert2';
 import { KeyIcon, LockClosedIcon, CheckCircleIcon, IdentificationIcon, UserCircleIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from './LoadingSpinner';
+import { isCourseArchived } from './StudentCourseSelector';
 
 const formSchema = z.object({
   currentPassword: z.string().min(1, '請輸入目前密碼'),
@@ -69,7 +70,7 @@ function PasswordManager({ onPasswordChangeSuccess, apiEndpoint = '/api/student/
             const data = await response.json();
             // 隱藏已封存課程，但保留已結束課程供回顧歷史選修紀錄
             const filtered = (Array.isArray(data) ? data : [])
-              .filter((c: MinimalCourse) => c && c.status !== '已封存' && c.archived !== true && String(c.archived) !== 'true');
+              .filter((c: MinimalCourse) => c && !isCourseArchived(c));
             setUserCourses(filtered);
           }
         } catch (error) {

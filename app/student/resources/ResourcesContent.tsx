@@ -182,13 +182,13 @@ export default function ResourcesContent() {
               placeholder="輸入老師提供的 6 位數索引碼"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-3.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-gray-800 bg-gray-50 focus:bg-white text-base md:text-lg shadow-inner"
+              className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-gray-800 bg-gray-50 focus:bg-white text-base shadow-inner"
             />
           </div>
           <button 
             type="submit"
             disabled={loading}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 px-8 rounded-xl shadow-sm transition-all disabled:opacity-70 whitespace-nowrap"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-xl shadow-sm transition-all disabled:opacity-70 whitespace-nowrap text-base"
           >
             搜尋
           </button>

@@ -9,6 +9,7 @@ import alerts from '@/utils/alerts';
 import type { Course } from '@/components/TeacherCourseManager';
 import { TutoringSlot, BookedStudent } from '@/services/interfaces';
 import Swal from 'sweetalert2';
+import { isCourseArchived } from './StudentCourseSelector';
 
 interface UserInfo {
   id: string;
@@ -197,7 +198,7 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
   const dynamicClassOptions = useMemo(() => {
     const classes = new Set<string>();
     (courses || [])
-      .filter(course => course && course.status !== '已封存' && course.archived !== true && String(course.archived) !== 'true')
+      .filter(course => course && !isCourseArchived(course))
       .forEach(course => classes.add(course.name));
     return Array.from(classes).map(_class => ({ label: _class, value: _class }));
   }, [courses]);

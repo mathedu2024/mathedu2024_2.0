@@ -23,6 +23,7 @@ import {
   XMarkIcon,
   CloudArrowUpIcon,
 } from '@heroicons/react/24/outline';
+import { isCourseArchived } from './StudentCourseSelector';
 
 interface Student {
   id: string; // Document ID: studentId
@@ -116,7 +117,7 @@ export default function StudentManager() {
         const coursesRaw = text ? JSON.parse(text) : [];
         // 報名課程不顯示已封存的課程 (保留已結束課程以維護歷史選修紀錄)
         const courses = coursesRaw
-          .filter((c: MinimalCourse) => c && c.status !== '已封存' && c.archived !== true && String(c.archived) !== 'true')
+          .filter((c: MinimalCourse) => c && !isCourseArchived(c))
           .map((c: unknown) => ({
             ...c as Record<string, unknown>,
             id: `${(c as Record<string, unknown>).name}(${(c as Record<string, unknown>).code})`
@@ -428,18 +429,30 @@ export default function StudentManager() {
 
   // --- Excel 模板下載功能 ---
   const handleDownloadTemplate = async () => {
-    const templateData = [
-      {
-        '學號': '112001',
-        '姓名': '王小明',
-        '性別': '男',
-        '年級': '高一',
-        '電子郵件': 'example@mail.com',
-        '電話': '0912345678',
-        '地址': '台北市... (選填)',
-        '備註': '範例資料 (請刪除此列)'
+    const templateData = Array.from({ length: 50 }, (_, index) => {
+      if (index === 0) {
+        return {
+          '學號': '112001',
+          '姓名': '王小明',
+          '性別': '男',
+          '年級': '高一',
+          '電子郵件': 'example@mail.com',
+          '電話': '0912345678',
+          '地址': '台北市... (選填)',
+          '備註': '範例資料 (請刪除此列)'
+        };
       }
-    ];
+      return {
+        '學號': '',
+        '姓名': '',
+        '性別': '',
+        '年級': '',
+        '電子郵件': '',
+        '電話': '',
+        '地址': '',
+        '備註': ''
+      };
+    });
     
     // 1. 建立活頁簿與工作表
     const workbook = new ExcelJS.Workbook();

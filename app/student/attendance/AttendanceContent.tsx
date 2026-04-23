@@ -6,8 +6,8 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { useInterval } from '@/utils/hooks';
 import Swal from 'sweetalert2';
-import StudentCourseSelector from '@/components/StudentCourseSelector';
-import { ClockIcon } from '@heroicons/react/24/outline';
+import StudentCourseSelector, { isCourseArchived } from '@/components/StudentCourseSelector';
+import { ClockIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline';
 
 // ====================================================================
 // 1. Interfaces
@@ -23,6 +23,7 @@ interface Activity {
   endTime: string;
   status: 'upcoming' | 'active' | 'past';
   studentStatus?: string;
+  studentLeaveType?: string;
 }
 
 interface EnrolledCourse {
@@ -56,6 +57,7 @@ const groupActivitiesByCourse = (activities: Activity[]) => {
 
 const ActivityCard = ({ activity }: { activity: Activity }) => {
   const router = useRouter();
+  const hasCheckedIn = activity.studentStatus === 'present' || activity.studentStatus === 'late';
 
   const getStatusBadge = (status: Activity['status']) => {
     switch (status) {
@@ -68,7 +70,7 @@ const ActivityCard = ({ activity }: { activity: Activity }) => {
     }
   };
 
-  const getAttendanceStatusPill = (status: string | undefined) => {
+  const getAttendanceStatusPill = (status: string | undefined, leaveType?: string) => {
     if (!status) return <span className="text-xs text-gray-400">未記錄</span>;
     
     const statusMap: Record<string, { text: string; styles: string }> = {
@@ -79,16 +81,17 @@ const ActivityCard = ({ activity }: { activity: Activity }) => {
     };
 
     const config = statusMap[status] || { text: status, styles: 'text-gray-700 bg-gray-100' };
+    const displayText = status === 'leave' && leaveType ? leaveType : config.text;
 
     return (
       <span className={`px-3 py-1 text-xs font-bold border rounded-full ${config.styles}`}>
-        {config.text}
+        {displayText}
       </span>
     );
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-lg transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-lg transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 min-w-[320px]">
       {/* 標題與時間 (前方無圖示) */}
       <div className="flex-1">
         <div className="flex items-center gap-2 mb-1">
@@ -108,7 +111,11 @@ const ActivityCard = ({ activity }: { activity: Activity }) => {
       {/* 操作區 */}
       <div className="flex items-center justify-end gap-3">
         {activity.status === 'past' ? (
-          getAttendanceStatusPill(activity.studentStatus)
+          getAttendanceStatusPill(activity.studentStatus, activity.studentLeaveType)
+        ) : hasCheckedIn ? (
+          <span className="px-3 py-1 text-xs font-bold border rounded-full text-emerald-700 bg-emerald-100 border-emerald-200">
+            已簽到
+          </span>
         ) : activity.status === 'active' ? (
           <button
             onClick={() => router.push(`/student/attendance?courseId=${activity.firestoreCourseId}&activity=${activity.id}`)}
@@ -156,10 +163,12 @@ const CourseGroupedList = ({ activities, emptyText }: { activities: Activity[], 
           </div>
           
           {/* 該課程的活動列表 */}
-          <div className="grid gap-3">
-            {courseActivities.map(activity => (
-              <ActivityCard key={activity.id} activity={activity} />
-            ))}
+          <div className="overflow-x-auto pb-1 touch-pan-x">
+            <div className="grid gap-3 min-w-[320px]">
+              {courseActivities.map(activity => (
+                <ActivityCard key={activity.id} activity={activity} />
+              ))}
+            </div>
           </div>
         </div>
       ))}
@@ -297,8 +306,11 @@ function CheckInView({ firestoreCourseId, activityId }: { firestoreCourseId: str
                     id="checkInCode"
                     type="text"
                     value={checkInCode}
-                    onChange={(e) => setCheckInCode(e.target.value)}
+                    onChange={(e) => setCheckInCode(e.target.value.replace(/\D/g, ''))}
                     maxLength={6}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    enterKeyHint="done"
                     className="w-full border-2 border-gray-200 focus:border-indigo-500 p-4 rounded-xl text-center text-3xl tracking-[0.5em] font-mono font-bold text-gray-700 outline-none transition-colors"
                     placeholder="------"
                     required
@@ -342,19 +354,18 @@ export default function AttendanceContent() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [enrolledCourses, setEnrolledCourses] = useState<EnrolledCourse[]>([]);
-  const [selectedCourseForHistory, setSelectedCourseForHistory] = useState<string | 'all'>('all');
+  const [selectedCourseForHistory, setSelectedCourseForHistory] = useState<string>('');
 
   // Fetch enrolled courses list
   useEffect(() => {
     const fetchEnrolledCourses = async () => {
       try {
-        const response = await fetch('/api/student/courses/list');
+        const response = await fetch('/api/student/courses/list', {
+          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+        });
         if (response.ok) {
           const coursesData = await response.json();
-          // 隱藏已封存課程，但保留已結束的課程供學生查看點名紀錄
-          const activeCourses = (Array.isArray(coursesData) ? coursesData : [])
-            .filter(c => c && c.status !== '已封存' && c.archived !== true && String(c.archived) !== 'true');
-          setEnrolledCourses(activeCourses);
+          setEnrolledCourses(Array.isArray(coursesData) ? coursesData : []);
         }
       } catch (err) {
         console.error('Error fetching enrolled courses:', err);
@@ -367,7 +378,9 @@ export default function AttendanceContent() {
   const fetchAllActivities = useCallback(async (showLoading = false) => {
     if (showLoading) setIsLoading(true);
     try {
-      const response = await fetch('/api/attendance/student-all-activities');
+      const response = await fetch('/api/attendance/student-all-activities', {
+        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+      });
       if (response.ok) {
         const data = await response.json();
         setActivities(Array.isArray(data) ? data : []);
@@ -391,28 +404,36 @@ export default function AttendanceContent() {
     if (tab === 'live') fetchAllActivities(false);
   }, 10000);
 
-  // 2. 建立有效課程的 ID 集合，用來過濾活動列表
-  // 只有當 enrolledCourses 載入完成後才進行過濾，避免初始載入時顯示不全
-  const activeCourseIds = useMemo(() => new Set(enrolledCourses.map(c => c.id)), [enrolledCourses]);
+  // 2. 嚴格過濾出未封存的課程（確保狀態比對不受空白字元干擾）
+  const unarchivedCourses = useMemo(() => {
+    return enrolledCourses.filter(c => {
+      if (!c) return false;
+      return !isCourseArchived(c);
+    });
+  }, [enrolledCourses]);
 
-  // 3. 只顯示來自非封存課程的點名活動（這能解決歷史紀錄出現舊資料的問題）
-  const filteredActivitiesByStatus = useMemo(() => 
-    activities.filter(a => activeCourseIds.has(a.firestoreCourseId)),
-    [activities, activeCourseIds]
+  const validCourseIds = useMemo(() => new Set(unarchivedCourses.map(c => c.id).filter(Boolean)), [unarchivedCourses]);
+
+  // 3. 確保所有顯示的活動（無論即時或歷史）都必須屬於未封存的課程
+  const validActivities = useMemo(() => activities.filter(a => a.firestoreCourseId && validCourseIds.has(a.firestoreCourseId)), [activities, validCourseIds]);
+  const liveActivities = useMemo(() => validActivities.filter(a => a.status === 'active' || a.status === 'upcoming'), [validActivities]);
+  const pastActivities = useMemo(() => validActivities.filter(a => a.status === 'past'), [validActivities]);
+
+  const selectedCourseId = useMemo(() => unarchivedCourses.find(c => `${c.name}(${c.code})` === selectedCourseForHistory)?.id, [unarchivedCourses, selectedCourseForHistory]);
+
+  const sortedPastActivities = useMemo(
+    () => [...pastActivities].sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()),
+    [pastActivities]
   );
+
+  const filteredPastActivities = !selectedCourseId
+    ? sortedPastActivities
+    : sortedPastActivities.filter(activity => activity.firestoreCourseId === selectedCourseId);
 
   // If in check-in mode, show check-in view
   if (firestoreCourseId && activityId) {
     return <CheckInView firestoreCourseId={firestoreCourseId} activityId={activityId} />;
   }
-
-  // Filter activities based on tab and selection
-  const liveActivities = filteredActivitiesByStatus.filter(a => a.status === 'active' || a.status === 'upcoming');
-  const pastActivities = filteredActivitiesByStatus.filter(a => a.status === 'past');
-
-  const filteredPastActivities = selectedCourseForHistory === 'all'
-    ? pastActivities
-    : pastActivities.filter(activity => activity.firestoreCourseId === selectedCourseForHistory);
 
   return (
     <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pt-6 md:pt-8 pb-10 flex flex-col h-full animate-fade-in">
@@ -474,26 +495,26 @@ export default function AttendanceContent() {
           {tab === 'history' && (
             <div className="animate-fade-in">
               <StudentCourseSelector
-                courses={enrolledCourses}
-                selectedCourse={
-                  selectedCourseForHistory === 'all' 
-                    ? '' 
-                    : enrolledCourses.find(c => c.id === selectedCourseForHistory) 
-                      ? `${enrolledCourses.find(c => c.id === selectedCourseForHistory)?.name}(${enrolledCourses.find(c => c.id === selectedCourseForHistory)?.code})` 
-                      : ''
-                }
-                onChange={(value) => {
-                  const course = enrolledCourses.find(c => `${c.name}(${c.code})` === value);
-                  setSelectedCourseForHistory(course ? course.id : 'all');
-                }}
-                label="篩選課程"
-                placeholder="顯示所有課程"
+                courses={unarchivedCourses}
+                selectedCourse={selectedCourseForHistory}
+                onChange={setSelectedCourseForHistory}
+                label="選擇課程"
+                placeholder="請選擇課程"
               />
-              {/* 2. 資料分類顯示 (Grouped by Course) */}
-              <CourseGroupedList 
-                activities={filteredPastActivities} 
-                emptyText="查無歷史點名紀錄。" 
-              />
+              
+              {!selectedCourseForHistory && unarchivedCourses.length === 0 && (
+                  <div className="bg-amber-50 border border-amber-100 rounded-2xl p-8 text-center shadow-sm">
+                      <ExclamationCircleIcon className="w-12 h-12 text-amber-300 mx-auto mb-3" />
+                      <p className="text-amber-800 font-medium">您目前沒有參與任何課程，無法查詢點名紀錄。</p>
+                  </div>
+              )}
+
+              {unarchivedCourses.length > 0 && (
+                  <CourseGroupedList 
+                    activities={filteredPastActivities} 
+                    emptyText={selectedCourseForHistory ? "此課程查無歷史點名紀錄。" : "目前沒有可顯示的歷史點名紀錄。"} 
+                  />
+              )}
             </div>
           )}
         </div>

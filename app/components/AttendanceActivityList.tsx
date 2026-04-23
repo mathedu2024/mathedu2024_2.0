@@ -19,6 +19,7 @@ interface AttendanceActivity extends BaseAttendanceActivity {
   present?: number;
   absent?: number;
   leave?: number;
+  late?: number;
 }
 
 export default function AttendanceActivityList({ courseId, courseName, onBack, onSelectActivity }: AttendanceActivityListProps) {
@@ -168,6 +169,7 @@ export default function AttendanceActivityList({ courseId, courseName, onBack, o
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">點名代碼</th>
                   <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">應到</th>
                   <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">實到</th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">遲到</th>
                   <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">請假</th>
                   <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">曠課</th>
                   <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
@@ -194,8 +196,9 @@ export default function AttendanceActivityList({ courseId, courseName, onBack, o
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-indigo-600 font-bold">
                       {activity.checkInMethod === 'numeric' ? (activity.checkInCode || '-') : '-'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">-</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500">{(activity.present || 0) + (activity.late || 0) + (activity.leave || 0) + (activity.absent || 0) || '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-emerald-600 font-medium">{activity.present || 0}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-amber-600 font-medium">{activity.late || 0}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-yellow-600 font-medium">{activity.leave || 0}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-red-600 font-medium">{activity.absent || 0}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

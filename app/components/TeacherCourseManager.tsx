@@ -330,7 +330,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
       </div>
 
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="hidden md:block bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+        <div className="hidden md:block bg-white border border-gray-200 rounded-xl shadow-sm overflow-x-auto">
              <table className="w-full text-sm text-left text-gray-500">
                 <thead className="bg-gray-50 text-xs text-gray-700 uppercase">
                     <tr>
@@ -713,7 +713,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
   };
 
   const filteredCourses = courses.filter(course => {
-    const statusMatch = selectedStatus === 'all' ? course.status !== '已封存' : course.status === selectedStatus;
+    const statusMatch = selectedStatus === 'all' ? !(course.status && course.status.includes('已封存')) && !(course.name && course.name.includes('已封存')) : course.status === selectedStatus;
     const natureMatch = selectedNature === 'all' || course.courseNature === selectedNature;
 
     return (course.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -771,7 +771,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                <h3 className="mt-2 text-xl font-bold text-gray-900">尚無授課課程</h3>
            </div>
        ) : (
-           <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden hidden md:block">
+           <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-x-auto hidden md:block">
               <table className="w-full text-sm text-left text-gray-500">
                   <thead className="text-xs text-gray-700 uppercase bg-gray-50">
                       <tr>

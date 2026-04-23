@@ -4,14 +4,19 @@ import React from 'react';
 import Dropdown from './ui/Dropdown';
 import { ExclamationCircleIcon } from '@heroicons/react/24/outline';
 
-interface CourseShortInfo {
+interface ArchivableCourse {
   name: string;
-  code: string;
   status?: string;
-  archived?: boolean;
+  archived?: boolean | string;
 }
 
-const isCourseArchived = (course: CourseShortInfo): boolean => course.archived === true || String(course.archived) === 'true';
+interface CourseShortInfo extends ArchivableCourse {
+  name: string;
+  code: string;
+}
+
+export const isCourseArchived = (course: ArchivableCourse): boolean =>
+  course.archived === true || String(course.archived) === 'true' || !!(course.status && course.status.includes('已封存')) || !!(course.name && course.name.includes('已封存'));
 
 interface StudentCourseSelectorProps {
   courses: CourseShortInfo[];
@@ -46,7 +51,7 @@ export default function StudentCourseSelector({
           options={[
             { value: '', label: placeholder },
             ...courses
-              .filter(course => course && course.status !== '已封存' && !isCourseArchived(course))
+              .filter(course => course && !isCourseArchived(course))
               .map(course => ({
                 value: `${course.name}(${course.code})`,
                 label: `${course.name}（${course.code}）`

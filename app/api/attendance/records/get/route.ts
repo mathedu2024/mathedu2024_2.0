@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 interface AttendanceRecord {
   studentId: string;
   status: string;
+  leaveType?: string;
   note?: string;
 }
 
@@ -18,6 +19,16 @@ interface AttendanceActivityResponse {
 
 export async function POST(req: NextRequest) {
   try {
+    const normalizeStatus = (rawStatus: string): 'present' | 'absent' | 'leave' | 'late' | '' => {
+      const status = (rawStatus || '').toString().trim();
+      if (!status) return '';
+      if (status === 'present' || status === '出席') return 'present';
+      if (status === 'absent' || status === '曠課') return 'absent';
+      if (status === 'leave' || status === '請假') return 'leave';
+      if (status === 'late' || status === '遲到') return 'late';
+      return '';
+    };
+
     const { courseId, activityId } = await req.json();
 
     if (!courseId || !activityId) {
@@ -78,10 +89,11 @@ export async function POST(req: NextRequest) {
     const recordsSnap = await recordsRef.get();
 
     const records: AttendanceRecord[] = recordsSnap.docs.map((doc) => {
-      const data = doc.data() as { status?: string; note?: string };
+      const data = doc.data() as { status?: string; leaveType?: string; note?: string };
       return {
         studentId: doc.id,
-        status: data.status || '',
+        status: normalizeStatus(data.status || ''),
+        leaveType: data.leaveType || '',
         note: data.note || '',
       };
     });
@@ -101,29 +113,12 @@ export async function POST(req: NextRequest) {
         const studentId =
           data.studentId || data.studentCode || doc.id;
 
-        let statusUi = '';
-        const rawStatus = (data.status || '').toString();
-
-        switch (rawStatus) {
-          case 'present':
-            statusUi = '出席';
-            break;
-          case 'absent':
-            statusUi = '曠課';
-            break;
-          case 'leave':
-            statusUi = data.leaveType || '請假';
-            break;
-          case 'late':
-            statusUi = '遲到';
-            break;
-          default:
-            statusUi = '';
-        }
+        const normalizedStatus = normalizeStatus(data.status || '');
 
         records.push({
           studentId,
-          status: statusUi,
+          status: normalizedStatus,
+          leaveType: normalizedStatus === 'leave' ? data.leaveType || '' : '',
           note: data.remarks || '',
         });
       });

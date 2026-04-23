@@ -50,7 +50,8 @@ interface AttendanceActivity {
 
 interface AttendanceRecord {
   studentId: string;
-  status: string; 
+  status: string;
+  leaveType?: string;
   note?: string;
 }
 
@@ -214,7 +215,7 @@ interface AttendanceRosterManagerProps {
 function AttendanceRosterManager({ activityId, courseId, courseName, students = [], onClose, initialActivityData }: AttendanceRosterManagerProps) {
   const safeStudents = Array.isArray(students) ? students : [];
   
-  const [records, setRecords] = useState<Record<string, string>>({});
+  const [records, setRecords] = useState<Record<string, { status: string; leaveType?: string }>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -232,11 +233,11 @@ function AttendanceRosterManager({ activityId, courseId, courseName, students = 
 
       if (res.ok) {
         const data = await res.json();
-        const recordMap: Record<string, string> = {};
+        const recordMap: Record<string, { status: string; leaveType?: string }> = {};
         const noteMap: Record<string, string> = {};
         if (data.records && Array.isArray(data.records)) {
             data.records.forEach((r: AttendanceRecord) => {
-                recordMap[r.studentId] = r.status;
+                recordMap[r.studentId] = { status: r.status, leaveType: r.leaveType };
                 if (r.note) noteMap[r.studentId] = r.note;
             });
         }
@@ -262,7 +263,11 @@ function AttendanceRosterManager({ activityId, courseId, courseName, students = 
 
   // Handlers
   const handleSetStatus = (studentId: string, status: string) => {
-    setRecords(prev => ({ ...prev, [studentId]: status }));
+    setRecords(prev => ({ ...prev, [studentId]: { status, leaveType: prev[studentId]?.leaveType } }));
+  };
+
+  const handleSetLeave = (studentId: string, leaveType: string) => {
+    setRecords(prev => ({ ...prev, [studentId]: { status: 'leave', leaveType } }));
   };
 
   const handleNoteChange = (studentId: string, note: string) => {
@@ -272,9 +277,10 @@ function AttendanceRosterManager({ activityId, courseId, courseName, students = 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const recordsArray = Object.entries(records).map(([studentId, status]) => ({
+      const recordsArray = Object.entries(records).map(([studentId, data]) => ({
         studentId,
-        status,
+        status: data.status,
+        leaveType: data.leaveType || '',
         note: notes[studentId] || ''
       }));
 
@@ -310,8 +316,8 @@ function AttendanceRosterManager({ activityId, courseId, courseName, students = 
     setRecords(prev => {
       const newRecords = { ...prev };
       safeStudents.forEach(s => {
-        if (!newRecords[s.studentId]) {
-          newRecords[s.studentId] = '出席';
+        if (!newRecords[s.studentId] || !newRecords[s.studentId].status) {
+          newRecords[s.studentId] = { status: 'present' };
         }
       });
       return newRecords;
@@ -329,20 +335,23 @@ function AttendanceRosterManager({ activityId, courseId, courseName, students = 
 
   // 統計 (增加 '曠課' 欄位)
   const stats = {
-    present: Object.values(records).filter(s => s === '出席').length,
-    late: Object.values(records).filter(s => s === '遲到').length,
-    leave: Object.values(records).filter(s => ALL_LEAVE_VALUES.includes(s)).length,
-    absent: Object.values(records).filter(s => s === '曠課').length, 
+    present: Object.values(records).filter(r => r.status === 'present').length,
+    late: Object.values(records).filter(r => r.status === 'late').length,
+    leave: Object.values(records).filter(r => r.status === 'leave').length,
+    absent: Object.values(records).filter(r => r.status === 'absent').length, 
     total: safeStudents.length
   };
   const unrecorded = stats.total - Object.keys(records).length;
 
   const filteredStudents = safeStudents.filter(s => {
-      const status = records[s.studentId];
+      const rec = records[s.studentId];
       if (filterStatus === '全部') return true;
-      if (filterStatus === '未點') return !status;
-      if (filterStatus === '請假') return ALL_LEAVE_VALUES.includes(status);
-      return status === filterStatus;
+      if (filterStatus === '未點') return !rec || !rec.status;
+      if (filterStatus === '出席') return rec?.status === 'present';
+      if (filterStatus === '遲到') return rec?.status === 'late';
+      if (filterStatus === '曠課') return rec?.status === 'absent';
+      if (filterStatus === '請假') return rec?.status === 'leave';
+      return true;
   });
 
   if (loading) return <div className="fixed inset-0 bg-white z-[9999] flex items-center justify-center"><LoadingSpinner size={60} text="載入名單中..." /></div>;
@@ -413,7 +422,9 @@ function AttendanceRosterManager({ activityId, courseId, courseName, students = 
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {filteredStudents.map((student) => {
-                                const currentStatus = records[student.studentId] || '';
+                                const currentRecord = records[student.studentId] || { status: '' };
+                                const currentStatus = currentRecord.status;
+                                const currentLeaveType = currentRecord.leaveType;
                                 
                                 return (
                                     <tr key={student.studentId} className={`hover:bg-indigo-50/30 transition-colors ${!currentStatus ? 'bg-orange-50/10' : ''}`}>
@@ -422,19 +433,19 @@ function AttendanceRosterManager({ activityId, courseId, courseName, students = 
                                         <td className="px-6 py-4">
                                             <div className="flex gap-2 items-center">
                                                 {/* 出席 */}
-                                                <button onClick={() => handleSetStatus(student.studentId, '出席')} className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${currentStatus === '出席' ? 'bg-emerald-500 text-white border-emerald-500 shadow-md ring-2 ring-emerald-200' : 'bg-white text-gray-500 hover:bg-emerald-50 hover:text-emerald-600'}`}>出席</button>
+                                                <button onClick={() => handleSetStatus(student.studentId, 'present')} className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${currentStatus === 'present' ? 'bg-emerald-500 text-white border-emerald-500 shadow-md ring-2 ring-emerald-200' : 'bg-white text-gray-500 hover:bg-emerald-50 hover:text-emerald-600'}`}>出席</button>
                                                 
                                                 {/* 遲到 */}
-                                                <button onClick={() => handleSetStatus(student.studentId, '遲到')} className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${currentStatus === '遲到' ? 'bg-amber-500 text-white border-amber-500 shadow-md ring-2 ring-amber-200' : 'bg-white text-gray-500 hover:bg-amber-50 hover:text-amber-600'}`}>遲到</button>
+                                                <button onClick={() => handleSetStatus(student.studentId, 'late')} className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${currentStatus === 'late' ? 'bg-amber-500 text-white border-amber-500 shadow-md ring-2 ring-amber-200' : 'bg-white text-gray-500 hover:bg-amber-50 hover:text-amber-600'}`}>遲到</button>
 
                                                 {/* 曠課 */}
-                                                <button onClick={() => handleSetStatus(student.studentId, '曠課')} className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${currentStatus === '曠課' ? 'bg-rose-500 text-white border-rose-500 shadow-md ring-2 ring-rose-200' : 'bg-white text-gray-500 hover:bg-rose-50 hover:text-rose-600'}`}>曠課</button>
+                                                <button onClick={() => handleSetStatus(student.studentId, 'absent')} className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${currentStatus === 'absent' ? 'bg-rose-500 text-white border-rose-500 shadow-md ring-2 ring-rose-200' : 'bg-white text-gray-500 hover:bg-rose-50 hover:text-rose-600'}`}>曠課</button>
                                                 
                                                 {/* 請假 (特殊處理：帶有懸浮選單的按鈕) */}
                                                 <div className="relative">
                                                     <LeaveButton 
-                                                        currentStatus={currentStatus}
-                                                        onSetStatus={(val) => handleSetStatus(student.studentId, val)}
+                                                        currentStatus={currentStatus === 'leave' ? currentLeaveType || '事假' : ''}
+                                                        onSetStatus={(val) => handleSetLeave(student.studentId, val)}
                                                     />
                                                 </div>
                                             </div>
@@ -452,23 +463,25 @@ function AttendanceRosterManager({ activityId, courseId, courseName, students = 
                 {/* Mobile View */}
                 <div className="md:hidden p-4 space-y-4 bg-gray-50/50">
                      {filteredStudents.map((student) => {
-                         const currentStatus = records[student.studentId] || '';
+                         const currentRecord = records[student.studentId] || { status: '' };
+                         const currentStatus = currentRecord.status;
+                         const currentLeaveType = currentRecord.leaveType;
                          
                          return (
                             <div key={student.studentId} className={`bg-white border rounded-xl p-4 shadow-sm ${!currentStatus ? 'border-orange-200 bg-orange-50/30' : 'border-gray-200'}`}>
                                 <div className="flex justify-between items-center mb-3">
                                     <div><div className="font-bold text-gray-900 text-lg">{student.name}</div><div className="text-xs font-mono text-gray-500">{student.studentId}</div></div>
-                                    {currentStatus && <span className="px-2 py-1 rounded text-xs font-bold bg-gray-100 text-gray-700">{currentStatus}</span>}
+                                    {currentStatus && <span className="px-2 py-1 rounded text-xs font-bold bg-gray-100 text-gray-700">{currentStatus === 'present' ? '出席' : currentStatus === 'late' ? '遲到' : currentStatus === 'absent' ? '曠課' : currentLeaveType || '請假'}</span>}
                                 </div>
                                 
                                 <div className="flex flex-wrap gap-2 mb-3">
-                                    <button onClick={() => handleSetStatus(student.studentId, '出席')} className={`px-4 py-2 flex-1 rounded border text-xs font-bold ${currentStatus==='出席'?'bg-emerald-100 text-emerald-700 border-emerald-300':'bg-white text-gray-500'}`}>出席</button>
-                                    <button onClick={() => handleSetStatus(student.studentId, '遲到')} className={`px-4 py-2 flex-1 rounded border text-xs font-bold ${currentStatus==='遲到'?'bg-amber-100 text-amber-700 border-amber-300':'bg-white text-gray-500'}`}>遲到</button>
-                                    <button onClick={() => handleSetStatus(student.studentId, '曠課')} className={`px-4 py-2 flex-1 rounded border text-xs font-bold ${currentStatus==='曠課'?'bg-rose-100 text-rose-700 border-rose-300':'bg-white text-gray-500'}`}>曠課</button>
+                                    <button onClick={() => handleSetStatus(student.studentId, 'present')} className={`px-4 py-2 flex-1 rounded border text-xs font-bold ${currentStatus==='present'?'bg-emerald-100 text-emerald-700 border-emerald-300':'bg-white text-gray-500'}`}>出席</button>
+                                    <button onClick={() => handleSetStatus(student.studentId, 'late')} className={`px-4 py-2 flex-1 rounded border text-xs font-bold ${currentStatus==='late'?'bg-amber-100 text-amber-700 border-amber-300':'bg-white text-gray-500'}`}>遲到</button>
+                                    <button onClick={() => handleSetStatus(student.studentId, 'absent')} className={`px-4 py-2 flex-1 rounded border text-xs font-bold ${currentStatus==='absent'?'bg-rose-100 text-rose-700 border-rose-300':'bg-white text-gray-500'}`}>曠課</button>
                                     <div className="flex-1">
                                         <LeaveButton 
-                                            currentStatus={currentStatus}
-                                            onSetStatus={(val) => handleSetStatus(student.studentId, val)}
+                                            currentStatus={currentStatus === 'leave' ? currentLeaveType || '事假' : ''}
+                                            onSetStatus={(val) => handleSetLeave(student.studentId, val)}
                                         />
                                     </div>
                                 </div>
@@ -803,7 +816,8 @@ function AttendanceActivityList({ courseId, courseName, courseCode, onBack, onSe
        ) : (
            <>
               <div className="hidden md:block bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-                 <table className="w-full text-sm text-left text-gray-500">
+                 <div className="overflow-x-auto">
+                 <table className="w-full min-w-[860px] text-sm text-left text-gray-500">
                     <thead className="bg-gray-50 text-xs text-gray-700 uppercase">
                         <tr>
                             <th className="px-6 py-4 font-bold w-[160px]">日期</th>
@@ -838,6 +852,7 @@ function AttendanceActivityList({ courseId, courseName, courseCode, onBack, onSe
                         ))}
                     </tbody>
                  </table>
+                 </div>
               </div>
               
               {/* Mobile View */}
@@ -971,7 +986,7 @@ export default function AttendanceManagementComponent({ courses: externalCourses
 
   const filteredCourses = useMemo(() => {
     return courses.filter((course: Course) => {
-      const statusMatch = selectedStatus === 'all' ? course.status !== '已封存' : course.status === selectedStatus;
+      const statusMatch = selectedStatus === 'all' ? !(course.status && course.status.includes('已封存')) && !(course.name && course.name.includes('已封存')) : course.status === selectedStatus;
       const natureMatch = selectedNature === 'all' || course.courseNature === selectedNature;
 
       return ((course.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
