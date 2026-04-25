@@ -3,6 +3,7 @@
 import React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeftIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import BlockedYoutubePlayer from '../../../components/BlockedYoutubePlayer';
 
 function normalizeYouTubeId(input: string | null): string | null {
   if (!input) return null;
@@ -92,15 +93,7 @@ export default function WatchContent() {
         </button>
 
         <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-          <div className="relative w-full pt-[56.25%] bg-black">
-            <iframe
-              className="absolute inset-0 w-full h-full"
-              src={`https://www.youtube.com/embed/${videoId}?autoplay=0&rel=0`}
-              title={title}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-            />
-          </div>
+          <BlockedYoutubePlayer videoId={videoId} title={title} />
           <div className="px-5 py-4 md:px-6 md:py-5">
             <h1 className="text-base md:text-xl font-bold text-gray-800 break-words">{title}</h1>
             {indexCode && (

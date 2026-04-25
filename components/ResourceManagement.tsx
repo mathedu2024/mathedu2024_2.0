@@ -31,7 +31,8 @@ import {
   EyeSlashIcon,
   FunnelIcon,
   ChevronDownIcon,
-  ChevronUpIcon
+  ChevronUpIcon,
+  ArrowsUpDownIcon
 } from '@heroicons/react/24/outline';
 import { db, auth } from '@/lib/firebase-client'; // 確保有匯出 auth
 import { onAuthStateChanged } from 'firebase/auth';
@@ -90,6 +91,7 @@ export default function ResourceManagement() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const resolveTeacherId = () => {
     const session = getSession();
@@ -173,20 +175,8 @@ export default function ResourceManagement() {
         const q = query(collection(db, 'resources'));
 
         unsubscribeSnap = onSnapshot(q, (snapshot) => {
-          const getTimestampSeconds = (value: ResourceFolder['createdAt']) => {
-            if (!value) return 0;
-            if (value instanceof Timestamp) return value.seconds;
-            const maybeTimestamp = value as { seconds?: unknown };
-            return typeof maybeTimestamp.seconds === 'number' ? maybeTimestamp.seconds : 0;
-          };
-
           const data = snapshot.docs
-            .map(doc => ({ id: doc.id, ...doc.data() } as ResourceFolder))
-            .sort((a, b) => {
-              const aSec = getTimestampSeconds(a.createdAt);
-              const bSec = getTimestampSeconds(b.createdAt);
-              return bSec - aSec;
-            });
+            .map(doc => ({ id: doc.id, ...doc.data() } as ResourceFolder));
           setFolders(data);
           setLoading(false);
         }, (error) => {
@@ -456,6 +446,9 @@ export default function ResourceManagement() {
     }
 
     return true;
+  }).sort((a, b) => {
+    const cmp = (a.title || '').localeCompare(b.title || '', undefined, { numeric: true, sensitivity: 'base' });
+    return sortDirection === 'asc' ? cmp : -cmp;
   });
 
   if (loading) return <div className="p-8 text-center"><LoadingSpinner text="正在載入資源庫..." /></div>;
@@ -530,6 +523,14 @@ export default function ResourceManagement() {
             />
             <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
+          <button
+            onClick={() => setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
+            className="w-full md:w-auto px-4 py-2.5 flex items-center justify-center gap-2 border border-gray-300 rounded-xl bg-white hover:bg-gray-50 transition-colors text-sm text-gray-700 font-medium whitespace-nowrap shadow-sm"
+            title="切換排序方向"
+          >
+            <ArrowsUpDownIcon className="w-4 h-4 text-gray-500" />
+            {sortDirection === 'asc' ? '名稱順序' : '名稱倒序'}
+          </button>
         </div>
       </div>
 
@@ -540,7 +541,16 @@ export default function ResourceManagement() {
           <table className="min-w-full divide-y divide-gray-100">
             <thead className="bg-gray-50/50">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">資料夾名稱</th>
+                <th 
+                  className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-200 group transition-colors select-none"
+                  onClick={() => setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}
+                  title="點擊切換排序"
+                >
+                  <div className="flex items-center gap-1">
+                    資料夾名稱
+                    <ArrowsUpDownIcon className={`w-4 h-4 transition-colors ${sortDirection === 'asc' ? 'text-indigo-500' : 'text-gray-400 group-hover:text-indigo-400'}`} />
+                  </div>
+                </th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">索引碼</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">建立人</th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">資源數量</th>
