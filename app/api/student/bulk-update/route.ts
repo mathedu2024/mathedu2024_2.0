@@ -8,6 +8,9 @@ interface StudentData {
   account?: string;
   email?: string;
   grade?: string;
+  schoolGroup?: string;
+  className?: string;
+  seatNumber?: number;
   enrolledCourses?: string[];
 }
 
@@ -27,7 +30,7 @@ async function getCourseDocRefByCompositeId(compositeId: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { studentIds, grade, addCourses, removeCourses } = await req.json();
+    const { studentIds, grade, schoolGroup, addCourses, removeCourses } = await req.json();
     const ids = Array.isArray(studentIds) ? (studentIds as string[]).filter(Boolean) : [];
     const coursesToAdd = Array.isArray(addCourses) ? (addCourses as string[]).filter(Boolean) : [];
     const coursesToRemove = Array.isArray(removeCourses) ? (removeCourses as string[]).filter(Boolean) : [];
@@ -35,8 +38,8 @@ export async function POST(req: NextRequest) {
     if (ids.length === 0) {
       return NextResponse.json({ error: '缺少 studentIds' }, { status: 400 });
     }
-    if (!grade && coursesToAdd.length === 0 && coursesToRemove.length === 0) {
-      return NextResponse.json({ error: '至少提供 grade 或課程異動' }, { status: 400 });
+    if (!grade && !schoolGroup && coursesToAdd.length === 0 && coursesToRemove.length === 0) {
+      return NextResponse.json({ error: '至少提供 grade、schoolGroup 或課程異動' }, { status: 400 });
     }
 
     const uniqueCourseIds = Array.from(new Set(coursesToAdd));
@@ -64,6 +67,7 @@ export async function POST(req: NextRequest) {
 
       const payload: Record<string, unknown> = {};
       if (grade) payload.grade = grade;
+      if (schoolGroup) payload.schoolGroup = schoolGroup;
       if (allTouchedCourseIds.length > 0) payload.enrolledCourses = mergedCourses;
       await studentDocRef.update(payload);
 
@@ -75,6 +79,9 @@ export async function POST(req: NextRequest) {
           email: student.email || '',
           studentId: student.studentId || studentId,
           grade: grade || student.grade || '未設定',
+          schoolGroup: schoolGroup || student.schoolGroup || '',
+          className: student.className || '',
+          seatNumber: student.seatNumber || undefined,
         };
         for (const courseId of addedCourses) {
           const courseRef = courseRefs.get(courseId);
@@ -99,11 +106,14 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      if (grade && currentCourses.length > 0) {
+      if ((grade || schoolGroup) && currentCourses.length > 0) {
         for (const courseId of mergedCourses) {
           const courseRef = courseRefs.get(courseId) || await getCourseDocRefByCompositeId(courseId);
           if (!courseRef) continue;
-          await courseRef.collection('students').doc(studentId).set({ grade }, { merge: true });
+          await courseRef.collection('students').doc(studentId).set({
+            ...(grade ? { grade } : {}),
+            ...(schoolGroup ? { schoolGroup } : {}),
+          }, { merge: true });
         }
       }
 

@@ -262,9 +262,11 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
   const showTotalGrade = gradeData?.totalSetting?.periodicEnabled?.['showTotalGradeToStudents'] !== false;
 
   const getTeacherNames = () => {
-    if (selectedCourse.includes('(') && selectedCourse.includes(')')) {
-      const courseName = selectedCourse.split('(')[0];
-      const courseCode = selectedCourse.split('(')[1].replace(')', '');
+    const lastOpenIdx = selectedCourse.lastIndexOf('(');
+    const lastCloseIdx = selectedCourse.lastIndexOf(')');
+    if (lastOpenIdx !== -1 && lastCloseIdx > lastOpenIdx) {
+      const courseName = selectedCourse.substring(0, lastOpenIdx);
+      const courseCode = selectedCourse.substring(lastOpenIdx + 1, lastCloseIdx);
       const matchingCourse = courses.find(c => c.name === courseName && c.code === courseCode);
       if (matchingCourse) {
         if (matchingCourse.teacherName && teacherNamesMap[matchingCourse.teacherName]) {
@@ -277,9 +279,11 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
   };
 
   const getSelectedCourseInfo = () => {
-    if (selectedCourse.includes('(') && selectedCourse.includes(')')) {
-      const courseName = selectedCourse.split('(')[0];
-      const courseCode = selectedCourse.split('(')[1].replace(')', '');
+    const lastOpenIdx = selectedCourse.lastIndexOf('(');
+    const lastCloseIdx = selectedCourse.lastIndexOf(')');
+    if (lastOpenIdx !== -1 && lastCloseIdx > lastOpenIdx) {
+      const courseName = selectedCourse.substring(0, lastOpenIdx);
+      const courseCode = selectedCourse.substring(lastOpenIdx + 1, lastCloseIdx);
       return { name: courseName, code: courseCode };
     }
     return { name: selectedCourse, code: selectedCourse };

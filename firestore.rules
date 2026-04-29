@@ -52,6 +52,11 @@ service cloud.firestore {
       allow create, update, delete: if request.auth != null && request.auth.token.role in ['teacher', 'admin'];
     }
 
+    match /schools/{schoolId} {
+      allow read: if request.auth != null; // 所有人登入後都可以讀取學校清單
+      allow write: if request.auth != null && request.auth.token.role == 'admin'; // 只有管理員可以新增/刪除學校
+    }
+
     match /course-student-list/{courseKey} {
         allow read, write: if request.auth != null && request.auth.token.role in ['teacher', 'admin'];
         allow read: if request.auth != null && request.auth.token.role == 'student';

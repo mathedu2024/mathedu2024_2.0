@@ -35,7 +35,10 @@ export async function POST(req: NextRequest) {
     account: info.account, 
     email: info.email,
     studentId: info.studentId || studentId,
-    grade: info.grade || '未設定'
+    grade: info.grade || '未設定',
+    schoolGroup: info.schoolGroup || '',
+    className: info.className || '',
+    seatNumber: info.seatNumber || undefined,
   };
 
   const added = newCourses.filter((c: string) => !oldCourses.includes(c));
@@ -75,7 +78,10 @@ export async function POST(req: NextRequest) {
           name: studentDetails.name,
           account: studentDetails.account,
           email: studentDetails.email,
-          grade: studentDetails.grade
+          grade: studentDetails.grade,
+          schoolGroup: studentDetails.schoolGroup,
+          className: studentDetails.className,
+          seatNumber: studentDetails.seatNumber,
         });
         console.log(`Created student_data for ${studentId}: added course ${compositeId}`);
       }

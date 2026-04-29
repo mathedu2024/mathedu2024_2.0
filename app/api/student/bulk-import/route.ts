@@ -6,6 +6,9 @@ interface ImportStudentPayload {
   name: string;
   gender: 'male' | 'female';
   grade: string;
+  schoolGroup?: string;
+  className?: string;
+  seatNumber?: number;
   account: string;
   email: string;
   phone: string;
