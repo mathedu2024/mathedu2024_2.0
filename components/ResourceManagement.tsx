@@ -32,7 +32,10 @@ import {
   FunnelIcon,
   ChevronDownIcon,
   ChevronUpIcon,
-  ArrowsUpDownIcon
+  ArrowsUpDownIcon,
+  VideoCameraIcon,
+  DocumentTextIcon,
+  DocumentIcon
 } from '@heroicons/react/24/outline';
 import { db, auth } from '@/lib/firebase-client'; // 確保有匯出 auth
 import { onAuthStateChanged } from 'firebase/auth';
@@ -92,6 +95,12 @@ export default function ResourceManagement() {
   const [filterType, setFilterType] = useState<string>('all');
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [teacherMap, setTeacherMap] = useState<Record<string, string>>({});
+
+  // 預覽狀態
+  const [previewFolder, setPreviewFolder] = useState<ResourceFolder | null>(null);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
 
   const resolveTeacherId = () => {
     const session = getSession();
@@ -108,6 +117,7 @@ export default function ResourceManagement() {
 
   const getCreatorDisplayName = (folder: ResourceFolder) => {
     if (folder.createdByName?.trim()) return folder.createdByName.trim();
+    if (teacherMap[folder.teacherId]) return teacherMap[folder.teacherId];
     if (folder.createdByAccount?.trim()) return folder.createdByAccount.trim();
 
     // 舊資料相容：若沒有建立人名稱，且 teacherId 是目前登入者，改顯示 session 名稱
@@ -149,6 +159,19 @@ export default function ResourceManagement() {
   useEffect(() => {
     setMounted(true);
     return () => setMounted(false);
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/teacher/list')
+      .then(res => res.json())
+      .then(data => {
+        const map: Record<string, string> = {};
+        if (Array.isArray(data)) {
+          data.forEach((t: { id: string; name: string }) => { map[t.id] = t.name; });
+        }
+        setTeacherMap(map);
+      })
+      .catch(console.error);
   }, []);
 
   // 表單狀態
@@ -204,6 +227,31 @@ export default function ResourceManagement() {
       if (unsubscribeSnap) unsubscribeSnap();
     };
   }, []);
+
+  // 工具函式：取得 YouTube 影片 ID
+  const getYouTubeId = (url: string) => {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+  };
+
+  // 工具函式：根據資源類型取得對應的 Icon
+  const getItemIcon = (type: string) => {
+    switch (type) {
+      case 'video': return <VideoCameraIcon className="w-6 h-6 text-rose-500" />;
+      case 'pdf': return <DocumentIcon className="w-6 h-6 text-red-500" />;
+      case 'document': return <DocumentTextIcon className="w-6 h-6 text-blue-500" />;
+      case 'link': 
+      default: return <LinkIcon className="w-6 h-6 text-gray-500" />;
+    }
+  };
+
+  // 開啟預覽視窗
+  const openPreviewModal = (folder: ResourceFolder) => {
+    setPreviewFolder(folder);
+    setPlayingVideoId(null);
+    setIsPreviewModalOpen(true);
+  };
 
   // 2. 產生 6 位隨機索引碼
   const generateIndexCode = () => {
@@ -422,6 +470,7 @@ export default function ResourceManagement() {
     // 1. 搜尋關鍵字判斷
     let meetsSearch = false;
     if (!searchQuery.trim()) {
+      // 若無搜尋關鍵字，預設僅顯示「自己建立的」或「自己是管理員」
       meetsSearch = isAdmin || isOwner; 
     } else {
       const q = searchQuery.toLowerCase();
@@ -430,7 +479,10 @@ export default function ResourceManagement() {
       const matchName = (folder.createdByName || '').toLowerCase().includes(q) || 
                         (folder.createdByAccount || '').toLowerCase().includes(q) ||
                         getCreatorDisplayName(folder).toLowerCase().includes(q);
-      meetsSearch = matchTitle || matchIndex || matchName;
+      const isKeywordMatched = matchTitle || matchIndex || matchName;
+      
+      // 若有搜尋，管理員可見所有符合項目；非管理員僅可見「自己的」或「公開的」
+      meetsSearch = isKeywordMatched && (isAdmin || isOwner || folder.status === 'public');
     }
     if (!meetsSearch) return false;
 
@@ -604,6 +656,13 @@ export default function ResourceManagement() {
                         </button>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right space-x-2">
+                      <button 
+                        onClick={() => openPreviewModal(folder)}
+                        className="p-2 text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-all"
+                        title="預覽"
+                      >
+                        <EyeIcon className="h-5 w-5" />
+                      </button>
                         {canEdit ? (
                           <>
                             <button 
@@ -676,16 +735,21 @@ export default function ResourceManagement() {
                 <div className="text-sm text-gray-600 flex items-center gap-1">
                   <LinkIcon className="w-4 h-4 text-gray-400" /> {folder.items.length} 個資源
                 </div>
-                {canEdit && (
-                  <div className="border-t border-gray-100 pt-3 flex justify-end gap-2">
+                <div className="border-t border-gray-100 pt-3 flex justify-end gap-2">
+                   <button onClick={(e) => { e.stopPropagation(); openPreviewModal(folder); }} className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-all" title="預覽">
+                     <EyeIcon className="w-5 h-5" />
+                   </button>
+                   {canEdit && (
+                     <>
                      <button onClick={(e) => { e.stopPropagation(); openModal(folder); }} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all">
                        <PencilSquareIcon className="w-5 h-5" />
                      </button>
                      <button onClick={(e) => { e.stopPropagation(); handleDelete(folder.id); }} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all">
                        <TrashIcon className="w-5 h-5" />
                      </button>
-                  </div>
-                )}
+                     </>
+                   )}
+                </div>
               </div>
             );
           })
@@ -857,6 +921,114 @@ export default function ResourceManagement() {
               >
                 儲存資源資料夾
               </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Preview Modal */}
+      {isPreviewModalOpen && previewFolder && mounted && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-gray-900/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] animate-pop-in">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 p-6 flex justify-between items-center text-white shrink-0">
+              <div>
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                  <EyeIcon className="h-6 w-6" />
+                  預覽資源：{previewFolder.title}
+                </h3>
+                <p className="text-indigo-100 text-xs mt-1">
+                  以學生視角查看資源內容。
+                </p>
+              </div>
+              <button onClick={() => { setIsPreviewModalOpen(false); setPlayingVideoId(null); }} className="text-white/80 hover:text-white bg-white/10 p-2 rounded-full transition-colors">
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto flex-1 bg-gray-50">
+              {playingVideoId ? (
+                <div className="space-y-4 h-full flex flex-col">
+                  <button 
+                    onClick={() => setPlayingVideoId(null)}
+                    className="text-indigo-600 hover:text-indigo-800 font-bold text-sm flex items-center gap-1 w-fit transition-colors"
+                  >
+                    &larr; 返回清單
+                  </button>
+                  <div className="relative w-full pt-[56.25%] bg-black rounded-xl overflow-hidden shadow-lg">
+                    <iframe
+                      src={`https://www.youtube.com/embed/${playingVideoId}?modestbranding=1&rel=0`}
+                      title="YouTube video player"
+                      className="absolute inset-0 w-full h-full border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    ></iframe>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {previewFolder.items.length === 0 ? (
+                    <div className="col-span-1 md:col-span-2 text-center py-12 text-gray-500 bg-white rounded-xl border border-dashed border-gray-300">
+                      此資料夾目前沒有資源項目。
+                    </div>
+                  ) : (
+                    // 在預覽模式隱藏設為私有的資源 (還原學生實際能看到的項目)
+                    previewFolder.items.filter(item => item.status !== 'private').length === 0 ? (
+                      <div className="col-span-1 md:col-span-2 text-center py-12 text-gray-500 bg-white rounded-xl border border-dashed border-gray-300">
+                        此資料夾中目前沒有公開的資源項目。
+                      </div>
+                    ) : (
+                      previewFolder.items.filter(item => item.status !== 'private').map((item, index) => {
+                        const ytId = item.type === 'video' ? getYouTubeId(item.url) : null;
+                        
+                        if (ytId) {
+                          return (
+                            <button 
+                              key={item.id || index} 
+                              onClick={() => setPlayingVideoId(ytId)}
+                              className="flex items-center text-left p-4 bg-white border border-gray-200 rounded-xl hover:border-indigo-400 hover:shadow-md hover:-translate-y-0.5 transition-all group w-full"
+                            >
+                              <div className="mr-4 p-3 bg-rose-50 rounded-xl text-rose-500 group-hover:bg-rose-100 transition-colors">
+                                <VideoCameraIcon className="w-6 h-6" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <span className="font-bold text-gray-800 group-hover:text-indigo-700 transition-colors block truncate">
+                                  {item.title}
+                                </span>
+                                <span className="text-xs text-gray-500 mt-1 block">點擊在站內觀看影片</span>
+                              </div>
+                            </button>
+                          );
+                        }
+
+                        return (
+                          <a 
+                            key={item.id || index} 
+                            href={item.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-indigo-400 hover:shadow-md hover:-translate-y-0.5 transition-all group"
+                          >
+                            <div className="mr-4 p-3 bg-gray-50 rounded-xl text-gray-500 group-hover:bg-indigo-50 transition-colors">
+                              {getItemIcon(item.type)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <span className="font-bold text-gray-800 group-hover:text-indigo-700 transition-colors block truncate">
+                                {item.title}
+                              </span>
+                              <span className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                                <LinkIcon className="w-3 h-3" /> 新分頁開啟連結
+                              </span>
+                            </div>
+                          </a>
+                        );
+                      })
+                    )
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>,
