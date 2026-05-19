@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
 
 const faqData = [
   {
@@ -72,30 +73,52 @@ export default function FaqPage() {
     setOpenIndex(openIndex === index ? null : index);
   };
 
+  const pageVariants: Variants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+    },
+  };
+
+  const itemVariants: Variants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: { 
+      y: 0, 
+      opacity: 1,
+      transition: { duration: 0.6, ease: "easeOut" } // 拉長單個卡片的動畫時間，並設定漸進緩動
+    },
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-4xl">
+      <motion.div
+        className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-4xl"
+        variants={pageVariants}
+        initial="hidden"
+        animate="visible"
+      >
         
         {/* 頁面標題 */}
-        <div className="text-center mb-12">
+        <motion.div className="text-center mb-12" variants={itemVariants}>
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4 tracking-tight">
             常見問題
           </h1>
           <p className="text-gray-500 text-lg">
             在這裡您可以找到關於平台使用的各種解答
           </p>
-        </div>
+        </motion.div>
 
         {/* FAQ 列表 */}
         <div className="space-y-4">
           {faqData.map((item, index) => {
             const isOpen = openIndex === index;
             return (
-              <div 
+              <motion.div 
                 key={index} 
+                variants={itemVariants}
                 className={`bg-white rounded-2xl border transition-all duration-300 overflow-hidden ${
                   isOpen 
-                    ? 'border-indigo-200 shadow-md ring-1 ring-indigo-100' 
+                    ? 'border-indigo-200 shadow-lg ring-1 ring-indigo-100' 
                     : 'border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200'
                 }`}
               >
@@ -104,43 +127,57 @@ export default function FaqPage() {
                   onClick={() => toggleFaq(index)}
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+                    <motion.div layout className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${
                       isOpen ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-400 group-hover:bg-gray-200'
                     }`}>
                       <span className="font-bold text-sm">Q</span>
-                    </div>
+                    </motion.div>
                     <span className={`text-lg font-bold transition-colors ${
                       isOpen ? 'text-indigo-700' : 'text-gray-800 group-hover:text-indigo-600'
                     }`}>
                       {item.question}
                     </span>
                   </div>
-                  
-                  <div className={`w-6 h-6 shrink-0 text-gray-400 transition-transform duration-300 ${isOpen ? 'rotate-180 text-indigo-500' : ''}`}>
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <motion.div
+                    className="w-6 h-6 shrink-0"
+                    animate={{ rotate: isOpen ? 180 : 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <svg className={`w-full h-full ${isOpen ? 'text-indigo-500' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
-                  </div>
+                  </motion.div>
                 </button>
                 
-                <div
-                  className={`transition-[max-height,opacity] duration-300 ease-in-out overflow-hidden ${
-                    isOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
-                  }`}
-                >
-                  <div className="px-6 pb-6 pt-0 pl-[4.5rem]"> {/* Indent answer to align with question text */}
-                    <div className="text-gray-600 leading-relaxed border-l-2 border-indigo-100 pl-4 py-1">
-                      {item.answer}
-                    </div>
-                  </div>
-                </div>
-              </div>
+                <AnimatePresence initial={false}>
+                  {isOpen && (
+                    <motion.div
+                      key="content"
+                      initial="collapsed"
+                      animate="open"
+                      exit="collapsed"
+                      variants={{
+                        open: { opacity: 1, height: 'auto' },
+                        collapsed: { opacity: 0, height: 0 },
+                      }}
+                      transition={{ duration: 0.3, ease: [0.04, 0.62, 0.23, 0.98] }}
+                      className="overflow-hidden"
+                    >
+                      <div className="px-6 pb-6 pt-0 pl-[4.5rem]"> {/* Indent answer to align with question text */}
+                        <div className="text-gray-600 leading-relaxed border-l-2 border-indigo-100 pl-4 py-1">
+                          {item.answer}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
             );
           })}
         </div>
 
         {/* 底部聯絡資訊 */}
-        <div className="mt-12 text-center bg-white rounded-2xl p-8 border border-gray-100 shadow-sm">
+        <motion.div className="mt-12 text-center bg-white rounded-2xl p-8 border border-gray-100 shadow-sm" variants={itemVariants}>
           <h3 className="text-lg font-bold text-gray-800 mb-2">找不到您要的答案嗎？</h3>
           <p className="text-gray-500 mb-4">歡迎直接與我們聯繫，我們將盡快為您服務。</p>
           <a 
@@ -150,9 +187,9 @@ export default function FaqPage() {
             <i className="fas fa-envelope mr-2"></i>
             mathedu2024.class@gmail.com
           </a>
-        </div>
+        </motion.div>
 
-      </div>
+      </motion.div>
     </div>
   );
 }

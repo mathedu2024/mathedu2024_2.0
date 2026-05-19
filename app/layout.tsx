@@ -24,7 +24,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-TW" className="h-full scroll-smooth overflow-hidden">
+    <html lang="zh-TW" className="h-full scroll-smooth overflow-hidden" data-scroll-behavior="smooth">
       <head>
         <link rel="icon" href="/learn.png" type="image/png" />
         <link rel="icon" href="/learn.png" type="image/x-icon" />
