@@ -277,12 +277,15 @@ function AttendanceRosterManager({ activityId, courseId, courseName, students = 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const recordsArray = Object.entries(records).map(([studentId, data]) => ({
-        studentId,
-        status: data.status,
-        leaveType: data.leaveType || '',
-        note: notes[studentId] || ''
-      }));
+      const recordsArray = safeStudents.map((student) => {
+        const data = getRecordForStudent(student);
+        return {
+          studentId: student.studentId,
+          status: data?.status || '',
+          leaveType: data?.leaveType || '',
+          note: notes[student.studentId] || (student.id ? notes[student.id] : '') || '',
+        };
+      });
 
       const res = await fetch('/api/attendance/records/save', {
         method: 'POST',
@@ -333,18 +336,40 @@ function AttendanceRosterManager({ activityId, courseId, courseName, students = 
     });
   };
 
-  // 統計 (增加 '曠課' 欄位)
-  const stats = {
-    present: Object.values(records).filter(r => r.status === 'present').length,
-    late: Object.values(records).filter(r => r.status === 'late').length,
-    leave: Object.values(records).filter(r => r.status === 'leave').length,
-    absent: Object.values(records).filter(r => r.status === 'absent').length, 
-    total: safeStudents.length
-  };
-  const unrecorded = stats.total - Object.keys(records).length;
+  const getRecordForStudent = useCallback((student: Student) => {
+    return records[student.studentId] || (student.id ? records[student.id] : undefined);
+  }, [records]);
+
+  // 統計僅計算目前課程名單內的學生
+  const stats = useMemo(() => {
+    let present = 0;
+    let late = 0;
+    let leave = 0;
+    let absent = 0;
+    let recorded = 0;
+
+    safeStudents.forEach((student) => {
+      const rec = getRecordForStudent(student);
+      if (!rec?.status) return;
+      recorded++;
+      if (rec.status === 'present') present++;
+      else if (rec.status === 'late') late++;
+      else if (rec.status === 'leave') leave++;
+      else if (rec.status === 'absent') absent++;
+    });
+
+    return {
+      present,
+      late,
+      leave,
+      absent,
+      total: safeStudents.length,
+      unrecorded: safeStudents.length - recorded,
+    };
+  }, [safeStudents, getRecordForStudent]);
 
   const filteredStudents = safeStudents.filter(s => {
-      const rec = records[s.studentId];
+      const rec = getRecordForStudent(s);
       if (filterStatus === '全部') return true;
       if (filterStatus === '未點') return !rec || !rec.status;
       if (filterStatus === '出席') return rec?.status === 'present';
@@ -393,7 +418,7 @@ function AttendanceRosterManager({ activityId, courseId, courseName, students = 
         <div className="bg-rose-50 border border-rose-100 p-2 rounded-lg text-center"><div className="text-xs text-rose-600 font-bold">曠課</div><div className="text-lg font-bold text-rose-700">{stats.absent}</div></div>
         <div className="bg-blue-50 border border-blue-100 p-2 rounded-lg text-center"><div className="text-xs text-blue-600 font-bold">請假</div><div className="text-lg font-bold text-blue-700">{stats.leave}</div></div>
         <div className="bg-amber-50 border border-amber-100 p-2 rounded-lg text-center"><div className="text-xs text-amber-600 font-bold">遲到</div><div className="text-lg font-bold text-amber-700">{stats.late}</div></div>
-        <div className="bg-gray-50 border border-gray-100 p-2 rounded-lg text-center col-span-2 md:col-span-1"><div className="text-xs text-gray-500 font-bold">未點</div><div className="text-lg font-bold text-gray-600">{unrecorded}</div></div>
+        <div className="bg-gray-50 border border-gray-100 p-2 rounded-lg text-center col-span-2 md:col-span-1"><div className="text-xs text-gray-500 font-bold">未點</div><div className="text-lg font-bold text-gray-600">{stats.unrecorded}</div></div>
       </div>
 
       {/* Filter Bar */}
@@ -962,11 +987,14 @@ export default function AttendanceManagementComponent({ courses: externalCourses
       const fetchStudents = async () => {
         setLoadingStudents(true);
         try {
-          const res = await fetch('/api/student/list');
+          const res = await fetch(`/api/course-student-list/list?courseId=${encodeURIComponent(selectedCourse.id)}`);
           if (res.ok) {
-            const allStudents = await res.json();
-            const courseKey = `${selectedCourse.name}(${selectedCourse.code})`;
-            const enrolledStudents = allStudents.filter((s: any) => s.enrolledCourses && (s.enrolledCourses.includes(selectedCourse.id) || s.enrolledCourses.includes(courseKey)));
+            const roster = await res.json();
+            const enrolledStudents: Student[] = (Array.isArray(roster) ? roster : []).map((s: { id?: string; studentId?: string; name?: string }) => ({
+              id: String(s.id || s.studentId || ''),
+              studentId: String(s.studentId || s.id || ''),
+              name: String(s.name || ''),
+            }));
             setStudents(enrolledStudents);
           } else {
             setStudents([]);

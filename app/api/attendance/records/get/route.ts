@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
+import { getCourseEnrolledStudentKeys } from '@/services/attendanceService';
 
 interface AttendanceRecord {
   studentId: string;
@@ -85,10 +86,19 @@ export async function POST(req: NextRequest) {
       };
     }
 
+    const enrolledKeys = await getCourseEnrolledStudentKeys(courseId);
+
+    const isEnrolledRecord = (studentId: string, data?: { studentId?: string; studentCode?: string }) => {
+      const schoolId = String(data?.studentId || data?.studentCode || '');
+      return enrolledKeys.has(studentId) || (schoolId !== '' && enrolledKeys.has(schoolId));
+    };
+
     const recordsRef = activityRef.collection('records');
     const recordsSnap = await recordsRef.get();
 
-    const records: AttendanceRecord[] = recordsSnap.docs.map((doc) => {
+    const records: AttendanceRecord[] = recordsSnap.docs
+      .filter((doc) => isEnrolledRecord(doc.id, doc.data() as { studentId?: string; studentCode?: string }))
+      .map((doc) => {
       const data = doc.data() as { status?: string; leaveType?: string; note?: string };
       return {
         studentId: doc.id,
@@ -112,6 +122,8 @@ export async function POST(req: NextRequest) {
         };
         const studentId =
           data.studentId || data.studentCode || doc.id;
+
+        if (!isEnrolledRecord(doc.id, data) && !isEnrolledRecord(studentId, data)) return;
 
         const normalizedStatus = normalizeStatus(data.status || '');
 

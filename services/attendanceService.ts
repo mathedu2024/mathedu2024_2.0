@@ -41,6 +41,26 @@ async function getStudentsForCourse(courseId: string): Promise<Student[]> {
   }
 }
 
+/** Account doc ids and school numbers for currently enrolled course students */
+export async function getCourseEnrolledStudentKeys(courseId: string): Promise<Set<string>> {
+  const keys = new Set<string>();
+  const students = await getStudentsForCourse(courseId);
+  students.forEach((s) => {
+    keys.add(s.id);
+    if (s.studentId && s.studentId !== 'N/A') keys.add(String(s.studentId));
+  });
+  return keys;
+}
+
+function isEnrolledAttendanceKey(
+  docId: string,
+  data: { studentId?: string },
+  enrolledKeys: Set<string>
+): boolean {
+  const schoolId = String(data.studentId || '');
+  return enrolledKeys.has(docId) || (schoolId !== '' && enrolledKeys.has(schoolId));
+}
+
 /**
  * Gets the complete attendance roster for a specific activity.
  * @param courseId The ID of the course.
@@ -49,10 +69,13 @@ async function getStudentsForCourse(courseId: string): Promise<Student[]> {
  */
 export async function getAttendanceRoster(courseId: string, activityId: string): Promise<RosterStudent[]> {
   try {
+    const enrolledKeys = await getCourseEnrolledStudentKeys(courseId);
     const rosterRef = db.collection('courses').doc(courseId).collection('attendance').doc(activityId).collection('roster');
     const rosterSnapshot = await rosterRef.get();
 
-    const roster: RosterStudent[] = rosterSnapshot.docs.map(doc => {
+    const roster: RosterStudent[] = rosterSnapshot.docs
+      .filter((doc) => isEnrolledAttendanceKey(doc.id, doc.data() as { studentId?: string }, enrolledKeys))
+      .map(doc => {
       const data = doc.data();
       return {
         id: doc.id,
@@ -245,6 +268,7 @@ export async function getCourseAttendanceSummary(courseId: string): Promise<Cour
     }
 
     // Calculate aggregated counts for each activity
+    const enrolledKeys = new Set(students.flatMap((s) => [s.id, s.studentId].filter(Boolean)));
     const activitiesWithCounts = await Promise.all(activitiesSnapshot.docs.map(async (activityDoc) => {
       const activityId = activityDoc.id;
       const rosterSnapshot = await db.collection('courses').doc(courseId).collection('attendance').doc(activityId).collection('roster').get();
@@ -254,6 +278,7 @@ export async function getCourseAttendanceSummary(courseId: string): Promise<Cour
 
       rosterSnapshot.docs.forEach(rosterDoc => {
         const data = rosterDoc.data();
+        if (!isEnrolledAttendanceKey(rosterDoc.id, data as { studentId?: string }, enrolledKeys)) return;
         if (data.status === 'present') {
           presentCount++;
         } else if (data.status === 'absent') {
@@ -534,6 +559,7 @@ async function getCourseStudentCount(courseId: string): Promise<number> {
 export async function getActivitiesForCourse(courseId: string): Promise<AttendanceActivity[]> {
     try {
         const expectedCount = await getCourseStudentCount(courseId);
+        const enrolledKeys = await getCourseEnrolledStudentKeys(courseId);
 
         const querySnapshot = await db
             .collection('courses').doc(courseId).collection('attendance')
@@ -563,6 +589,7 @@ export async function getActivitiesForCourse(courseId: string): Promise<Attendan
 
             rosterSnapshot.docs.forEach(rosterDoc => {
               const rosterData = rosterDoc.data();
+              if (!isEnrolledAttendanceKey(rosterDoc.id, rosterData as { studentId?: string }, enrolledKeys)) return;
               if (rosterData.status === 'present') {
                 presentCount++;
               } else if (rosterData.status === 'absent') {

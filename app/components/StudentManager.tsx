@@ -24,6 +24,10 @@ import {
   CloudArrowUpIcon,
 } from '@heroicons/react/24/outline';
 import { isCourseArchived } from './StudentCourseSelector';
+import {
+  removeCoursesFromEnrolledList,
+  resolveCoursesFromCatalog,
+} from '@/services/courseId';
 
 interface Student {
   id: string; // Document ID: studentId
@@ -196,18 +200,23 @@ export default function StudentManager() {
         studentData.password = 'abcd1234';
       }
 
-      await fetch('/api/student/save', { method: 'POST', body: JSON.stringify({ id: docId, ...studentData }) });
-      
       const originalStudent = students.find(s => s.id === docId);
       const oldCourses = originalStudent?.enrolledCourses || [];
       const newCourses = editingStudent.enrolledCourses || [];
-      await updateStudentCourses(docId, oldCourses, newCourses, {
+
+      const syncedCourses = await updateStudentCourses(docId, oldCourses, newCourses, {
         id: editingStudent.studentId,
         name: editingStudent.name,
         account: editingStudent.account,
         email: editingStudent.email,
         studentId: editingStudent.studentId,
         grade: editingStudent.grade,
+      });
+
+      await fetch('/api/student/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: docId, ...studentData, enrolledCourses: syncedCourses }),
       });
       
       Swal.fire({
@@ -389,32 +398,34 @@ export default function StudentManager() {
             newCourses = Array.from(new Set([...newCourses, ...batchCourses]));
           }
           if (batchRemoveCourses.length > 0) {
-            newCourses = newCourses.filter(c => !batchRemoveCourses.includes(c));
+            const coursesToRemove = resolveCoursesFromCatalog(batchRemoveCourses, courses);
+            newCourses = removeCoursesFromEnrolledList(newCourses, coursesToRemove);
           }
           const finalGrade = batchGrade || originalStudent.grade;
-          
+
+          const syncedCourses = await updateStudentCourses(studentId, oldCourses, newCourses, {
+            id: originalStudent.studentId,
+            name: originalStudent.name,
+            account: originalStudent.account,
+            email: originalStudent.email,
+            studentId: originalStudent.studentId,
+            grade: finalGrade,
+          });
+
           const updatedStudentData = {
             ...originalStudent,
             grade: finalGrade,
-            enrolledCourses: newCourses,
+            enrolledCourses: syncedCourses,
           };
 
           const res = await fetch('/api/student/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(updatedStudentData)
+            body: JSON.stringify(updatedStudentData),
           });
 
           if (res.ok) {
             updatedCount++;
-            await updateStudentCourses(studentId, oldCourses, newCourses, {
-              id: originalStudent.studentId,
-              name: originalStudent.name,
-              account: originalStudent.account,
-              email: originalStudent.email,
-              studentId: originalStudent.studentId,
-              grade: finalGrade,
-            });
           }
         }
       });
@@ -446,12 +457,23 @@ export default function StudentManager() {
     }
   };
 
-  const updateStudentCourses = async (studentDocId: string, oldCourses: string[], newCourses: string[], studentInfo?: Record<string, unknown>) => {
-    await fetch('/api/course-student-list/save', {
+  const updateStudentCourses = async (
+    studentDocId: string,
+    oldCourses: string[],
+    newCourses: string[],
+    studentInfo?: Record<string, unknown>
+  ): Promise<string[]> => {
+    const res = await fetch('/api/course-student-list/save', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ studentId: studentDocId, oldCourses, newCourses, studentInfo }),
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || '課程同步失敗');
+    }
+    const data = await res.json();
+    return data.enrolledCourses || newCourses;
   };
 
   // --- Excel 模板下載功能 ---
@@ -851,7 +873,7 @@ export default function StudentManager() {
               </div>
               <div className={`${mobileBatchPanelOpen ? 'block' : 'hidden'} md:block flex-1 min-w-0`}>
                 <MultiSelectDropdown
-                  options={courses.map(course => ({ label: `${course.name} (${course.code})${isCourseArchived(course) ? ' [已封存]' : ''}`, value: course.id }))}
+                  options={courses.filter(c => !isCourseArchived(c)).map(course => ({ label: `${course.name} (${course.code})`, value: course.id }))}
                   selectedOptions={batchRemoveCourses}
                   onChange={setBatchRemoveCourses}
                   placeholder="選擇要移除的課程（可複選）"

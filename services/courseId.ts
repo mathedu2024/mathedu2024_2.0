@@ -36,6 +36,53 @@ export async function resolveCourseDocsByEnrolledIds(
   return resolved;
 }
 
+export function getCourseCompositeKey(name: string, code: string): string {
+  return `${name}(${code})`;
+}
+
+export type CourseRefTarget = { id: string; name: string; code: string };
+
+/** 判斷 enrolledCourses 中的 key 是否指向同一門課 */
+export function enrolledKeyMatchesCourse(enrolledKey: string, course: CourseRefTarget): boolean {
+  if (enrolledKey === course.id) return true;
+  const composite = getCourseCompositeKey(course.name, course.code);
+  if (enrolledKey === composite) return true;
+  const parsedEnrolled = parseCourseCompositeId(enrolledKey);
+  if (parsedEnrolled && parsedEnrolled.name === course.name && parsedEnrolled.code === course.code) {
+    return true;
+  }
+  const parsedTarget = parseCourseCompositeId(course.id);
+  if (
+    parsedEnrolled &&
+    parsedTarget &&
+    parsedEnrolled.name === parsedTarget.name &&
+    parsedEnrolled.code === parsedTarget.code
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/** 從 enrolledCourses 移除指定課程（含舊版/別名 key） */
+export function removeCoursesFromEnrolledList(
+  enrolledCourses: string[],
+  coursesToRemove: CourseRefTarget[]
+): string[] {
+  return enrolledCourses.filter(
+    (key) => !coursesToRemove.some((course) => enrolledKeyMatchesCourse(key, course))
+  );
+}
+
+/** 將選取的 course.id 轉成完整課程物件（供批次操作使用） */
+export function resolveCoursesFromCatalog(
+  selectedCourseIds: string[],
+  catalog: CourseRefTarget[]
+): CourseRefTarget[] {
+  return selectedCourseIds
+    .map((id) => catalog.find((c) => c.id === id))
+    .filter((c): c is CourseRefTarget => !!c);
+}
+
 export async function resolveSingleCourseDoc(
   db: Firestore,
   enrolledId: string

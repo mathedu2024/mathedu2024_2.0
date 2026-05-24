@@ -9,6 +9,7 @@ import Swal from 'sweetalert2';
 import { Modal } from './ui';
 import Image from 'next/image';
 import Dropdown from './ui/Dropdown';
+import { removeCoursesFromEnrolledList } from '@/services/courseId';
 
 // Heroicons
 import { 
@@ -509,13 +510,10 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
         setStudentList([]);
         setLoadingStudents(true);
         try {
-            // 從學生資料庫取得修課名單，確保資料即時同步
-            const res = await fetch('/api/student/list');
+            const res = await fetch(`/api/course-student-list/list?courseId=${encodeURIComponent(course.id)}`);
             if (res.ok) {
-                const allStudents = await res.json();
-                        const courseKey = `${course.name}(${course.code})`;
-                        const enrolledStudents = allStudents.filter((s: any) => s.enrolledCourses && (s.enrolledCourses.includes(course.id) || s.enrolledCourses.includes(courseKey)));
-                setStudentList(enrolledStudents);
+                const roster = await res.json();
+                setStudentList(Array.isArray(roster) ? roster : []);
             } else {
                 setStudentList([]);
             }
@@ -541,33 +539,48 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
         if (!result.isConfirmed) return;
 
         try {
-                    const studentRes = await fetch('/api/student/list');
-                    const allStudents = await studentRes.json();
-                    const targetStudent = allStudents.find((s: any) => s.id === student.id);
-                    
-                    if (targetStudent) {
-                        const courseId = course.id;
-                        const courseKey = `${course.name}(${course.code})`;
-                        const currentCourses = targetStudent.enrolledCourses || [];
-                        if (currentCourses.includes(courseId) || currentCourses.includes(courseKey)) {
-                            const newCourses = currentCourses.filter((c: string) => c !== courseId && c !== courseKey);
-                            const updateRes = await fetch('/api/student/save', {
-                                method: 'POST',
-                                body: JSON.stringify({ ...targetStudent, enrolledCourses: newCourses })
-                            });
-                            if (!updateRes.ok) throw new Error('移除失敗');
+            const studentRes = await fetch('/api/student/list');
+            const allStudents = await studentRes.json();
+            const targetStudent = allStudents.find((s: { id: string }) => s.id === student.id);
 
-                            // 同步更新後端關聯（維持相容性）
-                            await fetch('/api/course-student-list/remove-student', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ courseName: course.name, courseCode: course.code, studentId: student.id })
-                            }).catch(console.error);
-                        }
-                    }
+            if (targetStudent) {
+                const courseTarget = { id: course.id, name: course.name, code: course.code };
+                const oldCourses = targetStudent.enrolledCourses || [];
+                const newCourses = removeCoursesFromEnrolledList(oldCourses, [courseTarget]);
 
-                // 更新本地學生列表
-                setStudentList(prev => prev.filter(s => s.id !== student.id));
+                if (newCourses.length !== oldCourses.length) {
+                    const syncedCourses = await fetch('/api/course-student-list/save', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            studentId: student.id,
+                            oldCourses,
+                            newCourses,
+                            studentInfo: {
+                                id: targetStudent.studentId || targetStudent.id,
+                                name: targetStudent.name,
+                                account: targetStudent.account,
+                                email: targetStudent.email,
+                                studentId: targetStudent.studentId || targetStudent.id,
+                                grade: targetStudent.grade,
+                            },
+                        }),
+                    }).then(async (res) => {
+                        if (!res.ok) throw new Error('移除失敗');
+                        const data = await res.json();
+                        return data.enrolledCourses || newCourses;
+                    });
+
+                    const updateRes = await fetch('/api/student/save', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ...targetStudent, enrolledCourses: syncedCourses }),
+                    });
+                    if (!updateRes.ok) throw new Error('移除失敗');
+                }
+            }
+
+            setStudentList((prev) => prev.filter((s) => s.id !== student.id));
                 Swal.fire({
                     icon: 'success',
                     title: '移除成功',

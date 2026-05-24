@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { getSessionFromCookie } from '@/utils/session';
+import { getCourseEnrolledStudentKeys } from '@/services/attendanceService';
 
 export async function POST(req: NextRequest) {
   console.log('[API] POST /api/attendance/roster started'); // Log: 開始請求
@@ -83,6 +84,12 @@ export async function POST(req: NextRequest) {
     console.log(`[API] Querying roster at: ${rosterRef.path}`);
     console.log(`[API] Found ${snapshot.size} records for activity ${activityId}`);
 
+    const enrolledKeys = await getCourseEnrolledStudentKeys(courseId);
+    const isEnrolled = (docId: string, data: { studentId?: string; studentCode?: string }) => {
+      const schoolId = String(data.studentId || data.studentCode || '');
+      return enrolledKeys.has(docId) || (schoolId !== '' && enrolledKeys.has(schoolId));
+    };
+
     let roster = [];
 
     if (snapshot.empty) {
@@ -105,7 +112,9 @@ export async function POST(req: NextRequest) {
         };
       });
     } else {
-      roster = snapshot.docs.map(doc => {
+      roster = snapshot.docs
+        .filter((doc) => isEnrolled(doc.id, doc.data() as { studentId?: string; studentCode?: string }))
+        .map(doc => {
         const data = doc.data();
         return {
           id: data.studentId || doc.id,
