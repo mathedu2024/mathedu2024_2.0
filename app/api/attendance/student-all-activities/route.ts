@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/services/firebase-admin';
+import { resolveCourseDocsByEnrolledIds } from '@/services/courseId';
 import { getSessionFromCookie } from '@/utils/session';
 
 
@@ -27,22 +28,16 @@ export async function GET(req: NextRequest) {
       return NextResponse.json([]);
     }
 
-    const enrolledCoursesSnapshot = await adminDb.collection('courses')
-      .where('__name__', 'in', enrolledCourses)
-      .get();
-
-    const enrolledCourseIds = enrolledCoursesSnapshot.docs.map(doc => doc.id);
-
-    if (enrolledCourseIds.length === 0) {
-      return NextResponse.json([]); 
-    }
-
+    const resolvedMap = await resolveCourseDocsByEnrolledIds(adminDb, enrolledCourses);
+    const seenDocIds = new Set<string>();
     const allActivities = [];
 
-    for (const courseId of enrolledCourses) {
-      const courseDoc = enrolledCoursesSnapshot.docs.find(doc => doc.id === courseId);
-      if (!courseDoc) continue;
+    for (const enrolledId of enrolledCourses) {
+      const courseDoc = resolvedMap.get(enrolledId);
+      if (!courseDoc || seenDocIds.has(courseDoc.id)) continue;
+      seenDocIds.add(courseDoc.id);
 
+      const courseId = courseDoc.id;
       const courseName = courseDoc.data().name || '未知課程';
 
       const activitiesSnapshot = await adminDb.collection('courses').doc(courseId).collection('attendance').get();
@@ -50,11 +45,11 @@ export async function GET(req: NextRequest) {
 
       for (const activityDoc of activitiesSnapshot.docs) {
         const activityData = activityDoc.data();
-        let studentStatus = ''; 
+        let studentStatus = '';
 
         const rosterDoc = await adminDb.collection('courses').doc(courseId).collection('attendance').doc(activityDoc.id).collection('roster').doc(studentId).get();
         if (rosterDoc.exists) {
-          studentStatus = rosterDoc.data()?.status || ''; 
+          studentStatus = rosterDoc.data()?.status || '';
         }
 
         allActivities.push({

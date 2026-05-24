@@ -637,16 +637,18 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
         allCourses.forEach((course: Course) => { newTeacherNamesMap[course.id] = (course.teachers || []).map((id: string) => teacherNameMap[id] || '未知老師'); });
         setTeacherNamesMap(newTeacherNamesMap);
 
-        const studentCountsPromises = allCourses.map(async (course: Course) => {
-             try {
-               const r = await fetch('/api/course-student-list/list', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ courseName: course.name, courseCode: course.code }) });
-               if (r.ok) { const s = await r.json(); return { courseId: course.id, count: s.length }; }
-             } catch {}
-             return { courseId: course.id, count: 0 };
-        });
-        const scResults = await Promise.all(studentCountsPromises);
+        // 只呼叫一次 API 即可計算所有課程的人數
+        let allStudents: any[] = [];
+        try {
+          const resStudents = await fetch('/api/student/list');
+          if (resStudents.ok) allStudents = await resStudents.json();
+        } catch {}
+
         const newSC: { [courseId: string]: number } = {};
-        scResults.forEach(r => { if(r) newSC[r.courseId] = r.count; });
+        allCourses.forEach((course: Course) => {
+          const courseKey = `${course.name}(${course.code})`;
+          newSC[course.id] = allStudents.filter((s: any) => s.enrolledCourses && (s.enrolledCourses.includes(course.id) || s.enrolledCourses.includes(courseKey))).length;
+        });
         setStudentCounts(newSC);
         _setError(null);
       } else { setCourses([]); }

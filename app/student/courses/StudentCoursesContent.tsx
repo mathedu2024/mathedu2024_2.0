@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useStudentInfo } from '../StudentInfoContext';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import StudentCourseSelector from '@/components/StudentCourseSelector';
+import StudentCourseSelector, { getCourseDisplayKey } from '@/components/StudentCourseSelector';
 import { BookOpenIcon, ClockIcon, MapPinIcon, UserIcon, VideoCameraIcon } from '@heroicons/react/24/outline';
 
 // Interfaces
@@ -216,10 +216,9 @@ export default function StudentCoursesContent() {
         <>
           <StudentCourseSelector
             courses={courses}
-            selectedCourse={selectedCourse ? `${selectedCourse.name}(${selectedCourse.code})` : ''}
+            selectedCourse={selectedCourse ? getCourseDisplayKey(selectedCourse) : ''}
             onChange={(value) => {
-              // 從 name(code) 格式中解析並尋找課程物件
-              const course = courses.find(c => `${c.name}(${c.code})` === value);
+              const course = courses.find((c) => getCourseDisplayKey(c) === value);
               setSelectedCourse(course || null);
 
               // 更新網址

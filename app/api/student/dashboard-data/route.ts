@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/services/firebase-admin';
 import type { GradeSettingsShape } from '@/services/gradeShape';
 import { settingsToTotalSetting } from '@/services/gradeShape';
+import { parseCourseCompositeId, resolveCourseDocsByEnrolledIds } from '@/services/courseId';
 import { parse as parseCookie } from 'cookie';
 
 interface ClassTime {
@@ -29,6 +30,7 @@ interface CourseInfo {
   liveStreamURL?: string;
   coverImageURL?: string;
   classTimes?: ClassTime[];
+  archived?: boolean;
 }
 
 type StudentGradeRow = { studentId: string; regularScores?: Record<string, number>; periodicScores?: Record<string, number>; manualAdjust?: number; };
@@ -87,12 +89,17 @@ async function fetchCourseData(studentId: string, enrolledCourses: string[]) {
         return NextResponse.json({ courses: [], grades: {} });
     }
 
-    const courseDocs = await adminDb.collection('courses').where('__name__', 'in', enrolledCourses).get();
-    
+    const resolvedMap = await resolveCourseDocsByEnrolledIds(adminDb, enrolledCourses);
+
     const courses: CourseInfo[] = [];
     const teacherIds = new Set<string>();
+    const seenDocIds = new Set<string>();
 
-    courseDocs.forEach(doc => {
+    for (const enrolledId of enrolledCourses) {
+        const doc = resolvedMap.get(enrolledId);
+        if (!doc || seenDocIds.has(doc.id)) continue;
+        seenDocIds.add(doc.id);
+
         const data = doc.data();
         courses.push({
             id: doc.id,
@@ -115,6 +122,27 @@ async function fetchCourseData(studentId: string, enrolledCourses: string[]) {
         if (data.teachers && data.teachers.length > 0) {
             teacherIds.add(data.teachers[0]);
         }
+    }
+
+    // 補齊資料庫中「已被刪除」但學生仍擁有成績紀錄的課程
+    const missingCourseIds = enrolledCourses.filter(id => !resolvedMap.has(id));
+    missingCourseIds.forEach(id => {
+        const parsed = parseCourseCompositeId(id);
+        courses.push({
+            id: id,
+            name: parsed ? parsed.name : id,
+            code: parsed ? parsed.code : '',
+            status: '已封存',
+            gradeTags: [],
+            subjectTag: '',
+            startDate: '',
+            endDate: '',
+            teachers: [],
+            description: '此課程已從系統中移除，僅保留歷史成績。',
+            teachingMethod: '',
+            courseNature: '',
+            archived: true,
+        });
     });
 
     // 老師以 users 集合的「文件 ID」為識別，顯示時使用 name
@@ -136,9 +164,9 @@ async function fetchCourseData(studentId: string, enrolledCourses: string[]) {
     }
 
     courses.forEach(course => {
-        const courseDoc = courseDocs.docs.find(d => d.id === course.id);
-        if (courseDoc) {
-            const teacherId = courseDoc.data().teachers?.[0];
+        const doc = [...resolvedMap.values()].find(d => d.id === course.id);
+        if (doc) {
+            const teacherId = doc.data().teachers?.[0];
             if (teacherId && teacherNamesMap[teacherId]) {
                 course.teacherName = teacherNamesMap[teacherId];
             }

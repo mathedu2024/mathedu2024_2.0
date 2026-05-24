@@ -47,7 +47,7 @@ export function StudentInfoProvider({ children }: { children: ReactNode }) {
 
       const user = session.user || session;
 
-      setStudentInfo({
+      const latestStudentData = {
         id: user.id || user.uid || user.userId || '',
         name: user.name || '未知使用者',
         studentId: user.studentId || user.account || '',
@@ -57,7 +57,9 @@ export function StudentInfoProvider({ children }: { children: ReactNode }) {
         enrolledCourses: user.enrolledCourses || [], 
         account: user.account || '',
         role: user.currentRole || user.role || 'student'
-      });
+      };
+
+      setStudentInfo(latestStudentData);
     } catch (error) {
       console.error('Failed to fetch student info:', error);
     } finally {

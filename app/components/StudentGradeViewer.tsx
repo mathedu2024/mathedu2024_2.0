@@ -70,6 +70,8 @@ interface StudentGradeViewerProps {
     id: string;
     name: string;
     studentId: string;
+    account?: string;
+    enrolledCourses?: string[];
   };
 }
 
@@ -152,7 +154,7 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
         const res = await fetch('/api/student/dashboard-data', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ studentId: studentInfo.id }),
+          body: JSON.stringify({ studentId: studentInfo.studentId || studentInfo.account || studentInfo.id }),
         });
 
         if (!res.ok) {
@@ -161,10 +163,7 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
         }
 
         const data = await res.json();
-        // 過濾掉已封存的課程資料
-        const activeCourses = (data.courses || [])
-          .filter((c: CourseInfo) => c && !isCourseArchived(c));
-        setCourses(activeCourses);
+        setCourses(data.courses || []);
         setAllGrades(data.grades);
 
         // Fetch teacher names

@@ -419,7 +419,13 @@ export default function AttendanceContent() {
   const liveActivities = useMemo(() => validActivities.filter(a => a.status === 'active' || a.status === 'upcoming'), [validActivities]);
   const pastActivities = useMemo(() => validActivities.filter(a => a.status === 'past'), [validActivities]);
 
-  const selectedCourseId = useMemo(() => unarchivedCourses.find(c => `${c.name}(${c.code})` === selectedCourseForHistory)?.id, [unarchivedCourses, selectedCourseForHistory]);
+  const selectedCourseId = useMemo(() => {
+    if (!selectedCourseForHistory) return undefined;
+    const course = unarchivedCourses.find(
+      (c) => c.id === selectedCourseForHistory || `${c.name}(${c.code})` === selectedCourseForHistory
+    );
+    return course?.id;
+  }, [unarchivedCourses, selectedCourseForHistory]);
 
   const sortedPastActivities = useMemo(
     () => [...pastActivities].sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()),

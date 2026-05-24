@@ -115,12 +115,10 @@ export default function StudentManager() {
         }
         const text = await res2.text();
         const coursesRaw = text ? JSON.parse(text) : [];
-        // 報名課程不顯示已封存的課程 (保留已結束課程以維護歷史選修紀錄)
         const courses = coursesRaw
-          .filter((c: MinimalCourse) => c && !isCourseArchived(c))
-          .map((c: unknown) => ({
-            ...c as Record<string, unknown>,
-            id: `${(c as Record<string, unknown>).name}(${(c as Record<string, unknown>).code})`
+          .map((c: any) => ({
+            ...c,
+            id: c.id || `${c.name}(${c.code})`
           }));
         setCourses(courses);
       } catch (error) {
@@ -201,8 +199,8 @@ export default function StudentManager() {
       await fetch('/api/student/save', { method: 'POST', body: JSON.stringify({ id: docId, ...studentData }) });
       
       const originalStudent = students.find(s => s.id === docId);
-      const oldCourses = originalStudent ? originalStudent.enrolledCourses : [];
-      const newCourses = editingStudent.enrolledCourses;
+      const oldCourses = originalStudent?.enrolledCourses || [];
+      const newCourses = editingStudent.enrolledCourses || [];
       await updateStudentCourses(docId, oldCourses, newCourses, {
         id: editingStudent.studentId,
         name: editingStudent.name,
@@ -379,26 +377,55 @@ export default function StudentManager() {
 
     try {
       setLoading(true);
-      const res = await fetch('/api/student/bulk-update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentIds: selectedStudentIds,
-          grade: batchGrade || undefined,
-          addCourses: batchCourses,
-          removeCourses: batchRemoveCourses,
-        }),
+      let updatedCount = 0;
+      
+      // --- 以前端 Promise.all 方式呼叫單筆儲存 API 取代 bulk-update API，避免後端 500 錯誤 ---
+      const syncPromises = selectedStudentIds.map(async (studentId) => {
+        const originalStudent = students.find(s => s.id === studentId);
+        if (originalStudent) {
+          const oldCourses = originalStudent.enrolledCourses || [];
+          let newCourses = [...oldCourses];
+          if (batchCourses.length > 0) {
+            newCourses = Array.from(new Set([...newCourses, ...batchCourses]));
+          }
+          if (batchRemoveCourses.length > 0) {
+            newCourses = newCourses.filter(c => !batchRemoveCourses.includes(c));
+          }
+          const finalGrade = batchGrade || originalStudent.grade;
+          
+          const updatedStudentData = {
+            ...originalStudent,
+            grade: finalGrade,
+            enrolledCourses: newCourses,
+          };
+
+          const res = await fetch('/api/student/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedStudentData)
+          });
+
+          if (res.ok) {
+            updatedCount++;
+            await updateStudentCourses(studentId, oldCourses, newCourses, {
+              id: originalStudent.studentId,
+              name: originalStudent.name,
+              account: originalStudent.account,
+              email: originalStudent.email,
+              studentId: originalStudent.studentId,
+              grade: finalGrade,
+            });
+          }
+        }
       });
-      if (!res.ok) {
-        throw new Error(`批次修改失敗（${res.status}）`);
-      }
-      const data = await res.json();
+      await Promise.all(syncPromises);
+
       Swal.fire({
         icon: 'success',
         title: '批次修改完成',
         html: `
           <div style="text-align:left;line-height:1.8">
-            <div>成功更新學生：<b>${data.updatedCount}</b> 筆</div>
+            <div>成功更新學生：<b>${updatedCount}</b> 筆</div>
             <div>更新年級：<b>${batchGrade ? '是' : '否'}</b></div>
             <div>加入課程：<b>${batchCourses.length}</b> 堂</div>
             <div>移除課程：<b>${batchRemoveCourses.length}</b> 堂</div>
@@ -816,7 +843,7 @@ export default function StudentManager() {
               </div>
               <div className={`${mobileBatchPanelOpen ? 'block' : 'hidden'} md:block flex-1 min-w-0`}>
                 <MultiSelectDropdown
-                  options={courses.map(course => ({ label: `${course.name} (${course.code})`, value: course.id }))}
+                  options={courses.filter(c => !isCourseArchived(c)).map(course => ({ label: `${course.name} (${course.code})`, value: course.id }))}
                   selectedOptions={batchCourses}
                   onChange={setBatchCourses}
                   placeholder="選擇要加入的課程（可複選）"
@@ -824,7 +851,7 @@ export default function StudentManager() {
               </div>
               <div className={`${mobileBatchPanelOpen ? 'block' : 'hidden'} md:block flex-1 min-w-0`}>
                 <MultiSelectDropdown
-                  options={courses.map(course => ({ label: `${course.name} (${course.code})`, value: course.id }))}
+                  options={courses.map(course => ({ label: `${course.name} (${course.code})${isCourseArchived(course) ? ' [已封存]' : ''}`, value: course.id }))}
                   selectedOptions={batchRemoveCourses}
                   onChange={setBatchRemoveCourses}
                   placeholder="選擇要移除的課程（可複選）"
@@ -920,7 +947,7 @@ export default function StudentManager() {
                  <div className="md:col-span-2">
                    <label className="block text-sm font-bold text-gray-700 mb-2">選修課程</label>
                    <MultiSelectDropdown
-                     options={courses.map(course => ({ label: `${course.name} (${course.code})`, value: course.id }))}
+                     options={courses.map(course => ({ label: `${course.name} (${course.code})${isCourseArchived(course) ? ' [已封存]' : ''}`, value: course.id }))}
                      selectedOptions={editingStudent.enrolledCourses ? editingStudent.enrolledCourses.filter(cId => courses.some(c => c.id === cId)) : []}
                      onChange={(selected) => setEditingStudent(prev => prev ? { ...prev, enrolledCourses: selected } : null)}
                      placeholder="選擇學生選修的課程..."
@@ -1046,7 +1073,7 @@ export default function StudentManager() {
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-gray-500">課程數:</span>
-                                <span className="font-medium text-gray-800">{student.enrolledCourses ? student.enrolledCourses.filter(cId => courses.some(c => c.id === cId)).length : 0} 堂</span>
+                                <span className="font-medium text-gray-800">{student.enrolledCourses ? student.enrolledCourses.length : 0} 堂</span>
                             </div>
                         </div>
                         
@@ -1132,7 +1159,7 @@ export default function StudentManager() {
                               </span>
                           </td>
                           <td className="px-6 py-4">
-                            {student.enrolledCourses ? student.enrolledCourses.filter(cId => courses.some(c => c.id === cId)).length : 0}
+                            {student.enrolledCourses ? student.enrolledCourses.length : 0}
                           </td>
                           <td className="px-6 py-4 text-right">
                             <div className="flex justify-end gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">

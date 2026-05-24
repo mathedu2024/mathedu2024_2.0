@@ -327,6 +327,27 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                 body: JSON.stringify({ id }),
             });
 
+            // --- 同步移除所有學生該門課程的紀錄 ---
+            try {
+                const studentRes = await fetch('/api/student/list');
+                const allStudents = await studentRes.json();
+                const courseKey = `${courseToDelete.name}(${courseToDelete.code})`;
+                
+                const syncPromises = allStudents
+                    .filter((s: any) => s.enrolledCourses && (s.enrolledCourses.includes(id) || s.enrolledCourses.includes(courseKey)))
+                    .map((s: any) => {
+                        const newCourses = s.enrolledCourses.filter((c: string) => c !== id && c !== courseKey);
+                        return fetch('/api/student/save', {
+                            method: 'POST',
+                            body: JSON.stringify({ ...s, enrolledCourses: newCourses })
+                        });
+                    });
+                await Promise.all(syncPromises);
+            } catch (syncError) {
+                console.error('同步刪除學生端課程資料失敗:', syncError);
+            }
+            // --- 結束 ---
+
             setCourses(prev => prev.filter(course => course.id !== id));
             Swal.fire({
                 icon: 'success',
@@ -488,15 +509,13 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
         setStudentList([]);
         setLoadingStudents(true);
         try {
-            // 直接查 course-student-list
-            const res = await fetch('/api/course-student-list/list', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ courseName: course.name, courseCode: course.code })
-            });
+            // 從學生資料庫取得修課名單，確保資料即時同步
+            const res = await fetch('/api/student/list');
             if (res.ok) {
-                const students = await res.json();
-                setStudentList(students);
+                const allStudents = await res.json();
+                        const courseKey = `${course.name}(${course.code})`;
+                        const enrolledStudents = allStudents.filter((s: any) => s.enrolledCourses && (s.enrolledCourses.includes(course.id) || s.enrolledCourses.includes(courseKey)));
+                setStudentList(enrolledStudents);
             } else {
                 setStudentList([]);
             }
@@ -522,13 +541,31 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
         if (!result.isConfirmed) return;
 
         try {
-            // 從 course-student-list 中移除學生
-            const res = await fetch('/api/course-student-list/remove-student', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ courseName: course.name, courseCode: course.code, studentId: student.id })
-            });
-            if (res.ok) {
+                    const studentRes = await fetch('/api/student/list');
+                    const allStudents = await studentRes.json();
+                    const targetStudent = allStudents.find((s: any) => s.id === student.id);
+                    
+                    if (targetStudent) {
+                        const courseId = course.id;
+                        const courseKey = `${course.name}(${course.code})`;
+                        const currentCourses = targetStudent.enrolledCourses || [];
+                        if (currentCourses.includes(courseId) || currentCourses.includes(courseKey)) {
+                            const newCourses = currentCourses.filter((c: string) => c !== courseId && c !== courseKey);
+                            const updateRes = await fetch('/api/student/save', {
+                                method: 'POST',
+                                body: JSON.stringify({ ...targetStudent, enrolledCourses: newCourses })
+                            });
+                            if (!updateRes.ok) throw new Error('移除失敗');
+
+                            // 同步更新後端關聯（維持相容性）
+                            await fetch('/api/course-student-list/remove-student', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ courseName: course.name, courseCode: course.code, studentId: student.id })
+                            }).catch(console.error);
+                        }
+                    }
+
                 // 更新本地學生列表
                 setStudentList(prev => prev.filter(s => s.id !== student.id));
                 Swal.fire({
@@ -538,9 +575,6 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                     confirmButtonColor: '#4f46e5',
                     customClass: { popup: 'rounded-2xl' }
                 });
-            } else {
-                throw new Error('移除失敗');
-            }
         } catch {
             Swal.fire({
                 icon: 'error',
@@ -839,12 +873,17 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">課程名稱 <span className="text-red-500">*</span></label>
-                                    <input type="text" value={editingCourse.name} onChange={e => setEditingCourse(prev => prev ? { ...prev, name: e.target.value } : null)} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all" required placeholder="輸入課程名稱" />
+                                    <input type="text" value={editingCourse.name} onChange={e => setEditingCourse(prev => prev ? { ...prev, name: e.target.value } : null)} className={`w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all ${editingCourse.id && editingCourse.id !== 'new' ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} required readOnly={!!(editingCourse.id && editingCourse.id !== 'new')} placeholder="輸入課程名稱" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">課程代碼 <span className="text-red-500">*</span></label>
-                                    <input type="text" value={editingCourse.code} onChange={e => setEditingCourse(prev => prev ? { ...prev, code: e.target.value } : null)} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all" required placeholder="例: MAT-101" />
+                                    <input type="text" value={editingCourse.code} onChange={e => setEditingCourse(prev => prev ? { ...prev, code: e.target.value } : null)} className={`w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all ${editingCourse.id && editingCourse.id !== 'new' ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} required readOnly={!!(editingCourse.id && editingCourse.id !== 'new')} placeholder="例: MAT-101" />
                                 </div>
+                                {editingCourse.id && editingCourse.id !== 'new' && (
+                                    <div className="md:col-span-2 text-xs text-amber-600 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
+                                        注意：課程名稱與代碼建立後即作為系統唯一識別碼，不可修改。若需變更，請刪除舊課程後重新建立。
+                                    </div>
+                                )}
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">授課老師 <span className="text-red-500">*</span></label>
                                     <MultiSelectDropdown

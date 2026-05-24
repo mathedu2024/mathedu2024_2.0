@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '../../../../services/firebase-admin';
+import { resolveSingleCourseDoc } from '@/services/courseId';
 import { FieldValue } from 'firebase-admin/firestore';
 
 export async function POST(req: NextRequest) {
@@ -9,18 +10,12 @@ export async function POST(req: NextRequest) {
   }
 
   const getCourseDocRef = async (compositeId: string) => {
-    const courseIdRegex = /^(.*)\((.*)\)$/;
-    const match = compositeId.match(courseIdRegex);
-    if (!match) return null;
-    const name = match[1];
-    const code = match[2];
-
-    const courseQuery = await adminDb.collection('courses').where('name', '==', name).where('code', '==', code).limit(1).get();
-    if (courseQuery.empty) {
+    const doc = await resolveSingleCourseDoc(adminDb, compositeId);
+    if (!doc) {
       console.warn(`Could not find course document for compositeId: ${compositeId}`);
       return null;
     }
-    return courseQuery.docs[0].ref;
+    return doc.ref;
   };
 
   let info = studentInfo;

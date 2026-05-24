@@ -31,6 +31,7 @@ type PasswordManagerProps = {
     name?: string;
     account?: string;
     role?: string;
+    enrolledCourses?: string[];
   };
 };
 
@@ -63,23 +64,37 @@ function PasswordManager({ onPasswordChangeSuccess, apiEndpoint = '/api/student/
 
   useEffect(() => {
     const fetchUserCourses = async () => {
-      if (userInfo?.role === '學生') {
+      if (userInfo?.role === '學生' || userInfo?.role === 'student') {
         try {
           const response = await fetch('/api/student/courses/list');
+          let apiCourses: MinimalCourse[] = [];
           if (response.ok) {
             const data = await response.json();
-            // 隱藏已封存課程，但保留已結束課程供回顧歷史選修紀錄
-            const filtered = (Array.isArray(data) ? data : [])
-              .filter((c: MinimalCourse) => c && !isCourseArchived(c));
-            setUserCourses(filtered);
+            apiCourses = Array.isArray(data) ? [...data] : [];
           }
+
+          // 使用 enrolledCourses 補齊後端被過濾的已封存課程
+          if (userInfo.enrolledCourses && userInfo.enrolledCourses.length > 0) {
+            const apiCourseIds = apiCourses.map(c => (c as any).id || `${c.name}(${(c as any).code || ''})`);
+            
+            userInfo.enrolledCourses.forEach(courseStr => {
+              if (!apiCourseIds.includes(courseStr)) {
+                const match = courseStr.match(/^(.*)\(([^)]+)\)$/);
+                apiCourses.push({
+                  name: match ? match[1] : courseStr,
+                  archived: true
+                });
+              }
+            });
+          }
+          setUserCourses(apiCourses);
         } catch (error) {
           console.error('無法獲取使用者課程:', error);
         }
       }
     };
     fetchUserCourses();
-  }, [userInfo?.role]);
+  }, [userInfo?.role, userInfo?.enrolledCourses]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
@@ -185,7 +200,7 @@ function PasswordManager({ onPasswordChangeSuccess, apiEndpoint = '/api/student/
                 {userInfo?.role === '學生' && (
                   <div className="md:col-span-2">
                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex justify-between items-center">
-                      <span>目前選修課程</span>
+                      <span>所有選修課程 (含歷史紀錄)</span>
                       {userCourses.length > 0 && (
                         <span className="text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg text-[10px] font-bold border border-indigo-100">
                           共 {userCourses.length} 門
@@ -195,8 +210,8 @@ function PasswordManager({ onPasswordChangeSuccess, apiEndpoint = '/api/student/
                     <div className="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-xl border border-gray-200 min-h-[46px]">
                       {userCourses.length > 0 ? (
                         userCourses.map((course, idx) => (
-                          <span key={idx} className="px-3 py-1 bg-white border border-indigo-100 text-indigo-700 text-xs font-bold rounded-lg shadow-sm">
-                            {course.name}
+                          <span key={idx} className={`px-3 py-1 bg-white border text-xs font-bold rounded-lg shadow-sm ${isCourseArchived(course) ? 'border-gray-200 text-gray-500 bg-gray-50' : 'border-indigo-100 text-indigo-700'}`}>
+                            {course.name} {isCourseArchived(course) && '[已封存]'}
                           </span>
                         ))
                       ) : (

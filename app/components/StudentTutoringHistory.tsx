@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { format, parseISO, isFuture } from 'date-fns';
+import { format, parseISO, isFuture, subMonths } from 'date-fns';
 import Swal from 'sweetalert2';
 import { 
   XCircleIcon, 
@@ -12,7 +12,8 @@ import {
   ClockIcon,
   UserIcon,
   MapPinIcon,
-  ChatBubbleBottomCenterTextIcon
+  ChatBubbleBottomCenterTextIcon,
+  FunnelIcon,
 } from '@heroicons/react/24/outline';
 import { Appointment } from '@/services/interfaces';
 import LoadingSpinner from './LoadingSpinner';
@@ -28,9 +29,13 @@ interface StudentTutoringHistoryProps {
   };
 }
 
+const getDefaultDateFrom = () => format(subMonths(new Date(), 1), 'yyyy-MM-dd');
+const getDefaultDateTo = () => format(new Date(), 'yyyy-MM-dd');
+
 const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInfo }) => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dateRange, setDateRange] = useState({ from: getDefaultDateFrom(), to: getDefaultDateTo() });
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [editForm, setEditForm] = useState({ problemDescription: '' });
@@ -68,6 +73,23 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
   useEffect(() => {
     fetchAppointments();
   }, [fetchAppointments]);
+
+  const filteredAppointments = useMemo(() => {
+    const { from, to } = dateRange;
+    return appointments.filter((appointment) => {
+      if (!appointment.slotDetails?.date) return false;
+      const slotDate = appointment.slotDetails.date.split('T')[0];
+      const slotDateTime = parseISO(`${slotDate}T${appointment.slotDetails.startTime || '00:00'}`);
+      const isUpcoming = isFuture(slotDateTime);
+
+      // 未來預約一律顯示，方便學生查看與管理
+      if (isUpcoming) return true;
+
+      if (from && slotDate < from) return false;
+      if (to && slotDate > to) return false;
+      return true;
+    });
+  }, [appointments, dateRange]);
 
   const handleCancelAppointment = async (appointment: Appointment) => {
     const result = await Swal.fire({
@@ -174,11 +196,39 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
 
   return (
     <div className="max-w-7xl mx-auto w-full p-4 md:p-6">
-      <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center">
-        <ClockIcon className="w-8 h-8 mr-3 text-indigo-600" />
-        我的輔導紀錄
-      </h2>
-
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <h2 className="text-2xl font-bold text-gray-800 flex items-center">
+          <ClockIcon className="w-8 h-8 mr-3 text-indigo-600" />
+          我的輔導紀錄
+        </h2>
+        <div className="flex flex-col sm:flex-row gap-3 bg-gray-50 p-3 rounded-xl border border-gray-100">
+          <div className="flex items-center gap-2">
+            <FunnelIcon className="w-4 h-4 text-gray-400 ml-1 flex-shrink-0" />
+            <input
+              type="date"
+              value={dateRange.from}
+              onChange={(e) => setDateRange((prev) => ({ ...prev, from: e.target.value }))}
+              className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              aria-label="起始日期"
+            />
+            <span className="text-gray-400">~</span>
+            <input
+              type="date"
+              value={dateRange.to}
+              onChange={(e) => setDateRange((prev) => ({ ...prev, to: e.target.value }))}
+              className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              aria-label="結束日期"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setDateRange({ from: getDefaultDateFrom(), to: getDefaultDateTo() })}
+            className="text-xs font-medium text-gray-500 hover:text-indigo-600 px-3 py-1.5 hover:bg-white rounded-lg transition-colors whitespace-nowrap"
+          >
+            重設為近一個月
+          </button>
+        </div>
+      </div>
       {loading ? (
         <div className="flex justify-center items-center h-64">
           <LoadingSpinner size={40} />
@@ -191,11 +241,19 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
           <h3 className="text-lg font-medium text-gray-900">尚無預約紀錄</h3>
           <p className="text-gray-500 mt-1">您目前沒有任何輔導預約記錄。</p>
         </div>
+      ) : filteredAppointments.length === 0 ? (
+        <div className="bg-white border border-gray-200 p-12 rounded-2xl shadow-sm text-center">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
+            <CalendarIcon className="w-8 h-8" />
+          </div>
+          <h3 className="text-lg font-medium text-gray-900">此日期區間無紀錄</h3>
+          <p className="text-gray-500 mt-1">請調整日期篩選，或按「重設為近一個月」。</p>
+        </div>
       ) : (
         <>
           {/* Mobile View: Cards */}
           <div className="md:hidden space-y-4">
-            {appointments.map((appointment) => {
+            {filteredAppointments.map((appointment) => {
               const isUpcoming = appointment.slotDetails ? isFuture(parseISO(`${appointment.slotDetails.date}T${appointment.slotDetails.startTime}`)) : false;
               return (
                 <div key={appointment.id} className="bg-white border border-gray-200 rounded-xl shadow-sm p-5 relative overflow-hidden">
@@ -267,7 +325,7 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {appointments.map((appointment) => {
+                {filteredAppointments.map((appointment) => {
                   const isUpcoming = appointment.slotDetails ? isFuture(parseISO(`${appointment.slotDetails.date}T${appointment.slotDetails.startTime}`)) : false;
                   return (
                     <tr key={appointment.id} className="bg-white hover:bg-gray-50 transition-colors group">

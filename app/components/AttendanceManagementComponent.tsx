@@ -658,12 +658,10 @@ function AttendanceActivityList({ courseId, courseName, courseCode, onBack, onSe
       const worksheet2 = workbook.addWorksheet('學生出缺席詳細名單');
       
       // 抓取該課程學生名單
-      const stuRes = await fetch('/api/course-student-list/list', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ courseName, courseCode })
-      });
-      const students: Student[] = await stuRes.json();
+      const stuRes = await fetch('/api/student/list');
+      const allStudents = await stuRes.json();
+      const courseKey = `${courseName}(${courseCode})`;
+      const students: Student[] = allStudents.filter((s: any) => s.enrolledCourses && (s.enrolledCourses.includes(courseId) || s.enrolledCourses.includes(courseKey)));
 
       // 抓取所有點名活動的詳細紀錄 (併行處理以提升效能)
       const allRecordsPromises = activities.map(async (a) => {
@@ -939,23 +937,19 @@ export default function AttendanceManagementComponent({ courses: externalCourses
         if (response.ok) {
           const coursesData: Course[] = await response.json();
           setCourses(filterCoursesForUser(coursesData));
-          const studentCountsPromises = coursesData.map(async (course) => {
-            try {
-              const res = await fetch('/api/course-student-list/list', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ courseName: course.name, courseCode: course.code }),
-              });
-              if (res.ok) {
-                const s = await res.json();
-                return { courseId: course.id, count: s.length };
-              }
-            } catch (error) { console.error(error); }
-            return { courseId: course.id, count: 0 };
-          });
-          const results = await Promise.all(studentCountsPromises);
+          
+          let allStudents: any[] = [];
+          try {
+            const resStudents = await fetch('/api/student/list');
+            if (resStudents.ok) allStudents = await resStudents.json();
+          } catch {}
+
           const newCounts: Record<string, number> = {};
-          results.forEach(r => { if (r) newCounts[r.courseId] = r.count; });
+          coursesData.forEach(course => {
+            const courseKey = `${course.name}(${course.code})`;
+            const count = allStudents.filter(s => s.enrolledCourses && (s.enrolledCourses.includes(course.id) || s.enrolledCourses.includes(courseKey))).length;
+            newCounts[course.id] = count;
+          });
           setStudentCounts(newCounts);
         }
       } catch (error) { console.error(error); } finally { setLoading(false); }
@@ -968,13 +962,12 @@ export default function AttendanceManagementComponent({ courses: externalCourses
       const fetchStudents = async () => {
         setLoadingStudents(true);
         try {
-          const res = await fetch('/api/course-student-list/list', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ courseName: selectedCourse.name, courseCode: selectedCourse.code }),
-          });
+          const res = await fetch('/api/student/list');
           if (res.ok) {
-            setStudents(await res.json());
+            const allStudents = await res.json();
+            const courseKey = `${selectedCourse.name}(${selectedCourse.code})`;
+            const enrolledStudents = allStudents.filter((s: any) => s.enrolledCourses && (s.enrolledCourses.includes(selectedCourse.id) || s.enrolledCourses.includes(courseKey)));
+            setStudents(enrolledStudents);
           } else {
             setStudents([]);
           }

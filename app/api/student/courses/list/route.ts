@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/services/firebase-admin';
+import { parseCourseCompositeId, resolveCourseDocsByEnrolledIds } from '@/services/courseId';
 import { parse as parseCookie } from 'cookie';
 
 export async function GET(req: NextRequest) {
@@ -43,18 +44,35 @@ export async function GET(req: NextRequest) {
       return NextResponse.json([]);
     }
 
-    const coursesSnapshot = await adminDb.collection('courses')
-      .where('__name__', 'in', enrolledCourses)
-      .get();
+    const resolvedMap = await resolveCourseDocsByEnrolledIds(adminDb, enrolledCourses);
+    const seenDocIds = new Set<string>();
+    const courses: Array<{ id: string; name: string; code: string; status: string; archived: boolean }> = [];
 
-    const courses = coursesSnapshot.docs
-      .map(doc => ({
+    for (const enrolledId of enrolledCourses) {
+      const doc = resolvedMap.get(enrolledId);
+      if (!doc || seenDocIds.has(doc.id)) continue;
+      seenDocIds.add(doc.id);
+      courses.push({
         id: doc.id,
         name: doc.data().name || '未知課程',
         code: doc.data().code || '',
         status: doc.data().status || '',
         archived: doc.data().archived ?? false,
-      }));
+      });
+    }
+
+    const missingCourseIds = enrolledCourses.filter(id => !resolvedMap.has(id));
+
+    missingCourseIds.forEach(id => {
+      const parsed = parseCourseCompositeId(id);
+      courses.push({
+        id: id,
+        name: parsed ? parsed.name : id,
+        code: parsed ? parsed.code : '',
+        status: '已封存',
+        archived: true,
+      });
+    });
 
     return NextResponse.json(courses);
   } catch (error) {
