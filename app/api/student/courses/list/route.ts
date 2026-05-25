@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/services/firebase-admin';
-import { parseCourseCompositeId, resolveCourseDocsByEnrolledIds } from '@/services/courseId';
+import { resolveCourseDocsByEnrolledIds } from '@/services/courseId';
+import { isCourseArchived } from '@/services/courseArchive';
 import { parse as parseCookie } from 'cookie';
 
 export async function GET(req: NextRequest) {
@@ -52,27 +53,17 @@ export async function GET(req: NextRequest) {
       const doc = resolvedMap.get(enrolledId);
       if (!doc || seenDocIds.has(doc.id)) continue;
       seenDocIds.add(doc.id);
-      courses.push({
+      const row = {
         id: doc.id,
         name: doc.data().name || '未知課程',
         code: doc.data().code || '',
         status: doc.data().status || '',
         archived: doc.data().archived ?? false,
-      });
+      };
+      if (!isCourseArchived(row)) {
+        courses.push(row);
+      }
     }
-
-    const missingCourseIds = enrolledCourses.filter(id => !resolvedMap.has(id));
-
-    missingCourseIds.forEach(id => {
-      const parsed = parseCourseCompositeId(id);
-      courses.push({
-        id: id,
-        name: parsed ? parsed.name : id,
-        code: parsed ? parsed.code : '',
-        status: '已封存',
-        archived: true,
-      });
-    });
 
     return NextResponse.json(courses);
   } catch (error) {

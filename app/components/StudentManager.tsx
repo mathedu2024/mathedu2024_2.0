@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import MultiSelectDropdown from './MultiSelectDropdown';
 import LoadingSpinner from './LoadingSpinner';
@@ -43,7 +43,7 @@ interface Student {
   enrolledCourses: string[];
 }
 
-interface Course {
+interface Course extends MinimalCourse {
   id: string;
   name: string;
   code: string;
@@ -91,6 +91,20 @@ export default function StudentManager() {
   const [dragActive, setDragActive] = useState(false);
   
   const grades = ['國一', '國二', '國三', '高一', '高二', '高三', '職一', '職二', '職三', '大一', '進修'];
+
+  const activeCourses = useMemo(
+    () => courses.filter((c) => !isCourseArchived(c)),
+    [courses]
+  );
+
+  const activeCourseSelectOptions = useMemo(
+    () =>
+      activeCourses.map((course) => ({
+        label: `${course.name} (${course.code})`,
+        value: course.id,
+      })),
+    [activeCourses]
+  );
 
   const fetchStudents = useCallback(async () => {
     setLoading(true);
@@ -757,6 +771,10 @@ export default function StudentManager() {
     }
   };
 
+  const isExistingStudent = Boolean(editingStudent?.id?.trim());
+  const lockedFieldClass =
+    'w-full px-4 py-2.5 border border-gray-300 rounded-xl bg-gray-100 text-gray-500 cursor-not-allowed font-mono';
+
   return (
     <div className="max-w-7xl mx-auto w-full px-4 md:px-6 flex flex-col h-full animate-fade-in">
       {/* Header Area */}
@@ -865,7 +883,7 @@ export default function StudentManager() {
               </div>
               <div className={`${mobileBatchPanelOpen ? 'block' : 'hidden'} md:block flex-1 min-w-0`}>
                 <MultiSelectDropdown
-                  options={courses.filter(c => !isCourseArchived(c)).map(course => ({ label: `${course.name} (${course.code})`, value: course.id }))}
+                  options={activeCourseSelectOptions}
                   selectedOptions={batchCourses}
                   onChange={setBatchCourses}
                   placeholder="選擇要加入的課程（可複選）"
@@ -873,7 +891,7 @@ export default function StudentManager() {
               </div>
               <div className={`${mobileBatchPanelOpen ? 'block' : 'hidden'} md:block flex-1 min-w-0`}>
                 <MultiSelectDropdown
-                  options={courses.filter(c => !isCourseArchived(c)).map(course => ({ label: `${course.name} (${course.code})`, value: course.id }))}
+                  options={activeCourseSelectOptions}
                   selectedOptions={batchRemoveCourses}
                   onChange={setBatchRemoveCourses}
                   placeholder="選擇要移除的課程（可複選）"
@@ -913,21 +931,23 @@ export default function StudentManager() {
                   <input
                     type="text"
                     value={editingStudent.studentId}
-                    onChange={handleStudentIdChange}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono"
+                    onChange={isExistingStudent ? undefined : handleStudentIdChange}
+                    className={isExistingStudent ? lockedFieldClass : 'w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono'}
                     required
-                    readOnly={!!editingStudent.id}
-                    placeholder="請輸入學號"
+                    readOnly={isExistingStudent}
+                    disabled={isExistingStudent}
+                    placeholder={isExistingStudent ? '' : '請輸入學號'}
                   />
                   {formErrors.studentId && <div className="text-red-500 text-xs mt-1">{formErrors.studentId}</div>}
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">帳號 (自動帶入)</label>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">帳號 {isExistingStudent ? '' : '(自動帶入)'}</label>
                   <input
                     type="text"
                     value={editingStudent.account}
                     readOnly
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl bg-gray-100 text-gray-500 cursor-not-allowed font-mono"
+                    disabled
+                    className={lockedFieldClass}
                   />
                 </div>
                 <div>
@@ -969,9 +989,22 @@ export default function StudentManager() {
                  <div className="md:col-span-2">
                    <label className="block text-sm font-bold text-gray-700 mb-2">選修課程</label>
                    <MultiSelectDropdown
-                     options={courses.map(course => ({ label: `${course.name} (${course.code})${isCourseArchived(course) ? ' [已封存]' : ''}`, value: course.id }))}
-                     selectedOptions={editingStudent.enrolledCourses ? editingStudent.enrolledCourses.filter(cId => courses.some(c => c.id === cId)) : []}
-                     onChange={(selected) => setEditingStudent(prev => prev ? { ...prev, enrolledCourses: selected } : null)}
+                     options={activeCourseSelectOptions}
+                     selectedOptions={
+                       editingStudent.enrolledCourses
+                         ? editingStudent.enrolledCourses.filter((cId) =>
+                             activeCourses.some((c) => c.id === cId)
+                           )
+                         : []
+                     }
+                     onChange={(selected) => {
+                       const archivedEnrolled = (editingStudent.enrolledCourses || []).filter((cId) =>
+                         courses.some((c) => c.id === cId && isCourseArchived(c))
+                       );
+                       setEditingStudent((prev) =>
+                         prev ? { ...prev, enrolledCourses: [...archivedEnrolled, ...selected] } : null
+                       );
+                     }}
                      placeholder="選擇學生選修的課程..."
                    />
                 </div>

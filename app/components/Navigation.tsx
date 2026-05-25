@@ -25,7 +25,7 @@ export default function Navigation() {
     { href: '/', label: '網站首頁' },
     { href: '/courses', label: '課程介紹' },
     { href: '/teacher', label: '老師介紹' },
-    { href: '/fqa', label: '常見問題' },
+    { href: '/faq', label: '常見問題' },
   ];
 
   return (
@@ -171,7 +171,7 @@ export default function Navigation() {
                     ? '/student'
                     : '/login'
                 }
-                className="block px-4 py-3 mt-4 text-center rounded-xl text-base font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition-colors"
+                className="block px-4 py-3 mt-4 text-left rounded-xl text-base font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition-colors"
                 onClick={() => setIsMenuOpen(false)}
               >
                 登入課程

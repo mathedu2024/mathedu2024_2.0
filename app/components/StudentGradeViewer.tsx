@@ -10,7 +10,8 @@ import {
   ExclamationCircleIcon 
 } from '@heroicons/react/24/outline';
 
-import StudentCourseSelector, { isCourseArchived } from './StudentCourseSelector';
+import StudentCourseSelector, { getCourseDisplayKey } from './StudentCourseSelector';
+import { isCourseArchived } from '@/services/courseArchive';
 import LoadingSpinner from './LoadingSpinner';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
@@ -163,8 +164,13 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
         }
 
         const data = await res.json();
-        setCourses(data.courses || []);
-        setAllGrades(data.grades);
+        const activeCourses = (data.courses || []).filter((c: CourseInfo) => !isCourseArchived(c));
+        const activeKeys = new Set(activeCourses.map((c: CourseInfo) => getCourseDisplayKey(c)));
+        const filteredGrades = Object.fromEntries(
+          Object.entries(data.grades || {}).filter(([key]) => activeKeys.has(key))
+        ) as Record<string, GradeData>;
+        setCourses(activeCourses);
+        setAllGrades(filteredGrades);
 
         // Fetch teacher names
         const teachersRes = await fetch('/api/teacher/list');

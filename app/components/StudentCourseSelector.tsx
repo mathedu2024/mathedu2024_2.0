@@ -1,23 +1,17 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
 import Dropdown from './ui/Dropdown';
 import { ExclamationCircleIcon } from '@heroicons/react/24/outline';
+import { isCourseArchived, type ArchivableCourse } from '@/services/courseArchive';
 
-interface ArchivableCourse {
-  name: string;
-  status?: string;
-  archived?: boolean | string;
-}
+export { isCourseArchived };
 
 interface CourseShortInfo extends ArchivableCourse {
   id?: string;
   name: string;
   code: string;
 }
-
-export const isCourseArchived = (course: ArchivableCourse): boolean =>
-  course.archived === true || String(course.archived) === 'true' || !!(course.status && course.status.includes('已封存')) || !!(course.name && course.name.includes('已封存'));
 
 /** 學生端課程選項的統一 key，與成績、點名等模組一致 */
 export const getCourseDisplayKey = (course: { name: string; code: string }): string =>
@@ -56,7 +50,16 @@ export default function StudentCourseSelector({
   label = "選擇課程",
   placeholder = "請選擇課程"
 }: StudentCourseSelectorProps) {
-  const uniqueCourses = dedupeCoursesByDisplayKey(courses);
+  const activeCourses = useMemo(
+    () => dedupeCoursesByDisplayKey(courses).filter((c) => !isCourseArchived(c)),
+    [courses]
+  );
+
+  useEffect(() => {
+    if (!selectedCourse) return;
+    const stillActive = activeCourses.some((c) => getCourseDisplayKey(c) === selectedCourse);
+    if (!stillActive) onChange('');
+  }, [activeCourses, selectedCourse, onChange]);
 
   return (
     <div className="mb-8 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
@@ -67,9 +70,9 @@ export default function StudentCourseSelector({
           onChange={onChange}
           options={[
             { value: '', label: placeholder },
-            ...uniqueCourses.map((course) => ({
+            ...activeCourses.map((course) => ({
               value: getCourseDisplayKey(course),
-              label: `${course.name}（${course.code}）${isCourseArchived(course) ? ' [已封存]' : ''}`,
+              label: `${course.name}（${course.code}）`,
             })),
           ]}
           placeholder={placeholder}

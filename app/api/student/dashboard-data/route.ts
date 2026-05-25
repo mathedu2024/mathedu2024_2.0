@@ -3,7 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/services/firebase-admin';
 import type { GradeSettingsShape } from '@/services/gradeShape';
 import { settingsToTotalSetting } from '@/services/gradeShape';
-import { parseCourseCompositeId, resolveCourseDocsByEnrolledIds } from '@/services/courseId';
+import { resolveCourseDocsByEnrolledIds } from '@/services/courseId';
+import { isCourseArchived } from '@/services/courseArchive';
 import { parse as parseCookie } from 'cookie';
 
 interface ClassTime {
@@ -101,7 +102,7 @@ async function fetchCourseData(studentId: string, enrolledCourses: string[]) {
         seenDocIds.add(doc.id);
 
         const data = doc.data();
-        courses.push({
+        const courseInfo: CourseInfo = {
             id: doc.id,
             name: data.name,
             code: data.code,
@@ -118,32 +119,14 @@ async function fetchCourseData(studentId: string, enrolledCourses: string[]) {
             liveStreamURL: data.liveStreamURL,
             coverImageURL: data.coverImageURL,
             classTimes: data.classTimes,
-        });
+            archived: data.archived ?? false,
+        };
+        if (isCourseArchived(courseInfo)) continue;
+        courses.push(courseInfo);
         if (data.teachers && data.teachers.length > 0) {
             teacherIds.add(data.teachers[0]);
         }
     }
-
-    // 補齊資料庫中「已被刪除」但學生仍擁有成績紀錄的課程
-    const missingCourseIds = enrolledCourses.filter(id => !resolvedMap.has(id));
-    missingCourseIds.forEach(id => {
-        const parsed = parseCourseCompositeId(id);
-        courses.push({
-            id: id,
-            name: parsed ? parsed.name : id,
-            code: parsed ? parsed.code : '',
-            status: '已封存',
-            gradeTags: [],
-            subjectTag: '',
-            startDate: '',
-            endDate: '',
-            teachers: [],
-            description: '此課程已從系統中移除，僅保留歷史成績。',
-            teachingMethod: '',
-            courseNature: '',
-            archived: true,
-        });
-    });
 
     // 老師以 users 集合的「文件 ID」為識別，顯示時使用 name
     const teacherNamesMap: Record<string, string> = {};
