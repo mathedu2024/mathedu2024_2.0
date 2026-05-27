@@ -40,14 +40,14 @@ const Modal = ({ open, onClose, title, size = 'md', children }: { open: boolean;
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex justify-center items-center p-4 animate-fade-in">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
-      <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${maxWidthClass} max-h-[90vh] flex flex-col animate-bounce-in border border-gray-100`}>
-        <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex-shrink-0 rounded-t-2xl">
-          <h3 className="text-xl font-bold text-gray-800">{title}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-200">
+      <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${maxWidthClass} max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in border border-gray-100`}>
+        <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
+          <h3 className="text-xl font-bold flex items-center">{title}</h3>
+          <button onClick={onClose} className="text-white/80 hover:text-white transition-colors p-1 rounded-full hover:bg-white/20">
             <XMarkIcon className="w-6 h-6" />
           </button>
         </div>
-        <div className="p-6 flex-1 overflow-y-auto custom-scrollbar">{children}</div>
+        <div className="p-6 flex-1 overflow-y-auto custom-scrollbar bg-white">{children}</div>
       </div>
     </div>,
     document.body
@@ -138,7 +138,7 @@ interface ClassTime {
 }
 
 // 課堂管理元件
-function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId: string, courseName: string, courseCode: string, onClose: () => void }) {
+function LessonManager({ courseId, courseName, courseCode, onClose, isArchived = false }: { courseId: string, courseName: string, courseCode: string, onClose: () => void, isArchived?: boolean }) {
   const [lessons, setLessons] = useState<LessonData[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLesson, setEditingLesson] = useState<LessonData | null>(null);
@@ -318,16 +318,25 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
           <button className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors shadow-sm font-medium flex items-center" onClick={onClose}>
             <ArrowLeftIcon className="w-4 h-4 mr-2" /> 返回列表
           </button>
-          <button className="btn-secondary flex items-center" onClick={openAddModal}>
-            <PlusIcon className="w-4 h-4 mr-2" /> 新增課堂
-          </button>
-          {isOrderDirty && (
-            <button className="btn-primary flex items-center ml-auto" onClick={handleSaveChanges} disabled={isSubmitting}>
+          {!isArchived && (
+            <button className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center" onClick={openAddModal}>
+              <PlusIcon className="w-4 h-4 mr-2" /> 新增課堂
+            </button>
+          )}
+          {!isArchived && isOrderDirty && (
+            <button className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center ml-auto" onClick={handleSaveChanges} disabled={isSubmitting}>
               {isSubmitting ? <LoadingSpinner size={16} color="white" /> : <><CloudArrowUpIcon className="w-4 h-4 mr-2" /> 儲存排序</>}
             </button>
           )}
         </div>
       </div>
+
+      {isArchived && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl flex items-center shadow-sm mb-6">
+          <span className="font-bold mr-2">提示：</span>
+          此課程已封存，您只能查看課堂資料，無法新增或修改。
+        </div>
+      )}
 
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="hidden md:block bg-white border border-gray-200 rounded-xl shadow-sm overflow-x-auto">
@@ -339,7 +348,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
                         <th className="px-6 py-4 font-bold min-w-[200px]">課堂標題</th>
                         <th className="px-6 py-4 font-bold w-[140px]">日期</th>
                         <th className="px-6 py-4 font-bold text-center w-[140px]">學生可見</th>
-                        <th className="px-6 py-4 font-bold text-right w-[160px]">操作</th>
+                        <th className="px-6 py-4 font-bold text-right w-[160px]">{isArchived ? '詳情' : '操作'}</th>
                     </tr>
                 </thead>
                 <Droppable droppableId="lesson-list">
@@ -349,11 +358,11 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
                                 <tr><td colSpan={6} className="text-center py-8 text-gray-400">目前沒有課堂資料</td></tr>
                             ) : (
                                 lessons.map((lesson, idx) => (
-                                    <Draggable key={lesson.id} draggableId={lesson.id} index={idx}>
+                                    <Draggable key={lesson.id} draggableId={lesson.id} index={idx} isDragDisabled={isArchived}>
                                         {(provided: DraggableProvided) => (
                                             <tr ref={provided.innerRef} {...provided.draggableProps} className="hover:bg-indigo-50/30 transition-colors group bg-white">
                                                 <td className="px-4 py-4 cursor-move text-gray-400 hover:text-gray-600" {...provided.dragHandleProps}>
-                                                    <Bars3Icon className="w-5 h-5" />
+                                                    {!isArchived && <Bars3Icon className="w-5 h-5" />}
                                                 </td>
                                                 <td className="px-6 py-4 font-medium text-indigo-600 whitespace-nowrap">
                                                     第 {idx + 1} 堂
@@ -366,12 +375,13 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
                                                 </td>
                                                 <td className="px-6 py-4 text-center whitespace-nowrap">
                                                     <button
-                                                      onClick={() => handleToggleLessonVisibility(lesson)}
+                                                      onClick={() => !isArchived && handleToggleLessonVisibility(lesson)}
                                                       className={`px-2.5 py-1 rounded-full text-xs font-bold border inline-flex items-center gap-1 ${
                                                         lesson.visibleToStudents !== false
                                                           ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                                           : 'bg-gray-100 text-gray-600 border-gray-200'
-                                                      }`}
+                                                      } ${isArchived ? 'cursor-default opacity-80' : ''}`}
+                                                      disabled={isArchived}
                                                     >
                                                       {lesson.visibleToStudents !== false ? <EyeIcon className="w-3.5 h-3.5" /> : <EyeSlashIcon className="w-3.5 h-3.5" />}
                                                       {lesson.visibleToStudents !== false ? '開放' : '隱藏'}
@@ -379,12 +389,14 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
                                                 </td>
                                                 <td className="px-6 py-4 text-right whitespace-nowrap">
                                                     <div className="flex justify-end gap-2">
-                                                        <button onClick={() => handleEditClick(lesson)} className="text-indigo-600 hover:text-indigo-800 p-1 rounded-md hover:bg-indigo-50" title="編輯">
-                                                            <PencilIcon className="w-4 h-4" />
+                                                        <button onClick={() => handleEditClick(lesson)} className="text-indigo-600 hover:text-indigo-800 p-1 rounded-md hover:bg-indigo-50" title={isArchived ? "查看" : "編輯"}>
+                                                            {isArchived ? <EyeIcon className="w-4 h-4" /> : <PencilIcon className="w-4 h-4" />}
                                                         </button>
-                                                        <button onClick={() => handleDeleteLesson(lesson.id)} className="text-red-500 hover:text-red-700 p-1 rounded-md hover:bg-red-50" title="刪除">
-                                                            <TrashIcon className="w-4 h-4" />
-                                                        </button>
+                                                        {!isArchived && (
+                                                          <button onClick={() => handleDeleteLesson(lesson.id)} className="text-red-500 hover:text-red-700 p-1 rounded-md hover:bg-red-50" title="刪除">
+                                                              <TrashIcon className="w-4 h-4" />
+                                                          </button>
+                                                        )}
                                                     </div>
                                                 </td>
                                             </tr>
@@ -405,12 +417,12 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
                 {(provided: DroppableProvided) => (
                     <div ref={provided.innerRef} {...provided.droppableProps}>
                         {lessons.map((lesson, idx) => (
-                            <Draggable key={lesson.id} draggableId={lesson.id} index={idx}>
+                            <Draggable key={lesson.id} draggableId={lesson.id} index={idx} isDragDisabled={isArchived}>
                                 {(provided: DraggableProvided) => (
                                     <div ref={provided.innerRef} {...provided.draggableProps} className="bg-white border border-gray-200 rounded-xl p-4 mb-3 shadow-sm flex flex-col gap-3">
                                         <div className="flex justify-between items-start">
                                             <div className="flex items-center gap-2">
-                                                 <div className="cursor-move text-gray-300" {...provided.dragHandleProps}>
+                                                 <div className={`cursor-move text-gray-300 ${isArchived ? 'hidden' : ''}`} {...provided.dragHandleProps}>
                                                     <Bars3Icon className="w-6 h-6" />
                                                  </div>
                                                  <div>
@@ -422,12 +434,13 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
                                         </div>
                                         <div>
                                           <button
-                                            onClick={() => handleToggleLessonVisibility(lesson)}
+                                            onClick={() => !isArchived && handleToggleLessonVisibility(lesson)}
                                             className={`px-2.5 py-1 rounded-full text-xs font-bold border inline-flex items-center gap-1 ${
                                               lesson.visibleToStudents !== false
                                                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                                 : 'bg-gray-100 text-gray-600 border-gray-200'
-                                            }`}
+                                            } ${isArchived ? 'cursor-default opacity-80' : ''}`}
+                                            disabled={isArchived}
                                           >
                                             {lesson.visibleToStudents !== false ? <EyeIcon className="w-3.5 h-3.5" /> : <EyeSlashIcon className="w-3.5 h-3.5" />}
                                             學生端{lesson.visibleToStudents !== false ? '開放' : '隱藏'}
@@ -435,11 +448,13 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
                                         </div>
                                         <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
                                             <button onClick={() => handleEditClick(lesson)} className="flex items-center text-sm text-indigo-600 font-medium">
-                                                <PencilIcon className="w-4 h-4 mr-1" /> 編輯
+                                                {isArchived ? <EyeIcon className="w-4 h-4 mr-1" /> : <PencilIcon className="w-4 h-4 mr-1" />} {isArchived ? '查看' : '編輯'}
                                             </button>
-                                            <button onClick={() => handleDeleteLesson(lesson.id)} className="flex items-center text-sm text-red-500 font-medium">
-                                                <TrashIcon className="w-4 h-4 mr-1" /> 刪除
-                                            </button>
+                                            {!isArchived && (
+                                              <button onClick={() => handleDeleteLesson(lesson.id)} className="flex items-center text-sm text-red-500 font-medium">
+                                                  <TrashIcon className="w-4 h-4 mr-1" /> 刪除
+                                              </button>
+                                            )}
                                         </div>
                                     </div>
                                 )}
@@ -452,31 +467,38 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
         </div>
       </DragDropContext>
 
-      <Modal open={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingLesson ? '編輯課堂' : '新增課堂'} size="lg">
+      <Modal open={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingLesson ? (isArchived ? '查看課堂' : '編輯課堂') : '新增課堂'} size="lg">
          <div className="space-y-6">
+            {isArchived && (
+              <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl flex items-center shadow-sm">
+                <span className="font-bold mr-2">提示：</span>
+                此為封存課程，僅供檢視。
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                  <div className="md:col-span-2">
                     <label className="block text-sm font-bold text-gray-700 mb-1.5">課堂標題 <span className="text-red-500">*</span></label>
-                    <input type="text" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all outline-none" value={form.title} onChange={e => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="例如：第一章 數列與級數" />
+                    <input type="text" className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all outline-none ${isArchived ? 'bg-gray-100 text-gray-500' : ''}`} value={form.title} onChange={e => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="例如：第一章 數列與級數" disabled={isArchived} />
                  </div>
                  <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1.5">課程日期 <span className="text-red-500">*</span></label>
-                    <input type="date" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all outline-none" value={form.date} onChange={e => setForm((f) => ({ ...f, date: e.target.value }))} />
+                    <input type="date" className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all outline-none ${isArchived ? 'bg-gray-100 text-gray-500' : ''}`} value={form.date} onChange={e => setForm((f) => ({ ...f, date: e.target.value }))} disabled={isArchived} />
                  </div>
                  <div className="flex items-end">
-                    <label className="inline-flex items-center text-sm font-medium text-gray-700">
+                    <label className={`inline-flex items-center text-sm font-medium text-gray-700 ${isArchived ? 'opacity-60 cursor-default' : ''}`}>
                       <input
                         type="checkbox"
-                        className="w-4 h-4 text-indigo-600 rounded mr-2"
+                        className="w-4 h-4 text-indigo-600 rounded mr-2 accent-indigo-600 cursor-pointer disabled:opacity-50"
                         checked={form.visibleToStudents !== false}
                         onChange={(e) => setForm((f) => ({ ...f, visibleToStudents: e.target.checked }))}
+                        disabled={isArchived}
                       />
                       此課堂開放學生查看
                     </label>
                  </div>
                  <div className="md:col-span-2">
                     <label className="block text-sm font-bold text-gray-700 mb-1.5">課程進度</label>
-                    <textarea className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all outline-none" value={form.progress} onChange={e => setForm((f) => ({ ...f, progress: e.target.value }))} rows={3} placeholder="本堂課的教學重點..." />
+                    <textarea className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all outline-none resize-none ${isArchived ? 'bg-gray-100 text-gray-500' : ''}`} value={form.progress} onChange={e => setForm((f) => ({ ...f, progress: e.target.value }))} rows={3} placeholder="本堂課的教學重點..." disabled={isArchived} />
                  </div>
             </div>
             
@@ -484,8 +506,8 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
             <div className="border-t border-gray-100 pt-4">
                  <label className="flex items-center justify-between text-sm font-bold text-gray-700 mb-3">
                     <span className="flex items-center"><PaperClipIcon className="w-4 h-4 mr-1"/> 附件資源</span>
-                    <div className="flex items-center font-normal">
-                       <input type="checkbox" id="noAttachment" className="w-4 h-4 text-indigo-600 rounded mr-2" checked={form.noAttachment} onChange={e => setForm((f) => ({ ...f, noAttachment: e.target.checked }))} />
+                    <div className={`flex items-center font-normal ${isArchived ? 'opacity-60' : ''}`}>
+                       <input type="checkbox" id="noAttachment" className="w-4 h-4 text-indigo-600 rounded mr-2 accent-indigo-600 cursor-pointer disabled:opacity-50" checked={form.noAttachment} onChange={e => setForm((f) => ({ ...f, noAttachment: e.target.checked }))} disabled={isArchived} />
                        <label htmlFor="noAttachment" className="text-gray-500 text-xs">無附件</label>
                     </div>
                  </label>
@@ -493,27 +515,30 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
                     <div className="space-y-3 bg-gray-50 p-4 rounded-xl border border-gray-100">
                         {(form.attachments || []).map((att, idx) => (
                            <div key={idx} className="flex gap-2 items-center">
-                              <input type="text" className="border border-gray-300 rounded-lg px-3 py-2 w-1/3 text-sm focus:ring-indigo-500" placeholder="檔案名稱" value={att.name} onChange={e => handleAttachmentChange(idx, 'name', e.target.value)} />
-                              <input type="url" className="border border-gray-300 rounded-lg px-3 py-2 flex-1 text-sm focus:ring-indigo-500" placeholder="檔案連結 (URL)" value={att.url} onChange={e => handleAttachmentChange(idx, 'url', e.target.value)} />
-                              <label className="flex items-center text-xs text-gray-600 whitespace-nowrap px-2">
+                              <input type="text" className={`border border-gray-300 rounded-lg px-3 py-2 w-1/3 text-sm focus:ring-indigo-500 ${isArchived ? 'bg-gray-100 text-gray-500' : ''}`} placeholder="檔案名稱" value={att.name} onChange={e => handleAttachmentChange(idx, 'name', e.target.value)} disabled={isArchived} />
+                              <input type="url" className={`border border-gray-300 rounded-lg px-3 py-2 flex-1 text-sm focus:ring-indigo-500 ${isArchived ? 'bg-gray-100 text-gray-500' : ''}`} placeholder="檔案連結 (URL)" value={att.url} onChange={e => handleAttachmentChange(idx, 'url', e.target.value)} disabled={isArchived} />
+                              <label className={`flex items-center text-xs text-gray-600 whitespace-nowrap px-2 ${isArchived ? 'opacity-60' : ''}`}>
                                 <input
                                   type="checkbox"
-                                  className="w-4 h-4 text-indigo-600 rounded mr-1.5"
+                                  className="w-4 h-4 text-indigo-600 rounded mr-1.5 accent-indigo-600 cursor-pointer disabled:opacity-50"
                                   checked={att.visibleToStudents !== false}
                                   onChange={(e) => handleAttachmentVisibilityChange(idx, e.target.checked)}
+                                  disabled={isArchived}
                                 />
                                 學生可見
                               </label>
-                              {(form.attachments || []).length > 1 && (
+                              {!isArchived && (form.attachments || []).length > 1 && (
                                 <button type="button" className="text-red-400 hover:text-red-600 p-1" onClick={() => setForm(f => ({...f, attachments: f.attachments?.filter((_, i) => i !== idx)}))}>
                                    <XMarkIcon className="w-5 h-5"/>
                                 </button>
                               )}
                            </div>
                         ))}
-                        <button type="button" className="text-indigo-600 text-xs font-bold hover:text-indigo-800 flex items-center" onClick={() => setForm(f => ({...f, attachments: [...(f.attachments || []), {name:'', url:'', visibleToStudents: true}]}))}>
-                           <PlusIcon className="w-3 h-3 mr-1" /> 新增附件欄位
-                        </button>
+                        {!isArchived && (
+                          <button type="button" className="text-indigo-600 text-xs font-bold hover:text-indigo-800 flex items-center" onClick={() => setForm(f => ({...f, attachments: [...(f.attachments || []), {name:'', url:'', visibleToStudents: true}]}))}>
+                             <PlusIcon className="w-3 h-3 mr-1" /> 新增附件欄位
+                          </button>
+                        )}
                     </div>
                  )}
             </div>
@@ -524,17 +549,19 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
                     {(form.videos || []).map((video, idx) => (
                         <div key={idx} className="flex gap-2 items-center">
                            <LinkIcon className="w-4 h-4 text-gray-400" />
-                           <input type="url" className="border border-gray-300 rounded-lg px-3 py-2 flex-1 text-sm focus:ring-indigo-500 outline-none" placeholder="YouTube 或其他影片連結" value={video} onChange={e => handleVideoChange(idx, e.target.value)} />
-                           {(form.videos || []).length > 1 && (
+                           <input type="url" className={`border border-gray-300 rounded-lg px-3 py-2 flex-1 text-sm focus:ring-indigo-500 outline-none ${isArchived ? 'bg-gray-100 text-gray-500' : ''}`} placeholder="YouTube 或其他影片連結" value={video} onChange={e => handleVideoChange(idx, e.target.value)} disabled={isArchived} />
+                           {!isArchived && (form.videos || []).length > 1 && (
                              <button type="button" className="text-red-400 hover:text-red-600 p-1" onClick={() => setForm(f => ({...f, videos: f.videos?.filter((_, i) => i !== idx)}))}>
                                 <XMarkIcon className="w-5 h-5"/>
                              </button>
                            )}
                         </div>
                     ))}
-                    <button type="button" className="text-indigo-600 text-xs font-bold hover:text-indigo-800 flex items-center" onClick={() => setForm(f => ({...f, videos: [...(f.videos || []), '']}))}>
-                        <PlusIcon className="w-3 h-3 mr-1" /> 新增影片欄位
-                    </button>
+                    {!isArchived && (
+                      <button type="button" className="text-indigo-600 text-xs font-bold hover:text-indigo-800 flex items-center" onClick={() => setForm(f => ({...f, videos: [...(f.videos || []), '']}))}>
+                          <PlusIcon className="w-3 h-3 mr-1" /> 新增影片欄位
+                      </button>
+                    )}
                  </div>
             </div>
 
@@ -542,38 +569,40 @@ function LessonManager({ courseId, courseName, courseCode, onClose }: { courseId
                 <div>
                     <div className="flex justify-between mb-1">
                         <label className="text-sm font-bold text-gray-700">作業說明</label>
-                        <div className="flex items-center"><input type="checkbox" className="w-3 h-3 mr-1" checked={form.noHomework} onChange={e => setForm(f => ({...f, noHomework: e.target.checked}))} /><span className="text-xs text-gray-500">無作業</span></div>
+                        <div className={`flex items-center ${isArchived ? 'opacity-60' : ''}`}><input type="checkbox" className="w-4 h-4 text-indigo-600 rounded mr-1.5 accent-indigo-600 cursor-pointer disabled:opacity-50" checked={form.noHomework} onChange={e => setForm(f => ({...f, noHomework: e.target.checked}))} disabled={isArchived} /><span className="text-xs text-gray-500">無作業</span></div>
                     </div>
-                    {!form.noHomework && <textarea className="w-full border rounded-lg p-2 text-sm focus:ring-indigo-500" rows={2} value={form.homework} onChange={e => setForm(f => ({...f, homework: e.target.value}))} />}
+                    {!form.noHomework && <textarea className={`w-full border rounded-lg p-2 text-sm focus:ring-indigo-500 resize-none ${isArchived ? 'bg-gray-100 text-gray-500' : ''}`} rows={2} value={form.homework} onChange={e => setForm(f => ({...f, homework: e.target.value}))} disabled={isArchived} />}
                 </div>
                 <div>
                      <div className="flex justify-between mb-1">
                         <label className="text-sm font-bold text-gray-700">線上測驗</label>
-                        <div className="flex items-center"><input type="checkbox" className="w-3 h-3 mr-1" checked={form.noOnlineExam} onChange={e => setForm(f => ({...f, noOnlineExam: e.target.checked}))} /><span className="text-xs text-gray-500">無測驗</span></div>
+                        <div className={`flex items-center ${isArchived ? 'opacity-60' : ''}`}><input type="checkbox" className="w-4 h-4 text-indigo-600 rounded mr-1.5 accent-indigo-600 cursor-pointer disabled:opacity-50" checked={form.noOnlineExam} onChange={e => setForm(f => ({...f, noOnlineExam: e.target.checked}))} disabled={isArchived} /><span className="text-xs text-gray-500">無測驗</span></div>
                     </div>
-                    {!form.noOnlineExam && <textarea className="w-full border rounded-lg p-2 text-sm focus:ring-indigo-500" rows={2} value={form.onlineExam} onChange={e => setForm(f => ({...f, onlineExam: e.target.value}))} />}
+                    {!form.noOnlineExam && <textarea className={`w-full border rounded-lg p-2 text-sm focus:ring-indigo-500 resize-none ${isArchived ? 'bg-gray-100 text-gray-500' : ''}`} rows={2} value={form.onlineExam} onChange={e => setForm(f => ({...f, onlineExam: e.target.value}))} disabled={isArchived} />}
                 </div>
                 <div>
                      <div className="flex justify-between mb-1">
                         <label className="text-sm font-bold text-gray-700">考試範圍</label>
-                        <div className="flex items-center"><input type="checkbox" className="w-3 h-3 mr-1" checked={form.noExamScope} onChange={e => setForm(f => ({...f, noExamScope: e.target.checked}))} /><span className="text-xs text-gray-500">無範圍</span></div>
+                        <div className={`flex items-center ${isArchived ? 'opacity-60' : ''}`}><input type="checkbox" className="w-4 h-4 text-indigo-600 rounded mr-1.5 accent-indigo-600 cursor-pointer disabled:opacity-50" checked={form.noExamScope} onChange={e => setForm(f => ({...f, noExamScope: e.target.checked}))} disabled={isArchived} /><span className="text-xs text-gray-500">無範圍</span></div>
                     </div>
-                    {!form.noExamScope && <textarea className="w-full border rounded-lg p-2 text-sm focus:ring-indigo-500" rows={2} value={form.examScope} onChange={e => setForm(f => ({...f, examScope: e.target.value}))} />}
+                    {!form.noExamScope && <textarea className={`w-full border rounded-lg p-2 text-sm focus:ring-indigo-500 resize-none ${isArchived ? 'bg-gray-100 text-gray-500' : ''}`} rows={2} value={form.examScope} onChange={e => setForm(f => ({...f, examScope: e.target.value}))} disabled={isArchived} />}
                 </div>
                  <div>
                      <div className="flex justify-between mb-1">
                         <label className="text-sm font-bold text-gray-700">注意事項</label>
-                        <div className="flex items-center"><input type="checkbox" className="w-3 h-3 mr-1" checked={form.noNotes} onChange={e => setForm(f => ({...f, noNotes: e.target.checked}))} /><span className="text-xs text-gray-500">無事項</span></div>
+                        <div className={`flex items-center ${isArchived ? 'opacity-60' : ''}`}><input type="checkbox" className="w-4 h-4 text-indigo-600 rounded mr-1.5 accent-indigo-600 cursor-pointer disabled:opacity-50" checked={form.noNotes} onChange={e => setForm(f => ({...f, noNotes: e.target.checked}))} disabled={isArchived} /><span className="text-xs text-gray-500">無事項</span></div>
                     </div>
-                    {!form.noNotes && <textarea className="w-full border rounded-lg p-2 text-sm focus:ring-indigo-500" rows={2} value={form.notes} onChange={e => setForm(f => ({...f, notes: e.target.value}))} />}
+                    {!form.noNotes && <textarea className={`w-full border rounded-lg p-2 text-sm focus:ring-indigo-500 resize-none ${isArchived ? 'bg-gray-100 text-gray-500' : ''}`} rows={2} value={form.notes} onChange={e => setForm(f => ({...f, notes: e.target.value}))} disabled={isArchived} />}
                 </div>
             </div>
 
             <div className="flex justify-end pt-4 gap-3 border-t border-gray-100">
-                <button onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-gray-500 hover:text-gray-700">取消</button>
-                <button onClick={handleFormSubmit} disabled={isSubmitting || !form.title || !form.date} className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-400">
-                    {isSubmitting ? '處理中...' : '確認儲存'}
-                </button>
+                <button onClick={() => setIsModalOpen(false)} className={`px-4 py-2 ${isArchived ? 'bg-indigo-600 text-white rounded-lg hover:bg-indigo-700' : 'text-gray-500 hover:text-gray-700'}`}>{isArchived ? '關閉' : '取消'}</button>
+                {!isArchived && (
+                  <button onClick={handleFormSubmit} disabled={isSubmitting || !form.title || !form.date} className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-400">
+                      {isSubmitting ? '處理中...' : '確認儲存'}
+                  </button>
+                )}
             </div>
          </div>
       </Modal>
@@ -724,10 +753,32 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
            (selectedSubject === 'all' || course.subjectTag === selectedSubject) &&
            natureMatch &&
            statusMatch;
+  }).sort((a, b) => {
+      const statuses = ['報名中', '開課中', '未開課', '已額滿', '已結束', '已封存', '資料建置中...'];
+      const statusA = statuses.indexOf(a.status);
+      const statusB = statuses.indexOf(b.status);
+      const priorityA = statusA !== -1 ? statusA : 999;
+      const priorityB = statusB !== -1 ? statusB : 999;
+
+      if (priorityA !== priorityB) {
+          return priorityA - priorityB;
+      }
+
+      const codeA = a.code || '';
+      const codeB = b.code || '';
+      
+
+      const codeCompare = codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
+      
+      if (codeCompare !== 0) return codeCompare;
+      
+      const nameA = a.name || '';
+      const nameB = b.name || '';
+      return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
   });
 
   if (showLessonManager) {
-    return <LessonManager courseId={showLessonManager.id} courseName={showLessonManager.name} courseCode={showLessonManager.code} onClose={() => setShowLessonManager(null)} />;
+    return <LessonManager courseId={showLessonManager.id} courseName={showLessonManager.name} courseCode={showLessonManager.code} isArchived={showLessonManager.status === '已封存'} onClose={() => setShowLessonManager(null)} />;
   }
 
   if (loading) return <div className="fixed inset-0 bg-white z-[9999] flex items-center justify-center"><LoadingSpinner size={60} /></div>;
@@ -817,8 +868,8 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                               </td>
                               <td className="px-6 py-4 text-right whitespace-nowrap">
                                   <div className="flex justify-end gap-2">
-                                      <button className="btn-primary px-3 py-1.5 text-sm" onClick={() => setShowLessonManager(course)}>管理</button>
-                                      <button className="btn-secondary px-3 py-1.5 text-sm" onClick={() => handleShowCourseDetail(course)}>詳情</button>
+                                      <button className="px-3 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm" onClick={() => setShowLessonManager(course)}>管理</button>
+                                      <button className="px-3 py-1.5 bg-white text-indigo-600 border border-indigo-200 text-sm font-medium rounded-lg hover:bg-indigo-50 transition-colors shadow-sm" onClick={() => handleShowCourseDetail(course)}>詳情</button>
                                   </div>
                               </td>
                           </tr>
@@ -845,8 +896,8 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                       </div>
                   )}
                   <div className="flex justify-end gap-2">
-                      <button className="btn-primary w-full py-2 text-sm" onClick={() => setShowLessonManager(course)}>管理課程</button>
-                      <button className="btn-secondary w-full py-2 text-sm" onClick={() => handleShowCourseDetail(course)}>詳情</button>
+                      <button className="w-full py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm" onClick={() => setShowLessonManager(course)}>管理課程</button>
+                      <button className="w-full py-2 bg-white text-indigo-600 border border-indigo-200 text-sm font-medium rounded-lg hover:bg-indigo-50 transition-colors shadow-sm" onClick={() => handleShowCourseDetail(course)}>詳情</button>
                   </div>
               </div>
           ))}
@@ -857,13 +908,13 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowCourseDetail(null)}></div>
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl h-[90vh] overflow-hidden flex flex-col animate-bounce-in">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-              <h2 className="text-xl font-bold text-gray-800 pr-8 line-clamp-1">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
+              <h2 className="text-xl font-bold pr-8 line-clamp-1 flex items-center">
                 {showCourseDetail.name}
               </h2>
               <button 
                 onClick={() => setShowCourseDetail(null)}
-                className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 flex items-center justify-center transition-colors"
+                className="text-white/80 hover:text-white transition-colors p-1 rounded-full hover:bg-white/20"
               >
                 <XMarkIcon className="w-5 h-5" />
               </button>

@@ -27,6 +27,7 @@ interface Props {
   periodicColumnDetails?: Record<string, { name?: string; date?: string; type?: string }>;
   onUpdateRegularScore: (studentId: string, colIdx: number, value?: number) => void;
   _onUpdatePeriodicScore: (studentId: string, scoreName: string, value?: number) => void;
+  isArchived?: boolean;
 }
 
 export default function GradeRegistrationMobile({
@@ -38,6 +39,7 @@ export default function GradeRegistrationMobile({
   periodicColumnDetails = {},
   onUpdateRegularScore,
   _onUpdatePeriodicScore,
+  isArchived = false,
 }: Props) {
   const [openIdx, setOpenIdx] = useState<number | null>(null);
   const [openPeriodicIdx, setOpenPeriodicIdx] = useState<number | null>(null);
@@ -95,9 +97,10 @@ export default function GradeRegistrationMobile({
                             <div className="flex-1 max-w-[120px]">
                               <input
                                   inputMode="numeric"
-                                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-center text-lg font-bold bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow shadow-sm placeholder-gray-300"
+                                  className={`w-full border border-gray-300 rounded-xl px-3 py-2.5 text-center text-lg font-bold bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow shadow-sm placeholder-gray-300 ${isArchived ? 'opacity-50 cursor-not-allowed bg-gray-50' : ''}`}
                                   placeholder="-"
                                   value={stu.regularScores?.[idx] ?? ''}
+                                  readOnly={isArchived}
                                   onChange={e => {
                                     const v = e.target.value;
                                     onUpdateRegularScore(stu.id, idx, v === '' ? undefined : parseInt(v, 10));
@@ -160,9 +163,10 @@ export default function GradeRegistrationMobile({
                                     <div className="flex-1 max-w-[120px]">
                                         <input
                                             inputMode="numeric"
-                                            className="w-full border border-gray-300 rounded-xl px-3 py-2 text-center text-lg font-bold bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow shadow-sm placeholder-gray-300"
+                                            className={`w-full border border-gray-300 rounded-xl px-3 py-2 text-center text-lg font-bold bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow shadow-sm placeholder-gray-300 ${isArchived ? 'opacity-50 cursor-not-allowed bg-gray-50' : ''}`}
                                             placeholder="-"
                                             value={stu.periodicScores?.[scoreName] ?? ''}
+                                            readOnly={isArchived}
                                             onChange={e => {
                                               const v = e.target.value;
                                               _onUpdatePeriodicScore(stu.id, scoreName, v === '' ? undefined : parseInt(v, 10));

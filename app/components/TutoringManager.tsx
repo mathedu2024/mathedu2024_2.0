@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { PlusIcon, PencilIcon, TrashIcon, UserIcon, MapPinIcon, ClockIcon, TagIcon, ChatBubbleLeftRightIcon, EnvelopeIcon, ClipboardIcon, ChevronDownIcon, CalendarIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, PencilIcon, TrashIcon, UserIcon, MapPinIcon, ClockIcon, TagIcon, ChatBubbleLeftRightIcon, EnvelopeIcon, ClipboardIcon, ChevronDownIcon, CalendarIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { format as formatFns, startOfWeek, addDays, isSameDay, parseISO, isPast, addWeeks, subWeeks, type Locale } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import alerts from '@/utils/alerts';
@@ -613,14 +613,17 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
 
       {showBookingsModal && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-[9999] p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-2xl animate-bounce-in border border-gray-100">
-            <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-100">
-              <h2 className="text-xl font-bold text-gray-800">{currentSlotTitle} - 預約名單</h2>
-              <button onClick={() => setShowBookingsModal(false)} className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center transition-colors">
-                  &times;
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in transform scale-100">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
+              <h2 className="text-xl font-bold flex items-center">{currentSlotTitle} - 預約名單</h2>
+              <button 
+                onClick={() => setShowBookingsModal(false)} 
+                className="text-white/80 hover:text-white transition-colors p-1 rounded-full hover:bg-white/10"
+              >
+                  <XMarkIcon className="w-6 h-6" />
               </button>
             </div>
-            <div className="max-h-[60vh] overflow-y-auto custom-scrollbar">
+            <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
               {currentBookedStudents.length > 0 ? (
                 <div className="space-y-3">
                   {currentBookedStudents.map((student, index) => (
@@ -658,8 +661,8 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
                 <div className="text-center py-8 text-gray-500">目前沒有學生預約此時段。</div>
               )}
             </div>
-            <div className="flex justify-end mt-6 pt-4 border-t border-gray-100">
-              <button className="px-6 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 shadow-sm transition-colors" onClick={() => setShowBookingsModal(false)}>
+            <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-2 flex-shrink-0">
+              <button className="px-6 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm transition-colors" onClick={() => setShowBookingsModal(false)}>
                 關閉
               </button>
             </div>
@@ -670,11 +673,20 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
 
       {isModalOpen && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-[9999] p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-bounce-in border border-gray-100">
-            <h2 className="text-xl font-bold mb-6 text-gray-800 border-l-4 border-indigo-500 pl-3">
-                {selectedSlot ? '編輯輔導時段' : '新增輔導時段'}
-            </h2>
-            <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in transform scale-100">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
+              <h2 className="text-xl font-bold flex items-center">
+                  {selectedSlot ? '編輯輔導時段' : '新增輔導時段'}
+              </h2>
+              <button 
+                onClick={() => setIsModalOpen(false)} 
+                className="text-white/80 hover:text-white transition-colors p-1 rounded-full hover:bg-white/10"
+              >
+                  <XMarkIcon className="w-6 h-6" />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-6 space-y-5 overflow-y-auto custom-scrollbar">
               <div>
                 <label htmlFor="title" className="block text-sm font-bold text-gray-700 mb-1">標題</label>
                 <input type="text" id="title" name="title" value={form.title} onChange={handleFormChange} required 
@@ -855,12 +867,13 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
                     placeholder="選填，提供更多資訊..."
                 ></textarea>
               </div>
+              </div>
 
-              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-2 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 font-medium transition-colors">
+              <div className="p-4 bg-gray-50 border-t border-gray-100 flex gap-2 flex-shrink-0">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 bg-white border border-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
                     取消
                 </button>
-                <button type="submit" className="px-6 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 shadow-sm font-medium transition-colors disabled:opacity-70 disabled:cursor-not-allowed" disabled={loading}>
+                <button type="submit" className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled={loading}>
                   {loading ? <LoadingSpinner size={20} color="white" /> : (selectedSlot ? '儲存變更' : '新增時段')}
                 </button>
               </div>

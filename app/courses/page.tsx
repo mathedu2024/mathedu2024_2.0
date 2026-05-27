@@ -126,6 +126,27 @@ export default function CoursesPage() {
       const matchesStatus = selectedStatus === 'all' || course.status === selectedStatus;
       
       return !course.archived && course.showInIntroduction && matchesGrade && matchesSubject && matchesNature && matchesStatus;
+    }).sort((a, b) => {
+        const statusA = statuses.indexOf(a.status);
+        const statusB = statuses.indexOf(b.status);
+        const priorityA = statusA !== -1 ? statusA : 999;
+        const priorityB = statusB !== -1 ? statusB : 999;
+
+        if (priorityA !== priorityB) {
+            return priorityA - priorityB;
+        }
+
+        const codeA = a.code || '';
+        const codeB = b.code || '';
+        
+
+        const codeCompare = codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
+        
+        if (codeCompare !== 0) return codeCompare;
+        
+        const nameA = a.name || '';
+        const nameB = b.name || '';
+        return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
     });
   }, [courses, selectedGrade, selectedSubject, selectedNature, selectedStatus]);
 
@@ -385,13 +406,13 @@ export default function CoursesPage() {
           
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl h-[90vh] overflow-hidden flex flex-col animate-bounce-in">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-              <h2 className="text-xl font-bold text-gray-800 pr-8 line-clamp-1">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
+              <h2 className="text-xl font-bold pr-8 line-clamp-1 flex items-center">
                 {selectedCourse.name}
               </h2>
               <button 
                 onClick={handleCloseModal}
-                className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 flex items-center justify-center transition-colors"
+                className="text-white/80 hover:text-white transition-colors p-1 rounded-full hover:bg-white/20"
               >
                 <i className="fas fa-times"></i>
               </button>

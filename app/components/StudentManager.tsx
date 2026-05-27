@@ -1107,7 +1107,7 @@ export default function StudentManager() {
                                   type="checkbox"
                                   checked={selectedStudentIds.includes(student.id)}
                                   onChange={() => toggleStudentSelection(student.id)}
-                                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 accent-indigo-600 cursor-pointer"
                                 />
                                 選取此學生
                               </label>
@@ -1174,7 +1174,7 @@ export default function StudentManager() {
                             type="checkbox"
                             checked={isAllFilteredSelected}
                             onChange={toggleSelectAllFiltered}
-                            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 accent-indigo-600 cursor-pointer"
                             title="全選目前篩選結果"
                           />
                         </th>
@@ -1195,7 +1195,7 @@ export default function StudentManager() {
                               type="checkbox"
                               checked={selectedStudentIds.includes(student.id)}
                               onChange={() => toggleStudentSelection(student.id)}
-                              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 accent-indigo-600 cursor-pointer"
                             />
                           </td>
                           <td className="px-6 py-4 font-bold text-gray-900">{student.name}</td>
@@ -1261,14 +1261,17 @@ export default function StudentManager() {
       {/* Import Excel Modal */}
       {isImportModalOpen && createPortal(
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 relative animate-bounce-in">
-            <button onClick={() => setIsImportModalOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
-              <XMarkIcon className="w-6 h-6" />
-            </button>
-            <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
-              <CloudArrowUpIcon className="w-6 h-6 text-indigo-600 mr-2" />
-              匯入 Excel 檔案
-            </h2>
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md flex flex-col overflow-hidden animate-bounce-in">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
+              <h3 className="text-xl font-bold flex items-center">
+                <CloudArrowUpIcon className="w-6 h-6 mr-2" />
+                匯入 Excel 檔案
+              </h3>
+              <button onClick={() => setIsImportModalOpen(false)} className="text-white/80 hover:text-white transition-colors p-1 rounded-full hover:bg-white/20">
+                <XMarkIcon className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6 bg-white">
             
             <div 
               className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${dragActive ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 bg-gray-50 hover:bg-gray-100'}`}
@@ -1284,6 +1287,7 @@ export default function StudentManager() {
               <button className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-colors shadow-sm">
                 瀏覽檔案
               </button>
+              </div>
             </div>
           </div>
         </div>,

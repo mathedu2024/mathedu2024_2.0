@@ -10,6 +10,7 @@ import {
   ChartBarIcon,
   PlusIcon,
   ArrowDownTrayIcon,
+  ArrowLeftIcon,
 } from '@heroicons/react/24/outline';
 import CourseFilter from './CourseFilter';
 import GradeRegistrationMobile from './GradeRegistrationMobile';
@@ -68,10 +69,10 @@ const Modal = ({ open, onClose, title, size = 'md', children }: { open?: boolean
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex justify-center items-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
-      <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${maxWidth} max-h-[90vh] flex flex-col border border-gray-100`}>
-        <div className="flex justify-between items-center px-6 py-4 border-b bg-gray-50/50 rounded-t-2xl">
-          <h3 className="text-xl font-bold text-gray-800">{title}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-200">
+      <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${maxWidth} max-h-[90vh] flex flex-col overflow-hidden`}>
+        <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white">
+          <h3 className="font-bold flex items-center">{title}</h3>
+          <button onClick={onClose} className="text-white/80 hover:text-white">
             <XMarkIcon className="w-6 h-6" />
           </button>
         </div>
@@ -395,8 +396,31 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
              (selectedSubject === 'all' || course.subjectTag === selectedSubject) &&
              natureMatch &&
              statusMatch;
+    }).sort((a, b) => {
+        const statuses = ['報名中', '開課中', '未開課', '已額滿', '已結束', '已封存', '資料建置中...'];
+        const statusA = statuses.indexOf(a.status || '');
+        const statusB = statuses.indexOf(b.status || '');
+        const priorityA = statusA !== -1 ? statusA : 999;
+        const priorityB = statusB !== -1 ? statusB : 999;
+
+        if (priorityA !== priorityB) {
+            return priorityA - priorityB;
+        }
+
+        const codeA = a.code || '';
+        const codeB = b.code || '';
+
+        const codeCompare = codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
+        
+        if (codeCompare !== 0) return codeCompare;
+        
+        const nameA = a.name || '';
+        const nameB = b.name || '';
+        return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
     });
   }, [courses, searchTerm, selectedGrade, selectedSubject, selectedNature, selectedStatus]);
+
+  const isArchived = selectedCourse?.status === '已封存';
 
   // --- 渲染部分 ---
   if (isLoading) return <div className="flex justify-center p-20"><LoadingSpinner size={50} text="載入課程中..." /></div>;
@@ -413,7 +437,9 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
           <p className="text-gray-500 text-sm mt-1">設定評量比例並登記學生的平時與定期成績。</p>
         </div>
         {selectedCourse && (
-          <button onClick={() => setSelectedCourse(null)} className="text-sm text-indigo-600 hover:underline">返回列表</button>
+          <button onClick={() => setSelectedCourse(null)} className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors shadow-sm font-medium flex items-center text-sm">
+            <ArrowLeftIcon className="w-4 h-4 mr-2" /> 返回列表
+          </button>
         )}
       </div>
 
@@ -499,6 +525,12 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
       ) : (
         /* 管理主畫面 */
         <div className="space-y-4">
+          {isArchived && (
+            <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl flex items-center shadow-sm">
+              <span className="font-bold mr-2">提示：</span>
+              此課程已封存，您只能查看成績紀錄與下載 Excel，無法修改成績。
+            </div>
+          )}
           {/* 工具列 */}
           <div className="flex flex-wrap items-center gap-3 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
             <div className="flex bg-gray-100 p-1 rounded-xl">
@@ -508,25 +540,27 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                 </button>
               ))}
             </div>
-            <button className="btn-secondary flex items-center" onClick={() => setShowSettingsModal(true)}><AdjustmentsHorizontalIcon className="w-4 h-4 mr-2" />權重設定</button>
-            {selectedTab === 'regular' && (
+            <button className="px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 transition-colors shadow-sm flex items-center disabled:opacity-50 disabled:cursor-not-allowed" onClick={() => setShowSettingsModal(true)} disabled={isArchived}><AdjustmentsHorizontalIcon className="w-5 h-5 mr-2" />權重設定</button>
+            {selectedTab === 'regular' && !isArchived && (
               <button
                 type="button"
-                className="btn-secondary flex items-center border-dashed border-2 border-indigo-200 text-indigo-700"
+                className="px-5 py-2.5 bg-white text-indigo-600 border border-indigo-200 border-dashed rounded-xl hover:bg-indigo-50 font-medium transition-colors shadow-sm flex items-center"
                 onClick={addRegularColumn}
               >
-                <PlusIcon className="w-4 h-4 mr-2" />
+                <PlusIcon className="w-5 h-5 mr-2" />
                 新增平時欄位
               </button>
             )}
-            <button className="btn-secondary flex items-center" onClick={handleExportGrades}>
-              <ArrowDownTrayIcon className="w-4 h-4 mr-2" />
+            <button className={`px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 transition-colors shadow-sm flex items-center ${isArchived ? 'ml-auto' : ''}`} onClick={handleExportGrades}>
+              <ArrowDownTrayIcon className="w-5 h-5 mr-2" />
               匯出成績
             </button>
-            <button className="btn-primary ml-auto flex items-center" onClick={handleSaveChanges} disabled={isSaving}>
-              {isSaving ? <LoadingSpinner size={16} color="white" className="mr-2" /> : <CloudArrowUpIcon className="w-5 h-5 mr-2" />}
-              {isSaving ? '儲存中...' : '儲存變更'}
-            </button>
+            {!isArchived && (
+              <button className="px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 transition-colors shadow-sm flex items-center ml-auto disabled:opacity-50 disabled:cursor-not-allowed" onClick={handleSaveChanges} disabled={isSaving}>
+                {isSaving ? <LoadingSpinner size={20} color="white" className="mr-2" /> : <CloudArrowUpIcon className="w-5 h-5 mr-2" />}
+                {isSaving ? '儲存中...' : '儲存變更'}
+              </button>
+            )}
           </div>
 
           
@@ -549,6 +583,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
               periodicColumnDetails={periodicColumnDetails}
               onUpdateRegularScore={(studentId, colIdx, value) => handleScoreChange(studentId, 'reg', colIdx, String(value ?? ''))}
               _onUpdatePeriodicScore={(studentId, scoreName, value) => handleScoreChange(studentId, 'peri', scoreName, String(value ?? ''))}
+              isArchived={isArchived}
             />
             <div className="hidden md:block overflow-x-auto custom-scrollbar">
               <table className="w-full text-sm text-left">
@@ -559,7 +594,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                     {selectedTab === 'regular' && Array.from({ length: regularColumns }).map((_, i) => (
                       <th key={i} className="px-4 py-4 min-w-[120px] text-center border-b">
                         <div className="text-[10px] text-gray-400 mb-1">{columnDetails[i]?.type || '未設定'}</div>
-                        <div className="cursor-pointer hover:text-indigo-600" onClick={() => setColumnEditor({ kind: 'regular', index: i })}>
+                        <div className={`cursor-pointer hover:text-indigo-600 ${isArchived ? 'text-gray-600' : ''}`} onClick={() => setColumnEditor({ kind: 'regular', index: i })}>
                           {columnDetails[i]?.name || `成績${i + 1}`}
                         </div>
                         {columnDetails[i]?.date ? (
@@ -573,7 +608,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                         return (
                           <th key={pk} className="px-4 py-4 min-w-[140px] text-center border-b">
                             <div className="text-[10px] text-gray-400 mb-1">{meta?.type || '定期評量'}</div>
-                            <div className="cursor-pointer hover:text-indigo-600 text-sm font-bold text-gray-800" onClick={() => setColumnEditor({ kind: 'periodic', key: pk })}>
+                            <div className="cursor-pointer text-sm font-bold hover:text-indigo-600 text-gray-800" onClick={() => setColumnEditor({ kind: 'periodic', key: pk })}>
                               {pk}
                             </div>
                             {meta?.date ? (
@@ -600,9 +635,10 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                         <td key={colIdx} className="px-4 py-2 text-center">
                           <input 
                             type="number" 
-                            className={`w-20 border rounded-lg px-2 py-1.5 text-center focus:ring-2 focus:ring-indigo-500 outline-none ${ (stu.regularScores[colIdx] ?? 0) < 60 ? 'text-red-500 font-bold' : ''}`}
+                            className={`w-20 border rounded-lg px-2 py-1.5 text-center focus:ring-2 focus:ring-indigo-500 outline-none ${ (stu.regularScores[colIdx] ?? 0) < 60 ? 'text-red-500 font-bold' : ''} ${isArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
                             value={stu.regularScores[colIdx] ?? ''}
                             onChange={(e) => handleScoreChange(stu.id, 'reg', colIdx, e.target.value)}
+                            disabled={isArchived}
                           />
                         </td>
                       ))}
@@ -611,9 +647,10 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                           <td key={pk} className="px-4 py-2 text-center">
                             <input
                               type="number"
-                              className={`w-20 border rounded-lg px-2 py-1.5 text-center focus:ring-2 focus:ring-indigo-500 outline-none ${(stu.periodicScores?.[pk] ?? 0) < 60 ? 'text-red-500 font-bold' : ''}`}
+                              className={`w-20 border rounded-lg px-2 py-1.5 text-center focus:ring-2 focus:ring-indigo-500 outline-none ${(stu.periodicScores?.[pk] ?? 0) < 60 ? 'text-red-500 font-bold' : ''} ${isArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
                               value={stu.periodicScores?.[pk] ?? ''}
                               onChange={(e) => handleScoreChange(stu.id, 'peri', pk, e.target.value)}
+                              disabled={isArchived}
                             />
                           </td>
                         ))}
@@ -694,6 +731,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                     <label key={k} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
                       <input
                         type="checkbox"
+                        className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 accent-indigo-600 cursor-pointer"
                         checked={s.periodicEnabled[k] !== false}
                         onChange={(e) =>
                           setSettings((prev) => {
@@ -715,7 +753,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                 <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
                   <input
                     type="checkbox"
-                    className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                    className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 accent-indigo-600 cursor-pointer"
                     checked={s.periodicEnabled?.['showTotalGradeToStudents'] !== false}
                     onChange={(e) =>
                       setSettings((prev) => {
@@ -735,7 +773,10 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
               </div>
               <button
                 className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-100"
-                onClick={() => setShowSettingsModal(false)}
+                onClick={() => {
+                  setShowSettingsModal(false);
+                  handleSaveChanges();
+                }}
               >
                 確認設定
               </button>
@@ -759,8 +800,9 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                   <label className="text-xs text-gray-500">項目名稱</label>
                   <input
                     type="text"
-                    className="w-full border rounded-lg p-2 mt-1"
+                    className={`w-full border rounded-lg p-2 mt-1 ${isArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
                     value={columnDetails[columnEditor.index]?.name ?? ''}
+                    disabled={isArchived}
                     onChange={(e) =>
                       setColumnDetails((prev) => ({
                         ...prev,
@@ -777,8 +819,9 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                   <label className="text-xs text-gray-500">日期</label>
                   <input
                     type="date"
-                    className="w-full border rounded-lg p-2 mt-1"
+                    className={`w-full border rounded-lg p-2 mt-1 ${isArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
                     value={columnDetails[columnEditor.index]?.date ?? ''}
+                    disabled={isArchived}
                     onChange={(e) =>
                       setColumnDetails((prev) => ({
                         ...prev,
@@ -794,8 +837,9 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                 <div>
                   <label className="text-xs text-gray-500">成績類別</label>
                   <select
-                    className="w-full border rounded-lg p-2 mt-1"
+                    className={`w-full border rounded-lg p-2 mt-1 ${isArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
                     value={columnDetails[columnEditor.index]?.type ?? '小考'}
+                    disabled={isArchived}
                     onChange={(e) =>
                       setColumnDetails((prev) => ({
                         ...prev,
@@ -823,8 +867,9 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                   <label className="text-xs text-gray-500">日期</label>
                   <input
                     type="date"
-                    className="w-full border rounded-lg p-2 mt-1"
+                    className={`w-full border rounded-lg p-2 mt-1 ${isArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
                     value={periodicColumnDetails[columnEditor.key]?.date ?? ''}
+                    disabled={isArchived}
                     onChange={(e) =>
                       setPeriodicColumnDetails((prev) => ({
                         ...prev,
@@ -841,8 +886,9 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                   <label className="text-xs text-gray-500">成績類別</label>
                   <input
                     type="text"
-                    className="w-full border rounded-lg p-2 mt-1"
+                    className={`w-full border rounded-lg p-2 mt-1 ${isArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
                     value={periodicColumnDetails[columnEditor.key]?.type ?? '定期評量'}
+                    disabled={isArchived}
                     onChange={(e) =>
                       setPeriodicColumnDetails((prev) => ({
                         ...prev,
@@ -917,7 +963,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
               <p className="text-sm text-gray-500 text-center py-4">尚無分數資料或無法載入統計（儲存後全班有分數時會顯示）</p>
             )}
 
-            {columnEditor.kind === 'regular' && (
+            {columnEditor.kind === 'regular' && !isArchived && (
               <div className="border-t pt-4">
                 <button
                   type="button"

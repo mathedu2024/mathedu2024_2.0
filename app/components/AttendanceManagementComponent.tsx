@@ -80,14 +80,14 @@ const Modal = ({ open, onClose, title, size = 'md', children }: { open: boolean;
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex justify-center items-center p-4 animate-fade-in">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
-      <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${maxWidthClass} max-h-[90vh] flex flex-col animate-bounce-in border border-gray-100`}>
-        <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex-shrink-0 rounded-t-2xl">
-          <h3 className="text-xl font-bold text-gray-800">{title}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-200">
+      <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${maxWidthClass} max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in border border-gray-100`}>
+        <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
+          <h3 className="text-xl font-bold flex items-center">{title}</h3>
+          <button onClick={onClose} className="text-white/80 hover:text-white transition-colors p-1 rounded-full hover:bg-white/20">
             <XMarkIcon className="w-6 h-6" />
           </button>
         </div>
-        <div className="p-6 flex-1 overflow-y-auto custom-scrollbar">{children}</div>
+        <div className="p-6 flex-1 overflow-y-auto custom-scrollbar bg-white">{children}</div>
       </div>
     </div>,
     document.body
@@ -107,13 +107,24 @@ const FixedDropdownPortal = ({ isOpen, onClose, options, onSelect, triggerRef }:
   const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
 
   useEffect(() => {
-    if (isOpen && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      setCoords({
-        top: rect.bottom + window.scrollY + 4,
-        left: rect.left + window.scrollX,
-        width: Math.max(rect.width, 100)
-      });
+    if (isOpen) {
+      const updatePosition = () => {
+        if (triggerRef.current) {
+          const rect = triggerRef.current.getBoundingClientRect();
+          setCoords({
+            top: rect.bottom + 4,
+            left: rect.left,
+            width: Math.max(rect.width, 100)
+          });
+        }
+      };
+      updatePosition();
+      window.addEventListener('scroll', updatePosition, true);
+      window.addEventListener('resize', updatePosition);
+      return () => {
+        window.removeEventListener('scroll', updatePosition, true);
+        window.removeEventListener('resize', updatePosition);
+      };
     }
   }, [isOpen, triggerRef]);
 
@@ -152,7 +163,7 @@ const FixedDropdownPortal = ({ isOpen, onClose, options, onSelect, triggerRef }:
 };
 
 // --- 請假按鈕組件 (整合懸浮選單) ---
-const LeaveButton = ({ currentStatus, onSetStatus }: { currentStatus: string, onSetStatus: (val: string) => void }) => {
+const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { currentStatus: string, onSetStatus: (val: string) => void, disabled?: boolean }) => {
   const [isOpen, setIsOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   
@@ -164,25 +175,27 @@ const LeaveButton = ({ currentStatus, onSetStatus }: { currentStatus: string, on
       <div className="relative inline-flex items-center">
         {/* 左側：主按鈕 (點擊切換為預設請假或保持當前假別) */}
         <button
+          disabled={disabled}
           onClick={() => onSetStatus(isLeave ? currentStatus : '病假')}
           className={`px-3 py-1.5 rounded-l-lg border text-xs font-bold transition-all border-r-0 ${
             isLeave 
               ? 'bg-blue-500 text-white border-blue-500 shadow-md ring-2 ring-blue-200' 
               : 'bg-white text-gray-500 hover:bg-blue-50 hover:text-blue-600 border-gray-200'
-          }`}
+          } ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
         >
           {displayLabel}
         </button>
         
         {/* 右側：下拉觸發 (僅在已是請假狀態或想要選擇假別時使用) */}
         <button
+          disabled={disabled}
           ref={buttonRef}
           onClick={() => setIsOpen(!isOpen)}
           className={`px-1.5 py-1.5 rounded-r-lg border text-xs font-bold transition-all flex items-center justify-center ${
             isLeave 
               ? 'bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-200' 
               : 'bg-white text-gray-500 hover:bg-blue-50 hover:text-blue-600 border-gray-200'
-          }`}
+          } ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
         >
           <ChevronDownIcon className="w-3 h-3" />
         </button>
@@ -210,9 +223,10 @@ interface AttendanceRosterManagerProps {
   students: Student[];
   onClose: () => void;
   initialActivityData?: AttendanceActivity | null;
+  isArchived?: boolean;
 }
 
-function AttendanceRosterManager({ activityId, courseId, courseName, students = [], onClose, initialActivityData }: AttendanceRosterManagerProps) {
+function AttendanceRosterManager({ activityId, courseId, courseName, students = [], onClose, initialActivityData, isArchived = false }: AttendanceRosterManagerProps) {
   const safeStudents = Array.isArray(students) ? students : [];
   
   const [records, setRecords] = useState<Record<string, { status: string; leaveType?: string }>>({});
@@ -402,15 +416,24 @@ function AttendanceRosterManager({ activityId, courseId, courseName, students = 
           </div>
           <p className="text-gray-500 text-sm mt-1">{courseName} • 共 {safeStudents.length} 人</p>
         </div>
-        <div className="flex gap-2 self-end md:self-auto">
-          <button onClick={markAllPresent} className="btn-secondary text-sm flex items-center">
-            <CheckCircleIcon className="w-4 h-4 mr-1" /> 一鍵全到
-          </button>
-          <button onClick={handleSave} disabled={saving} className="btn-primary flex items-center shadow-lg transform active:scale-95 transition-all">
-            {saving ? <LoadingSpinner size={16} color="white" /> : <><CloudArrowUpIcon className="w-5 h-5 mr-1" /> 儲存紀錄</>}
-          </button>
-        </div>
+        {!isArchived && (
+          <div className="flex gap-2 self-end md:self-auto">
+            <button onClick={markAllPresent} className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center">
+              <CheckCircleIcon className="w-4 h-4 mr-1" /> 一鍵全到
+            </button>
+            <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center transform active:scale-95">
+              {saving ? <LoadingSpinner size={16} color="white" /> : <><CloudArrowUpIcon className="w-5 h-5 mr-1" /> 儲存紀錄</>}
+            </button>
+          </div>
+        )}
       </div>
+
+      {isArchived && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl flex items-center shadow-sm mb-4">
+          <span className="font-bold mr-2">提示：</span>
+          此課程已封存，您只能查看點名紀錄，無法進行修改。
+        </div>
+      )}
 
       {/* Stats Bar */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4 mb-4">
@@ -458,25 +481,26 @@ function AttendanceRosterManager({ activityId, courseId, courseName, students = 
                                         <td className="px-6 py-4">
                                             <div className="flex gap-2 items-center">
                                                 {/* 出席 */}
-                                                <button onClick={() => handleSetStatus(student.studentId, 'present')} className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${currentStatus === 'present' ? 'bg-emerald-500 text-white border-emerald-500 shadow-md ring-2 ring-emerald-200' : 'bg-white text-gray-500 hover:bg-emerald-50 hover:text-emerald-600'}`}>出席</button>
+                                                <button disabled={isArchived} onClick={() => handleSetStatus(student.studentId, 'present')} className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${currentStatus === 'present' ? 'bg-emerald-500 text-white border-emerald-500 shadow-md ring-2 ring-emerald-200' : 'bg-white text-gray-500 hover:bg-emerald-50 hover:text-emerald-600'} ${isArchived ? 'opacity-60 cursor-not-allowed' : ''}`}>出席</button>
                                                 
                                                 {/* 遲到 */}
-                                                <button onClick={() => handleSetStatus(student.studentId, 'late')} className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${currentStatus === 'late' ? 'bg-amber-500 text-white border-amber-500 shadow-md ring-2 ring-amber-200' : 'bg-white text-gray-500 hover:bg-amber-50 hover:text-amber-600'}`}>遲到</button>
+                                                <button disabled={isArchived} onClick={() => handleSetStatus(student.studentId, 'late')} className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${currentStatus === 'late' ? 'bg-amber-500 text-white border-amber-500 shadow-md ring-2 ring-amber-200' : 'bg-white text-gray-500 hover:bg-amber-50 hover:text-amber-600'} ${isArchived ? 'opacity-60 cursor-not-allowed' : ''}`}>遲到</button>
 
                                                 {/* 曠課 */}
-                                                <button onClick={() => handleSetStatus(student.studentId, 'absent')} className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${currentStatus === 'absent' ? 'bg-rose-500 text-white border-rose-500 shadow-md ring-2 ring-rose-200' : 'bg-white text-gray-500 hover:bg-rose-50 hover:text-rose-600'}`}>曠課</button>
+                                                <button disabled={isArchived} onClick={() => handleSetStatus(student.studentId, 'absent')} className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${currentStatus === 'absent' ? 'bg-rose-500 text-white border-rose-500 shadow-md ring-2 ring-rose-200' : 'bg-white text-gray-500 hover:bg-rose-50 hover:text-rose-600'} ${isArchived ? 'opacity-60 cursor-not-allowed' : ''}`}>曠課</button>
                                                 
                                                 {/* 請假 (特殊處理：帶有懸浮選單的按鈕) */}
                                                 <div className="relative">
                                                     <LeaveButton 
                                                         currentStatus={currentStatus === 'leave' ? currentLeaveType || '事假' : ''}
                                                         onSetStatus={(val) => handleSetLeave(student.studentId, val)}
+                                                        disabled={isArchived}
                                                     />
                                                 </div>
                                             </div>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <input type="text" placeholder="備註..." className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:ring-1 focus:ring-indigo-500 outline-none bg-white" value={notes[student.studentId] || ''} onChange={(e) => handleNoteChange(student.studentId, e.target.value)} />
+                                            <input type="text" placeholder="備註..." className={`w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:ring-1 focus:ring-indigo-500 outline-none ${isArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white'}`} disabled={isArchived} readOnly={isArchived} value={notes[student.studentId] || ''} onChange={(e) => handleNoteChange(student.studentId, e.target.value)} />
                                         </td>
                                     </tr>
                                 );
@@ -500,18 +524,19 @@ function AttendanceRosterManager({ activityId, courseId, courseName, students = 
                                 </div>
                                 
                                 <div className="flex flex-wrap gap-2 mb-3">
-                                    <button onClick={() => handleSetStatus(student.studentId, 'present')} className={`px-4 py-2 flex-1 rounded border text-xs font-bold ${currentStatus==='present'?'bg-emerald-100 text-emerald-700 border-emerald-300':'bg-white text-gray-500'}`}>出席</button>
-                                    <button onClick={() => handleSetStatus(student.studentId, 'late')} className={`px-4 py-2 flex-1 rounded border text-xs font-bold ${currentStatus==='late'?'bg-amber-100 text-amber-700 border-amber-300':'bg-white text-gray-500'}`}>遲到</button>
-                                    <button onClick={() => handleSetStatus(student.studentId, 'absent')} className={`px-4 py-2 flex-1 rounded border text-xs font-bold ${currentStatus==='absent'?'bg-rose-100 text-rose-700 border-rose-300':'bg-white text-gray-500'}`}>曠課</button>
+                                    <button disabled={isArchived} onClick={() => handleSetStatus(student.studentId, 'present')} className={`px-4 py-2 flex-1 rounded border text-xs font-bold ${currentStatus==='present'?'bg-emerald-100 text-emerald-700 border-emerald-300':'bg-white text-gray-500'} ${isArchived ? 'opacity-60 cursor-not-allowed' : ''}`}>出席</button>
+                                    <button disabled={isArchived} onClick={() => handleSetStatus(student.studentId, 'late')} className={`px-4 py-2 flex-1 rounded border text-xs font-bold ${currentStatus==='late'?'bg-amber-100 text-amber-700 border-amber-300':'bg-white text-gray-500'} ${isArchived ? 'opacity-60 cursor-not-allowed' : ''}`}>遲到</button>
+                                    <button disabled={isArchived} onClick={() => handleSetStatus(student.studentId, 'absent')} className={`px-4 py-2 flex-1 rounded border text-xs font-bold ${currentStatus==='absent'?'bg-rose-100 text-rose-700 border-rose-300':'bg-white text-gray-500'} ${isArchived ? 'opacity-60 cursor-not-allowed' : ''}`}>曠課</button>
                                     <div className="flex-1">
                                         <LeaveButton 
                                             currentStatus={currentStatus === 'leave' ? currentLeaveType || '事假' : ''}
                                             onSetStatus={(val) => handleSetLeave(student.studentId, val)}
+                                            disabled={isArchived}
                                         />
                                     </div>
                                 </div>
 
-                                <input type="text" placeholder="新增備註..." className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-indigo-500 outline-none bg-gray-50" value={notes[student.studentId] || ''} onChange={(e) => handleNoteChange(student.studentId, e.target.value)} />
+                                <input type="text" placeholder="新增備註..." className={`w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-indigo-500 outline-none ${isArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-gray-50'}`} disabled={isArchived} readOnly={isArchived} value={notes[student.studentId] || ''} onChange={(e) => handleNoteChange(student.studentId, e.target.value)} />
                             </div>
                          );
                      })}
@@ -520,11 +545,13 @@ function AttendanceRosterManager({ activityId, courseId, courseName, students = 
           )}
       </div>
       
-      <div className="md:hidden fixed bottom-6 right-6 z-40">
-          <button onClick={handleSave} disabled={saving} className="w-14 h-14 bg-indigo-600 text-white rounded-full shadow-xl flex items-center justify-center hover:bg-indigo-700 transition-all disabled:bg-gray-400">
-              {saving ? <LoadingSpinner size={24} color="white" /> : <CloudArrowUpIcon className="w-7 h-7" />}
-          </button>
-      </div>
+      {!isArchived && (
+        <div className="md:hidden fixed bottom-6 right-6 z-40">
+            <button onClick={handleSave} disabled={saving} className="w-14 h-14 bg-indigo-600 text-white rounded-full shadow-xl flex items-center justify-center hover:bg-indigo-700 transition-all disabled:bg-gray-400">
+                {saving ? <LoadingSpinner size={24} color="white" /> : <CloudArrowUpIcon className="w-7 h-7" />}
+            </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -538,10 +565,11 @@ interface AttendanceActivityListProps {
   courseName: string;
   courseCode: string;
   onBack: () => void;
+  isArchived?: boolean;
   onSelectActivity: (activity: AttendanceActivity) => void;
 }
 
-function AttendanceActivityList({ courseId, courseName, courseCode, onBack, onSelectActivity }: AttendanceActivityListProps) {
+function AttendanceActivityList({ courseId, courseName, courseCode, onBack, onSelectActivity, isArchived = false }: AttendanceActivityListProps) {
   const [activities, setActivities] = useState<AttendanceActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -682,11 +710,17 @@ function AttendanceActivityList({ courseId, courseName, courseCode, onBack, onSe
       // --- 第二個工作表：學生出缺席總表 ---
       const worksheet2 = workbook.addWorksheet('學生出缺席詳細名單');
       
-      // 抓取該課程學生名單
-      const stuRes = await fetch('/api/student/list');
-      const allStudents = await stuRes.json();
-      const courseKey = `${courseName}(${courseCode})`;
-      const students: Student[] = allStudents.filter((s: any) => s.enrolledCourses && (s.enrolledCourses.includes(courseId) || s.enrolledCourses.includes(courseKey)));
+      // 優化：直接抓取該課程學生名單，避免抓取全校學生資料浪費資源
+      const stuRes = await fetch(`/api/course-student-list/list?courseId=${encodeURIComponent(courseId)}`);
+      let students: Student[] = [];
+      if (stuRes.ok) {
+        const roster = await stuRes.json();
+        students = (Array.isArray(roster) ? roster : []).map((s: any) => ({
+          id: String(s.id || s.studentId || ''),
+          studentId: String(s.studentId || s.id || ''),
+          name: String(s.name || ''),
+        }));
+      }
 
       // 抓取所有點名活動的詳細紀錄 (併行處理以提升效能)
       const allRecordsPromises = activities.map(async (a) => {
@@ -807,17 +841,26 @@ function AttendanceActivityList({ courseId, courseName, courseCode, onBack, onSe
           >
             <ArrowLeftIcon className="w-4 h-4 mr-2" /> 返回課程
           </button>
-          <button className="btn-secondary flex items-center" onClick={() => setIsCreateModalOpen(true)}>
-            <PlusIcon className="w-4 h-4 mr-2" /> 新增點名
-          </button>
+          {!isArchived && (
+            <button className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center" onClick={() => setIsCreateModalOpen(true)}>
+              <PlusIcon className="w-4 h-4 mr-2" /> 新增點名
+            </button>
+          )}
           <button
             onClick={handleExport}
-            className="btn-secondary flex items-center text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center"
           >
             <ArrowDownTrayIcon className="w-4 h-4 mr-2" /> 匯出紀錄
           </button>
         </div>
       </div>
+
+      {isArchived && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl flex items-center shadow-sm mb-4">
+          <span className="font-bold mr-2">提示：</span>
+          此課程已封存，您只能查看活動列表及匯出紀錄，無法新增或刪除點名活動。
+        </div>
+      )}
 
       {/* 外部表單 Modal Wrapper */}
       {isCreateModalOpen && (
@@ -834,7 +877,9 @@ function AttendanceActivityList({ courseId, courseName, courseCode, onBack, onSe
            <div className="text-center py-16 px-6 bg-white rounded-2xl border border-dashed border-gray-300">
                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400"><ClipboardDocumentCheckIcon className="w-8 h-8" /></div>
                <h3 className="mt-2 text-xl font-bold text-gray-900">尚無點名紀錄</h3>
-               <button className="btn-primary mt-4" onClick={() => setIsCreateModalOpen(true)}>新增點名活動</button>
+               {!isArchived && (
+                 <button className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm mt-4" onClick={() => setIsCreateModalOpen(true)}>新增點名活動</button>
+               )}
            </div>
        ) : (
            <>
@@ -867,8 +912,10 @@ function AttendanceActivityList({ courseId, courseName, courseCode, onBack, onSe
                                 </td>
                                 <td className="px-6 py-4 text-right whitespace-nowrap">
                                     <div className="flex justify-end gap-2">
-                                        <button onClick={() => onSelectActivity(activity)} className="btn-primary px-3 py-1.5 text-xs flex items-center">進入點名</button>
-                                        <button onClick={() => handleDelete(activity.id)} className="text-red-500 hover:text-red-700 p-1.5 rounded-md hover:bg-red-50"><TrashIcon className="w-4 h-4" /></button>
+                                        <button onClick={() => onSelectActivity(activity)} className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center">{isArchived ? '查看紀錄' : '進入點名'}</button>
+                                        {!isArchived && (
+                                          <button onClick={() => handleDelete(activity.id)} className="text-red-500 hover:text-red-700 p-1.5 rounded-md hover:bg-red-50"><TrashIcon className="w-4 h-4" /></button>
+                                        )}
                                     </div>
                                 </td>
                             </tr>
@@ -894,8 +941,10 @@ function AttendanceActivityList({ courseId, courseName, courseCode, onBack, onSe
                               </div>
                           )}
                           <div className="flex justify-end gap-3 pt-3 border-t border-gray-50 mt-1">
-                               <button onClick={(e) => { e.stopPropagation(); handleDelete(activity.id); }} className="flex items-center text-sm text-gray-500 hover:text-red-600 font-medium px-2 py-1"><TrashIcon className="w-4 h-4 mr-1" /> 刪除</button>
-                               <button className="flex items-center text-sm text-indigo-600 font-bold ml-auto">點名 <ChevronRightIcon className="w-4 h-4 ml-1" /></button>
+                               {!isArchived && (
+                                 <button onClick={(e) => { e.stopPropagation(); handleDelete(activity.id); }} className="flex items-center text-sm text-gray-500 hover:text-red-600 font-medium px-2 py-1"><TrashIcon className="w-4 h-4 mr-1" /> 刪除</button>
+                               )}
+                               <button className="flex items-center text-sm text-indigo-600 font-bold ml-auto">{isArchived ? '查看紀錄' : '點名'} <ChevronRightIcon className="w-4 h-4 ml-1" /></button>
                           </div>
                       </div>
                   ))}
@@ -1016,13 +1065,34 @@ export default function AttendanceManagementComponent({ courses: externalCourses
              (selectedSubject === 'all' || course.subjectTag === selectedSubject) &&
              natureMatch &&
              statusMatch;
+    }).sort((a, b) => {
+        const statuses = ['報名中', '開課中', '未開課', '已額滿', '已結束', '已封存', '資料建置中...'];
+        const statusA = statuses.indexOf(a.status || '');
+        const statusB = statuses.indexOf(b.status || '');
+        const priorityA = statusA !== -1 ? statusA : 999;
+        const priorityB = statusB !== -1 ? statusB : 999;
+
+        if (priorityA !== priorityB) {
+            return priorityA - priorityB;
+        }
+
+        const codeA = a.code || '';
+        const codeB = b.code || '';
+
+        const codeCompare = codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
+        
+        if (codeCompare !== 0) return codeCompare;
+        
+        const nameA = a.name || '';
+        const nameB = b.name || '';
+        return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
     });
   }, [courses, searchTerm, selectedGrade, selectedSubject, selectedNature, selectedStatus]);
 
   // Layer 3
   if (selectedActivity && selectedCourse) {
     if (loadingStudents) return <div className="fixed inset-0 bg-white z-[9999] flex items-center justify-center"><LoadingSpinner size={60} text="正在載入學生名單..." /></div>;
-    return <AttendanceRosterManager activityId={selectedActivity.id} courseId={selectedCourse.id} courseName={selectedCourse.name} students={students} onClose={() => setSelectedActivity(null)} initialActivityData={selectedActivity} />;
+    return <AttendanceRosterManager activityId={selectedActivity.id} courseId={selectedCourse.id} courseName={selectedCourse.name} students={students} onClose={() => setSelectedActivity(null)} initialActivityData={selectedActivity} isArchived={selectedCourse.status === '已封存'} />;
   }
 
   // Layer 2
@@ -1033,6 +1103,7 @@ export default function AttendanceManagementComponent({ courses: externalCourses
         courseName={selectedCourse.name} 
         courseCode={selectedCourse.code} // 傳遞課程代碼
         onBack={() => setSelectedCourse(null)} 
+        isArchived={selectedCourse.status === '已封存'}
         onSelectActivity={(activity) => setSelectedActivity(activity)} 
       />
     );

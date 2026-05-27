@@ -4,9 +4,9 @@ import MultiSelectDropdown from './MultiSelectDropdown';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { LoadingSpinner } from './ui';
+import { createPortal } from 'react-dom';
 
 import Swal from 'sweetalert2';
-import { Modal } from './ui';
 import Image from 'next/image';
 import Dropdown from './ui/Dropdown';
 import { removeCoursesFromEnrolledList } from '@/services/courseId';
@@ -25,7 +25,9 @@ import {
   CalendarIcon,
   UserIcon,
   PhotoIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  XMarkIcon,
+  EyeIcon
 } from '@heroicons/react/24/outline';
 
 interface CourseManagerProps {
@@ -80,6 +82,29 @@ function useCourseImages() {
     }, []);
     return images;
 }
+
+const Modal = ({ open, onClose, title, size = 'md', children }: { open: boolean; onClose: () => void; title: string; size?: 'md' | 'lg' | 'xl'; children: React.ReactNode }) => {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); return () => setMounted(false); }, []);
+  if (!open || !mounted) return null;
+  const maxWidthClass = { md: 'max-w-lg', lg: 'max-w-4xl', xl: 'max-w-6xl' }[size];
+  
+  return createPortal(
+    <div className="fixed inset-0 z-[99999] flex justify-center items-center p-4 animate-fade-in">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
+      <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${maxWidthClass} max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in transform scale-100`}>
+        <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
+          <h3 className="text-xl font-bold flex items-center">{title}</h3>
+          <button onClick={onClose} className="text-white/80 hover:text-white transition-colors p-1 rounded-full hover:bg-white/10">
+            <XMarkIcon className="w-6 h-6" />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>,
+    document.body
+  );
+};
 
 export default function CourseManager({ onProcessingStateChange }: CourseManagerProps) {
     const [searchTerm, setSearchTerm] = useState('');
@@ -502,6 +527,28 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
         }
 
         return matchesSearch && matchesGrade && matchesSubject && matchesCourseNature && matchesStatus && !course.archived;
+    }).sort((a, b) => {
+        const statuses = ['報名中', '開課中', '未開課', '已額滿', '已結束', '已封存', '資料建置中...'];
+        const statusA = statuses.indexOf(a.status);
+        const statusB = statuses.indexOf(b.status);
+        const priorityA = statusA !== -1 ? statusA : 999;
+        const priorityB = statusB !== -1 ? statusB : 999;
+
+        if (priorityA !== priorityB) {
+            return priorityA - priorityB;
+        }
+
+        const codeA = a.code || '';
+        const codeB = b.code || '';
+        
+
+        const codeCompare = codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
+        
+        if (codeCompare !== 0) return codeCompare;
+        
+        const nameA = a.name || '';
+        const nameB = b.name || '';
+        return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
     });
 
     const handleShowStudents = async (course: Course) => {
@@ -611,6 +658,9 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
             default: return 'bg-gray-50 text-gray-600 ring-gray-500/10';
         }
     };
+
+    const isEditingArchived = editingCourse?.status === '已封存' || editingCourse?.archived;
+    const isStudentListArchived = showStudentListModal?.status === '已封存' || showStudentListModal?.archived;
 
     return (
         <div className="max-w-7xl mx-auto w-full px-4 md:px-6 flex flex-col h-full animate-fade-in">
@@ -782,10 +832,10 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                                         <button 
                                                             onClick={() => handleEdit(course)}
                                                             className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                                            title="編輯課程"
+                                                            title={course.status === '已封存' || course.archived ? "查看課程" : "編輯課程"}
                                                             disabled={course.status === '資料建置中...'}
                                                         >
-                                                            <PencilSquareIcon className="w-5 h-5" />
+                                                            {course.status === '已封存' || course.archived ? <EyeIcon className="w-5 h-5" /> : <PencilSquareIcon className="w-5 h-5" />}
                                                         </button>
                                                         <button 
                                                             onClick={() => handleShowStudents(course)}
@@ -804,9 +854,9 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                                         </button>
                                                         <button 
                                                             onClick={() => handleDelete(course.id)}
-                                                            className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                            className={`p-1.5 rounded-lg transition-colors ${course.status === '已封存' || course.archived || course.status === '資料建置中...' ? 'text-red-300 cursor-not-allowed' : 'text-red-500 hover:bg-red-50'}`}
                                                             title="刪除課程"
-                                                            disabled={course.status === '資料建置中...'}
+                                                            disabled={course.status === '資料建置中...' || course.status === '已封存' || !!course.archived}
                                                         >
                                                             <TrashIcon className="w-5 h-5" />
                                                         </button>
@@ -848,9 +898,10 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                         <div className="flex items-center justify-between pt-3 border-t border-gray-50">
                                             <button 
                                                 onClick={() => handleEdit(course)}
-                                                className="text-xs font-bold text-indigo-600 flex items-center px-2 py-1"
+                                                className={`text-xs font-bold flex items-center px-2 py-1 ${course.status === '資料建置中...' ? 'text-gray-400' : 'text-indigo-600'}`}
+                                                disabled={course.status === '資料建置中...'}
                                             >
-                                                <PencilSquareIcon className="w-4 h-4 mr-1" /> 編輯
+                                                {course.status === '已封存' || course.archived ? <><EyeIcon className="w-4 h-4 mr-1" /> 查看</> : <><PencilSquareIcon className="w-4 h-4 mr-1" /> 編輯</>}
                                             </button>
                                             <button 
                                                 onClick={() => handleShowStudents(course)}
@@ -860,7 +911,8 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                             </button>
                                             <button 
                                                 onClick={() => handleDelete(course.id)}
-                                                className="text-xs font-bold text-red-500 flex items-center px-2 py-1"
+                                                className={`text-xs font-bold flex items-center px-2 py-1 ${course.status === '已封存' || course.archived || course.status === '資料建置中...' ? 'text-red-300 cursor-not-allowed' : 'text-red-500'}`}
+                                                disabled={course.status === '資料建置中...' || course.status === '已封存' || !!course.archived}
                                             >
                                                 <TrashIcon className="w-4 h-4 mr-1" /> 刪除
                                             </button>
@@ -875,8 +927,15 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
 
             {/* 編輯/新增 Modal */}
             {editingCourse && (
-                <Modal open={!!editingCourse} onClose={() => setEditingCourse(null)} title={editingCourse.id && editingCourse.id !== 'new' ? '編輯課程' : '新增課程'} size="lg">
-                    <form onSubmit={handleSaveCourse} className="space-y-6">
+                <Modal open={!!editingCourse} onClose={() => setEditingCourse(null)} title={editingCourse.id && editingCourse.id !== 'new' ? (isEditingArchived ? '查看課程' : '編輯課程') : '新增課程'} size="lg">
+                    <form onSubmit={handleSaveCourse} className="flex flex-col flex-1 overflow-hidden">
+                        <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar">
+                        {isEditingArchived && (
+                            <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl flex items-center shadow-sm">
+                                <span className="font-bold mr-2">提示：</span>
+                                此為封存課程，僅供檢視。若要修改請先取消封存。
+                            </div>
+                        )}
                         {/* Section 1: Basic Info */}
                         <div className="bg-gray-50/50 p-5 rounded-xl border border-gray-100">
                             <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 flex items-center">
@@ -890,7 +949,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">課程代碼 <span className="text-red-500">*</span></label>
-                                    <input type="text" value={editingCourse.code} onChange={e => setEditingCourse(prev => prev ? { ...prev, code: e.target.value } : null)} className={`w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all ${editingCourse.id && editingCourse.id !== 'new' ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} required readOnly={!!(editingCourse.id && editingCourse.id !== 'new')} placeholder="例: MAT-101" />
+                                    <input type="text" value={editingCourse.code} onChange={e => setEditingCourse(prev => prev ? { ...prev, code: e.target.value } : null)} className={`w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all ${editingCourse.id && editingCourse.id !== 'new' ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} required readOnly={!!(editingCourse.id && editingCourse.id !== 'new')} placeholder="例: M20240901" />
                                 </div>
                                 {editingCourse.id && editingCourse.id !== 'new' && (
                                     <div className="md:col-span-2 text-xs text-amber-600 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
@@ -899,12 +958,14 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                 )}
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">授課老師 <span className="text-red-500">*</span></label>
-                                    <MultiSelectDropdown
-                                        options={allTeachers.map(t => ({ label: t.name, value: t.id }))}
-                                        selectedOptions={editingCourse.teachers || []}
-                                        onChange={(selected) => setEditingCourse(prev => prev ? { ...prev, teachers: selected } : null)}
-                                        placeholder="選擇授課老師"
-                                    />
+                                    <div className={isEditingArchived ? 'pointer-events-none opacity-60' : ''}>
+                                        <MultiSelectDropdown
+                                            options={allTeachers.map(t => ({ label: t.name, value: t.id }))}
+                                            selectedOptions={editingCourse.teachers || []}
+                                            onChange={(selected) => setEditingCourse(prev => prev ? { ...prev, teachers: selected } : null)}
+                                            placeholder="選擇授課老師"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -918,25 +979,27 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">課程性質 <span className="text-red-500">*</span></label>
-                                    <Dropdown
-                                        value={editingCourse.courseNature}
-                                        onChange={(value) => setEditingCourse(prev => prev ? { ...prev, courseNature: value } : null)}
-                                        options={courseNatures.map(n => ({ value: n, label: n }))}
-                                        placeholder="選擇課程性質"
-                                        className="w-full"
-                                    />
+                                    <div className={isEditingArchived ? 'pointer-events-none opacity-60' : ''}>
+                                        <Dropdown
+                                            value={editingCourse.courseNature}
+                                            onChange={(value) => setEditingCourse(prev => prev ? { ...prev, courseNature: value } : null)}
+                                            options={courseNatures.map(n => ({ value: n, label: n }))}
+                                            placeholder="選擇課程性質"
+                                            className="w-full"
+                                        />
+                                    </div>
                                 </div>
                                 {['升學考試複習', '檢定/考試訓練班'].includes(editingCourse.courseNature) && (
                                     <div className="md:col-span-2">
                                         <label className="block text-sm font-medium text-gray-700 mb-2">考試範圍</label>
                                         <div className="flex flex-wrap gap-3 p-3 border border-gray-200 rounded-lg bg-white">
                                             {['第一次定期評量', '第二次定期評量', '期末評量'].map(exam => (
-                                                <label key={exam} className="inline-flex items-center cursor-pointer select-none">
-                                                    <input type="checkbox" checked={(editingCourse.examScope || []).includes(exam)} onChange={e => {
+                                                <label key={exam} className={`inline-flex items-center select-none ${isEditingArchived ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+                                                    <input type="checkbox" disabled={isEditingArchived} checked={(editingCourse.examScope || []).includes(exam)} onChange={e => {
                                                         const currentScope = editingCourse.examScope || [];
                                                         const newScope = e.target.checked ? [...currentScope, exam] : currentScope.filter(s => s !== exam);
                                                         setEditingCourse(prev => prev ? { ...prev, examScope: newScope } : null);
-                                                    }} className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500" />
+                                                    }} className={`w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 accent-indigo-600 ${isEditingArchived ? 'cursor-not-allowed' : 'cursor-pointer'}`} />
                                                     <span className="ml-2 text-sm text-gray-700">{exam}</span>
                                                 </label>
                                             ))}
@@ -952,6 +1015,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                                 <button
                                                     key={grade}
                                                     type="button"
+                                                    disabled={isEditingArchived}
                                                     onClick={() => {
                                                         const currentGrades = editingCourse.gradeTags || [];
                                                         const newGrades = isSelected ? currentGrades.filter(g => g !== grade) : [...currentGrades, grade];
@@ -961,7 +1025,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                                         isSelected 
                                                         ? 'bg-indigo-100 text-indigo-700 ring-2 ring-indigo-500 ring-offset-1' 
                                                         : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                                                    }`}
+                                                    } ${isEditingArchived ? 'opacity-60 cursor-not-allowed' : ''}`}
                                                 >
                                                     {grade}
                                                 </button>
@@ -971,20 +1035,23 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                 </div>
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">科目 <span className="text-red-500">*</span></label>
-                                    <Dropdown
-                                        value={editingCourse.subjectTag}
-                                        onChange={(value) => setEditingCourse(prev => prev ? { ...prev, subjectTag: value } : null)}
-                                        options={subjects.map(s => ({ value: s, label: s }))}
-                                        placeholder="選擇科目"
-                                        className="w-full"
-                                    />
+                                    <div className={isEditingArchived ? 'pointer-events-none opacity-60' : ''}>
+                                        <Dropdown
+                                            value={editingCourse.subjectTag}
+                                            onChange={(value) => setEditingCourse(prev => prev ? { ...prev, subjectTag: value } : null)}
+                                            options={subjects.map(s => ({ value: s, label: s }))}
+                                            placeholder="選擇科目"
+                                            className="w-full"
+                                        />
+                                    </div>
                                 </div>
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">課程描述</label>
                                     <textarea 
                                         value={editingCourse.description} 
                                         onChange={e => setEditingCourse(prev => prev ? { ...prev, description: e.target.value } : null)} 
-                                        className="w-full p-3 border border-gray-300 rounded-lg h-48 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all resize-none" 
+                                        className={`w-full p-3 border border-gray-300 rounded-lg h-48 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all resize-none ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} 
+                                        disabled={isEditingArchived}
                                         placeholder="請描述課程內容、目標等..."
                                     ></textarea>
                                 </div>
@@ -992,8 +1059,8 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                     <label className="block text-sm font-bold text-gray-700 mb-2">課程介紹封面圖片 <span className="text-red-500">*</span></label>
                                     <div className="flex gap-4 overflow-x-auto p-5 border border-gray-200 rounded-2xl bg-gray-50/50 shadow-inner no-scrollbar snap-x min-h-[300px] items-center">
                                         {courseImages.map(img => (
-                                            <div key={img} className={`relative flex-shrink-0 w-48 h-48 sm:w-56 sm:h-56 rounded-xl overflow-hidden cursor-pointer group border-2 transition-all snap-start shadow-md ${selectedImage === img ? 'border-indigo-500 ring-4 ring-indigo-100 scale-[0.98]' : 'border-white hover:border-indigo-200'}`} onClick={() => setSelectedImage(img)}>
-                                                <Image src={img} alt="課程圖片" fill className="object-cover bg-white group-hover:scale-110 transition-transform duration-500" sizes="(max-width: 768px) 192px, 224px" />
+                                            <div key={img} className={`relative flex-shrink-0 w-48 h-48 sm:w-56 sm:h-56 rounded-xl overflow-hidden group border-2 transition-all snap-start shadow-md ${selectedImage === img ? 'border-indigo-500 ring-4 ring-indigo-100 scale-[0.98]' : 'border-white hover:border-indigo-200'} ${isEditingArchived ? 'cursor-default opacity-80' : 'cursor-pointer'}`} onClick={() => !isEditingArchived && setSelectedImage(img)}>
+                                                <Image src={img} alt="課程圖片" fill className={`object-cover bg-white transition-transform duration-500 ${isEditingArchived ? '' : 'group-hover:scale-110'}`} sizes="(max-width: 768px) 192px, 224px" />
                                                 {selectedImage === img && (
                                                     <div className="absolute inset-0 bg-indigo-600/30 backdrop-blur-[1px] flex items-center justify-center">
                                                         <div className="bg-indigo-600 rounded-full p-2 shadow-xl ring-2 ring-white">
@@ -1019,32 +1086,34 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">開始日期 <span className="text-red-500">*</span></label>
                                     <div className="relative">
-                                        <DatePicker selected={editingCourse.startDate ? new Date(editingCourse.startDate) : null} onChange={(date: Date | null) => { const newDate = date ? date.toISOString().split('T')[0] : ''; setEditingCourse(prev => prev ? { ...prev, startDate: newDate } : null) }} dateFormat="yyyy/MM/dd" className="w-full p-2.5 pl-10 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500" placeholderText="YYYY/MM/DD" required wrapperClassName="w-full" />
+                                        <DatePicker disabled={isEditingArchived} selected={editingCourse.startDate ? new Date(editingCourse.startDate) : null} onChange={(date: Date | null) => { const newDate = date ? date.toISOString().split('T')[0] : ''; setEditingCourse(prev => prev ? { ...prev, startDate: newDate } : null) }} dateFormat="yyyy/MM/dd" className={`w-full p-2.5 pl-10 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} placeholderText="YYYY/MM/DD" required wrapperClassName="w-full" />
                                         <CalendarIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                                     </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">結束日期 <span className="text-red-500">*</span></label>
                                     <div className="relative">
-                                        <DatePicker selected={editingCourse.endDate ? new Date(editingCourse.endDate) : null} onChange={(date: Date | null) => { const newDate = date ? date.toISOString().split('T')[0] : ''; setEditingCourse(prev => prev ? { ...prev, endDate: newDate } : null) }} dateFormat="yyyy/MM/dd" className="w-full p-2.5 pl-10 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500" placeholderText="YYYY/MM/DD" required wrapperClassName="w-full" />
+                                        <DatePicker disabled={isEditingArchived} selected={editingCourse.endDate ? new Date(editingCourse.endDate) : null} onChange={(date: Date | null) => { const newDate = date ? date.toISOString().split('T')[0] : ''; setEditingCourse(prev => prev ? { ...prev, endDate: newDate } : null) }} dateFormat="yyyy/MM/dd" className={`w-full p-2.5 pl-10 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} placeholderText="YYYY/MM/DD" required wrapperClassName="w-full" />
                                         <CalendarIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                                     </div>
                                 </div>
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">授課方式 <span className="text-red-500">*</span></label>
-                                    <Dropdown
-                                        value={editingCourse.teachingMethod}
-                                        onChange={(value) => setEditingCourse(prev => prev ? { ...prev, teachingMethod: value as Course['teachingMethod'] } : null)}
-                                        options={teachingMethods.map(method => ({ value: method, label: method }))}
-                                        placeholder="選擇授課方式"
-                                        className="w-full"
-                                    />
+                                    <div className={isEditingArchived ? 'pointer-events-none opacity-60' : ''}>
+                                        <Dropdown
+                                            value={editingCourse.teachingMethod}
+                                            onChange={(value) => setEditingCourse(prev => prev ? { ...prev, teachingMethod: value as Course['teachingMethod'] } : null)}
+                                            options={teachingMethods.map(method => ({ value: method, label: method }))}
+                                            placeholder="選擇授課方式"
+                                            className="w-full"
+                                        />
+                                    </div>
                                 </div>
                                 {editingCourse.teachingMethod === '實體上課' && (
                                     <div className="md:col-span-2">
                                         <label className="block text-sm font-medium text-gray-700 mb-1">上課地點 <span className="text-red-500">*</span></label>
                                         <div className="relative">
-                                            <input type="text" value={editingCourse.location} onChange={e => setEditingCourse(prev => prev ? { ...prev, location: e.target.value } : null)} className="w-full p-2.5 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" required placeholder="例如：A棟 301 教室" />
+                                            <input type="text" disabled={isEditingArchived} value={editingCourse.location} onChange={e => setEditingCourse(prev => prev ? { ...prev, location: e.target.value } : null)} className={`w-full p-2.5 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} required placeholder="例如：A棟 301 教室" />
                                             <MapPinIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                                         </div>
                                     </div>
@@ -1052,7 +1121,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                 {editingCourse.teachingMethod === '線上上課' && (
                                     <div className="md:col-span-2">
                                         <label className="block text-sm font-medium text-gray-700 mb-1">直播網址 <span className="text-red-500">*</span></label>
-                                        <input type="text" value={editingCourse.liveStreamURL} onChange={e => setEditingCourse(prev => prev ? { ...prev, liveStreamURL: e.target.value } : null)} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" required placeholder="https://..." />
+                                        <input type="text" disabled={isEditingArchived} value={editingCourse.liveStreamURL} onChange={e => setEditingCourse(prev => prev ? { ...prev, liveStreamURL: e.target.value } : null)} className={`w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} required placeholder="https://..." />
                                     </div>
                                 )}
                                 {editingCourse.teachingMethod === '實體與線上同步上課' && (
@@ -1060,51 +1129,59 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                         <div className="md:col-span-2">
                                             <label className="block text-sm font-medium text-gray-700 mb-1">上課地點 <span className="text-red-500">*</span></label>
                                             <div className="relative">
-                                                <input type="text" value={editingCourse.location} onChange={e => setEditingCourse(prev => prev ? { ...prev, location: e.target.value } : null)} className="w-full p-2.5 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" required />
+                                                <input type="text" disabled={isEditingArchived} value={editingCourse.location} onChange={e => setEditingCourse(prev => prev ? { ...prev, location: e.target.value } : null)} className={`w-full p-2.5 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} required />
                                                 <MapPinIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                                             </div>
                                         </div>
                                         <div className="md:col-span-2">
                                             <label className="block text-sm font-medium text-gray-700 mb-1">直播網址 <span className="text-red-500">*</span></label>
-                                            <input type="text" value={editingCourse.liveStreamURL} onChange={e => setEditingCourse(prev => prev ? { ...prev, liveStreamURL: e.target.value } : null)} className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" required />
+                                            <input type="text" disabled={isEditingArchived} value={editingCourse.liveStreamURL} onChange={e => setEditingCourse(prev => prev ? { ...prev, liveStreamURL: e.target.value } : null)} className={`w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} required />
                                         </div>
                                     </>
                                 )}
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">上課時間安排 <span className="text-red-500">*</span></label>
-                                    <Dropdown
-                                        value={editingCourse.timeArrangementType}
-                                        onChange={(value) => setEditingCourse(prev => prev ? { ...prev, timeArrangementType: value as Course['timeArrangementType'] } : null)}
-                                        options={[{ value: '依時段安排', label: '依時段安排' }, { value: '依學年課程彈性安排', label: '依學年課程彈性安排' }, { value: '課程時間由學生自主安排', label: '課程時間由學生自主安排' }]}
-                                        placeholder="選擇上課時間安排"
-                                        className="w-full"
-                                    />
+                                    <div className={isEditingArchived ? 'pointer-events-none opacity-60' : ''}>
+                                        <Dropdown
+                                            value={editingCourse.timeArrangementType}
+                                            onChange={(value) => setEditingCourse(prev => prev ? { ...prev, timeArrangementType: value as Course['timeArrangementType'] } : null)}
+                                            options={[{ value: '依時段安排', label: '依時段安排' }, { value: '依學年課程彈性安排', label: '依學年課程彈性安排' }, { value: '課程時間由學生自主安排', label: '課程時間由學生自主安排' }]}
+                                            placeholder="選擇上課時間安排"
+                                            className="w-full"
+                                        />
+                                    </div>
                                 </div>
                                 {editingCourse.timeArrangementType === '依時段安排' && (
                                     <div className="md:col-span-2 space-y-3 bg-white p-4 rounded-lg border border-gray-200">
                                         <label className="block text-sm font-medium text-gray-700">設定上課時段</label>
                                         {(editingCourse.classTimes || []).map((time, index) => (
                                             <div key={index} className="flex flex-wrap items-center gap-2">
-                                                <Dropdown
-                                                    value={time.day}
-                                                    onChange={(value) => updateClassTime(index, 'day', value)}
-                                                    options={weekdays.map(day => ({ value: day, label: day }))}
-                                                    placeholder="選擇星期"
-                                                    className="min-w-[120px] flex-grow"
-                                                />
-                                                <div className="flex items-center gap-2 flex-grow">
-                                                    <input type="time" value={time.startTime} onChange={e => updateClassTime(index, 'startTime', e.target.value)} className="p-2 border border-gray-300 rounded-lg w-full outline-none focus:ring-2 focus:ring-indigo-500" step="300" />
-                                                    <span className="text-gray-400">→</span>
-                                                    <input type="time" value={time.endTime} onChange={e => updateClassTime(index, 'endTime', e.target.value)} className="p-2 border border-gray-300 rounded-lg w-full outline-none focus:ring-2 focus:ring-indigo-500" step="300" />
+                                                <div className={`min-w-[120px] flex-grow ${isEditingArchived ? 'pointer-events-none opacity-60' : ''}`}>
+                                                    <Dropdown
+                                                        value={time.day}
+                                                        onChange={(value) => updateClassTime(index, 'day', value)}
+                                                        options={weekdays.map(day => ({ value: day, label: day }))}
+                                                        placeholder="選擇星期"
+                                                        className="w-full"
+                                                    />
                                                 </div>
-                                                <button type="button" onClick={() => removeClassTime(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors">
-                                                    <TrashIcon className="w-5 h-5" />
-                                                </button>
+                                                <div className="flex items-center gap-2 flex-grow">
+                                                    <input type="time" disabled={isEditingArchived} value={time.startTime} onChange={e => updateClassTime(index, 'startTime', e.target.value)} className={`p-2 border border-gray-300 rounded-lg w-full outline-none focus:ring-2 focus:ring-indigo-500 ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} step="300" />
+                                                    <span className="text-gray-400">→</span>
+                                                    <input type="time" disabled={isEditingArchived} value={time.endTime} onChange={e => updateClassTime(index, 'endTime', e.target.value)} className={`p-2 border border-gray-300 rounded-lg w-full outline-none focus:ring-2 focus:ring-indigo-500 ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} step="300" />
+                                                </div>
+                                                {!isEditingArchived && (
+                                                    <button type="button" onClick={() => removeClassTime(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors">
+                                                        <TrashIcon className="w-5 h-5" />
+                                                    </button>
+                                                )}
                                             </div>
                                         ))}
-                                        <button type="button" onClick={addClassTime} className="text-sm text-indigo-600 hover:text-indigo-800 font-medium flex items-center mt-2">
-                                            <PlusIcon className="w-4 h-4 mr-1" /> 新增時段
-                                        </button>
+                                        {!isEditingArchived && (
+                                            <button type="button" onClick={addClassTime} className="text-sm text-indigo-600 hover:text-indigo-800 font-medium flex items-center mt-2">
+                                                <PlusIcon className="w-4 h-4 mr-1" /> 新增時段
+                                            </button>
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -1119,29 +1196,36 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">課程狀態 <span className="text-red-500">*</span></label>
-                                    <Dropdown
-                                        value={editingCourse.status}
-                                        onChange={(value) => setEditingCourse(prev => prev ? { ...prev, status: value as Course['status'] } : null)}
-                                        options={courseStatuses.map(s => ({ value: s, label: s }))}
-                                        placeholder="選擇課程狀態"
-                                        className="w-full"
-                                    />
+                                    <div className={isEditingArchived ? 'pointer-events-none opacity-60' : ''}>
+                                        <Dropdown
+                                            value={editingCourse.status}
+                                            onChange={(value) => setEditingCourse(prev => prev ? { ...prev, status: value as Course['status'] } : null)}
+                                            options={courseStatuses.map(s => ({ value: s, label: s }))}
+                                            placeholder="選擇課程狀態"
+                                            className="w-full"
+                                        />
+                                    </div>
                                 </div>
                                 <div className="md:col-span-2 pt-2">
-                                    <label className="inline-flex items-center cursor-pointer select-none">
-                                        <input type="checkbox" checked={editingCourse.showInIntroduction} onChange={e => setEditingCourse(prev => prev ? { ...prev, showInIntroduction: e.target.checked } : null)} className="w-5 h-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500" />
+                                    <label className={`inline-flex items-center select-none ${isEditingArchived ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
+                                        <input type="checkbox" disabled={isEditingArchived} checked={editingCourse.showInIntroduction} onChange={e => setEditingCourse(prev => prev ? { ...prev, showInIntroduction: e.target.checked } : null)} className={`w-5 h-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 accent-indigo-600 ${isEditingArchived ? 'cursor-not-allowed' : 'cursor-pointer'}`} />
                                         <span className="ml-3 text-sm text-gray-700">將課程顯示在首頁的「課程介紹」中</span>
                                     </label>
                                 </div>
                             </div>
                         </div>
+                        </div>
 
-                        <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-                            <button type="button" onClick={() => setEditingCourse(null)} disabled={isSubmitting} className="px-5 py-2.5 bg-white text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 font-medium transition-colors">取消</button>
-                            <button type="submit" disabled={isSubmitting} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-medium shadow-sm transition-colors flex items-center">
-                                {isSubmitting && <LoadingSpinner size={16} color="white" className="mr-2" />}
-                                {editingCourse.id && editingCourse.id !== 'new' ? '儲存更新' : '確認建立'}
+                        <div className="p-4 bg-gray-50 border-t border-gray-100 flex gap-2 flex-shrink-0">
+                            <button type="button" onClick={() => setEditingCourse(null)} disabled={isSubmitting} className="flex-1 bg-white border border-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+                                {isEditingArchived ? '關閉' : '取消'}
                             </button>
+                            {!isEditingArchived && (
+                                <button type="submit" disabled={isSubmitting} className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm transition-colors flex items-center justify-center disabled:opacity-50">
+                                    {isSubmitting && <LoadingSpinner size={16} color="white" className="mr-2" />}
+                                    {editingCourse.id && editingCourse.id !== 'new' ? '儲存更新' : '確認建立'}
+                                </button>
+                            )}
                         </div>
                     </form>
                 </Modal>
@@ -1150,7 +1234,13 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
             {/* Student List Modal */}
             {showStudentListModal && (
                 <Modal open={!!showStudentListModal} onClose={() => setShowStudentListModal(null)} title={`「${showStudentListModal?.name}」學生清單`} size="lg">
-                    <div className="p-1">
+                    <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
+                        {isStudentListArchived && (
+                            <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl flex items-center shadow-sm mb-4">
+                                <span className="font-bold mr-2">提示：</span>
+                                此課程已封存，您只能查看名單，無法移除學生。
+                            </div>
+                        )}
                         {loadingStudents ? (
                             <div className="flex justify-center p-12"><LoadingSpinner /></div>
                         ) : studentList.length > 0 ? (
@@ -1166,13 +1256,15 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                                 <p className="text-xs text-gray-500">{stu.studentId} • {stu.grade || '未設定'}</p>
                                             </div>
                                         </div>
-                                        <button 
-                                            onClick={() => handleRemoveStudentFromCourse(stu, showStudentListModal!)} 
-                                            className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-full transition-all"
-                                            title="移除學生"
-                                        >
-                                            <TrashIcon className="w-5 h-5" />
-                                        </button>
+                                        {!isStudentListArchived && (
+                                            <button 
+                                                onClick={() => handleRemoveStudentFromCourse(stu, showStudentListModal!)} 
+                                                className="text-gray-400 hover:text-red-500 hover:bg-red-50 p-2 rounded-full transition-all"
+                                                title="移除學生"
+                                            >
+                                                <TrashIcon className="w-5 h-5" />
+                                            </button>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -1182,6 +1274,11 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                 <p className="text-gray-500">此課程尚無學生選修。</p>
                             </div>
                         )}
+                    </div>
+                    <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-2 flex-shrink-0">
+                        <button onClick={() => setShowStudentListModal(null)} className="px-6 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm transition-colors">
+                            關閉
+                        </button>
                     </div>
                 </Modal>
             )}

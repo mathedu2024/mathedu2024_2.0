@@ -90,19 +90,20 @@ const AddTutoringSlotForm: React.FC<AddTutoringSlotFormProps> = ({ onClose, onSa
       />
       
       {/* 表單主體容器 */}
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in border border-gray-100">
-        <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex-shrink-0">
-          <h2 className="text-xl font-bold text-gray-800">新增輔導時段</h2>
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in transform scale-100">
+        <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
+          <h2 className="text-xl font-bold flex items-center">新增輔導時段</h2>
           <button 
             onClick={onClose} 
-            className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-200"
+            className="text-white/80 hover:text-white transition-colors p-1 rounded-full hover:bg-white/10"
           >
             <XMarkIcon className="w-6 h-6" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto custom-scrollbar">
-          <div>
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
+          <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar">
+            <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">年級</label>
               <MultiSelectDropdown
                   options={gradeOptions}
@@ -111,7 +112,7 @@ const AddTutoringSlotForm: React.FC<AddTutoringSlotFormProps> = ({ onClose, onSa
                   placeholder="選擇年級"
                   className="w-full"
               />
-          </div>
+            </div>
           <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">科目</label>
               <MultiSelectDropdown
@@ -131,19 +132,20 @@ const AddTutoringSlotForm: React.FC<AddTutoringSlotFormProps> = ({ onClose, onSa
                   placeholder="選擇班級"
                   className="w-full"
               />
+            </div>
           </div>
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 mt-4">
+          <div className="p-4 bg-gray-50 border-t border-gray-100 flex gap-2 flex-shrink-0">
             <button 
               type="button" 
               onClick={onClose} 
-              className="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 font-medium transition-colors"
+              className="flex-1 bg-white border border-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
             >
               取消
             </button>
             <button 
               type="submit" 
               disabled={!isFormValid}
-              className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 shadow-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               儲存
             </button>

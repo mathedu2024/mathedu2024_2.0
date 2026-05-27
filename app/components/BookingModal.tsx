@@ -166,14 +166,14 @@ const BookingModal: React.FC<BookingModalProps> = ({ slot, userInfo, onClose, on
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50 flex-shrink-0">
-            <h2 className="text-xl font-bold text-gray-800 flex items-center">
-              <CalendarIcon className="w-6 h-6 mr-2 text-indigo-600" />
+          <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
+            <h2 className="text-xl font-bold flex items-center">
+              <CalendarIcon className="w-6 h-6 mr-2" />
               預約輔導
             </h2>
             <button 
                 onClick={onClose} 
-                className="p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                className="text-white/80 hover:text-white transition-colors p-1 rounded-full hover:bg-white/10"
             >
                 <XMarkIcon className="w-6 h-6" />
             </button>
@@ -253,11 +253,11 @@ const BookingModal: React.FC<BookingModalProps> = ({ slot, userInfo, onClose, on
           </div>
 
           {/* Footer */}
-          <div className="p-4 border-t border-gray-100 flex justify-end gap-3 bg-gray-50/50 flex-shrink-0">
+          <div className="p-4 bg-gray-50 border-t border-gray-100 flex gap-2 flex-shrink-0">
              <button 
                 type="button" 
                 onClick={onClose} 
-                className="px-5 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 font-medium transition-colors"
+                className="flex-1 bg-white border border-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
                 disabled={loading}
              >
                取消
@@ -265,7 +265,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ slot, userInfo, onClose, on
              <button 
                 type="submit" 
                 form="booking-form"
-                className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 shadow-sm font-medium transition-all flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed"
+                className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={loading || slot.isFull}
              >
                {loading ? (
