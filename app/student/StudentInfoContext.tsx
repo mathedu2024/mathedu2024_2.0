@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
+import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase-client';
 import { getSession } from '../utils/session';
 
@@ -20,11 +20,13 @@ export interface StudentInfo {
 interface StudentContextType {
   studentInfo: StudentInfo | null;
   loading: boolean;
+  clearStudentInfo: () => void;
 }
 
 const StudentContext = createContext<StudentContextType>({
   studentInfo: null,
   loading: true,
+  clearStudentInfo: () => {},
 });
 
 export const useStudentInfo = () => useContext(StudentContext);
@@ -33,8 +35,18 @@ export const StudentInfoProvider = ({ children }: { children: React.ReactNode })
   const [studentInfo, setStudentInfo] = useState<StudentInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const clearStudentInfo = () => {
+    setStudentInfo(null);
+    setLoading(false);
+  };
+
   useEffect(() => {
-    let unsubscribe: (() => void) | undefined;
+    const onAuthLogout = () => clearStudentInfo();
+    window.addEventListener('auth-logout', onAuthLogout);
+    return () => window.removeEventListener('auth-logout', onAuthLogout);
+  }, []);
+
+  useEffect(() => {
 
     // 安全機制：設定 3 秒超時，避免 loading 狀態卡死導致畫面全白
     const safetyTimer = setTimeout(() => {
@@ -127,89 +139,28 @@ export const StudentInfoProvider = ({ children }: { children: React.ReactNode })
       };
       fetchStudentData();
     } else {
-      unsubscribe = onAuthStateChanged(auth, async (user) => {
-      clearTimeout(safetyTimer); // Auth 狀態變更，清除超時設定
-      if (user) {
-        try {
-          // 優化: 立即設定基本資料
-          setStudentInfo(prev => prev || {
-            id: user.uid,
-            name: user.displayName || '同學',
-            studentId: '',
-            account: '',
-            grade: '',
-            email: user.email || '',
-            enrolledCourses: [],
-            attendance: [],
-            role: 'student',
-          });
-
-          // 修正：這裡也改用 API 請求，防止 Session 失效時觸發權限錯誤
-          const res = await fetch('/api/student/profile', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: user.uid }),
-          });
-
-          if (res.ok) {
-            const userData = await res.json();
-            const courses = userData.enrolledCourses || userData.courses || userData.enrolled_courses || [];
-            const attendance = userData.attendance || [];
-
-            setStudentInfo({
-              id: user.uid,
-              name: userData.name || user.displayName || '同學',
-              studentId: userData.studentId || '',
-              account: userData.account || userData.studentId || '',
-              email: userData.email || user.email || '',
-              grade: userData.grade || '',
-              enrolledCourses: Array.isArray(courses) ? courses.map(String) : [],
-              attendance: Array.isArray(attendance) ? attendance : [],
-              role: 'student',
-            });
-          } else {
-            console.warn('User document not found in Firestore, using basic Auth info');
-            setStudentInfo({
-              id: user.uid,
-              name: user.displayName || '同學',
-              studentId: '',
-              account: '',
-              grade: '',
-              email: user.email || '',
-              enrolledCourses: [],
-              attendance: [],
-              role: '學生',
-            });
+      clearTimeout(safetyTimer);
+      const signOutStaleFirebase = async () => {
+        if (auth.currentUser) {
+          try {
+            await signOut(auth);
+          } catch (error) {
+            console.warn('Cleared stale Firebase session:', error);
           }
-        } catch (error) {
-          console.error('Error fetching student info:', error);
-          setStudentInfo({
-            id: user.uid,
-            name: user.displayName || '同學',
-            studentId: '',
-            account: '',
-            grade: '',
-            email: user.email || '',
-            enrolledCourses: [],
-            attendance: [],
-            role: '學生',
-          });
         }
-      } else {
         setStudentInfo(null);
-      }
         setLoading(false);
-    });
+      };
+      signOutStaleFirebase();
     }
 
     return () => {
       clearTimeout(safetyTimer);
-      if (unsubscribe) unsubscribe();
     };
   }, []);
 
   return (
-    <StudentContext.Provider value={{ studentInfo, loading }}>
+    <StudentContext.Provider value={{ studentInfo, loading, clearStudentInfo }}>
       {children}
     </StudentContext.Provider>
   );

@@ -1,27 +1,30 @@
 'use client';
 
 import { useEffect, useCallback, useRef } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { getSession } from '@/utils/session';
+import { logoutClient } from '@/utils/logoutClient';
 import Swal from 'sweetalert2';
 
 const STUDENT_TIMEOUT = 3 * 60 * 60 * 1000; 
 const TEACHER_TIMEOUT = 30 * 60 * 1000;     
 
 export default function AutoLogout() {
-  const router = useRouter();
   const pathname = usePathname();
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const performLogout = useCallback(() => {
-    localStorage.removeItem('user_session');
-    sessionStorage.clear();
-    
-    document.cookie.split(";").forEach((c) => {
-      document.cookie = c
-        .replace(/^ +/, "")
-        .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-    });
+  const performLogout = useCallback(async () => {
+    const session = getSession();
+    const role = (session as { role?: string | string[] } | null)?.role;
+    const isTeacherOrAdmin =
+      role === 'teacher' ||
+      role === 'admin' ||
+      role === '老師' ||
+      role === '管理員' ||
+      (Array.isArray(role) && (role.includes('teacher') || role.includes('admin')));
+    const redirectTo = isTeacherOrAdmin ? '/panel' : '/login';
+
+    await logoutClient();
 
     Swal.fire({
       title: '閒置過久',
@@ -32,9 +35,9 @@ export default function AutoLogout() {
       allowOutsideClick: false,
       allowEscapeKey: false
     }).then(() => {
-      router.push('/login');
+      window.location.assign(redirectTo);
     });
-  }, [router]);
+  }, []);
 
   const resetTimer = useCallback(() => {
     if (timerRef.current) {

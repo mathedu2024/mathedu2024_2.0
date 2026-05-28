@@ -21,7 +21,8 @@ import {
 } from '@heroicons/react/24/outline';
 
 // Utils & Types
-import { getSession, clearSession } from '@/utils/session';
+import { getSession } from '@/utils/session';
+import { logoutClient } from '@/utils/logoutClient';
 import type { Course } from '@/components/TeacherCourseManager';
 
 // ============================================================================
@@ -157,17 +158,15 @@ function BackPanel() {
     setSidebarOpen(prev => !prev);
   }, []);
 
-  const handleLogout = useCallback(() => {
-    clearSession();
-    router.push('/panel');
-  }, [router]);
+  const handleLogout = useCallback(async () => {
+    await logoutClient('/panel');
+  }, []);
 
   useEffect(() => {
     const checkActivity = () => {
       if (isChildProcessing) return;
       if (Date.now() - lastActivity > 3 * 60 * 1000) {
-        clearSession();
-        router.push('/panel');
+        void logoutClient('/panel');
       }
     };
     const interval = setInterval(checkActivity, 30000);

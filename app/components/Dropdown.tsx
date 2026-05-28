@@ -15,9 +15,10 @@ interface DropdownProps {
   placeholder?: string;
   className?: string;
   buttonClassName?: string;
+  menuPlacement?: 'top' | 'bottom';
 }
 
-export default function Dropdown({ options, value, onChange, placeholder = '請選擇', className = '', buttonClassName = '' }: DropdownProps) {
+export default function Dropdown({ options, value, onChange, placeholder = '請選擇', className = '', buttonClassName = '', menuPlacement = 'bottom' }: DropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -69,11 +70,11 @@ export default function Dropdown({ options, value, onChange, placeholder = '請�
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
+            initial={{ opacity: 0, y: menuPlacement === 'top' ? 10 : -10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
+            exit={{ opacity: 0, y: menuPlacement === 'top' ? 10 : -10 }}
             transition={{ duration: 0.2 }}
-            className="absolute z-50 mt-1 w-full bg-white shadow-lg border border-gray-100 rounded-xl max-h-60 overflow-y-auto"
+            className={`absolute z-50 w-full bg-white shadow-lg border border-gray-100 rounded-xl max-h-60 overflow-y-auto ${menuPlacement === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'}`}
             role="listbox"
           >
             <ul className="p-1">
@@ -85,6 +86,10 @@ export default function Dropdown({ options, value, onChange, placeholder = '請�
                       ? 'bg-indigo-50 text-indigo-700 font-semibold'
                       : 'text-gray-800 hover:bg-gray-50'
                   }`}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    handleSelect(option.value);
+                  }}
                   onClick={() => handleSelect(option.value)}
                   role="option"
                   aria-selected={value === option.value}

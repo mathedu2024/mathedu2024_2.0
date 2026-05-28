@@ -71,6 +71,15 @@ export function StudentInfoProvider({ children }: { children: ReactNode }) {
     refreshStudentInfo();
   }, []);
 
+  useEffect(() => {
+    const onAuthLogout = () => {
+      setStudentInfo(null);
+      setLoading(false);
+    };
+    window.addEventListener('auth-logout', onAuthLogout);
+    return () => window.removeEventListener('auth-logout', onAuthLogout);
+  }, []);
+
   return (
     <StudentInfoContext.Provider value={{ studentInfo, loading, refreshStudentInfo }}>
       {children}

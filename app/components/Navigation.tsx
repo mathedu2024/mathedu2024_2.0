@@ -1,21 +1,39 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { getSession } from '../utils/session';
+import { getSession, type SessionData } from '../utils/session';
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 
 export default function Navigation() {
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isClient, setIsClient] = useState(false);
-  const [session, setSession] = useState<unknown>(null);
+  const [session, setSessionState] = useState<SessionData | null>(null);
+
+  const refreshSession = useCallback(() => {
+    setSessionState(getSession());
+  }, []);
 
   useEffect(() => {
     setIsClient(true);
-    setSession(getSession() as unknown);
-  }, []);
+    refreshSession();
+  }, [refreshSession]);
+
+  useEffect(() => {
+    refreshSession();
+  }, [pathname, refreshSession]);
+
+  useEffect(() => {
+    const onAuthChange = () => refreshSession();
+    window.addEventListener('auth-logout', onAuthChange);
+    window.addEventListener('storage', onAuthChange);
+    return () => {
+      window.removeEventListener('auth-logout', onAuthChange);
+      window.removeEventListener('storage', onAuthChange);
+    };
+  }, [refreshSession]);
 
   const isActive = (path: string) => {
     return pathname === path;

@@ -93,7 +93,7 @@ export default function Dropdown({ value, onChange, options, placeholder = 'Sele
           >
             <Listbox.Options
               ref={optionsRef}
-              className="fixed z-[9999] bg-white border border-gray-200 rounded-xl shadow-xl max-h-60 overflow-auto focus:outline-none py-1"
+              className="fixed z-[100000] bg-white border border-gray-200 rounded-xl shadow-xl max-h-60 overflow-auto focus:outline-none py-1"
               style={{
                 left: `${position.left}px`,
                 width: `${position.width}px`,

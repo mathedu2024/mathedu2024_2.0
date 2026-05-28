@@ -33,10 +33,16 @@ export const getSession = (): SessionData | null => {
 };
 
 export const clearSession = () => {
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem(SESSION_KEY);
-    document.cookie = 'session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-  }
+  if (typeof window === 'undefined') return;
+
+  localStorage.removeItem(SESSION_KEY);
+  sessionStorage.clear();
+
+  const expire = 'Thu, 01 Jan 1970 00:00:00 GMT';
+  document.cookie = `session=; path=/; expires=${expire}; SameSite=Strict`;
+  document.cookie = `session=; path=/; expires=${expire}; SameSite=Lax`;
+
+  window.dispatchEvent(new Event('auth-logout'));
 };
 
 export const isAuthenticated = (): boolean => {

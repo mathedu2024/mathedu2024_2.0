@@ -212,17 +212,19 @@ export async function syncStudentCourseEnrollments(
     }
   }
 
-  const studentDetails = {
+  const studentDetails: Record<string, unknown> = {
     id: studentId,
-    name: info.name,
-    account: info.account,
-    email: info.email,
+    name: info.name ?? '',
+    account: info.account ?? '',
+    email: info.email ?? '',
     studentId: info.studentId || studentId,
     grade: info.grade || '未設定',
     schoolGroup: info.schoolGroup || '',
     className: info.className || '',
-    seatNumber: info.seatNumber || undefined,
   };
+  if (info.seatNumber != null && info.seatNumber !== '') {
+    studentDetails.seatNumber = info.seatNumber;
+  }
 
   const oldTargets = await resolveCourseTargets(oldCourses);
   const newTargets = await resolveCourseTargets(newCourses);
@@ -266,7 +268,7 @@ export async function syncStudentCourseEnrollments(
       grade: studentDetails.grade,
       schoolGroup: studentDetails.schoolGroup,
       className: studentDetails.className,
-      seatNumber: studentDetails.seatNumber,
+      ...(studentDetails.seatNumber != null ? { seatNumber: studentDetails.seatNumber } : {}),
     });
   }
 

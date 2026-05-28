@@ -48,6 +48,7 @@ if (!global._firebaseAdmin) {
     }
 
     db = admin.firestore();
+    db.settings({ ignoreUndefinedProperties: true });
     firebaseAuth = admin.auth();
   } catch (error) {
     initError = error instanceof Error ? error.message : String(error);

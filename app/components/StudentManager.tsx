@@ -99,10 +99,12 @@ export default function StudentManager() {
 
   const activeCourseSelectOptions = useMemo(
     () =>
-      activeCourses.map((course) => ({
-        label: `${course.name} (${course.code})`,
-        value: course.id,
-      })),
+      [...activeCourses]
+        .sort((a, b) => (a.code || '').localeCompare(b.code || '', undefined, { numeric: true, sensitivity: 'base' }))
+        .map((course) => ({
+          label: `${course.name} (${course.code})`,
+          value: course.id,
+        })),
     [activeCourses]
   );
 

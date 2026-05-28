@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useTransition, Suspense } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { clearSession } from '../utils/session';
+import { logoutClient } from '../utils/logoutClient';
 import Sidebar from '../components/Sidebar';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { useStudentInfo, StudentInfoProvider } from './StudentInfoContext';
@@ -24,7 +24,7 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false); // Default to closed on server for safety
-  const { studentInfo, loading } = useStudentInfo();
+  const { studentInfo, loading, clearStudentInfo } = useStudentInfo();
   const [isPending, startTransition] = useTransition();
   const [isMounted, setIsMounted] = useState(false);
 
@@ -61,9 +61,9 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const handleLogout = () => {
-    clearSession();
-    router.push('/login');
+  const handleLogout = async () => {
+    clearStudentInfo();
+    await logoutClient('/login');
   };
 
   // 修正: 放寬載入條件，只要有資料就先顯示，避免背景更新時畫面卡在 Loading
