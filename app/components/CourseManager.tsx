@@ -924,7 +924,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                             </div>
                         )}
                         {/* Section 1: Basic Info */}
-                        <div className="bg-gray-50/50 p-5 rounded-xl border border-gray-100 relative z-[40]">
+                        <div className="bg-gray-50/50 p-5 rounded-xl border border-gray-100 relative z-[40] hover:z-[50] focus-within:z-[50]">
                             <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 flex items-center">
                                 <span className="w-1 h-4 bg-indigo-500 rounded-full mr-2"></span>
                                 基本資訊
@@ -956,7 +956,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                         </div>
 
                         {/* Section 2: Content & Categorization */}
-                        <div className="bg-gray-50/50 p-5 rounded-xl border border-gray-100 relative z-[30]">
+                        <div className="bg-gray-50/50 p-5 rounded-xl border border-gray-100 relative z-[30] hover:z-[50] focus-within:z-[50]">
                             <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 flex items-center">
                                 <span className="w-1 h-4 bg-purple-500 rounded-full mr-2"></span>
                                 內容與分類
@@ -1058,7 +1058,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                         </div>
 
                         {/* Section 3: Time & Location */}
-                        <div className="bg-gray-50/50 p-5 rounded-xl border border-gray-100 relative z-[20]">
+                        <div className="bg-gray-50/50 p-5 rounded-xl border border-gray-100 relative z-[20] hover:z-[50] focus-within:z-[50]">
                             <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 flex items-center">
                                 <span className="w-1 h-4 bg-green-500 rounded-full mr-2"></span>
                                 時間與地點
@@ -1165,7 +1165,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                         </div>
 
                         {/* Section 4: Status & Visibility */}
-                        <div className="bg-gray-50/50 p-5 rounded-xl border border-gray-100 relative z-[10]">
+                        <div className="bg-gray-50/50 p-5 rounded-xl border border-gray-100 relative z-[10] hover:z-[50] focus-within:z-[50]">
                             <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 flex items-center">
                                 <span className="w-1 h-4 bg-yellow-500 rounded-full mr-2"></span>
                                 狀態與可見度

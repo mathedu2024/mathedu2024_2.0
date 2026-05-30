@@ -150,6 +150,16 @@ function LessonManager({ courseId, courseName, courseCode, onClose, isArchived =
   const [isOrderDirty, setIsOrderDirty] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia('(min-width: 768px)').matches : true
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)');
+    const update = () => setIsDesktop(mq.matches);
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
 
   const fetchLessons = useCallback(async () => {
     setIsLoading(true);
@@ -304,7 +314,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose, isArchived =
   if (isLoading) return <div className="fixed inset-0 bg-white z-[9999] flex items-center justify-center"><LoadingSpinner size={60} text="課堂資料載入中..." /></div>;
 
   return (
-    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pb-10 flex flex-col h-full animate-fade-in">
+    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pb-10 flex flex-col animate-fade-in">
       {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
         <div className="border-l-4 border-indigo-500 pl-4">
@@ -339,41 +349,39 @@ function LessonManager({ courseId, courseName, courseCode, onClose, isArchived =
       )}
 
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="hidden md:block bg-white border border-gray-200 rounded-xl shadow-sm overflow-x-auto">
-             <table className="w-full text-sm text-left text-gray-500">
-                <thead className="bg-gray-50 text-xs text-gray-700 uppercase">
-                    <tr>
-                        <th className="px-4 py-4 w-[60px]"></th>
-                        <th className="px-6 py-4 font-bold w-[100px]">堂數</th>
-                        <th className="px-6 py-4 font-bold min-w-[200px]">課堂標題</th>
-                        <th className="px-6 py-4 font-bold w-[140px]">日期</th>
-                        <th className="px-6 py-4 font-bold text-center w-[140px]">學生可見</th>
-                        <th className="px-6 py-4 font-bold text-right w-[160px]">{isArchived ? '詳情' : '操作'}</th>
-                    </tr>
-                </thead>
+        {isDesktop ? (
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden text-sm text-left text-gray-500">
+             <div className="grid grid-cols-[3rem_5rem_minmax(0,1fr)_7rem_7rem_8rem] bg-gray-50 text-xs text-gray-700 uppercase border-b border-gray-100">
+                <div className="px-4 py-4" />
+                <div className="px-6 py-4 font-bold">堂數</div>
+                <div className="px-6 py-4 font-bold">課堂標題</div>
+                <div className="px-6 py-4 font-bold">日期</div>
+                <div className="px-6 py-4 font-bold text-center">學生可見</div>
+                <div className="px-6 py-4 font-bold text-right">{isArchived ? '詳情' : '操作'}</div>
+             </div>
                 <Droppable droppableId="lesson-list">
                     {(provided: DroppableProvided) => (
-                        <tbody className="divide-y divide-gray-100" ref={provided.innerRef} {...provided.droppableProps}>
+                        <div className="divide-y divide-gray-100" ref={provided.innerRef} {...provided.droppableProps}>
                             {lessons.length === 0 ? (
-                                <tr><td colSpan={6} className="text-center py-8 text-gray-400">目前沒有課堂資料</td></tr>
+                                <div className="text-center py-8 text-gray-400">目前沒有課堂資料</div>
                             ) : (
                                 lessons.map((lesson, idx) => (
                                     <Draggable key={lesson.id} draggableId={lesson.id} index={idx} isDragDisabled={isArchived}>
                                         {(provided: DraggableProvided) => (
-                                            <tr ref={provided.innerRef} {...provided.draggableProps} className="hover:bg-indigo-50/30 transition-colors group bg-white">
-                                                <td className="px-4 py-4 cursor-move text-gray-400 hover:text-gray-600" {...provided.dragHandleProps}>
+                                            <div ref={provided.innerRef} {...provided.draggableProps} className="grid grid-cols-[3rem_5rem_minmax(0,1fr)_7rem_7rem_8rem] items-center hover:bg-indigo-50/30 transition-colors group bg-white">
+                                                <div className="px-4 py-4 cursor-move text-gray-400 hover:text-gray-600" {...provided.dragHandleProps}>
                                                     {!isArchived && <Bars3Icon className="w-5 h-5" />}
-                                                </td>
-                                                <td className="px-6 py-4 font-medium text-indigo-600 whitespace-nowrap">
+                                                </div>
+                                                <div className="px-6 py-4 font-medium text-indigo-600 whitespace-nowrap">
                                                     第 {idx + 1} 堂
-                                                </td>
-                                                <td className="px-6 py-4 font-medium text-gray-900">
+                                                </div>
+                                                <div className="px-6 py-4 font-medium text-gray-900">
                                                     <div className="line-clamp-2">{lesson.title}</div>
-                                                </td>
-                                                <td className="px-6 py-4 font-mono whitespace-nowrap">
+                                                </div>
+                                                <div className="px-6 py-4 font-mono whitespace-nowrap">
                                                     {lesson.date}
-                                                </td>
-                                                <td className="px-6 py-4 text-center whitespace-nowrap">
+                                                </div>
+                                                <div className="px-6 py-4 text-center whitespace-nowrap">
                                                     <button
                                                       onClick={() => !isArchived && handleToggleLessonVisibility(lesson)}
                                                       className={`px-2.5 py-1 rounded-full text-xs font-bold border inline-flex items-center gap-1 ${
@@ -386,8 +394,8 @@ function LessonManager({ courseId, courseName, courseCode, onClose, isArchived =
                                                       {lesson.visibleToStudents !== false ? <EyeIcon className="w-3.5 h-3.5" /> : <EyeSlashIcon className="w-3.5 h-3.5" />}
                                                       {lesson.visibleToStudents !== false ? '開放' : '隱藏'}
                                                     </button>
-                                                </td>
-                                                <td className="px-6 py-4 text-right whitespace-nowrap">
+                                                </div>
+                                                <div className="px-6 py-4 text-right whitespace-nowrap">
                                                     <div className="flex justify-end gap-2">
                                                         <button onClick={() => handleEditClick(lesson)} className="text-indigo-600 hover:text-indigo-800 p-1 rounded-md hover:bg-indigo-50" title={isArchived ? "查看" : "編輯"}>
                                                             {isArchived ? <EyeIcon className="w-4 h-4" /> : <PencilIcon className="w-4 h-4" />}
@@ -398,21 +406,20 @@ function LessonManager({ courseId, courseName, courseCode, onClose, isArchived =
                                                           </button>
                                                         )}
                                                     </div>
-                                                </td>
-                                            </tr>
+                                                </div>
+                                            </div>
                                         )}
                                     </Draggable>
                                 ))
                             )}
                             {provided.placeholder}
-                        </tbody>
+                        </div>
                     )}
                 </Droppable>
-             </table>
         </div>
-
-        {/* Mobile View */}
-        <div className="md:hidden space-y-3">
+        ) : (
+        /* Mobile View */
+        <div className="space-y-3">
              <Droppable droppableId="lesson-list-mobile">
                 {(provided: DroppableProvided) => (
                     <div ref={provided.innerRef} {...provided.droppableProps}>
@@ -465,6 +472,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose, isArchived =
                 )}
              </Droppable>
         </div>
+        )}
       </DragDropContext>
 
       <Modal open={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingLesson ? (isArchived ? '查看課堂' : '編輯課堂') : '新增課堂'} size="lg">

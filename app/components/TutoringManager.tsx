@@ -228,6 +228,11 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
     fetchSlots();
   }, [fetchSlots]);
 
+  const canEditSlot = (dateStr: string) => {
+    const slotDate = parseISO(dateStr);
+    return !isPast(slotDate) || isSameDay(slotDate, new Date());
+  };
+
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setForm(prev => ({
@@ -271,6 +276,10 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
   };
 
   const openEditModal = (slot: TutoringSlot) => {
+    if (!canEditSlot(slot.date)) {
+      alerts.showWarning('無法編輯過去的輔導時段');
+      return;
+    }
     setSelectedSlot(slot);
     setForm({
       ...slot,
@@ -351,24 +360,29 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
     }
   };
 
-  const handleDelete = async () => {
-    if (!selectedSlot) return;
+  const handleDelete = async (slotToDelete?: TutoringSlot) => {
+    const target = slotToDelete || selectedSlot;
+    if (!target) return;
 
-    if (selectedSlot.bookedStudents && selectedSlot.bookedStudents.length > 0) {
+    if (target.bookedStudents && target.bookedStudents.length > 0) {
       alerts.showError('此時段已有學生預約，無法刪除。');
       return;
     }
 
-    const confirmed = await alerts.confirm(`確定要刪除輔導時段「${selectedSlot.title}」嗎？`);
+    if (!canEditSlot(target.date)) {
+      alerts.showWarning('無法刪除過去的輔導時段');
+      return;
+    }
+
+    const confirmed = await alerts.confirm(`確定要刪除輔導時段「${target.title}」嗎？`);
     if (!confirmed) return;
 
     setLoading(true);
-
     try {
       const res = await fetch('/api/tutoring/delete-slot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slotId: selectedSlot.id, teacherId: userInfo.id }),
+        body: JSON.stringify({ slotId: target.id, teacherId: userInfo.id }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -394,6 +408,11 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
 
   const handleConfirmCancelAppointment = async (studentId: string, studentName: string) => {
     if (!selectedSlot) return;
+
+    if (!canEditSlot(selectedSlot.date)) {
+      alerts.showWarning('無法取消過去的預約');
+      return;
+    }
 
     const confirmed = await alerts.confirm(`確定要取消學生 ${studentName} 在「${selectedSlot.title}」的預約嗎？`);
     if (!confirmed) return;
@@ -484,14 +503,22 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
             {daySlots.map(slot => (
               <div
                 key={slot.id}
-                className={`text-xs p-1.5 rounded-lg border cursor-pointer transition-colors ${
+                className={`text-xs p-1.5 rounded-lg border transition-colors ${
+                  canEditSlot(slot.date) 
+                    ? 'cursor-pointer ' + (slot.bookedCount === slot.participantLimit ? 'hover:bg-red-100' : 'hover:bg-indigo-50 hover:border-indigo-200')
+                    : 'cursor-default opacity-80'
+                } ${
                   slot.bookedCount === slot.participantLimit 
-                    ? 'bg-red-50 text-red-700 border-red-100 hover:bg-red-100' 
-                    : 'bg-white text-indigo-700 border-indigo-100 hover:bg-indigo-50 hover:border-indigo-200 shadow-sm'
+                    ? 'bg-red-50 text-red-700 border-red-100' 
+                    : 'bg-white text-indigo-700 border-indigo-100 shadow-sm'
                 }`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  openEditModal(slot);
+                  if (canEditSlot(slot.date)) {
+                    openEditModal(slot);
+                  } else {
+                    setSelectedDate(parseISO(slot.date));
+                  }
                 }}
               >
                 <div className="font-bold truncate">{slot.title}</div>
@@ -596,14 +623,16 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
                     >
                         名單 ({slot.bookedStudents?.length || 0})
                     </button>
-                    <div className="flex space-x-1">
-                        <button onClick={() => openEditModal(slot)} className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors">
-                            <PencilIcon className="w-5 h-5" />
-                        </button>
-                        <button onClick={() => { setSelectedSlot(slot); handleDelete(); }} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                            <TrashIcon className="w-5 h-5" />
-                        </button>
-                    </div>
+                    {canEditSlot(slot.date) && (
+                        <div className="flex space-x-1">
+                            <button onClick={() => openEditModal(slot)} className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors">
+                                <PencilIcon className="w-5 h-5" />
+                            </button>
+                            <button onClick={() => handleDelete(slot)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                <TrashIcon className="w-5 h-5" />
+                            </button>
+                        </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -648,12 +677,14 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
                             </p>
                         )}
                       </div>
-                      <button
-                        onClick={() => handleConfirmCancelAppointment(student.studentId, student.studentName)}
-                        className="px-3 py-1.5 bg-white border border-red-200 text-red-600 rounded-lg text-sm hover:bg-red-50 transition-colors shadow-sm whitespace-nowrap"
-                      >
-                        取消預約
-                      </button>
+                      {selectedSlot && canEditSlot(selectedSlot.date) && (
+                        <button
+                          onClick={() => handleConfirmCancelAppointment(student.studentId, student.studentName)}
+                          className="px-3 py-1.5 bg-white border border-red-200 text-red-600 rounded-lg text-sm hover:bg-red-50 transition-colors shadow-sm whitespace-nowrap"
+                        >
+                          取消預約
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>

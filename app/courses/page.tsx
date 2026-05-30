@@ -127,15 +127,6 @@ export default function CoursesPage() {
       
       return !course.archived && course.showInIntroduction && matchesGrade && matchesSubject && matchesNature && matchesStatus;
     }).sort((a, b) => {
-        const statusA = statuses.indexOf(a.status);
-        const statusB = statuses.indexOf(b.status);
-        const priorityA = statusA !== -1 ? statusA : 999;
-        const priorityB = statusB !== -1 ? statusB : 999;
-
-        if (priorityA !== priorityB) {
-            return priorityA - priorityB;
-        }
-
         const codeA = a.code || '';
         const codeB = b.code || '';
         

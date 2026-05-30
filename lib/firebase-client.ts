@@ -1,7 +1,7 @@
 'use client';
 
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getFirestore, Firestore } from 'firebase/firestore';
+import { getFirestore, Firestore, initializeFirestore } from 'firebase/firestore';
 import { getAuth, Auth } from 'firebase/auth';
 
 const firebaseConfig = {
@@ -18,7 +18,14 @@ const firebaseConfig = {
 const app: FirebaseApp = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
 // 初始化服務
-const db: Firestore = getFirestore(app);
+let db: Firestore;
+try {
+  // 嘗試初始化 Firestore，若需要設定離線暫存等參數，請加在第二個參數的物件中
+  db = initializeFirestore(app, {});
+} catch (error) {
+  // 捕捉 HMR 造成的重複初始化錯誤，降級使用已存在的實例
+  db = getFirestore(app);
+}
 const auth: Auth = getAuth(app);
 
 export { app, db, auth };

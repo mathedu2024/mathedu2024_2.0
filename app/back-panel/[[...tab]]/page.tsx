@@ -567,14 +567,14 @@ function BackPanel() {
     // For placeholder pages like 'teacher-exams', render without the standard header.
     if (activeTab === 'teacher-exams') {
       return (
-        <div className="animate-fade-in h-full flex flex-col bg-gray-50/50 p-4 md:p-6 overflow-y-auto">
+        <div className="animate-fade-in flex flex-col bg-gray-50/50 p-4 md:p-6">
           {componentToRender}
         </div>
       );
     }
 
     return (
-      <div className="animate-fade-in h-full flex flex-col bg-gray-50/50 p-4 md:p-6 overflow-y-auto">
+      <div className="animate-fade-in flex flex-col bg-gray-50/50 p-4 md:p-6">
         <div className="flex flex-col gap-6">
           {componentToRender}
         </div>
