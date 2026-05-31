@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import LoadingSpinner from './LoadingSpinner';
+import PageLoadingArea from './ui/PageLoadingArea';
 import BookingModal from './BookingModal';
 import { TutoringSlot } from '@/services/interfaces';
 import { useStudentInfo } from '../student/StudentInfoContext';
@@ -94,7 +94,7 @@ const TutoringRequest: React.FC = () => {
   });
 
   if (loading || studentInfoLoading) {
-    return <LoadingSpinner text="載入輔導時段中..." />;
+    return <PageLoadingArea minHeight="min-h-[12rem]" />;
   }
 
   if (error) {

@@ -143,9 +143,9 @@ function PasswordManager({ onPasswordChangeSuccess, apiEndpoint = '/api/student/
   }
 
   return (
-    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pt-6 md:pt-8 pb-10 flex flex-col h-full animate-fade-in">
+    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 flex flex-col h-full animate-fade-in">
       {/* Header Area */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
         <div className="border-l-4 border-indigo-500 pl-4">
           <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
             <UserCircleIcon className="w-8 h-8 text-indigo-600" />

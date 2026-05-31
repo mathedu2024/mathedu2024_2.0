@@ -10,6 +10,8 @@ import type { Course } from '@/components/TeacherCourseManager';
 import { TutoringSlot, BookedStudent } from '@/services/interfaces';
 import Swal from 'sweetalert2';
 import { isCourseArchived } from './StudentCourseSelector';
+import LoadingSpinner from './LoadingSpinner';
+import PageLoadingArea from './ui/PageLoadingArea';
 
 interface UserInfo {
   id: string;
@@ -20,9 +22,25 @@ interface UserInfo {
 }
 
 interface TutoringManagerProps {
-  userInfo: UserInfo;
+  userInfo: UserInfo | null;
   courses: Course[];
 }
+
+const createEmptyForm = (teacherId = ''): TutoringSlot => ({
+  teacherId,
+  date: '',
+  startTime: '',
+  endTime: '',
+  participantLimit: 1,
+  available: true,
+  title: '',
+  method: '個別輔導',
+  locationType: '實體輔導',
+  locationDetails: '',
+  qualifications: { type: 'grades_subjects', grades: [], subjects: [], classes: [] },
+  remarks: '',
+  mode: 'one-on-one',
+});
 
 const gradeOptions = [
   { label: '國一', value: '國一' },
@@ -45,13 +63,6 @@ const subjectOptions = [
   { label: '化學', value: '化學' },
   { label: '生物', value: '生物' },
 ];
-
-const LoadingSpinner = ({ size = 20, color = 'text-indigo-600' }: { size?: number, color?: string }) => (
-  <svg className={`animate-spin ${color === 'white' ? 'text-white' : 'text-indigo-600'}`} width={size} height={size} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-  </svg>
-);
 
 const Dropdown = ({ value, onChange, options, placeholder, className }: { 
   value: string; 
@@ -164,21 +175,7 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<TutoringSlot | null>(null);
-  const [form, setForm] = useState<TutoringSlot>({
-    teacherId: userInfo.id,
-    date: '',
-    startTime: '',
-    endTime: '',
-    participantLimit: 1,
-    available: true,
-    title: '',
-    method: '個別輔導',
-    locationType: '實體輔導',
-    locationDetails: '',
-    qualifications: { type: 'grades_subjects', grades: [], subjects: [], classes: [] },
-    remarks: '',
-    mode: 'one-on-one',
-  });
+  const [form, setForm] = useState<TutoringSlot>(() => createEmptyForm(userInfo?.id ?? ''));
   const [showBookingsModal, setShowBookingsModal] = useState(false);
   const [currentBookedStudents, setCurrentBookedStudents] = useState<BookedStudent[]>([]);
   const [currentSlotTitle, setCurrentSlotTitle] = useState('');
@@ -204,6 +201,10 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
   }, [courses]);
 
   const fetchSlots = useCallback(async () => {
+    if (!userInfo?.id) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch('/api/tutoring/list-teacher-slots', {
@@ -222,7 +223,7 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
     } finally {
       setLoading(false);
     }
-  }, [userInfo.id]);
+  }, [userInfo?.id]);
 
   useEffect(() => {
     fetchSlots();
@@ -243,21 +244,7 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
   };
 
   const resetForm = () => {
-    setForm({
-      teacherId: userInfo.id,
-      date: '',
-      startTime: '',
-      endTime: '',
-      participantLimit: 1,
-      available: true,
-      title: '',
-      method: '個別輔導',
-      locationType: '實體輔導',
-      locationDetails: '',
-      qualifications: { type: 'grades_subjects', grades: [], subjects: [], classes: [] },
-      remarks: '',
-      mode: 'one-on-one',
-    });
+    setForm(createEmptyForm(userInfo?.id ?? ''));
     setSelectedSlot(null);
   };
 
@@ -314,6 +301,8 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!userInfo?.id) return;
+
     setLoading(true);
 
     const payload = {
@@ -375,7 +364,7 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
     }
 
     const confirmed = await alerts.confirm(`確定要刪除輔導時段「${target.title}」嗎？`);
-    if (!confirmed) return;
+    if (!confirmed || !userInfo?.id) return;
 
     setLoading(true);
     try {
@@ -539,8 +528,6 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
     return slots.filter(slot => isSameDay(parseISO(slot.date), selectedDate));
   }, [slots, selectedDate]);
 
-  if (!mounted) return <div className="p-20 flex justify-center"><LoadingSpinner size={40} /></div>;
-
   return (
     <div className="max-w-7xl mx-auto w-full px-4 md:px-6 flex flex-col h-full animate-fade-in">
         {/* Header Area */}
@@ -553,6 +540,11 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
             <p className="text-gray-500 text-sm mt-1">安排您的輔導時段並查看學生的預約名單。</p>
           </div>
         </div>
+
+        {!userInfo || !mounted ? (
+          <PageLoadingArea />
+        ) : (
+        <>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8">
           <div className="flex flex-col md:flex-row justify-between items-center mb-6">
@@ -577,7 +569,7 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
           </h2>
           
           {loading ? (
-            <div className="flex justify-center items-center h-32"><LoadingSpinner size={40} /></div>
+            <PageLoadingArea minHeight="min-h-[8rem]" />
           ) : filteredSlots.length === 0 ? (
             <div className="text-center py-12 text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200">
                 <ClockIcon className="w-12 h-12 mx-auto mb-2 text-gray-300" />
@@ -639,6 +631,8 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
             </div>
           )}
         </div>
+        </>
+        )}
 
       {showBookingsModal && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-[9999] p-4 animate-fade-in">

@@ -184,16 +184,16 @@ function TeacherPageContent() {
           
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-bounce-in">
             {/* Modal Header */}
-            <div className="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/80 backdrop-blur-md sticky top-0 z-10">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
               <div className="flex items-center gap-3">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">{selectedTeacher.name}</h2>
-                  <p className="text-xs text-indigo-600 font-medium">{selectedTeacher.subject}</p>
+                  <h2 className="text-xl font-bold">{selectedTeacher.name}</h2>
+                  <p className="text-xs text-indigo-100 font-medium">{selectedTeacher.subject}</p>
                 </div>
               </div>
               <button 
                 onClick={handleCloseModal}
-                className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700 flex items-center justify-center transition-colors"
+                className="text-white/80 hover:text-white transition-colors p-1 rounded-full hover:bg-white/20"
               >
                 <i className="fas fa-times"></i>
               </button>

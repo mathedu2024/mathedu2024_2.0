@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import MultiSelectDropdown from './MultiSelectDropdown';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { LoadingSpinner } from './ui';
+import { LoadingSpinner, PageLoadingArea } from './ui';
 import { createPortal } from 'react-dom';
 
 import Swal from 'sweetalert2';
@@ -737,9 +737,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
 
             {/* Course Grid View - REPLACED TABLE */}
             {loading ? (
-                <div className="flex-1 flex items-center justify-center min-h-[400px]">
-                    <LoadingSpinner size={60} text="載入課程中..." />
-                </div>
+                <PageLoadingArea minHeight="min-h-[400px]" className="flex-1" />
             ) : (
                 <>
                     {filteredCourses.length === 0 ? (
@@ -1218,7 +1216,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                             </div>
                         )}
                         {loadingStudents ? (
-                            <div className="flex justify-center p-12"><LoadingSpinner /></div>
+                            <PageLoadingArea minHeight="min-h-[200px]" />
                         ) : studentList.length > 0 ? (
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 {studentList.map(stu => (

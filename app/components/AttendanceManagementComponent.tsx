@@ -3,7 +3,9 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import Swal from 'sweetalert2';
-import LoadingSpinner from './LoadingSpinner'; 
+import LoadingSpinner from './LoadingSpinner';
+import PageHeader from './ui/PageHeader';
+import PageLoadingArea from './ui/PageLoadingArea'; 
 import ExcelJS from 'exceljs'; // 使用 ES Module 匯入 exceljs
 // 引入您的外部表單元件
 import CreateAttendanceActivityForm from './CreateAttendanceActivityForm';
@@ -393,8 +395,6 @@ function AttendanceRosterManager({ activityId, courseId, courseName, students = 
       return true;
   });
 
-  if (loading) return <div className="fixed inset-0 bg-white z-[9999] flex items-center justify-center"><LoadingSpinner size={60} text="載入名單中..." /></div>;
-
   return (
     <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pb-20 flex flex-col h-full animate-fade-in">
       {/* Header Area */}
@@ -428,6 +428,10 @@ function AttendanceRosterManager({ activityId, courseId, courseName, students = 
         )}
       </div>
 
+      {loading ? (
+        <PageLoadingArea />
+      ) : (
+      <>
       {isArchived && (
         <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl flex items-center shadow-sm mb-4">
           <span className="font-bold mr-2">提示：</span>
@@ -544,8 +548,10 @@ function AttendanceRosterManager({ activityId, courseId, courseName, students = 
              </>
           )}
       </div>
+      </>
+      )}
       
-      {!isArchived && (
+      {!isArchived && !loading && (
         <div className="md:hidden fixed bottom-6 right-6 z-40">
             <button onClick={handleSave} disabled={saving} className="w-14 h-14 bg-indigo-600 text-white rounded-full shadow-xl flex items-center justify-center hover:bg-indigo-700 transition-all disabled:bg-gray-400">
                 {saving ? <LoadingSpinner size={24} color="white" /> : <CloudArrowUpIcon className="w-7 h-7" />}
@@ -720,6 +726,18 @@ function AttendanceActivityList({ courseId, courseName, courseCode, onBack, onSe
           studentId: String(s.studentId || s.id || ''),
           name: String(s.name || ''),
         }));
+
+        students.sort((a, b) => {
+          const idA = a.studentId;
+          const idB = b.studentId;
+          const aIsAlpha = /^[A-Za-z]/.test(idA);
+          const bIsAlpha = /^[A-Za-z]/.test(idB);
+          
+          if (aIsAlpha && !bIsAlpha) return 1;
+          if (!aIsAlpha && bIsAlpha) return -1;
+          
+          return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
+        });
       }
 
       // 抓取所有點名活動的詳細紀錄 (併行處理以提升效能)
@@ -821,8 +839,6 @@ function AttendanceActivityList({ courseId, courseName, courseCode, onBack, onSe
     }
   };
 
-  if (loading) return <div className="fixed inset-0 bg-white z-[9999] flex items-center justify-center"><LoadingSpinner size={60} /></div>;
-
   return (
     <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pb-10 flex flex-col h-full animate-fade-in">
       {/* Header Area */}
@@ -873,7 +889,9 @@ function AttendanceActivityList({ courseId, courseName, courseCode, onBack, onSe
           </Modal>
       )}
 
-      {activities.length === 0 ? (
+      {loading ? (
+        <PageLoadingArea />
+      ) : activities.length === 0 ? (
            <div className="text-center py-16 px-6 bg-white rounded-2xl border border-dashed border-gray-300">
                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400"><ClipboardDocumentCheckIcon className="w-8 h-8" /></div>
                <h3 className="mt-2 text-xl font-bold text-gray-900">尚無點名紀錄</h3>
@@ -1044,6 +1062,18 @@ export default function AttendanceManagementComponent({ courses: externalCourses
               studentId: String(s.studentId || s.id || ''),
               name: String(s.name || ''),
             }));
+
+            enrolledStudents.sort((a, b) => {
+              const idA = a.studentId;
+              const idB = b.studentId;
+              const aIsAlpha = /^[A-Za-z]/.test(idA);
+              const bIsAlpha = /^[A-Za-z]/.test(idB);
+              
+              if (aIsAlpha && !bIsAlpha) return 1;
+              if (!aIsAlpha && bIsAlpha) return -1;
+              
+              return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
+            });
             setStudents(enrolledStudents);
           } else {
             setStudents([]);
@@ -1091,7 +1121,17 @@ export default function AttendanceManagementComponent({ courses: externalCourses
 
   // Layer 3
   if (selectedActivity && selectedCourse) {
-    if (loadingStudents) return <div className="fixed inset-0 bg-white z-[9999] flex items-center justify-center"><LoadingSpinner size={60} text="正在載入學生名單..." /></div>;
+    if (loadingStudents) {
+      return (
+        <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pb-10 flex flex-col h-full animate-fade-in">
+          <PageHeader
+            title={selectedActivity.name || '點名活動'}
+            description={`${selectedCourse.name} • 載入學生名單`}
+          />
+          <PageLoadingArea />
+        </div>
+      );
+    }
     return <AttendanceRosterManager activityId={selectedActivity.id} courseId={selectedCourse.id} courseName={selectedCourse.name} students={students} onClose={() => setSelectedActivity(null)} initialActivityData={selectedActivity} isArchived={selectedCourse.status === '已封存'} />;
   }
 
@@ -1110,22 +1150,17 @@ export default function AttendanceManagementComponent({ courses: externalCourses
   }
 
   // Layer 1
-  if (loading) return <div className="fixed inset-0 bg-white z-[9999] flex items-center justify-center"><LoadingSpinner size={60} text="資料載入中..." /></div>;
-
   return (
     <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pb-10 flex flex-col h-full animate-fade-in">
-      {/* Header Area */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
-        <div className="border-l-4 border-indigo-500 pl-4">
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-            <CalendarDaysIcon className="h-8 w-8 text-indigo-600" />
-            點名管理
-          </h1>
-          <p className="text-gray-500 text-sm mt-1">記錄學生的出缺席狀況，包含手動點名與數字簽到。</p>
-        </div>
-      </div>
+      <PageHeader
+        title="點名管理"
+        description="記錄學生的出缺席狀況，包含手動點名與數字簽到。"
+        icon={<CalendarDaysIcon className="h-8 w-8 text-indigo-600" />}
+      />
 
-      {!loading && courses.length === 0 ? (
+      {loading ? (
+        <PageLoadingArea />
+      ) : courses.length === 0 ? (
            <div className="text-center py-16 px-6 bg-white rounded-2xl border border-dashed border-gray-300">
                <h3 className="mt-2 text-xl font-bold text-gray-900">尚無可管理的課程</h3>
            </div>

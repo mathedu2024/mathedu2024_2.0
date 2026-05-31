@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useStudentInfo } from '../StudentInfoContext';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import PageLoadingArea from '@/components/ui/PageLoadingArea';
 import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
 import TutoringRequest from '@/components/TutoringRequest';
 import StudentTutoringHistory from '@/components/StudentTutoringHistory';
@@ -11,11 +11,7 @@ export default function CounselingContent() {
   const { studentInfo, loading } = useStudentInfo();
   const [activeTab, setActiveTab] = useState<'request' | 'history'>('request');
 
-  if (loading) {
-    return <LoadingSpinner fullScreen />;
-  }
-
-  if (!studentInfo) {
+  if (!loading && !studentInfo) {
     return <div className="p-8 text-center text-gray-500">無法取得學生資料</div>;
   }
 
@@ -32,6 +28,10 @@ export default function CounselingContent() {
         </div>
       </div>
 
+      {loading ? (
+        <PageLoadingArea />
+      ) : (
+      <>
       {/* Tabs */}
       <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl mb-6 w-fit">
         <button
@@ -68,6 +68,8 @@ export default function CounselingContent() {
           }} />
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

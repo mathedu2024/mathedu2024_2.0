@@ -5,6 +5,7 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { logoutClient } from '../utils/logoutClient';
 import Sidebar from '../components/Sidebar';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { LOADING_MESSAGE } from '../components/ui/PageLoadingArea';
 import { useStudentInfo, StudentInfoProvider } from './StudentInfoContext';
 import { BookOpenIcon, ClipboardDocumentListIcon, CheckCircleIcon, PencilIcon, CalendarIcon, KeyIcon, CloudArrowDownIcon } from '@heroicons/react/24/outline';
 
@@ -25,7 +26,7 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false); // Default to closed on server for safety
   const { studentInfo, loading, clearStudentInfo } = useStudentInfo();
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -53,7 +54,7 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
     startTransition(() => {
       if (tab === null) {
         router.push('/student');
-      } else if (['courses', 'resources', 'grades', 'counseling', 'attendance'].includes(tab)) {
+      } else if (['courses', 'resources', 'grades', 'counseling', 'attendance', 'information'].includes(tab)) {
         router.push(`/student/${tab}`);
       } else {
         router.push(`/student?tab=${tab}`);
@@ -68,7 +69,7 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
 
   // 修正: 放寬載入條件，只要有資料就先顯示，避免背景更新時畫面卡在 Loading
   if (!isMounted || (loading && !studentInfo)) {
-    return <LoadingSpinner fullScreen size={40} />;
+    return <LoadingSpinner fullScreen size="lg" text={LOADING_MESSAGE} />;
   }
 
   if (!studentInfo) {
@@ -94,11 +95,6 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
             sidebarOpen ? 'md:pl-64' : 'md:pl-20'
           }`}
         >
-          {isPending && (
-            <div className="absolute inset-0 bg-white bg-opacity-50 flex items-center justify-center z-50">
-              <LoadingSpinner size={40} />
-            </div>
-          )}
           {children}
         </main>
       </div>
@@ -109,7 +105,7 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
 export default function StudentLayout({ children }: { children: React.ReactNode }) {
   return (
     <StudentInfoProvider>
-      <Suspense fallback={<LoadingSpinner fullScreen size={40} />}>
+      <Suspense fallback={null}>
         <StudentLayoutContent>{children}</StudentLayoutContent>
       </Suspense>
     </StudentInfoProvider>

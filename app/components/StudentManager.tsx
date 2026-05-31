@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom';
 import MultiSelectDropdown from './MultiSelectDropdown';
 import LoadingSpinner from './LoadingSpinner';
+import PageLoadingArea from './ui/PageLoadingArea';
 import Dropdown from './ui/Dropdown';
 import Swal from 'sweetalert2';
 import ExcelJS from 'exceljs';
@@ -1091,10 +1092,7 @@ export default function StudentManager() {
         {!isEditing && (
           <div className="flex-1 overflow-hidden">
             {loading ? (
-              <div className="flex justify-center items-center py-20">
-                <LoadingSpinner size={40} />
-                <p className="text-gray-500 ml-4 font-medium">資料讀取中...</p>
-              </div>
+              <PageLoadingArea />
             ) : (
               <>
                 {/* Mobile View: Modular Cards */}

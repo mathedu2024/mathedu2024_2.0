@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useStudentInfo } from '../../StudentInfoContext';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import PageLoadingArea from '@/components/ui/PageLoadingArea';
 import Dropdown from '@/components/ui/Dropdown';
 import { BookOpenIcon, ClockIcon, MapPinIcon, UserIcon, VideoCameraIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 
@@ -135,8 +135,6 @@ export default function StudentCoursesPage() {
     )
   };
 
-  if (!studentInfo) return <LoadingSpinner fullScreen />;
-
   return (
     <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pt-6 md:pt-8 pb-10 flex flex-col h-full animate-fade-in">
       {/* Header Area */}
@@ -150,8 +148,10 @@ export default function StudentCoursesPage() {
         </div>
       </div>
       
-      {loadingCourses ? (
-        <div className="flex justify-center items-center h-64"><LoadingSpinner size={40} /></div>
+      {!studentInfo ? (
+        <PageLoadingArea />
+      ) : loadingCourses ? (
+        <PageLoadingArea minHeight="min-h-[16rem]" />
       ) : courses.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
             <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl text-gray-300">📚</div>
@@ -242,7 +242,7 @@ export default function StudentCoursesPage() {
                 </div>
                 
                 {loadingLessons ? (
-                  <div className="flex justify-center items-center py-20"><LoadingSpinner size={40} /></div>
+                  <PageLoadingArea />
                 ) : lessons.length === 0 ? (
                   <div className="text-center py-20 bg-gray-50 rounded-xl border border-dashed border-gray-200">
                       <div className="text-gray-300 text-5xl mb-4">📝</div>

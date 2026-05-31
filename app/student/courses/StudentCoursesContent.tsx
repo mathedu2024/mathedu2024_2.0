@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useStudentInfo } from '../StudentInfoContext';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import PageLoadingArea from '@/components/ui/PageLoadingArea';
 import StudentCourseSelector, { getCourseDisplayKey } from '@/components/StudentCourseSelector';
 import { BookOpenIcon, ClockIcon, MapPinIcon, UserIcon, VideoCameraIcon } from '@heroicons/react/24/outline';
 
@@ -182,11 +182,6 @@ export default function StudentCoursesContent() {
   const currentLessons = lessons.slice(indexOfFirstLesson, indexOfLastLesson);
   const totalPages = Math.ceil(lessons.length / lessonsPerPage);
 
-  // 修正: 避免因為背景更新資料而擋住頁面
-  if (loadingStudentInfo && studentInfo === null) {
-    return <LoadingSpinner fullScreen size={40} />;
-  }
-
   return (
     <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pt-6 md:pt-8 pb-10 flex flex-col h-full animate-fade-in">
       {/* Header Area */}
@@ -205,7 +200,7 @@ export default function StudentCoursesContent() {
         )}
       </div>
       {loadingCourses ? (
-        <div className="flex justify-center items-center h-64"><LoadingSpinner size={40} /></div>
+        <PageLoadingArea minHeight="min-h-[16rem]" />
       ) : courses.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
             <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl text-gray-300">📚</div>
@@ -307,7 +302,7 @@ export default function StudentCoursesContent() {
                 </div>
                 
                 {loadingLessons ? (
-                  <div className="flex justify-center items-center py-20"><LoadingSpinner size={40} /></div>
+                  <PageLoadingArea />
                 ) : lessons.length === 0 ? (
                   <div className="text-center py-20 bg-gray-50 rounded-xl border border-dashed border-gray-200">
                       <div className="text-gray-300 text-5xl mb-4">📝</div>

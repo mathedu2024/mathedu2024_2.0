@@ -2,36 +2,51 @@
 
 import { MoonLoader } from 'react-spinners';
 
+const SIZE_MAP = { sm: 16, md: 24, lg: 40 } as const;
+
+export type LoadingSpinnerSize = number | keyof typeof SIZE_MAP;
+
+function resolveSize(size: LoadingSpinnerSize): number {
+  if (typeof size === 'number') return size;
+  return SIZE_MAP[size] ?? SIZE_MAP.lg;
+}
+
 export interface LoadingSpinnerProps {
-  size?: number;
+  size?: LoadingSpinnerSize;
   text?: string;
   color?: 'blue' | 'white' | 'gray';
   className?: string;
+  /** 全螢幕遮罩（僅用於登入、初次驗證等無頁面標題的場景） */
   fullScreen?: boolean;
 }
 
-export default function LoadingSpinner({ 
-  className = '', 
+export default function LoadingSpinner({
+  className = '',
   color = 'blue',
   fullScreen = false,
-  size = 40,
+  size = 'lg',
   text = '',
 }: LoadingSpinnerProps) {
   const colorMap = {
-    // Updated blue to Indigo-600 to match the new theme
-    blue: '#4f46e5', 
+    blue: '#4f46e5',
     white: '#FFFFFF',
-    gray: '#6B7280'
+    gray: '#6B7280',
   };
+
+  const pixelSize = resolveSize(size);
 
   const content = (
     <div className={`flex flex-col items-center justify-center ${className}`}>
-      <MoonLoader
-        color={colorMap[color]}
-        size={size}
-        speedMultiplier={0.8}
-      />
-      {text && <span className={`mt-3 text-sm font-medium ${color === 'white' ? 'text-white' : 'text-gray-500'}`}>{text}</span>}
+      <MoonLoader color={colorMap[color]} size={pixelSize} speedMultiplier={0.8} />
+      {text ? (
+        <span
+          className={`mt-3 text-sm font-medium ${
+            color === 'white' ? 'text-white' : 'text-gray-500'
+          }`}
+        >
+          {text}
+        </span>
+      ) : null}
     </div>
   );
 

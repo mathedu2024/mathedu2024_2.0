@@ -1,17 +1,3 @@
-import React, { Suspense } from 'react';
-import CounselingContent from './CounselingContent';
-import LoadingSpinner from '@/components/LoadingSpinner';
+'use client';
 
-export default function CounselingPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center">
-          <LoadingSpinner />
-        </div>
-      }
-    >
-      <CounselingContent />
-    </Suspense>
-  );
-}
+export { default } from './CounselingContent';

@@ -41,7 +41,7 @@ import { db, auth } from '@/lib/firebase-client'; // 確保有匯出 auth
 import { onAuthStateChanged } from 'firebase/auth';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { getSession } from '@/utils/session';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import PageLoadingArea from '@/components/ui/PageLoadingArea';
 import Dropdown from '../app/components/Dropdown';
 import Swal from 'sweetalert2';
 
@@ -503,8 +503,6 @@ export default function ResourceManagement() {
     return sortDirection === 'asc' ? cmp : -cmp;
   });
 
-  if (loading) return <div className="p-8 text-center"><LoadingSpinner text="正在載入資源庫..." /></div>;
-
   return (
     <div className="max-w-7xl mx-auto w-full px-4 md:px-6 flex flex-col h-full animate-fade-in">
       {/* Header Area */}
@@ -516,6 +514,7 @@ export default function ResourceManagement() {
           </h1>
           <p className="text-gray-500 text-sm mt-1">建立供學生搜尋的教學資源夾與下載連結</p>
         </div>
+        {!loading && (
         <button 
           onClick={() => openModal()}
           className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2"
@@ -523,8 +522,13 @@ export default function ResourceManagement() {
           <PlusIcon className="h-5 w-5" />
           建立資源資料夾
         </button>
+        )}
       </div>
 
+      {loading ? (
+        <PageLoadingArea />
+      ) : (
+      <>
       {/* 篩選器 */}
       <div className="mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         <button
@@ -759,6 +763,8 @@ export default function ResourceManagement() {
           </div>
         )}
       </div>
+      </>
+      )}
 
       {/* Edit/Create Modal (Tailwind Implementation) */}
       {isModalOpen && mounted && createPortal(

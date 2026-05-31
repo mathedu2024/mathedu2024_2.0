@@ -4,20 +4,12 @@ import React from 'react';
 import { ClipboardDocumentListIcon } from '@heroicons/react/24/outline';
 import { useStudentInfo } from '../StudentInfoContext';
 import StudentGradeViewer from '@/components/StudentGradeViewer';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import PageLoadingArea from '@/components/ui/PageLoadingArea';
 
 export default function GradesContent() {
   const { studentInfo, loading } = useStudentInfo();
 
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <LoadingSpinner />
-      </div>
-    );
-  }
-
-  if (!studentInfo) {
+  if (!loading && !studentInfo) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-gray-500">找不到學生資料，請重新登入。</div>
@@ -37,7 +29,11 @@ export default function GradesContent() {
           <p className="text-gray-500 text-sm mt-1">查看您的各項測驗與考試成績紀錄。</p>
         </div>
       </div>
-      <StudentGradeViewer studentInfo={studentInfo} />
+      {loading || !studentInfo ? (
+        <PageLoadingArea />
+      ) : (
+        <StudentGradeViewer studentInfo={studentInfo} />
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import LoadingSpinner from './LoadingSpinner';
+import PageLoadingArea from './ui/PageLoadingArea';
 import Swal from 'sweetalert2';
 import Dropdown from './ui/Dropdown';
 import { 
@@ -611,10 +612,7 @@ export default function AnnouncementManager() {
       {!isEditing && (
         <div className="flex-1 min-h-0">
             {loading ? (
-              <div className="flex flex-col items-center justify-center py-20">
-                <LoadingSpinner size={50} />
-                <p className="text-gray-500 mt-4 font-medium">載入公告中...</p>
-              </div>
+              <PageLoadingArea />
             ) : filteredAnnouncements.length > 0 ? (
                 <>
                   {/* Mobile Card View */}

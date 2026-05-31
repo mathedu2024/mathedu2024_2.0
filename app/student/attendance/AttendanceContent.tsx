@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { getSession } from '@/utils/session';
 import { useSearchParams, useRouter } from 'next/navigation';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import PageLoadingArea from '@/components/ui/PageLoadingArea';
 import { useInterval } from '@/utils/hooks';
 import Swal from 'sweetalert2';
 import StudentCourseSelector, { isCourseArchived } from '@/components/StudentCourseSelector';
@@ -266,7 +266,13 @@ function CheckInView({ firestoreCourseId, activityId }: { firestoreCourseId: str
     }
   };
 
-  if (isLoading) return <LoadingSpinner text="載入點名活動中..." />;
+  if (isLoading) {
+    return (
+      <div className="max-w-md mx-auto mt-8 px-4">
+        <PageLoadingArea minHeight="min-h-[12rem]" />
+      </div>
+    );
+  }
   if (error) return <div className="p-8 text-center text-red-500 bg-red-50 rounded-lg">{error}</div>;
   if (!activity) return <div className="p-8 text-center text-gray-500">找不到點名活動。</div>;
 
@@ -487,7 +493,7 @@ export default function AttendanceContent() {
 
       {/* Content Area */}
       {isLoading ? (
-        <LoadingSpinner text="正在載入點名資料..." />
+        <PageLoadingArea />
       ) : (
         <div className="min-h-[400px]">
           {tab === 'live' && (

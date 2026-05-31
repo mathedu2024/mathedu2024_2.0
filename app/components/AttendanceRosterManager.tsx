@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import PageLoadingArea from '@/components/ui/PageLoadingArea';
 import alerts from '@/utils/alerts';
 
 interface RosterManagerProps {
@@ -139,7 +139,7 @@ export default function AttendanceRosterManager({ activityId, courseId, courseNa
       <div className="flex-grow min-h-0 overflow-y-auto p-6">
        <div className="max-w-7xl mx-auto w-full">
         {loading ? (
-          <LoadingSpinner text="正在載入學生名單..." />
+          <PageLoadingArea />
         ) : error ? (
           <div className="text-center text-red-500 p-8">{error}</div>
         ) : (

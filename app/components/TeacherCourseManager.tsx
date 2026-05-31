@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import "react-datepicker/dist/react-datepicker.css";
 import Swal from 'sweetalert2';
-import { LoadingSpinner } from './ui'; 
+import { LoadingSpinner, PageLoadingArea } from './ui'; 
 import { DragDropContext, Droppable, Draggable, DropResult, DroppableProvided, DraggableProvided } from '@hello-pangea/dnd';
 import { 
   PlusIcon, 
@@ -311,8 +311,6 @@ function LessonManager({ courseId, courseName, courseCode, onClose, isArchived =
   });
   const handleVideoChange = (idx: number, value: string) => setForm((f) => { const v = [...(f.videos || [])]; v[idx] = value; return { ...f, videos: v }; });
 
-  if (isLoading) return <div className="fixed inset-0 bg-white z-[9999] flex items-center justify-center"><LoadingSpinner size={60} text="課堂資料載入中..." /></div>;
-
   return (
     <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pb-10 flex flex-col animate-fade-in">
       {/* Header Area */}
@@ -348,6 +346,9 @@ function LessonManager({ courseId, courseName, courseCode, onClose, isArchived =
         </div>
       )}
 
+      {isLoading ? (
+        <PageLoadingArea />
+      ) : (
       <DragDropContext onDragEnd={onDragEnd}>
         {isDesktop ? (
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden text-sm text-left text-gray-500">
@@ -474,6 +475,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose, isArchived =
         </div>
         )}
       </DragDropContext>
+      )}
 
       <Modal open={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingLesson ? (isArchived ? '查看課堂' : '編輯課堂') : '新增課堂'} size="lg">
          <div className="space-y-6">
@@ -661,7 +663,10 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
   }, []);
 
   const fetchCourses = useCallback(async () => {
-    if (!userInfo?.id) { setCourses([]); setLoading(false); return; }
+    if (!userInfo?.id) { 
+      setLoading(true); 
+      return; 
+    }
     setLoading(true);
     try {
       const res = await fetch('/api/courses/list', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ teacherId: userInfo.id }) });
@@ -789,8 +794,6 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
     return <LessonManager courseId={showLessonManager.id} courseName={showLessonManager.name} courseCode={showLessonManager.code} isArchived={showLessonManager.status === '已封存'} onClose={() => setShowLessonManager(null)} />;
   }
 
-  if (loading) return <div className="fixed inset-0 bg-white z-[9999] flex items-center justify-center"><LoadingSpinner size={60} /></div>;
-
   return (
     <div className="max-w-7xl mx-auto w-full px-4 md:px-6 flex flex-col h-full animate-fade-in">
       {/* Header Area */}
@@ -827,12 +830,15 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
         />
       )}
 
-       {!loading && filteredCourses.length === 0 ? (
+       {loading ? (
+           <PageLoadingArea />
+       ) : filteredCourses.length === 0 ? (
            <div className="text-center py-16 px-6 bg-white rounded-2xl border border-dashed border-gray-300">
                <h3 className="mt-2 text-xl font-bold text-gray-900">尚無授課課程</h3>
            </div>
        ) : (
-           <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-x-auto hidden md:block">
+           <>
+             <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-x-auto hidden md:block">
               <table className="w-full text-sm text-left text-gray-500">
                   <thead className="text-xs text-gray-700 uppercase bg-gray-50">
                       <tr>
@@ -884,32 +890,33 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                       ))}
                   </tbody>
               </table>
-           </div>
+             </div>
+             
+             <div className="md:hidden space-y-4">
+                {filteredCourses.map(course => (
+                    <div key={course.id} className="bg-white border border-gray-100 rounded-xl shadow-sm p-5">
+                        <div className="flex justify-between mb-2">
+                            <div className="font-bold text-gray-900">{course.name}</div>
+                            <span className={`px-2 py-1 rounded text-xs ${getStatusColor(course.status)}`}>{course.status}</span>
+                        </div>
+                        <div className="text-xs text-gray-500 mb-4">{course.code}</div>
+                        {course.liveStreamURL && (
+                            <div className="mb-4">
+                                <a href={course.liveStreamURL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center w-full py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-sm font-bold transition-colors">
+                                    <VideoCameraIcon className="w-5 h-5 mr-2" />
+                                    進入線上會議室
+                                </a>
+                            </div>
+                        )}
+                        <div className="flex justify-end gap-2">
+                            <button className="w-full py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm" onClick={() => setShowLessonManager(course)}>管理課程</button>
+                            <button className="w-full py-2 bg-white text-indigo-600 border border-indigo-200 text-sm font-medium rounded-lg hover:bg-indigo-50 transition-colors shadow-sm" onClick={() => handleShowCourseDetail(course)}>詳情</button>
+                        </div>
+                    </div>
+                ))}
+             </div>
+           </>
        )}
-       
-       <div className="md:hidden space-y-4">
-          {filteredCourses.map(course => (
-              <div key={course.id} className="bg-white border border-gray-100 rounded-xl shadow-sm p-5">
-                  <div className="flex justify-between mb-2">
-                      <div className="font-bold text-gray-900">{course.name}</div>
-                      <span className={`px-2 py-1 rounded text-xs ${getStatusColor(course.status)}`}>{course.status}</span>
-                  </div>
-                  <div className="text-xs text-gray-500 mb-4">{course.code}</div>
-                  {course.liveStreamURL && (
-                      <div className="mb-4">
-                          <a href={course.liveStreamURL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center w-full py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-sm font-bold transition-colors">
-                              <VideoCameraIcon className="w-5 h-5 mr-2" />
-                              進入線上會議室
-                          </a>
-                      </div>
-                  )}
-                  <div className="flex justify-end gap-2">
-                      <button className="w-full py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm" onClick={() => setShowLessonManager(course)}>管理課程</button>
-                      <button className="w-full py-2 bg-white text-indigo-600 border border-indigo-200 text-sm font-medium rounded-lg hover:bg-indigo-50 transition-colors shadow-sm" onClick={() => handleShowCourseDetail(course)}>詳情</button>
-                  </div>
-              </div>
-          ))}
-       </div>
 
        {showCourseDetail && mounted && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6">

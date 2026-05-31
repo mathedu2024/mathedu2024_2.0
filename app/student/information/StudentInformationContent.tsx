@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useStudentInfo } from '../StudentInfoContext';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import PageLoadingArea from '@/components/ui/PageLoadingArea';
 import { 
   UserCircleIcon, 
   KeyIcon, 
@@ -208,11 +208,7 @@ export default function StudentInformationContent() {
     }
   };
 
-  if (loading) {
-    return <LoadingSpinner fullScreen />;
-  }
-
-  if (!studentInfo) {
+  if (!loading && !studentInfo) {
     return (
         <div className="min-h-screen flex items-center justify-center">
             <p className="text-gray-500">無法載入學生資料</p>
@@ -232,6 +228,11 @@ export default function StudentInformationContent() {
           <p className="text-gray-500 text-sm mt-1">檢視學生基本資料與密碼設定</p>
         </div>
       </div>
+
+      {loading || !studentInfo ? (
+        <PageLoadingArea />
+      ) : (
+      <>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column: Basic Info */}
@@ -441,6 +442,8 @@ export default function StudentInformationContent() {
             </div>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 'use client';
-import React, { Suspense, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   BookOpenIcon, 
@@ -12,7 +12,7 @@ import {
   CloudArrowDownIcon
 } from '@heroicons/react/24/outline';
 
-import LoadingSpinner from '@/components/LoadingSpinner';
+import PageLoadingArea from '@/components/ui/PageLoadingArea';
 import { useStudentInfo } from './StudentInfoContext';
 
 interface MinimalCourse {
@@ -63,10 +63,6 @@ export default function StudentPanel() {
     { id: 'information', title: '個人資料', description: '查看個人資料與修改密碼', icon: <UserCircleIcon className="h-6 w-6" />, onClick: () => router.push('/student/information'), disabled: false },
   ];
 
-  // 修正: 只有在載入中且尚未取得資料時才顯示載入動畫，避免資料已讀取但 loading 狀態卡住導致畫面無法顯示
-  if (loading && studentInfo === null) {
-    return <LoadingSpinner fullScreen size={40} />;
-  }
   return (
     <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
       {/* 歡迎橫幅 */}
@@ -182,14 +178,9 @@ export default function StudentPanel() {
         </div>
       </div>
 
-      <Suspense
-        fallback={
-          <div className="min-h-screen flex items-center justify-center">
-            <LoadingSpinner size={40} text="載入學生面板..." />
-          </div>
-        }
-      >
-      </Suspense>
+      {loading && studentInfo === null && (
+        <PageLoadingArea minHeight="min-h-[12rem]" className="mt-8" />
+      )}
     </div>
   );
 }

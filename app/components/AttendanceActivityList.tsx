@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import PageLoadingArea from '@/components/ui/PageLoadingArea';
 import CreateAttendanceActivityForm, { AttendanceActivity as BaseAttendanceActivity } from './CreateAttendanceActivityForm';
 import { PlusIcon, CalendarDaysIcon, ChevronLeftIcon, TrashIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
 import Swal from 'sweetalert2';
@@ -151,7 +151,7 @@ export default function AttendanceActivityList({ courseId, courseName, onBack, o
       {/* List */}
       <div className="flex-grow overflow-y-auto p-6">
         {loading ? (
-          <LoadingSpinner text="載入紀錄中..." />
+          <PageLoadingArea />
         ) : activities.length === 0 ? (
           <div className="text-center py-12 text-gray-400 flex flex-col items-center">
             <CalendarDaysIcon className="w-12 h-12 mb-3 opacity-50" />

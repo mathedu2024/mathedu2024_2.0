@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal, } from 'react-dom';
 import LoadingSpinner from './LoadingSpinner';
+import PageLoadingArea from './ui/PageLoadingArea';
 import { 
   AdjustmentsHorizontalIcon, 
   CloudArrowUpIcon, ClipboardDocumentListIcon,
@@ -423,8 +424,6 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
   const isArchived = selectedCourse?.status === '已封存';
 
   // --- 渲染部分 ---
-  if (isLoading) return <div className="flex justify-center p-20"><LoadingSpinner size={50} text="載入課程中..." /></div>;
-
   return (
     <div className="max-w-7xl mx-auto w-full px-4 md:px-6 flex flex-col h-full animate-fade-in">
       {/* Header Area */}
@@ -432,7 +431,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
         <div className="border-l-4 border-indigo-500 pl-4">
           <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
             <ClipboardDocumentListIcon className="h-8 w-8 text-indigo-600" />
-            成績管理系統
+            成績管理
           </h1>
           <p className="text-gray-500 text-sm mt-1">設定評量比例並登記學生的平時與定期成績。</p>
         </div>
@@ -443,7 +442,9 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
         )}
       </div>
 
-      {!selectedCourse ? (
+      {isLoading ? (
+        <PageLoadingArea />
+      ) : !selectedCourse ? (
         <>
           {/* 篩選器 */}
           {!isLoading && courses.length > 0 && (
@@ -568,9 +569,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
           {/* 表格主體 (簡化邏輯呈現) */}
           <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
             {isCourseLoading ? (
-              <div className="p-20 flex justify-center items-center">
-                <LoadingSpinner text="載入成績資料..." />
-              </div>
+              <PageLoadingArea minHeight="min-h-[200px]" />
             ) : (
             <>
             {/* Mobile View */}
@@ -905,9 +904,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
             )}
 
             {editorDistLoading ? (
-              <div className="flex justify-center py-8">
-                <LoadingSpinner text="載入班級統計…" />
-              </div>
+              <PageLoadingArea minHeight="min-h-[8rem]" />
             ) : editorDistribution ? (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div>

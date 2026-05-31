@@ -10,6 +10,22 @@ declare global {
     auth: admin.auth.Auth;
     initError?: string;
   } | undefined;
+  var _firestoreSettingsApplied: boolean | undefined;
+}
+
+function applyFirestoreSettings(db: admin.firestore.Firestore): void {
+  if (global._firestoreSettingsApplied) return;
+
+  try {
+    db.settings({ ignoreUndefinedProperties: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!/already been initialized|already initialized/i.test(message)) {
+      throw error;
+    }
+  }
+
+  global._firestoreSettingsApplied = true;
 }
 
 if (!global._firebaseAdmin) {
@@ -48,7 +64,7 @@ if (!global._firebaseAdmin) {
     }
 
     db = admin.firestore();
-    db.settings({ ignoreUndefinedProperties: true });
+    applyFirestoreSettings(db);
     firebaseAuth = admin.auth();
   } catch (error) {
     initError = error instanceof Error ? error.message : String(error);

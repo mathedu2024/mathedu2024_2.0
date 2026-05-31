@@ -9,7 +9,6 @@ import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 export default function Navigation() {
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isClient, setIsClient] = useState(false);
   const [session, setSessionState] = useState<SessionData | null>(null);
 
   const refreshSession = useCallback(() => {
@@ -17,7 +16,6 @@ export default function Navigation() {
   }, []);
 
   useEffect(() => {
-    setIsClient(true);
     refreshSession();
   }, [refreshSession]);
 
@@ -77,8 +75,7 @@ export default function Navigation() {
                 {link.label}
               </Link>
             ))}
-            {isClient && (
-              <>
+            <>
                 <Link
                   href={
                     session &&
@@ -115,8 +112,7 @@ export default function Navigation() {
                 >
                   登入課程
                 </Link>
-              </>
-            )}
+            </>
           </div>
 
           {/* Mobile menu button */}
@@ -154,8 +150,7 @@ export default function Navigation() {
               {link.label}
             </Link>
           ))}
-          {isClient && (
-            <>
+          <>
               <Link
                 href={
                   session &&
@@ -194,8 +189,7 @@ export default function Navigation() {
               >
                 登入課程
               </Link>
-            </>
-          )}
+          </>
         </div>
       </div>
     </nav>

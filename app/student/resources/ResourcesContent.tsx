@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '../../../lib/firebase-client';
 import { useStudentInfo } from '../StudentInfoContext';
-import LoadingSpinner from '../../components/LoadingSpinner';
+import PageLoadingArea from '@/components/ui/PageLoadingArea';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Swal from 'sweetalert2';
 import { 
@@ -156,7 +156,7 @@ export default function ResourcesContent() {
   };
 
   if (studentLoading && studentInfo === null) {
-    return <LoadingSpinner fullScreen size={40} />;
+    return null;
   }
 
   return (
@@ -198,10 +198,7 @@ export default function ResourcesContent() {
       {/* 資源列表 */}
       <div className="flex-1 min-h-0">
         {loading ? (
-          <div className="flex flex-col justify-center items-center py-20">
-            <LoadingSpinner size={40} />
-            <p className="text-gray-500 mt-4 font-medium">搜尋中...</p>
-          </div>
+          <PageLoadingArea />
         ) : !hasSearched ? (
           <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300 shadow-sm">
             <div className="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4">

@@ -7,7 +7,7 @@ import Link from 'next/link';
 
 // UI Icons & Components
 import Sidebar from '@/components/Sidebar';
-import LoadingSpinner from '@/components/LoadingSpinner';
+import PageLoadingArea from '@/components/ui/PageLoadingArea';
 import { 
   CalendarIcon, 
   AcademicCapIcon, 
@@ -25,11 +25,15 @@ import { getSession } from '@/utils/session';
 import { logoutClient } from '@/utils/logoutClient';
 import type { Course } from '@/components/TeacherCourseManager';
 
+function BackPanelModulePlaceholder() {
+  return <div className="min-h-[120px]" aria-hidden />;
+}
+
 // ============================================================================
 // 動態引入子元件 (解決 Firebase Build Error 的關鍵)
 // ssr: false 確保這些元件只在瀏覽器端執行，不會在 Build 階段觸發 Firebase
 // ============================================================================
-const loadingFallback = { loading: () => <div className="p-8"><LoadingSpinner text="模組載入中..." /></div> };
+const loadingFallback = { loading: () => <BackPanelModulePlaceholder /> };
 
 const AnnouncementManager = dynamic(() => import('@/components/AnnouncementManager'), { ssr: false, ...loadingFallback });
 const ExamDateManager = dynamic(() => import('@/components/ExamDateManager'), { ssr: false, ...loadingFallback });
@@ -530,17 +534,18 @@ function BackPanel() {
         </div>
       );
     }
-    if (!userInfo) {
+        
+    // 儀表板需等 userInfo；分頁則直接渲染子元件（標題由子元件負責，避免雙標題與版面位移）
+    if (!userInfo && !activeTab) {
       return (
-        <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-                <LoadingSpinner />
-                <p className="mt-4 text-gray-500">正在讀取使用者資訊...</p>
-            </div>
+        <div className="flex items-center justify-center h-full p-4 md:p-6">
+          <PageLoadingArea minHeight="min-h-[50vh]" />
         </div>
       );
     }
+        
     if (!activeTab) {
+      if (!userInfo) return null;
       return renderDashboard();
     }
     
