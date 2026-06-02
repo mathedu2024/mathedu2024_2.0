@@ -1,7 +1,16 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/services/firebase-admin';
 import { getSessionFromCookie } from '@/utils/session';
+
+function toDate(value: unknown): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value === 'object' && value !== null && 'toDate' in value && typeof (value as { toDate: () => Date }).toDate === 'function') {
+    return (value as { toDate: () => Date }).toDate();
+  }
+  const parsed = new Date(value as string | number);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
 
 export async function GET(req: NextRequest) {
   const session = getSessionFromCookie(req.headers.get('cookie') || '');
@@ -35,10 +44,11 @@ export async function GET(req: NextRequest) {
     const responseData = {
       id: activityDoc.id,
       title: activityData?.title,
-      courseName: courseName, 
+      courseName: courseName,
       checkInMethod: activityData?.checkInMethod,
-      startTime: activityData?.startTime.toDate(),
-      endTime: activityData?.endTime.toDate(),
+      checkInCode: activityData?.checkInCode ?? null,
+      startTime: toDate(activityData?.startTime),
+      endTime: toDate(activityData?.endTime),
     };
 
     return NextResponse.json(responseData);

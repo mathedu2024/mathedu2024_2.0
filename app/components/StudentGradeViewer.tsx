@@ -214,7 +214,7 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
     // 1. 平時加權成績計算
     const avg = (v: number[]) => v.length ? v.reduce((a, b) => a + b, 0) / v.length : 0;
     const byType = (t: string) => Object.entries(studentGrade.regularScores || {})
-      .filter(([k]) => gradeData.columns?.[k]?.type === t)
+      .filter(([k]) => gradeData.columns?.[k]?.type === t && gradeData.columns?.[k]?.name && gradeData.columns?.[k]?.date)
       .map(([,v]) => Number(v))
       .filter(n => !isNaN(n));
     const bestN = (v: number[], n?: number) => (!n || n <= 0) ? avg(v) : avg([...v].sort((a,b)=>b-a).slice(0, Math.min(n, v.length)));
@@ -257,6 +257,7 @@ export default function StudentGradeViewer({ studentInfo }: StudentGradeViewerPr
     
     const { from, to } = dateRange;
     return Object.entries(gradeData.columns)
+        .filter(([, col]) => col.name && col.date)
         .filter(([, col]) => (!from && !to) || (!from || col.date >= from) && (!to || col.date <= to))
         .map(([key, col]) => ({ ...col, idx: key, score: target.regularScores?.[key] } as { name: string; type: string; date: string; idx: string; score: number | undefined; }));
   }, [gradeData, dateRange]);

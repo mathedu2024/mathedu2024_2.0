@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { format, parseISO, isFuture, subMonths } from 'date-fns';
+import { format, parseISO, isFuture } from 'date-fns';
 import Swal from 'sweetalert2';
 import { 
   XCircleIcon, 
@@ -13,7 +13,6 @@ import {
   UserIcon,
   MapPinIcon,
   ChatBubbleBottomCenterTextIcon,
-  FunnelIcon,
 } from '@heroicons/react/24/outline';
 import { Appointment } from '@/services/interfaces';
 import LoadingSpinner from './LoadingSpinner';
@@ -27,15 +26,12 @@ interface StudentTutoringHistoryProps {
     studentId: string;
     enrolledCourses?: string[];
   };
+  dateRange: { from: string; to: string };
 }
 
-const getDefaultDateFrom = () => format(subMonths(new Date(), 1), 'yyyy-MM-dd');
-const getDefaultDateTo = () => format(new Date(), 'yyyy-MM-dd');
-
-const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInfo }) => {
+const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInfo, dateRange }) => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dateRange, setDateRange] = useState({ from: getDefaultDateFrom(), to: getDefaultDateTo() });
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [editForm, setEditForm] = useState({ problemDescription: '' });
@@ -60,11 +56,23 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
         });
         setAppointments(sortedAppointments);
       } else {
-        Swal.fire('錯誤', data.error || '讀取預約記錄失敗', 'error');
+        Swal.fire({
+          title: '錯誤',
+          text: data.error || '讀取預約記錄失敗',
+          icon: 'error',
+          confirmButtonColor: '#ef4444',
+          customClass: { popup: 'rounded-2xl' }
+        });
       }
     } catch (error) {
       console.error('Error fetching appointments:', error);
-      Swal.fire('錯誤', '讀取預約記錄時發生錯誤', 'error');
+      Swal.fire({
+        title: '錯誤',
+        text: '讀取預約記錄時發生錯誤',
+        icon: 'error',
+        confirmButtonColor: '#ef4444',
+        customClass: { popup: 'rounded-2xl' }
+      });
     } finally {
       setLoading(false);
     }
@@ -101,6 +109,9 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
       cancelButtonText: '返回',
       confirmButtonColor: '#ef4444',
       cancelButtonColor: '#9ca3af',
+      customClass: {
+        popup: 'rounded-2xl',
+      }
     });
 
     if (!result.isConfirmed) return;
@@ -118,14 +129,34 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
       });
       const data = await res.json();
       if (res.ok) {
-        Swal.fire('已取消', '您的預約已成功取消。', 'success');
+        Swal.fire({
+          title: '已取消',
+          text: '您的預約已成功取消。',
+          icon: 'success',
+          confirmButtonColor: '#4f46e5',
+          customClass: {
+            popup: 'rounded-2xl',
+          }
+        });
         fetchAppointments();
       } else {
-        Swal.fire('錯誤', data.error || '取消預約失敗', 'error');
+        Swal.fire({
+          title: '錯誤',
+          text: data.error || '取消預約失敗',
+          icon: 'error',
+          confirmButtonColor: '#ef4444',
+          customClass: { popup: 'rounded-2xl' }
+        });
       }
     } catch (error) {
       console.error('Cancellation error:', error);
-      Swal.fire('錯誤', '發生未知錯誤，取消預約失敗', 'error');
+      Swal.fire({
+        title: '錯誤',
+        text: '發生未知錯誤，取消預約失敗',
+        icon: 'error',
+        confirmButtonColor: '#ef4444',
+        customClass: { popup: 'rounded-2xl' }
+      });
     } finally {
       setLoading(false);
     }
@@ -160,15 +191,35 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
       });
       const data = await res.json();
       if (res.ok) {
-        Swal.fire('已更新', '您的預約資訊已更新。', 'success');
+        Swal.fire({
+          title: '已更新',
+          text: '您的預約資訊已更新。',
+          icon: 'success',
+          confirmButtonColor: '#4f46e5',
+          customClass: {
+            popup: 'rounded-2xl',
+          }
+        });
         setIsEditModalOpen(false);
         fetchAppointments();
       } else {
-        Swal.fire('錯誤', data.error || '更新預約失敗', 'error');
+        Swal.fire({
+          title: '錯誤',
+          text: data.error || '更新預約失敗',
+          icon: 'error',
+          confirmButtonColor: '#ef4444',
+          customClass: { popup: 'rounded-2xl' }
+        });
       }
     } catch (error) {
       console.error('Update error:', error);
-      Swal.fire('錯誤', '發生未知錯誤，更新預約失敗', 'error');
+      Swal.fire({
+        title: '錯誤',
+        text: '發生未知錯誤，更新預約失敗',
+        icon: 'error',
+        confirmButtonColor: '#ef4444',
+        customClass: { popup: 'rounded-2xl' }
+      });
     } finally {
       setLoading(false);
     }
@@ -195,57 +246,20 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
   };
 
   return (
-    <div className="max-w-7xl mx-auto w-full p-4 md:p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 flex items-center">
-          <ClockIcon className="w-8 h-8 mr-3 text-indigo-600" />
-          我的輔導紀錄
-        </h2>
-        <div className="flex flex-col sm:flex-row gap-3 bg-gray-50 p-3 rounded-xl border border-gray-100">
-          <div className="flex items-center gap-2">
-            <FunnelIcon className="w-4 h-4 text-gray-400 ml-1 flex-shrink-0" />
-            <input
-              type="date"
-              value={dateRange.from}
-              onChange={(e) => setDateRange((prev) => ({ ...prev, from: e.target.value }))}
-              className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              aria-label="起始日期"
-            />
-            <span className="text-gray-400">~</span>
-            <input
-              type="date"
-              value={dateRange.to}
-              onChange={(e) => setDateRange((prev) => ({ ...prev, to: e.target.value }))}
-              className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              aria-label="結束日期"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={() => setDateRange({ from: getDefaultDateFrom(), to: getDefaultDateTo() })}
-            className="text-xs font-medium text-gray-500 hover:text-indigo-600 px-3 py-1.5 hover:bg-white rounded-lg transition-colors whitespace-nowrap"
-          >
-            重設為近一個月
-          </button>
-        </div>
-      </div>
+    <div className="flex-1 min-h-0">
       {loading ? (
         <div className="flex justify-center items-center h-64">
           <LoadingSpinner size={40} />
         </div>
       ) : appointments.length === 0 ? (
-        <div className="bg-white border border-gray-200 p-12 rounded-2xl shadow-sm text-center">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
-            <CalendarIcon className="w-8 h-8" />
-          </div>
+        <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
+          <CalendarIcon className="w-16 h-16 mx-auto text-gray-300 mb-4" />
           <h3 className="text-lg font-medium text-gray-900">尚無預約紀錄</h3>
           <p className="text-gray-500 mt-1">您目前沒有任何輔導預約記錄。</p>
         </div>
       ) : filteredAppointments.length === 0 ? (
-        <div className="bg-white border border-gray-200 p-12 rounded-2xl shadow-sm text-center">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400">
-            <CalendarIcon className="w-8 h-8" />
-          </div>
+        <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
+          <CalendarIcon className="w-16 h-16 mx-auto text-gray-300 mb-4" />
           <h3 className="text-lg font-medium text-gray-900">此日期區間無紀錄</h3>
           <p className="text-gray-500 mt-1">請調整日期篩選，或按「重設為近一個月」。</p>
         </div>
@@ -256,7 +270,7 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
             {filteredAppointments.map((appointment) => {
               const isUpcoming = appointment.slotDetails ? isFuture(parseISO(`${appointment.slotDetails.date}T${appointment.slotDetails.startTime}`)) : false;
               return (
-                <div key={appointment.id} className="bg-white border border-gray-200 rounded-xl shadow-sm p-5 relative overflow-hidden">
+                <div key={appointment.id} className="bg-white border border-gray-200 rounded-xl shadow-sm p-5 hover:shadow-md transition-shadow">
                   <div className="flex justify-between items-start mb-3">
                     <div>
                       <h3 className="font-bold text-lg text-gray-900 line-clamp-1">{appointment.slotDetails?.title || 'N/A'}</h3>
@@ -314,14 +328,14 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
           {/* Desktop View: Table */}
           <div className="hidden md:block bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
             <table className="w-full text-sm text-left text-gray-500">
-              <thead className="text-xs text-gray-700 uppercase bg-gray-50 border-b border-gray-200">
+              <thead className="text-xs text-gray-700 uppercase bg-gray-50">
                 <tr>
-                  <th scope="col" className="px-6 py-4 font-bold w-1/4">標題</th>
+                  <th scope="col" className="px-6 py-4 font-bold">標題</th>
                   <th scope="col" className="px-6 py-4 font-bold">日期</th>
                   <th scope="col" className="px-6 py-4 font-bold">時間</th>
                   <th scope="col" className="px-6 py-4 font-bold">老師</th>
                   <th scope="col" className="px-6 py-4 font-bold text-center">狀態</th>
-                  <th scope="col" className="px-6 py-4 font-bold text-right w-48">操作</th>
+                  <th scope="col" className="px-6 py-4 font-bold text-right w-32">操作</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -338,38 +352,31 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
                       <td className="px-6 py-4 font-mono text-xs text-gray-600">
                         {appointment.slotDetails ? `${appointment.slotDetails.startTime} - ${appointment.slotDetails.endTime}` : 'N/A'}
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center">
-                          <div className="w-6 h-6 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center text-xs mr-2 font-bold">
-                            {appointment.slotDetails?.teacherName?.[0] || 'T'}
-                          </div>
-                          {appointment.slotDetails?.teacherName || 'N/A'}
-                        </div>
-                      </td>
+                      <td className="px-6 py-4">{appointment.slotDetails?.teacherName || 'N/A'}</td>
                       <td className="px-6 py-4 text-center">
                         {getStatusChip(appointment.status)}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                          <button 
-                            onClick={() => handleOpenDetailsModal(appointment)} 
-                            className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-transparent hover:border-indigo-100"
+                        <div className="flex justify-end gap-3 opacity-80 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => handleOpenDetailsModal(appointment)}
+                            className="text-indigo-600 hover:text-indigo-900 transition-colors p-1.5 hover:bg-indigo-50 rounded-lg"
                             title="查看詳情"
                           >
                             <EyeIcon className="w-4 h-4" />
                           </button>
                           {isUpcoming && (appointment.status === 'confirmed' || appointment.status === 'pending') && (
                             <>
-                              <button 
-                                onClick={() => handleOpenEditModal(appointment)} 
-                                className="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors border border-transparent hover:border-amber-100"
+                              <button
+                                onClick={() => handleOpenEditModal(appointment)}
+                                className="text-amber-600 hover:text-amber-800 transition-colors p-1.5 hover:bg-amber-50 rounded-lg"
                                 title="編輯問題"
                               >
                                 <PencilIcon className="w-4 h-4" />
                               </button>
-                              <button 
-                                onClick={() => handleCancelAppointment(appointment)} 
-                                className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors border border-transparent hover:border-rose-100"
+                              <button
+                                onClick={() => handleCancelAppointment(appointment)}
+                                className="text-red-500 hover:text-red-700 transition-colors p-1.5 hover:bg-red-50 rounded-lg"
                                 title="取消預約"
                               >
                                 <XCircleIcon className="w-4 h-4" />
@@ -390,10 +397,21 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
       {/* Edit Modal */}
       {isEditModalOpen && selectedAppointment && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-[99999] p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg border border-gray-100 animate-bounce-in">
-            <h2 className="text-xl font-bold mb-4 text-gray-800 border-l-4 border-indigo-500 pl-3">編輯預約問題</h2>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-bounce-in">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-4 flex justify-between items-center text-white">
+                <h3 className="font-bold flex items-center text-lg">
+                    <PencilIcon className="w-5 h-5 mr-2" /> 編輯預約問題
+                </h3>
+                <button onClick={() => setIsEditModalOpen(false)} className="text-white/80 hover:text-white transition-colors p-1 rounded-full hover:bg-white/20">
+                    <span className="sr-only">關閉</span>
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+
+            {/* Content & Form */}
             <form onSubmit={handleUpdateAppointment}>
-              <div className="mb-6">
+              <div className="p-6">
                 <label htmlFor="problemDescription" className="block text-sm font-bold text-gray-700 mb-2">您想討論的問題或需求</label>
                 <textarea
                   id="problemDescription"
@@ -405,17 +423,19 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
                   placeholder="請描述您想請教老師的問題..."
                 ></textarea>
               </div>
-              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
+              
+              {/* Footer */}
+              <div className="p-4 bg-gray-50 border-t border-gray-100 flex gap-2 justify-end">
                 <button 
                   type="button" 
                   onClick={() => setIsEditModalOpen(false)} 
-                  className="px-5 py-2 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 font-medium transition-colors"
+                  className="px-6 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm"
                 >
                   取消
                 </button>
                 <button 
                   type="submit" 
-                  className="px-5 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 shadow-sm font-medium transition-colors disabled:opacity-70" 
+                  className="px-6 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm transition-colors disabled:opacity-70 flex items-center" 
                   disabled={loading}
                 >
                   {loading ? <LoadingSpinner size={20} color="white" /> : '儲存變更'}
@@ -429,16 +449,20 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
       {/* Details Modal */}
       {isDetailsModalOpen && detailsAppointment && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-[99999] p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg border border-gray-100 animate-bounce-in">
-            <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-100">
-                <h2 className="text-xl font-bold text-gray-800">預約詳情</h2>
-                <button onClick={() => setIsDetailsModalOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-bounce-in">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white">
+                <h3 className="font-bold flex items-center text-lg">
+                    <EyeIcon className="w-5 h-5 mr-2" /> 預約詳情
+                </h3>
+                <button onClick={() => setIsDetailsModalOpen(false)} className="text-white/80 hover:text-white transition-colors p-1 rounded-full hover:bg-white/20">
                     <span className="sr-only">關閉</span>
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
             </div>
             
-            <div className="space-y-4 text-sm">
+            {/* Content */}
+            <div className="p-6 space-y-4 text-sm">
               <div className="flex items-center justify-between bg-gray-50 p-3 rounded-xl border border-gray-100">
                 <span className="text-gray-500 font-medium">預約狀態</span>
                 {getStatusChip(detailsAppointment.status)}
@@ -497,11 +521,12 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
               )}
             </div>
             
-            <div className="flex justify-end mt-6 pt-4 border-t border-gray-100">
+            {/* Footer */}
+            <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end">
               <button 
                 type="button" 
                 onClick={() => setIsDetailsModalOpen(false)} 
-                className="w-full sm:w-auto px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-medium transition-colors shadow-sm"
+                className="w-full sm:w-auto px-6 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm transition-colors"
               >
                 關閉
               </button>

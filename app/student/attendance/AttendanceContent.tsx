@@ -180,7 +180,7 @@ const CourseGroupedList = ({ activities, emptyText }: { activities: Activity[], 
 // 3. Check-in View (大部分邏輯維持不變，僅微調樣式)
 // ====================================================================
 
-function CheckInView({ firestoreCourseId, activityId }: { firestoreCourseId: string, activityId: string }) {
+function CheckInView({ firestoreCourseId, activityId, onSuccess }: { firestoreCourseId: string, activityId: string, onSuccess?: () => void }) {
   const router = useRouter();
   const [activity, setActivity] = useState<ActivityDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -210,8 +210,7 @@ function CheckInView({ firestoreCourseId, activityId }: { firestoreCourseId: str
     fetchActivityDetails();
   }, [firestoreCourseId, activityId]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const processCheckIn = async (code: string) => {
     setIsSubmitting(true);
 
     const session = getSession();
@@ -222,7 +221,7 @@ function CheckInView({ firestoreCourseId, activityId }: { firestoreCourseId: str
     }
 
     try {
-      if (!checkInCode) {
+      if (!code) {
         Swal.fire({ icon: 'error', title: '錯誤', text: '簽到碼遺失。' });
         setIsSubmitting(false);
         return;
@@ -235,7 +234,7 @@ function CheckInView({ firestoreCourseId, activityId }: { firestoreCourseId: str
           courseId: firestoreCourseId,
           activityId,
           studentId: session.id,
-          checkInCode: checkInCode,
+          checkInCode: code,
         }),
       });
 
@@ -243,6 +242,11 @@ function CheckInView({ firestoreCourseId, activityId }: { firestoreCourseId: str
 
       if (!response.ok) {
         throw new Error(data.error || '簽到失敗。');
+      }
+
+      // 在跳出成功提示彈窗前，立刻在背景觸發資料刷新
+      if (onSuccess) {
+        onSuccess();
       }
 
       const statusText = data.status === 'present' ? '出席' : '遲到';
@@ -261,23 +265,39 @@ function CheckInView({ firestoreCourseId, activityId }: { firestoreCourseId: str
         title: '簽到失敗',
         text: err instanceof Error ? err.message : '簽到時發生錯誤。',
       });
+      
+      // 如果簽到失敗，自動清空輸入框，方便學生重新輸入
+      setCheckInCode('');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    processCheckIn(checkInCode);
+  };
+
   if (isLoading) {
     return (
-      <div className="max-w-md mx-auto mt-8 px-4">
+      <div className="flex flex-col justify-center min-h-[75vh] max-w-md mx-auto px-4">
         <PageLoadingArea minHeight="min-h-[12rem]" />
       </div>
     );
   }
-  if (error) return <div className="p-8 text-center text-red-500 bg-red-50 rounded-lg">{error}</div>;
-  if (!activity) return <div className="p-8 text-center text-gray-500">找不到點名活動。</div>;
+  if (error) return (
+    <div className="flex flex-col justify-center min-h-[75vh] max-w-md mx-auto px-4">
+      <div className="p-8 text-center text-red-500 bg-red-50 rounded-lg">{error}</div>
+    </div>
+  );
+  if (!activity) return (
+    <div className="flex flex-col justify-center min-h-[75vh] max-w-md mx-auto px-4">
+      <div className="p-8 text-center text-gray-500">找不到點名活動。</div>
+    </div>
+  );
 
   return (
-    <div className="max-w-md mx-auto mt-8 animate-fade-in">
+    <div className="flex flex-col justify-center min-h-[75vh] max-w-md mx-auto px-4 animate-fade-in">
       <div className="bg-white rounded-2xl shadow-lg border border-indigo-100 overflow-hidden">
         {/* Header */}
         <div className="bg-indigo-600 px-6 py-4 text-white text-center">
@@ -312,7 +332,13 @@ function CheckInView({ firestoreCourseId, activityId }: { firestoreCourseId: str
                     id="checkInCode"
                     type="text"
                     value={checkInCode}
-                    onChange={(e) => setCheckInCode(e.target.value.replace(/\D/g, ''))}
+                    onChange={(e) => {
+                      const newCode = e.target.value.replace(/\D/g, '');
+                      setCheckInCode(newCode);
+                      if (newCode.length === 6 && !isSubmitting) {
+                        processCheckIn(newCode);
+                      }
+                    }}
                     maxLength={6}
                     inputMode="numeric"
                     pattern="[0-9]*"
@@ -444,7 +470,13 @@ export default function AttendanceContent() {
 
   // If in check-in mode, show check-in view
   if (firestoreCourseId && activityId) {
-    return <CheckInView firestoreCourseId={firestoreCourseId} activityId={activityId} />;
+    return (
+      <CheckInView 
+        firestoreCourseId={firestoreCourseId} 
+        activityId={activityId} 
+        onSuccess={() => fetchAllActivities(false)} 
+      />
+    );
   }
 
   return (

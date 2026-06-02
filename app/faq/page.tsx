@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
+import { EnvelopeIcon } from '@heroicons/react/24/outline';
+import Swal from 'sweetalert2';
 
 const faqData = [
   {
@@ -71,6 +73,31 @@ export default function FaqPage() {
 
   const toggleFaq = (index: number) => {
     setOpenIndex(openIndex === index ? null : index);
+  };
+
+  const handleCopyEmail = async () => {
+    try {
+      await navigator.clipboard.writeText('mathedu2024.class@gmail.com');
+      Swal.fire({
+        title: '複製成功！',
+        text: '信箱地址已複製到您的剪貼簿。',
+        icon: 'success',
+        confirmButtonColor: '#4f46e5',
+        confirmButtonText: '確定',
+        customClass: { popup: 'rounded-2xl' },
+        heightAuto: false
+      });
+    } catch (err) {
+      Swal.fire({
+        title: '複製失敗',
+        text: '請手動複製信箱：mathedu2024.class@gmail.com',
+        icon: 'error',
+        confirmButtonColor: '#ef4444',
+        confirmButtonText: '確定',
+        customClass: { popup: 'rounded-2xl' },
+        heightAuto: false
+      });
+    }
   };
 
   const pageVariants: Variants = {
@@ -180,13 +207,14 @@ export default function FaqPage() {
         <motion.div className="mt-12 text-center bg-white rounded-2xl p-8 border border-gray-100 shadow-sm" variants={itemVariants}>
           <h3 className="text-lg font-bold text-gray-800 mb-2">找不到您要的答案嗎？</h3>
           <p className="text-gray-500 mb-4">歡迎直接與我們聯繫，我們將盡快為您服務。</p>
-          <a 
-            href="mailto:mathedu2024.class@gmail.com" 
-            className="inline-flex items-center text-indigo-600 font-medium hover:text-indigo-700 transition-colors"
+          <button 
+            type="button"
+            onClick={handleCopyEmail}
+            className="inline-flex items-center text-indigo-600 font-medium hover:text-indigo-700 transition-colors select-none focus:outline-none"
           >
-            <i className="fas fa-envelope mr-2"></i>
+            <EnvelopeIcon className="w-5 h-5 mr-2" />
             mathedu2024.class@gmail.com
-          </a>
+          </button>
         </motion.div>
 
       </motion.div>

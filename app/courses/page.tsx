@@ -403,7 +403,7 @@ export default function CoursesPage() {
               </h2>
               <button 
                 onClick={handleCloseModal}
-                className="text-white/80 hover:text-white transition-colors p-1 rounded-full hover:bg-white/20"
+                className="text-white/80 hover:text-white transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20"
               >
                 <i className="fas fa-times"></i>
               </button>

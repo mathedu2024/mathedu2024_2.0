@@ -116,13 +116,14 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
   const [selectedSubject, setSelectedSubject] = useState('all');
   const [selectedNature, setSelectedNature] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
 
   const computedData: ComputedStudentGradeRow[] = useMemo(() => {
     const s = (settings ?? defaultGradeSettings) as GradeSettings;
     return students.map(stu => {
       const getAvg = (type: RegularType) => {
         const scores = Object.entries(stu.regularScores || {})
-          .filter(([idx]) => columnDetails[idx]?.type === type)
+          .filter(([idx]) => columnDetails[idx]?.type === type && columnDetails[idx]?.name && columnDetails[idx]?.date)
           .map(([, v]) => v).filter((v): v is number => typeof v === 'number' && !isNaN(v));
         
         if (scores.length === 0) return 0;
@@ -222,6 +223,12 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
           if (i < removeIdx) next[k] = prev[k];
           else if (i > removeIdx) next[String(i - 1)] = prev[k];
         });
+            const currentCount = Object.keys(prev).length;
+            let newCount = currentCount - 1;
+            while (newCount < 10) {
+              next[String(newCount)] = { type: '小考', name: '', date: '' };
+              newCount++;
+            }
         return next;
       });
       setStudents((prev) =>
@@ -237,7 +244,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
           return { ...s, regularScores: newRs };
         })
       );
-      setRegularColumns((c) => Math.max(0, c - 1));
+          setRegularColumns((c) => Math.max(10, c - 1));
       setColumnEditor(null);
     },
     []
@@ -267,9 +274,23 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
           if (!res.ok) throw new Error('讀取成績資料失敗');
           const data = await res.json();
           
+          let fetchedRegularColumns = data.regularColumns || 0;
+          let fetchedColumnDetails = data.columnDetails || {};
+
+          if (fetchedRegularColumns < 10) {
+            for (let i = fetchedRegularColumns; i < 10; i++) {
+              fetchedColumnDetails[String(i)] = {
+                type: '小考',
+                name: '',
+                date: '',
+              };
+            }
+            fetchedRegularColumns = 10;
+          }
+
           setStudents(data.students || []);
-          setColumnDetails(data.columnDetails || {});
-          setRegularColumns(data.regularColumns || 0);
+          setColumnDetails(fetchedColumnDetails);
+          setRegularColumns(fetchedRegularColumns);
           setSettings((data.settings ?? defaultGradeSettings) as GradeSettings);
           setPeriodicColumnDetails(mergePeriodicColumnDetails(data.periodicColumnDetails));
         } catch (error) {
@@ -584,75 +605,103 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
               _onUpdatePeriodicScore={(studentId, scoreName, value) => handleScoreChange(studentId, 'peri', scoreName, String(value ?? ''))}
               isArchived={isArchived}
             />
-            <div className="hidden md:block overflow-x-auto custom-scrollbar">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-gray-50 text-gray-700 uppercase text-xs font-bold">
-                  <tr>
-                    <th className="px-6 py-4 sticky left-0 bg-gray-50 z-10 w-32 border-r">學號</th>
-                    <th className="px-6 py-4 sticky left-32 bg-gray-50 z-10 w-24 border-r shadow-sm">姓名</th>
+            <div className="hidden md:flex relative items-start bg-white border-t border-gray-200">
+              {/* 左側固定區塊 (學號、姓名) */}
+              <div className="flex-shrink-0 z-20 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.05)] border-r border-gray-200 bg-white">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-gray-50 text-gray-700 uppercase text-xs font-bold">
+                    <tr className="h-[72px]">
+                      <th className="px-4 py-4 w-[120px] min-w-[120px] max-w-[120px] border-b border-gray-200">學號</th>
+                      <th className="px-4 py-4 w-[100px] min-w-[100px] max-w-[100px] border-b border-gray-200">姓名</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {computedData.map((stu) => (
+                      <tr key={stu.id} className={`h-[65px] transition-colors ${hoveredRowId === stu.id ? 'bg-indigo-50' : 'bg-white'}`} onMouseEnter={() => setHoveredRowId(stu.id)} onMouseLeave={() => setHoveredRowId(null)}>
+                        <td className="px-4 py-4 font-mono w-[120px] min-w-[120px] max-w-[120px] truncate">{stu.studentId}</td>
+                        <td className="px-4 py-4 font-medium w-[100px] min-w-[100px] max-w-[100px] truncate">{stu.name}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {/* 右側滾動區塊 (成績登記) */}
+              <div className="overflow-x-auto custom-scrollbar flex-1 bg-white">
+                <table className="w-full text-sm text-left min-w-max">
+                  <thead className="bg-gray-50 text-gray-700 uppercase text-xs font-bold">
+                    <tr className="h-[72px]">
                     {selectedTab === 'regular' && Array.from({ length: regularColumns }).map((_, i) => (
-                      <th key={i} className="px-4 py-4 min-w-[120px] text-center border-b">
-                        <div className="text-[10px] text-gray-400 mb-1">{columnDetails[i]?.type || '未設定'}</div>
+                      <th key={i} className="px-4 py-4 min-w-[120px] text-center border-b border-gray-200">
                         <div className={`cursor-pointer hover:text-indigo-600 ${isArchived ? 'text-gray-600' : ''}`} onClick={() => setColumnEditor({ kind: 'regular', index: i })}>
                           {columnDetails[i]?.name || `成績${i + 1}`}
                         </div>
                         {columnDetails[i]?.date ? (
                           <div className="text-[10px] text-gray-400 font-mono mt-0.5">{columnDetails[i].date}</div>
-                        ) : null}
+                        ) : (
+                          <div className="text-[10px] text-red-400 mt-0.5">(尚未設定)</div>
+                        )}
                       </th>
                     ))}
                     {selectedTab === 'periodic' &&
                       FIXED_PERIODIC_KEYS.map((pk) => {
                         const meta = periodicColumnDetails[pk];
                         return (
-                          <th key={pk} className="px-4 py-4 min-w-[140px] text-center border-b">
-                            <div className="text-[10px] text-gray-400 mb-1">{meta?.type || '定期評量'}</div>
+                          <th key={pk} className="px-4 py-4 min-w-[140px] text-center border-b border-gray-200">
                             <div className="cursor-pointer text-sm font-bold hover:text-indigo-600 text-gray-800" onClick={() => setColumnEditor({ kind: 'periodic', key: pk })}>
                               {pk}
                             </div>
                             {meta?.date ? (
                               <div className="text-[10px] text-gray-400 font-mono mt-0.5">{meta.date}</div>
-                            ) : null}
+                            ) : (
+                              <div className="text-[10px] text-red-400 mt-0.5">(尚未設定)</div>
+                            )}
                           </th>
                         );
                       })}
                     {selectedTab === 'total' && (
                       <>
-                        <th className="px-4 py-4 text-center">平時加權</th>
-                        <th className="px-4 py-4 text-center">定期平均</th>
-                        <th className="px-4 py-4 text-center text-indigo-600">總成績</th>
+                        <th className="px-4 py-4 text-center border-b border-gray-200">平時加權</th>
+                        <th className="px-4 py-4 text-center border-b border-gray-200">定期平均</th>
+                        <th className="px-4 py-4 text-center text-indigo-600 border-b border-gray-200">總成績</th>
                       </>
                     )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {computedData.map((stu) => (
-                    <tr key={stu.id} className="group">
-                      <td className="px-6 py-4 font-mono sticky left-0 bg-white group-hover:bg-indigo-50/30 z-20 border-r">{stu.studentId}</td>
-                      <td className="px-6 py-4 font-medium sticky left-32 bg-white group-hover:bg-indigo-50/30 z-20 border-r shadow-sm">{stu.name}</td>
-                      {selectedTab === 'regular' && Array.from({ length: regularColumns }).map((_, colIdx) => (
-                        <td key={colIdx} className="px-4 py-2 text-center">
-                          <input 
-                            type="number" 
-                            className={`w-20 border rounded-lg px-2 py-1.5 text-center focus:ring-2 focus:ring-indigo-500 outline-none ${ (stu.regularScores[colIdx] ?? 0) < 60 ? 'text-red-500 font-bold' : ''} ${isArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
-                            value={stu.regularScores[colIdx] ?? ''}
-                            onChange={(e) => handleScoreChange(stu.id, 'reg', colIdx, e.target.value)}
-                            disabled={isArchived}
-                          />
-                        </td>
-                      ))}
-                      {selectedTab === 'periodic' &&
-                        FIXED_PERIODIC_KEYS.map((pk) => (
+                    <tr key={stu.id} className={`h-[65px] transition-colors ${hoveredRowId === stu.id ? 'bg-indigo-50' : 'bg-white'}`} onMouseEnter={() => setHoveredRowId(stu.id)} onMouseLeave={() => setHoveredRowId(null)}>
+                      {selectedTab === 'regular' && Array.from({ length: regularColumns }).map((_, colIdx) => {
+                        const isSetup = !!(columnDetails[colIdx]?.name && columnDetails[colIdx]?.date);
+                        return (
+                          <td key={colIdx} className="px-4 py-2 text-center">
+                            <input 
+                              type="number" 
+                              title={!isSetup ? "請先設定項目名稱與日期" : ""}
+                              placeholder="-"
+                              className={`w-20 border rounded-lg px-2 py-1.5 text-center focus:ring-2 focus:ring-indigo-500 outline-none ${ (stu.regularScores[colIdx] ?? 0) < 60 ? 'text-red-500 font-bold' : ''} ${isArchived || !isSetup ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+                              value={stu.regularScores[colIdx] ?? ''}
+                              onChange={(e) => handleScoreChange(stu.id, 'reg', colIdx, e.target.value)}
+                              disabled={isArchived || !isSetup}
+                            />
+                          </td>
+                        );
+                      })}
+                      {selectedTab === 'periodic' && FIXED_PERIODIC_KEYS.map((pk) => {
+                          const isSetup = !!periodicColumnDetails[pk]?.date;
+                          return (
                           <td key={pk} className="px-4 py-2 text-center">
                             <input
                               type="number"
-                              className={`w-20 border rounded-lg px-2 py-1.5 text-center focus:ring-2 focus:ring-indigo-500 outline-none ${(stu.periodicScores?.[pk] ?? 0) < 60 ? 'text-red-500 font-bold' : ''} ${isArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+                                title={!isSetup ? "請先設定日期" : ""}
+                                placeholder="-"
+                                className={`w-20 border rounded-lg px-2 py-1.5 text-center focus:ring-2 focus:ring-indigo-500 outline-none ${(stu.periodicScores?.[pk] ?? 0) < 60 ? 'text-red-500 font-bold' : ''} ${isArchived || !isSetup ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
                               value={stu.periodicScores?.[pk] ?? ''}
                               onChange={(e) => handleScoreChange(stu.id, 'peri', pk, e.target.value)}
-                              disabled={isArchived}
+                                disabled={isArchived || !isSetup}
                             />
                           </td>
-                        ))}
+                          );
+                        })}
                       {selectedTab === 'total' && (
                         <>
                           <td className="px-4 py-4 text-center font-mono">{stu.regWeighted.toFixed(1)}</td>
@@ -664,6 +713,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                   ))}
                 </tbody>
               </table>
+            </div>
             </div>
             </>
             )}

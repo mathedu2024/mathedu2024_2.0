@@ -46,10 +46,11 @@ export async function POST(req: NextRequest) {
       .collection('attendance')
       .add(activityData);
 
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       activityId: docRef.id,
-      message: '點名活動建立成功' 
+      checkInCode,
+      message: '點名活動建立成功',
     });
 
   } catch (error) {

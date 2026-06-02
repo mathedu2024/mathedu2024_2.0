@@ -182,7 +182,7 @@ function TeacherPageContent() {
             onClick={handleCloseModal}
           ></div>
           
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col animate-bounce-in">
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl h-[90vh] overflow-hidden flex flex-col animate-bounce-in">
             {/* Modal Header */}
             <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
               <div className="flex items-center gap-3">
@@ -193,14 +193,14 @@ function TeacherPageContent() {
               </div>
               <button 
                 onClick={handleCloseModal}
-                className="text-white/80 hover:text-white transition-colors p-1 rounded-full hover:bg-white/20"
+                className="text-white/80 hover:text-white transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20"
               >
                 <i className="fas fa-times"></i>
               </button>
             </div>
 
             {/* Modal Content */}
-            <div className="p-6 overflow-y-auto custom-scrollbar">
+            <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
               <div className="space-y-8">
                 
                 {/* 學歷 */}

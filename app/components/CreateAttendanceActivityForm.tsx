@@ -293,14 +293,67 @@ export default function CreateAttendanceActivityForm({ courseId, onComplete, onC
       }
 
       const result = await response.json();
-      
-      Swal.fire({
-        icon: 'success',
-        title: isEditMode ? '活動已更新！' : '點名活動已建立！',
-        timer: 1500,
-        showConfirmButton: false
-      });
-      onComplete({ ...activityData, id: result.activityId } as AttendanceActivity);
+      const newActivityId = result.activityId || result.id;
+
+      const extractCheckInCode = (data: Record<string, unknown> | null | undefined): string | undefined => {
+        if (!data) return undefined;
+        const code = data.checkInCode ?? data.code;
+        return typeof code === 'string' && code.length > 0 ? code : undefined;
+      };
+
+      let finalCheckInCode = extractCheckInCode(result)
+        ?? extractCheckInCode(result.activity as Record<string, unknown> | undefined)
+        ?? extractCheckInCode(result.data as Record<string, unknown> | undefined);
+
+      const fetchCheckInCodeFromDetails = async (): Promise<string | undefined> => {
+        if (!newActivityId) return undefined;
+        for (let i = 0; i < 5; i++) {
+          try {
+            if (i > 0) await new Promise((resolve) => setTimeout(resolve, 400));
+            const detailRes = await fetch(
+              `/api/attendance/activity-details?courseId=${encodeURIComponent(courseId)}&id=${encodeURIComponent(newActivityId)}`
+            );
+            if (!detailRes.ok) continue;
+            const detailData = await detailRes.json();
+            const code = extractCheckInCode(detailData);
+            if (code) return code;
+          } catch (e) {
+            console.error('無法獲取簽到碼', e);
+          }
+        }
+        return undefined;
+      };
+
+      if (checkInMethod === 'numeric') {
+        if (!finalCheckInCode) {
+          finalCheckInCode = await fetchCheckInCodeFromDetails();
+        }
+
+        const codeDisplayHtml = finalCheckInCode
+          ? `<div class="mt-2 text-4xl font-mono font-bold text-indigo-600 tracking-[0.25em] bg-indigo-50 py-3 rounded-xl border border-indigo-100">${finalCheckInCode}</div>`
+          : `<div class="mt-2 text-xl text-red-500 py-3">無法取得簽到碼，請至活動列表查看</div>`;
+
+        await Swal.fire({
+          icon: 'success',
+          title: isEditMode ? '活動已更新！' : '點名活動已建立！',
+          html: `<div class="mt-4"><span class="text-gray-500 font-medium">請將此簽到碼提供給學生：</span><br>${codeDisplayHtml}</div>`,
+          showConfirmButton: true,
+          confirmButtonText: '確定',
+          confirmButtonColor: '#4f46e5',
+          customClass: { popup: 'rounded-2xl' },
+          allowOutsideClick: false,
+        });
+      } else {
+        await Swal.fire({
+          icon: 'success',
+          title: isEditMode ? '活動已更新！' : '點名活動已建立！',
+          showConfirmButton: true,
+          confirmButtonText: '確定',
+          confirmButtonColor: '#4f46e5',
+          customClass: { popup: 'rounded-2xl' }
+        });
+      }
+      onComplete({ ...activityData, id: newActivityId, checkInCode: finalCheckInCode } as AttendanceActivity);
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '發生未知錯誤';

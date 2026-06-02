@@ -115,12 +115,7 @@ const TutoringRequest: React.FC = () => {
 
   return (
     <>
-      <div className="max-w-7xl mx-auto w-full p-4 md:p-6 h-full flex flex-col">
-        <h2 className="text-2xl font-bold mb-6 flex-shrink-0 text-gray-800 flex items-center">
-            <i className="fas fa-calendar-check mr-3 text-indigo-600"></i>
-            可預約的輔導時段
-        </h2>
-        
+      <div className="flex-1 min-h-0">
         {/* 手機端：卡片式布局 */}
         <div className="md:hidden space-y-4">
           {filteredSlots.length > 0 ? (
@@ -131,7 +126,7 @@ const TutoringRequest: React.FC = () => {
               const canBook = !isBooked && !isFull;
 
               return (
-                <div key={slot.id} className="bg-white border border-gray-100 rounded-xl shadow-sm p-5 relative overflow-hidden transition-shadow hover:shadow-md">
+                <div key={slot.id} className="bg-white border border-gray-200 rounded-xl shadow-sm p-5 relative overflow-hidden transition-shadow hover:shadow-md">
                   <div className={`absolute top-0 left-0 w-1 h-full ${isBooked ? 'bg-green-500' : isFull ? 'bg-red-500' : 'bg-indigo-500'}`}></div>
                   
                   <div className="flex justify-between items-start mb-3 pl-3">
@@ -189,88 +184,82 @@ const TutoringRequest: React.FC = () => {
               );
             })
           ) : (
-            <div className="text-center py-12 text-gray-500 bg-white rounded-xl border border-dashed border-gray-300">
-                <i className="fas fa-calendar-times text-4xl mb-3 text-gray-300"></i>
-                <p>目前沒有符合您資格的輔導時段</p>
+            <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
+                <i className="fas fa-calendar-times text-4xl mb-4 text-gray-300"></i>
+                <h3 className="text-lg font-medium text-gray-900">尚無可預約時段</h3>
+                <p className="text-gray-500 mt-1">目前沒有符合您資格的輔導時段。</p>
             </div>
           )}
         </div>
 
         {/* 桌面端：表格布局 */}
-        <div className="hidden md:block overflow-hidden bg-white rounded-xl shadow-sm border border-gray-200">
-          <table className="min-w-full divide-y divide-gray-200 table-fixed">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-1/4">標題</th>
-                <th scope="col" className="px-4 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">日期</th>
-                <th scope="col" className="px-4 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">時間</th>
-                <th scope="col" className="px-4 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">老師</th>
-                <th scope="col" className="px-4 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">輔導模式</th>
-                <th scope="col" className="px-4 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">輔導方式</th>
-                <th scope="col" className="px-4 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">人數</th>
-                <th scope="col" className="px-4 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">狀態</th>
-                <th scope="col" className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider w-24">操作</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredSlots.length > 0 ? (
-                filteredSlots.map((slot) => {
-                    const isBooked = slot.bookedStudents?.some(student => student.studentId === studentInfo.id);
-                    const bookedCount = slot.bookedStudents?.length || 0;
-                    const isFull = bookedCount >= Number(slot.participantLimit);
-                    const canBook = !isBooked && !isFull;
-
-                    return (
-                        <tr key={slot.id} className="hover:bg-gray-50 transition-colors">
-                            <td className="px-6 py-4 text-sm font-medium text-gray-900 truncate" title={slot.title}>{slot.title}</td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{slot.date}</td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{`${slot.startTime} - ${slot.endTime}`}</td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{slot.teacherName}</td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{slot.locationType}</td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{slot.method}</td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 text-center">{`${bookedCount} / ${slot.participantLimit}`}</td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-center">
-                            {isBooked ? (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                    已預約
-                                </span>
-                            ) : isFull ? (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                    已額滿
-                                </span>
-                            ) : (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                                    可預約
-                                </span>
-                            )}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <button
-                                onClick={() => handleOpenModal(slot)}
-                                className={`inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded shadow-sm transition-all ${
-                                    !canBook
-                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                    : 'text-white bg-indigo-600 hover:bg-indigo-700'
-                                }`}
-                                disabled={!canBook}
-                            >
-                                預約
-                            </button>
-                            </td>
-                        </tr>
-                    );
-                })
-              ) : (
+        {filteredSlots.length > 0 ? (
+          <div className="hidden md:block bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+            <table className="w-full text-sm text-left text-gray-500">
+              <thead className="text-xs text-gray-700 uppercase bg-gray-50">
                 <tr>
-                  <td colSpan={9} className="px-6 py-16 text-center text-gray-400">
-                    <i className="fas fa-calendar-times text-4xl mb-4 text-gray-300"></i>
-                    <p>目前沒有符合您資格的輔導時段</p>
-                  </td>
+                  <th scope="col" className="px-6 py-4 font-bold">標題</th>
+                  <th scope="col" className="px-6 py-4 font-bold">日期</th>
+                  <th scope="col" className="px-6 py-4 font-bold">時間</th>
+                  <th scope="col" className="px-6 py-4 font-bold">老師</th>
+                  <th scope="col" className="px-6 py-4 font-bold">輔導模式</th>
+                  <th scope="col" className="px-6 py-4 font-bold">輔導方式</th>
+                  <th scope="col" className="px-6 py-4 font-bold text-center">人數</th>
+                  <th scope="col" className="px-6 py-4 font-bold text-center">狀態</th>
+                  <th scope="col" className="px-6 py-4 font-bold text-right w-24">操作</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {filteredSlots.map((slot) => {
+                  const isBooked = slot.bookedStudents?.some(student => student.studentId === studentInfo.id);
+                  const bookedCount = slot.bookedStudents?.length || 0;
+                  const isFull = bookedCount >= Number(slot.participantLimit);
+                  const canBook = !isBooked && !isFull;
+
+                  return (
+                    <tr key={slot.id} className="bg-white hover:bg-gray-50 transition-colors group">
+                      <td className="px-6 py-4 font-medium text-gray-900 truncate" title={slot.title}>{slot.title}</td>
+                      <td className="px-6 py-4">{slot.date}</td>
+                      <td className="px-6 py-4 font-mono text-xs text-gray-600">{`${slot.startTime} - ${slot.endTime}`}</td>
+                      <td className="px-6 py-4">{slot.teacherName}</td>
+                      <td className="px-6 py-4">{slot.locationType}</td>
+                      <td className="px-6 py-4">{slot.method}</td>
+                      <td className="px-6 py-4 text-center">{`${bookedCount} / ${slot.participantLimit}`}</td>
+                      <td className="px-6 py-4 text-center">
+                        {isBooked ? (
+                          <span className="px-2 py-1 text-xs rounded-full font-medium bg-green-100 text-green-700">已預約</span>
+                        ) : isFull ? (
+                          <span className="px-2 py-1 text-xs rounded-full font-medium bg-red-100 text-red-700">已額滿</span>
+                        ) : (
+                          <span className="px-2 py-1 text-xs rounded-full font-medium bg-indigo-100 text-indigo-700">可預約</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <button
+                          onClick={() => handleOpenModal(slot)}
+                          className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                            !canBook
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                              : 'text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm'
+                          }`}
+                          disabled={!canBook}
+                        >
+                          預約
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="hidden md:block text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
+            <i className="fas fa-calendar-times text-4xl mb-4 text-gray-300"></i>
+            <h3 className="text-lg font-medium text-gray-900">尚無可預約時段</h3>
+            <p className="text-gray-500 mt-1">目前沒有符合您資格的輔導時段。</p>
+          </div>
+        )}
       </div>
       {isModalOpen && (
         <BookingModal 

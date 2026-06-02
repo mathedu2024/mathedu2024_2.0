@@ -55,6 +55,7 @@ export default function GradeRegistrationMobile({
           <div className="space-y-3">
             {Array.from({ length: regularColumns }).map((_, idx) => {
               const detail = columnDetails[idx];
+              const isSetup = !!(detail?.name && detail?.date);
               const label = detail?.name?.trim() ? detail.name : (detail?.type ? `${detail.type}${idx + 1}` : `成績${idx + 1}`);
               const isOpen = openIdx === idx;
 
@@ -73,7 +74,7 @@ export default function GradeRegistrationMobile({
                         <span className={`w-1.5 h-6 rounded-full flex-shrink-0 ${isOpen ? 'bg-indigo-500' : 'bg-gray-300'}`}></span>
                         <div className="flex flex-col overflow-hidden">
                             <span className="font-bold text-gray-900 text-base truncate">{label}</span>
-                            <span className="text-xs text-gray-500 truncate">{detail?.type || '一般'} {detail?.date ? `• ${detail.date}` : ''}</span>
+                            <span className="text-xs text-gray-500 truncate">{detail?.type || '一般'} {detail?.date ? `• ${detail.date}` : '• (尚未設定)'}</span>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -97,10 +98,10 @@ export default function GradeRegistrationMobile({
                             <div className="flex-1 max-w-[120px]">
                               <input
                                   inputMode="numeric"
-                                  className={`w-full border border-gray-300 rounded-xl px-3 py-2.5 text-center text-lg font-bold bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow shadow-sm placeholder-gray-300 ${isArchived ? 'opacity-50 cursor-not-allowed bg-gray-50' : ''}`}
+                                  className={`w-full border border-gray-300 rounded-xl px-3 py-2.5 text-center text-lg font-bold bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow shadow-sm placeholder-gray-300 ${isArchived || !isSetup ? 'opacity-50 cursor-not-allowed bg-gray-50' : ''}`}
                                   placeholder="-"
                                   value={stu.regularScores?.[idx] ?? ''}
-                                  readOnly={isArchived}
+                                  readOnly={isArchived || !isSetup}
                                   onChange={e => {
                                     const v = e.target.value;
                                     onUpdateRegularScore(stu.id, idx, v === '' ? undefined : parseInt(v, 10));
@@ -127,6 +128,7 @@ export default function GradeRegistrationMobile({
              {_periodicScores.map((scoreName, idx) => {
                  const isOpen = openPeriodicIdx === idx;
                  const meta = periodicColumnDetails[scoreName];
+                 const isSetup = !!meta?.date;
                  const title = scoreName;
                  return (
                     <div 
@@ -145,7 +147,9 @@ export default function GradeRegistrationMobile({
                                   <span className="font-bold text-gray-900 text-base">{title}</span>
                                   {meta?.date ? (
                                     <span className="text-xs text-gray-500 font-mono">{meta.date}</span>
-                                  ) : null}
+                                  ) : (
+                                    <span className="text-xs text-red-400 font-mono">(尚未設定)</span>
+                                  )}
                                 </div>
                             </div>
                             {isOpen ? <ChevronUpIcon className="w-5 h-5 text-indigo-500" /> : <ChevronDownIcon className="w-5 h-5 text-gray-400" />}
@@ -163,10 +167,10 @@ export default function GradeRegistrationMobile({
                                     <div className="flex-1 max-w-[120px]">
                                         <input
                                             inputMode="numeric"
-                                            className={`w-full border border-gray-300 rounded-xl px-3 py-2 text-center text-lg font-bold bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow shadow-sm placeholder-gray-300 ${isArchived ? 'opacity-50 cursor-not-allowed bg-gray-50' : ''}`}
+                                            className={`w-full border border-gray-300 rounded-xl px-3 py-2 text-center text-lg font-bold bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow shadow-sm placeholder-gray-300 ${isArchived || !isSetup ? 'opacity-50 cursor-not-allowed bg-gray-50' : ''}`}
                                             placeholder="-"
                                             value={stu.periodicScores?.[scoreName] ?? ''}
-                                            readOnly={isArchived}
+                                            readOnly={isArchived || !isSetup}
                                             onChange={e => {
                                               const v = e.target.value;
                                               _onUpdatePeriodicScore(stu.id, scoreName, v === '' ? undefined : parseInt(v, 10));
