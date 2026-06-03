@@ -679,22 +679,23 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
         allCourses.forEach((course: Course) => { newTeacherNamesMap[course.id] = (course.teachers || []).map((id: string) => teacherNameMap[id] || '未知老師'); });
         setTeacherNamesMap(newTeacherNamesMap);
 
-        // 只呼叫一次 API 即可計算所有課程的人數
-        let allStudents: any[] = [];
-        try {
-          const resStudents = await fetch('/api/student/list');
-          if (resStudents.ok) allStudents = await resStudents.json();
-        } catch {}
-
-        const newSC: { [courseId: string]: number } = {};
-        allCourses.forEach((course: Course) => {
-          const courseKey = `${course.name}(${course.code})`;
-          newSC[course.id] = allStudents.filter((s: any) => s.enrolledCourses && (s.enrolledCourses.includes(course.id) || s.enrolledCourses.includes(courseKey))).length;
-        });
-        setStudentCounts(newSC);
+        // 提早解除載入狀態，讓課程列表能先顯示
+        setLoading(false);
         _setError(null);
+
+        // 在背景非同步獲取學生人數，不阻塞主畫面渲染
+        fetch('/api/student/list')
+          .then(res => res.ok ? res.json() : [])
+          .then(allStudents => {
+            const newSC: { [courseId: string]: number } = {};
+            allCourses.forEach((course: Course) => {
+              const courseKey = `${course.name}(${course.code})`;
+              newSC[course.id] = allStudents.filter((s: any) => s.enrolledCourses && (s.enrolledCourses.includes(course.id) || s.enrolledCourses.includes(courseKey))).length;
+            });
+            setStudentCounts(newSC);
+          }).catch(() => {});
       } else { setCourses([]); }
-    } catch { setCourses([]); } finally { setLoading(false); }
+    } catch { setCourses([]); setLoading(false); }
   }, [userInfo?.id, fetchTeacherNamesCallback]);
 
   useEffect(() => { fetchCourses(); }, [userInfo?.id, fetchCourses]);

@@ -49,6 +49,8 @@ export default function ResourcesContent() {
   const [folders, setFolders] = useState<ResourceFolder[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  // 新增一個 state 用來記錄「確認送出」後的搜尋字詞
+  const [appliedQuery, setAppliedQuery] = useState('');
   const [expandedFolderId, setExpandedFolderId] = useState<string | null>(null);
 
   // 取得公開的資源資料夾
@@ -83,15 +85,24 @@ export default function ResourcesContent() {
 
   // 搜尋過濾邏輯
   const filteredFolders = useMemo(() => {
+    // 如果沒有按下搜尋，預設顯示全部資料夾
+    if (!appliedQuery) return folders;
+    
     return folders.filter(folder => {
-      const queryStr = searchQuery.toLowerCase().trim();
+      const queryStr = appliedQuery.toLowerCase().trim();
       return (
         folder.title.toLowerCase().includes(queryStr) || 
         folder.indexCode.toLowerCase().includes(queryStr) ||
         folder.createdByName?.toLowerCase().includes(queryStr)
       );
     });
-  }, [folders, searchQuery]);
+  }, [folders, appliedQuery]);
+
+  // 處理表單送出（按下 Enter 或點擊搜尋按鈕）
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setAppliedQuery(searchQuery);
+  };
 
   // 切換資料夾展開狀態
   const toggleFolder = (folderId: string) => {
@@ -123,17 +134,25 @@ export default function ResourcesContent() {
       </div>
 
       {/* 搜尋列 */}
-      <div className="mb-8 bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-4">
-        <div className="w-full relative">
-          <MagnifyingGlassIcon className="w-6 h-6 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
-          <input 
-            type="text"
-            placeholder="輸入老師提供的 6 位數索引碼"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-12 pr-4 py-3.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-gray-800 bg-gray-50 focus:bg-white text-base md:text-lg shadow-inner"
-          />
-        </div>
+      <div className="mb-8 bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100">
+        <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-3">
+          <div className="w-full relative flex-1">
+            <MagnifyingGlassIcon className="w-6 h-6 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
+            <input 
+              type="text"
+              placeholder="輸入老師提供的 6 位數索引碼或關鍵字"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-12 pr-4 py-3.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-gray-800 bg-gray-50 focus:bg-white text-base md:text-lg shadow-inner"
+            />
+          </div>
+          <button 
+            type="submit"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 px-8 rounded-xl shadow-sm transition-all whitespace-nowrap text-base"
+          >
+            搜尋
+          </button>
+        </form>
       </div>
 
       {/* 資源列表 */}

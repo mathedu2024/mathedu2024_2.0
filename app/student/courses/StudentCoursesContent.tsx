@@ -99,7 +99,8 @@ export default function StudentCoursesContent() {
       const res = await fetch('/api/student/dashboard-data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ studentId: studentInfo.id }),
+        cache: 'no-store',
+        body: JSON.stringify({ studentId: studentInfo.studentId || studentInfo.account || studentInfo.id }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -112,7 +113,7 @@ export default function StudentCoursesContent() {
       }
       clearTimeout(safetyTimer);
     } catch (error) {
-      console.error('載入課程時發生錯誤:', error);
+      console.warn('載入課程時發生網路連線錯誤 (Failed to fetch)，伺服器可能正在重啟或無回應:', error instanceof Error ? error.message : error);
       setCourses([]);
       clearTimeout(safetyTimer);
     } finally {
@@ -132,11 +133,16 @@ export default function StudentCoursesContent() {
     if (courseIdFromQuery && courses.length > 0) {
       // 支援透過 ID 或 Code (課程代碼) 尋找課程
       const courseToSelect = courses.find(c => c.id === courseIdFromQuery || c.code === courseIdFromQuery);
-      if (courseToSelect) {
-        setSelectedCourse(courseToSelect);
-      }
+      setSelectedCourse(courseToSelect ?? null);
     }
   }, [courses, searchParams]);
+
+  // 課程列表重新載入後，以最新 API 資料覆寫 selectedCourse（避免仍顯示舊快照）
+  useEffect(() => {
+    if (!selectedCourse?.id || courses.length === 0) return;
+    const fresh = courses.find((c) => c.id === selectedCourse.id);
+    if (fresh) setSelectedCourse(fresh);
+  }, [courses, selectedCourse?.id]);
 
   useEffect(() => {
     const fetchLessons = async () => {
@@ -167,7 +173,7 @@ export default function StudentCoursesContent() {
         setLessons(sortedLessons);
         setCurrentPage(1);
       } catch (error) {
-        console.error('Error fetching lessons:', error);
+        console.warn('載入單元內容時發生網路連線錯誤:', error instanceof Error ? error.message : error);
         setLessons([]);
         setCurrentPage(1);
       } finally {

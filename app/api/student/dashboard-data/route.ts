@@ -5,6 +5,9 @@ import type { GradeSettingsShape } from '@/services/gradeShape';
 import { settingsToTotalSetting } from '@/services/gradeShape';
 import { resolveCourseDocsByEnrolledIds } from '@/services/courseId';
 import { isCourseArchived } from '@/services/courseArchive';
+import { buildTeacherIdToNameMap, formatTeacherNames } from '@/services/teacherLookup';
+
+export const dynamic = 'force-dynamic';
 import { parse as parseCookie } from 'cookie';
 
 interface ClassTime {
@@ -93,8 +96,8 @@ async function fetchCourseData(studentId: string, enrolledCourses: string[]) {
     const resolvedMap = await resolveCourseDocsByEnrolledIds(adminDb, enrolledCourses);
 
     const courses: CourseInfo[] = [];
-    const teacherIds = new Set<string>();
     const seenDocIds = new Set<string>();
+    const teacherLookup = await buildTeacherIdToNameMap(adminDb);
 
     for (const enrolledId of enrolledCourses) {
         const doc = resolvedMap.get(enrolledId);
@@ -102,6 +105,7 @@ async function fetchCourseData(studentId: string, enrolledCourses: string[]) {
         seenDocIds.add(doc.id);
 
         const data = doc.data();
+        const teachersList = Array.isArray(data.teachers) ? data.teachers : [];
         const courseInfo: CourseInfo = {
             id: doc.id,
             name: data.name,
@@ -111,7 +115,7 @@ async function fetchCourseData(studentId: string, enrolledCourses: string[]) {
             subjectTag: data.subjectTag,
             startDate: data.startDate,
             endDate: data.endDate,
-            teachers: data.teachers,
+            teachers: teachersList,
             description: data.description,
             teachingMethod: data.teachingMethod,
             courseNature: data.courseNature,
@@ -120,41 +124,11 @@ async function fetchCourseData(studentId: string, enrolledCourses: string[]) {
             coverImageURL: data.coverImageURL,
             classTimes: data.classTimes,
             archived: data.archived ?? false,
+            teacherName: formatTeacherNames(teachersList, teacherLookup) || undefined,
         };
         if (isCourseArchived(courseInfo)) continue;
         courses.push(courseInfo);
-        if (data.teachers && data.teachers.length > 0) {
-            teacherIds.add(data.teachers[0]);
-        }
     }
-
-    // 老師以 users 集合的「文件 ID」為識別，顯示時使用 name
-    const teacherNamesMap: Record<string, string> = {};
-    if (teacherIds.size > 0) {
-        const userDocs = await adminDb.collection('users').where('__name__', 'in', Array.from(teacherIds)).get();
-        userDocs.forEach((doc) => {
-            const data = doc.data();
-            teacherNamesMap[doc.id] = data.name ?? '';
-        });
-        const missingTeacherIds = Array.from(teacherIds).filter((id) => !teacherNamesMap[id]);
-        if (missingTeacherIds.length > 0) {
-            const teacherDocs = await adminDb.collection('teachers').where('__name__', 'in', missingTeacherIds).get();
-            teacherDocs.forEach((doc) => {
-                const data = doc.data();
-                teacherNamesMap[doc.id] = data.name ?? '';
-            });
-        }
-    }
-
-    courses.forEach(course => {
-        const doc = [...resolvedMap.values()].find(d => d.id === course.id);
-        if (doc) {
-            const teacherId = doc.data().teachers?.[0];
-            if (teacherId && teacherNamesMap[teacherId]) {
-                course.teacherName = teacherNamesMap[teacherId];
-            }
-        }
-    });
 
     const grades: Record<
       string,

@@ -13,7 +13,6 @@ import {
   ChatBubbleLeftRightIcon, 
   TagIcon, 
 } from '@heroicons/react/24/outline';
-import emailjs from '@emailjs/browser';
 import Swal from 'sweetalert2';
 
 interface TutoringSlot {
@@ -91,18 +90,6 @@ const StudentTutoringCalendar: React.FC<StudentTutoringCalendarProps> = ({ userI
 
   useEffect(() => {
     fetchAllSlots();
-  }, [fetchAllSlots]);
-
-  // 當瀏覽器分頁重新獲得焦點時，重新載入輔導時段列表，確保資料為最新
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        fetchAllSlots();
-      }
-    };
-
-    window.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => window.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [fetchAllSlots]);
 
   const isSlotQualified = useCallback((slot: TutoringSlot) => {
@@ -206,6 +193,7 @@ const StudentTutoringCalendar: React.FC<StudentTutoringCalendarProps> = ({ userI
 
         // Try using the imported module first if configured, else fallback to window
         try {
+             const emailjs = (await import('@emailjs/browser')).default;
              await emailjs.send(
                 "service_4cq55em", 
                 "template_r6jbq0k", 

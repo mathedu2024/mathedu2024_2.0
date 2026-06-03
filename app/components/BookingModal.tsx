@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { TutoringSlot } from '@/services/interfaces';
 import LoadingSpinner from './LoadingSpinner';
-import emailjs from '@emailjs/browser';
 import { 
   XMarkIcon, 
   CalendarIcon, 
@@ -101,6 +100,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ slot, userInfo, onClose, on
       };
 
       try {
+        const emailjs = (await import('@emailjs/browser')).default;
         await emailjs.send(
             "service_4cq55em", 
             "template_r6jbq0k", 

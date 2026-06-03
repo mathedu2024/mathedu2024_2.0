@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '../../../lib/firebase-client';
 import { useStudentInfo } from '../StudentInfoContext';
@@ -56,6 +56,7 @@ export default function ResourcesContent() {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedFolderId, setExpandedFolderId] = useState<string | null>(null);
   const [teacherMap, setTeacherMap] = useState<Record<string, string>>({});
+  const lastSearchedQuery = useRef<string | null>(null);
 
   // 取得老師清單，用於將 teacherId 轉換為真實姓名
   useEffect(() => {
@@ -83,6 +84,7 @@ export default function ResourcesContent() {
     setLoading(true);
     setHasSearched(true);
     setExpandedFolderId(null);
+    lastSearchedQuery.current = keyword.trim();
 
     try {
       const q = query(collection(db, 'resources'), where('status', '==', 'public'));
@@ -126,8 +128,13 @@ export default function ResourcesContent() {
   useEffect(() => {
     const q = searchParams.get('q');
     if (!q) return;
+    
+    // 避免 router.replace 改變 searchParams 觸發無限重新搜尋
+    if (lastSearchedQuery.current === q) return;
+    
     setSearchQuery(q);
     if (teacherMap && Object.keys(teacherMap).length > 0) {
+      lastSearchedQuery.current = q;
       void performSearch(q, false);
     }
   }, [searchParams, teacherMap, performSearch]);

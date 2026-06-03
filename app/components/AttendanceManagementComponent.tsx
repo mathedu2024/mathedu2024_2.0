@@ -6,7 +6,6 @@ import Swal from 'sweetalert2';
 import LoadingSpinner from './LoadingSpinner';
 import PageHeader from './ui/PageHeader';
 import PageLoadingArea from './ui/PageLoadingArea'; 
-import ExcelJS from 'exceljs'; // 使用 ES Module 匯入 exceljs
 // 引入您的外部表單元件
 import CreateAttendanceActivityForm from './CreateAttendanceActivityForm';
 import CourseFilter from './CourseFilter';
@@ -680,6 +679,8 @@ function AttendanceActivityList({ courseId, courseName, courseCode, onBack, onSe
     });
 
     try {
+      // 動態載入 ExcelJS，避免拖慢系統初始載入速度
+      const ExcelJS = (await import('exceljs')).default;
       // 1. 建立 Excel 活頁簿
       const workbook = new ExcelJS.Workbook();
       
@@ -1029,22 +1030,22 @@ export default function AttendanceManagementComponent({ courses: externalCourses
         if (response.ok) {
           const coursesData: Course[] = await response.json();
           setCourses(filterCoursesForUser(coursesData));
+          setLoading(false); // 提早解除載入狀態，優先顯示課程列表
           
-          let allStudents: any[] = [];
-          try {
-            const resStudents = await fetch('/api/student/list');
-            if (resStudents.ok) allStudents = await resStudents.json();
-          } catch {}
-
-          const newCounts: Record<string, number> = {};
-          coursesData.forEach(course => {
-            const courseKey = `${course.name}(${course.code})`;
-            const count = allStudents.filter(s => s.enrolledCourses && (s.enrolledCourses.includes(course.id) || s.enrolledCourses.includes(courseKey))).length;
-            newCounts[course.id] = count;
-          });
-          setStudentCounts(newCounts);
+          // 背景抓取學生名單以計算人數
+          fetch('/api/student/list')
+            .then(resStudents => resStudents.ok ? resStudents.json() : [])
+            .then(allStudents => {
+              const newCounts: Record<string, number> = {};
+              coursesData.forEach(course => {
+                const courseKey = `${course.name}(${course.code})`;
+                const count = allStudents.filter((s: any) => s.enrolledCourses && (s.enrolledCourses.includes(course.id) || s.enrolledCourses.includes(courseKey))).length;
+                newCounts[course.id] = count;
+              });
+              setStudentCounts(newCounts);
+            }).catch(console.error);
         }
-      } catch (error) { console.error(error); } finally { setLoading(false); }
+      } catch (error) { console.error(error); setLoading(false); }
     };
     fetchCourses();
   }, [externalCourses, userInfo?.id]);

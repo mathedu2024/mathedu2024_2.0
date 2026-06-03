@@ -7,7 +7,6 @@ import LoadingSpinner from './LoadingSpinner';
 import PageLoadingArea from './ui/PageLoadingArea';
 import Dropdown from './ui/Dropdown';
 import Swal from 'sweetalert2';
-import ExcelJS from 'exceljs';
 import { 
   PlusIcon, 
   PencilIcon, 
@@ -495,6 +494,7 @@ export default function StudentManager() {
 
   // --- Excel 模板下載功能 ---
   const handleDownloadTemplate = async () => {
+    const ExcelJS = (await import('exceljs')).default;
     const templateData = Array.from({ length: 50 }, (_, index) => {
       if (index === 0) {
         return {
@@ -598,6 +598,7 @@ export default function StudentManager() {
         setLoading(true);
         const arrayBuffer = evt.target?.result as ArrayBuffer;
         
+        const ExcelJS = (await import('exceljs')).default;
         // 1. 載入 Excel 檔案
         const workbook = new ExcelJS.Workbook();
         await workbook.xlsx.load(arrayBuffer);
