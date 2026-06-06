@@ -22,11 +22,21 @@ import {
 
 // Utils & Types
 import { getSession } from '@/utils/session';
+import {
+  buildBackPanelUserFromSession,
+  getBackPanelRole,
+} from '@/utils/backPanelSession';
 import { logoutClient } from '@/utils/logoutClient';
 import type { Course } from '@/components/TeacherCourseManager';
 
 function BackPanelModulePlaceholder() {
-  return <div className="min-h-[120px]" aria-hidden />;
+  return (
+    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 py-6 space-y-4 animate-pulse" aria-hidden>
+      <div className="h-8 bg-gray-200/80 rounded-lg w-48" />
+      <div className="h-32 bg-gray-100 rounded-2xl border border-gray-100" />
+      <div className="h-24 bg-gray-100 rounded-2xl border border-gray-100" />
+    </div>
+  );
 }
 
 // ============================================================================
@@ -142,7 +152,6 @@ function BackPanel() {
   const [isChildProcessing, setIsChildProcessing] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
   const [adminStats, setAdminStats] = useState({ studentCount: 0, teacherCount: 0, courseCount: 0 });
-  const [_loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -184,35 +193,20 @@ function BackPanel() {
   }, [isChildProcessing, lastActivity, router, handleActivity]);
 
   useEffect(() => {
-    setLoading(true);
     setError(null);
     const session = getSession();
     if (!session) {
       router.push('/panel');
-      setLoading(false);
       return;
     }
-    const getRole = (role: string | string[], currentRole?: string): UserRole => {
-      if (currentRole) {
-        if (currentRole === 'admin') return '管理員';
-        if (currentRole === 'teacher') return '老師';
-      }
-      if (Array.isArray(role)) {
-        if (role.map(r => r.toLowerCase()).includes('admin')) return '管理員';
-        if (role.map(r => r.toLowerCase()).includes('teacher')) return '老師';
-        return '學生';
-      }
-      if (role?.toLowerCase() === 'admin') return '管理員';
-      if (role?.toLowerCase() === 'teacher') return '老師';
-      return '學生';
-    };
-    const userRole = getRole(session.role, session.currentRole);
+    const userRole = getBackPanelRole(session);
 
     if (userRole === '學生') {
-      handleLogout();
-      setLoading(false);
+      void handleLogout();
       return;
     }
+
+    setUserInfo(buildBackPanelUserFromSession(session));
 
     const fetchTeacher = async () => {
       try {
@@ -223,13 +217,12 @@ function BackPanel() {
         });
         if (res.ok) {
           const data = await res.json();
-          const userInfoData = {
+          setUserInfo({
             id: data.id,
-            name: data.name || '',
+            name: data.name || session.name || '',
             account: session.account,
             role: '老師',
-          };
-          setUserInfo(userInfoData);
+          });
         } else {
           console.error('Failed to fetch teacher profile:', res.status);
           setError('無法取得老師資料，請稍後再試。');
@@ -237,17 +230,11 @@ function BackPanel() {
       } catch (err) {
         console.error('Error fetching teacher profile:', err);
         setError('連線發生錯誤，請檢查網路連線。');
-      } finally {
-        setLoading(false);
       }
     };
 
     if (userRole === '老師') {
-      fetchTeacher();
-    } else {
-      const adminUserInfo = { ...session, name: session.name, account: session.account, id: session.id, role: userRole };
-      setUserInfo(adminUserInfo);
-      setLoading(false);
+      void fetchTeacher();
     }
   }, [router, handleLogout]);
 

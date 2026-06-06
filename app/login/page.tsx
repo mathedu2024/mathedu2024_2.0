@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { setSession } from '../utils/session'; // 維持相對路徑
 import alerts from '../utils/alerts';
@@ -14,15 +14,7 @@ export default function StudentLoginPage() {
     password: '',
   });
   const [isLoading, setIsLoading] = useState(false);
-  // 為了避免畫面閃爍，初始值設為 true，useEffect 檢查完後設為 false
-  const [authChecking, setAuthChecking] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
-
-  // 1. 自動檢查登入狀態
-  useEffect(() => {
-    // 修正：不再自動跳轉，避免無窮迴圈
-    setAuthChecking(false);
-  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -81,10 +73,6 @@ export default function StudentLoginPage() {
       setIsLoading(false);
     }
   };
-
-  if (authChecking) {
-    return <LoadingSpinner fullScreen />;
-  }
 
   return (
     // 1. 背景：統一使用 cubes 紋理 + 淺灰底色

@@ -1,15 +1,18 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useStudentInfo } from '../StudentInfoContext';
 import PageLoadingArea from '@/components/ui/PageLoadingArea';
 import StudentCourseSelector, { getCourseDisplayKey } from '@/components/StudentCourseSelector';
-import { BookOpenIcon, ClockIcon, MapPinIcon, UserIcon, VideoCameraIcon } from '@heroicons/react/24/outline';
+import { BookOpenIcon, ClockIcon, MapPinIcon, UserIcon, VideoCameraIcon, MegaphoneIcon, LinkIcon, DocumentTextIcon, FolderIcon, ChatBubbleLeftRightIcon, XMarkIcon } from '@heroicons/react/24/outline';
 
 // Interfaces
 interface ClassTime { day: string; startTime: string; endTime: string; }
-interface Course { id: string; name: string; code: string; status: string; archived?: boolean; gradeTags: string[]; subjectTag: string; startDate: string; endDate: string; teachers: string[]; teacherName?: string; description: string; teachingMethod: string; courseNature: string; location?: string; liveStreamURL?: string; coverImageURL?: string; classTimes?: ClassTime[]; }
+interface CustomLink { name: string; url: string; icon: string; }
+interface CourseAnnouncement { id: string; title: string; type?: '公告事項' | '課程資訊'; content: string; links: { name: string; url: string }[]; createdAt: string; }
+interface Course { id: string; name: string; code: string; status: string; archived?: boolean; gradeTags: string[]; subjectTag: string; startDate: string; endDate: string; teachers: string[]; teacherName?: string; description: string; teachingMethod: string; courseNature: string; location?: string; liveStreamURL?: string; coverImageURL?: string; classTimes?: ClassTime[]; customLinks?: CustomLink[]; announcements?: CourseAnnouncement[]; }
 interface Lesson { id: string; title: string; date: string; progress: string; attachments: Array<string | { url: string; name?: string; visibleToStudents?: boolean }>; videos: string[]; homework: string; onlineExam: string; examScope: string; notes: string; createdAt: string | number | { toDate: () => Date }; order?: number; }
 
 const isCourseArchived = (course: Course): boolean => course.archived === true || String(course.archived) === 'true';
@@ -83,11 +86,13 @@ export default function StudentCoursesContent() {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loadingLessons, setLoadingLessons] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState<CourseAnnouncement | null>(null);
+  const [courseDetails, setCourseDetails] = useState<{ customLinks?: CustomLink[], announcements?: CourseAnnouncement[] }>({});
   const lessonsPerPage = 5;
 
-  const fetchCourses = useCallback(async () => {
+  const fetchCourses = useCallback(async (options?: { silent?: boolean }) => {
     if (!studentInfo) return;
-    setLoadingCourses(true);
+    if (!options?.silent) setLoadingCourses(true);
 
     // 安全機制：設定 8 秒後強制停止 Loading，避免畫面卡死
     const safetyTimer = setTimeout(() => {
@@ -145,6 +150,35 @@ export default function StudentCoursesContent() {
   }, [courses, selectedCourse?.id]);
 
   useEffect(() => {
+    let isCurrent = true;
+
+    const fetchCourseDetails = async () => {
+      if (!selectedCourse) {
+        setCourseDetails({});
+        return;
+      }
+      
+      // 切換課程時，先清空舊的詳細資料，避免畫面短暫殘留
+      setCourseDetails({});
+      
+      try {
+        const res = await fetch(`/api/courses/classdata?courseId=${selectedCourse.id}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (isCurrent) {
+            setCourseDetails({
+              customLinks: data.customLinks || [],
+              announcements: data.announcements || []
+            });
+          }
+        }
+      } catch (e) {}
+    };
+    fetchCourseDetails();
+    return () => { isCurrent = false; };
+  }, [selectedCourse?.id]);
+
+  useEffect(() => {
     const fetchLessons = async () => {
       if (!selectedCourse) {
         setLessons([]);
@@ -187,6 +221,20 @@ export default function StudentCoursesContent() {
   const indexOfFirstLesson = indexOfLastLesson - lessonsPerPage;
   const currentLessons = lessons.slice(indexOfFirstLesson, indexOfLastLesson);
   const totalPages = Math.ceil(lessons.length / lessonsPerPage);
+
+  const renderIcon = (iconName: string, className: string) => {
+    switch (iconName) {
+      case 'VideoCameraIcon': return <VideoCameraIcon className={className} />;
+      case 'DocumentTextIcon': return <DocumentTextIcon className={className} />;
+      case 'FolderIcon': return <FolderIcon className={className} />;
+      case 'ChatBubbleLeftRightIcon': return <ChatBubbleLeftRightIcon className={className} />;
+      case 'LinkIcon':
+      default: return <LinkIcon className={className} />;
+    }
+  };
+
+  const activeLinks = (courseDetails.customLinks && courseDetails.customLinks.length > 0 ? courseDetails.customLinks : selectedCourse?.customLinks) || [];
+  const activeAnnouncements = (courseDetails.announcements && courseDetails.announcements.length > 0 ? courseDetails.announcements : selectedCourse?.announcements) || [];
 
   return (
     <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pt-6 md:pt-8 pb-10 flex flex-col h-full animate-fade-in">
@@ -280,18 +328,53 @@ export default function StudentCoursesContent() {
                             </div>
                         </div>
                     )}
-                    {selectedCourse.liveStreamURL && (
-                         <div className="flex items-center col-span-1 md:col-span-2 lg:col-span-3 mt-2">
+                    <div className="flex flex-wrap items-center col-span-1 md:col-span-2 lg:col-span-3 mt-3 gap-3">
+                        {selectedCourse.liveStreamURL && (
                              <a 
                                 href={selectedCourse.liveStreamURL} 
                                 target="_blank" 
                                 rel="noopener noreferrer" 
-                                className="inline-flex items-center px-5 py-2.5 bg-white text-indigo-600 rounded-xl font-bold hover:bg-indigo-50 transition-colors shadow-lg shadow-indigo-900/20"
+                                className="inline-flex items-center px-5 py-2.5 bg-white text-indigo-600 rounded-xl font-bold text-sm hover:bg-indigo-50 transition-colors shadow-lg shadow-indigo-900/20"
                              >
                                 <VideoCameraIcon className="w-5 h-5 mr-2" />
                                 進入線上會議
                              </a>
-                         </div>
+                        )}
+                        {activeLinks.map((link, idx) => (
+                             <a 
+                                key={idx}
+                                href={link.url} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="inline-flex items-center px-5 py-2.5 bg-white text-indigo-600 rounded-xl font-bold text-sm hover:bg-indigo-50 transition-colors shadow-lg shadow-indigo-900/20"
+                             >
+                                {renderIcon(link.icon, "w-5 h-5 mr-2")}
+                                {link.name}
+                             </a>
+                        ))}
+                    </div>
+
+                    {/* 課程公告併入色塊 */}
+                    {activeAnnouncements.length > 0 && (
+                      <div className="col-span-1 md:col-span-2 lg:col-span-3 mt-6 pt-6 border-t border-white/20">
+                        <h4 className="text-lg font-bold text-white flex items-center mb-4">
+                          <MegaphoneIcon className="w-6 h-6 mr-3 opacity-90" />
+                          課程公告
+                        </h4>
+                        <div className="space-y-2">
+                          {[...activeAnnouncements].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(ann => (
+                            <div key={ann.id} onClick={() => setSelectedAnnouncement(ann)} className="cursor-pointer bg-white/10 hover:bg-white/20 backdrop-blur-sm p-4 rounded-xl border border-white/10 transition-colors flex justify-between items-center group shadow-sm">
+                               <div className="flex items-center gap-3">
+                                 <div className="w-8 h-8 rounded-full bg-white/20 text-white flex items-center justify-center shrink-0">
+                                   <MegaphoneIcon className="w-4 h-4" />
+                                 </div>
+                                 <h4 className="font-bold text-white group-hover:text-indigo-50 transition-colors line-clamp-1">{ann.title}</h4>
+                               </div>
+                               <span className="text-xs text-indigo-100 font-mono ml-4 shrink-0 hidden sm:block opacity-80">{new Date(ann.createdAt).toLocaleDateString()}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     )}
                     </div>
                 </div>
@@ -324,6 +407,40 @@ export default function StudentCoursesContent() {
             </div>
           )}
         </>
+      )}
+
+      {selectedAnnouncement && createPortal(
+        <div className="fixed inset-0 z-[99999] flex justify-center items-center p-4 animate-fade-in">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedAnnouncement(null)}></div>
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
+              <h3 className="text-xl font-bold flex items-center pr-8 line-clamp-1">
+                {selectedAnnouncement.title}
+              </h3>
+              <button onClick={() => setSelectedAnnouncement(null)} className="text-white/80 hover:text-white transition-colors p-1 rounded-full hover:bg-white/20">
+                <XMarkIcon className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6 flex-1 overflow-y-auto custom-scrollbar bg-white">
+              <div className="text-xs text-gray-500 mb-4 font-mono pb-4 border-b border-gray-100">發布日期：{new Date(selectedAnnouncement.createdAt).toLocaleDateString()}</div>
+              <div className="prose prose-sm text-gray-700 whitespace-pre-line mb-6">
+                {selectedAnnouncement.content}
+              </div>
+              {selectedAnnouncement.links && selectedAnnouncement.links.length > 0 && (
+                <div className="space-y-2 mt-6 pt-4 border-t border-gray-100">
+                  <h5 className="font-bold text-gray-800 text-sm mb-3">相關連結</h5>
+                  {selectedAnnouncement.links.map((link, idx) => (
+                    <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center text-indigo-600 hover:text-indigo-800 text-sm bg-indigo-50 hover:bg-indigo-100 p-3 rounded-lg transition-colors font-medium">
+                      <LinkIcon className="w-4 h-4 mr-2" />
+                      {link.name || link.url}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -207,9 +207,6 @@ export default function AnnouncementManager() {
       }
 
       resetForm();
-      setTimeout(() => {
-        fetchAnnouncements();
-      }, 500);
     } catch (error) {
       console.error('Error submitting form:', error);
       Swal.fire({
@@ -255,9 +252,6 @@ export default function AnnouncementManager() {
           customClass: { popup: 'rounded-2xl' }
         });
         setAnnouncements(prev => prev.filter(ann => ann.id !== id));
-        setTimeout(() => {
-          fetchAnnouncements();
-        }, 500);
       } else {
         const errorData = await res.json();
         Swal.fire({

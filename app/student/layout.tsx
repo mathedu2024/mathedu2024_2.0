@@ -4,8 +4,6 @@ import React, { useState, useEffect, useTransition, Suspense } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { logoutClient } from '../utils/logoutClient';
 import Sidebar from '../components/Sidebar';
-import LoadingSpinner from '../components/LoadingSpinner';
-import { LOADING_MESSAGE } from '../components/ui/PageLoadingArea';
 import { useStudentInfo, StudentInfoProvider } from './StudentInfoContext';
 import { BookOpenIcon, ClipboardDocumentListIcon, CheckCircleIcon, PencilIcon, CalendarIcon, KeyIcon, CloudArrowDownIcon } from '@heroicons/react/24/outline';
 
@@ -24,13 +22,11 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false); // Default to closed on server for safety
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { studentInfo, loading, clearStudentInfo } = useStudentInfo();
   const [, startTransition] = useTransition();
-  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    setIsMounted(true);
     setSidebarOpen(window.innerWidth >= 768);
   }, []);
 
@@ -67,13 +63,9 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
     await logoutClient('/login');
   };
 
-  // 修正: 放寬載入條件，只要有資料就先顯示，避免背景更新時畫面卡在 Loading
-  if (!isMounted || (loading && !studentInfo)) {
-    return <LoadingSpinner fullScreen size="lg" text={LOADING_MESSAGE} />;
-  }
-
-  if (!studentInfo) {
-    return null; // 正在導向登入頁面，不顯示錯誤訊息
+  // 未登入且已確認無 session：導向登入（不渲染版面，避免與已登入狀態混淆）
+  if (!loading && !studentInfo) {
+    return null;
   }
 
   return (
@@ -89,7 +81,6 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
           onLogout={handleLogout}
         />
 
-        {/* 手機不預留側欄寬度（與 back-panel 相同），避免側欄隱藏時左側空白、內容右偏 */}
         <main
           className={`flex-1 min-w-0 transition-[padding] duration-300 relative bg-gray-50 pl-0 ${
             sidebarOpen ? 'md:pl-64' : 'md:pl-20'

@@ -4,6 +4,10 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase-client';
 import { getSession } from '../utils/session';
+import {
+  buildStudentInfoFromSession,
+  isStudentSession,
+} from '@/utils/studentSession';
 
 export interface StudentInfo {
   id: string;
@@ -35,6 +39,15 @@ export const StudentInfoProvider = ({ children }: { children: React.ReactNode })
   const [studentInfo, setStudentInfo] = useState<StudentInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // 須在 hydration 後執行（勿用 useLayoutEffect），否則側欄姓名會與 SSR 不一致
+  useEffect(() => {
+    const session = getSession();
+    if (session && isStudentSession(session)) {
+      setStudentInfo(buildStudentInfoFromSession(session));
+      setLoading(false);
+    }
+  }, []);
+
   const clearStudentInfo = () => {
     setStudentInfo(null);
     setLoading(false);
@@ -58,21 +71,10 @@ export const StudentInfoProvider = ({ children }: { children: React.ReactNode })
 
     // 1. 優先檢查本地 Session (解決登入後跳轉回 Login 的問題)
     const session = getSession();
-    if (session && (session.role === 'student' || session.role === '學生')) {
-      // 優化: 立即設定基本資料，讓 UI 能先行渲染，不必等待 API 回應
-      setStudentInfo({
-        id: session.id,
-        name: session.name,
-        studentId: session.account,
-        account: session.account,
-        grade: '',
-        email: '',
-        enrolledCourses: [],
-        attendance: [],
-        role: 'student',
-      });
-      
-      // 修正: 既然已經從 Session 取得基本資料，立即關閉載入狀態，讓畫面可以渲染
+    if (session && isStudentSession(session)) {
+      if (!studentInfo) {
+        setStudentInfo(buildStudentInfoFromSession(session));
+      }
       setLoading(false);
 
       const fetchStudentData = async () => {

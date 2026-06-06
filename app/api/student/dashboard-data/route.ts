@@ -6,6 +6,7 @@ import { settingsToTotalSetting } from '@/services/gradeShape';
 import { resolveCourseDocsByEnrolledIds } from '@/services/courseId';
 import { isCourseArchived } from '@/services/courseArchive';
 import { buildTeacherIdToNameMap, formatTeacherNames } from '@/services/teacherLookup';
+import { normalizeCourseDate } from '@/services/courseDate';
 
 export const dynamic = 'force-dynamic';
 import { parse as parseCookie } from 'cookie';
@@ -35,6 +36,8 @@ interface CourseInfo {
   coverImageURL?: string;
   classTimes?: ClassTime[];
   archived?: boolean;
+  customLinks?: { name: string; url: string; icon: string }[];
+  announcements?: { id: string; title: string; type?: string; content: string; links: { name: string; url: string }[]; createdAt: string }[];
 }
 
 type StudentGradeRow = { studentId: string; regularScores?: Record<string, number>; periodicScores?: Record<string, number>; manualAdjust?: number; };
@@ -95,7 +98,7 @@ async function fetchCourseData(studentId: string, enrolledCourses: string[]) {
 
     const resolvedMap = await resolveCourseDocsByEnrolledIds(adminDb, enrolledCourses);
 
-    const courses: CourseInfo[] = [];
+    const courseDocs: FirebaseFirestore.QueryDocumentSnapshot[] = [];
     const seenDocIds = new Set<string>();
     const teacherLookup = await buildTeacherIdToNameMap(adminDb);
 
@@ -103,9 +106,26 @@ async function fetchCourseData(studentId: string, enrolledCourses: string[]) {
         const doc = resolvedMap.get(enrolledId);
         if (!doc || seenDocIds.has(doc.id)) continue;
         seenDocIds.add(doc.id);
+        courseDocs.push(doc);
+    }
 
+    const classDataEntries = await Promise.all(
+        courseDocs.map(async (doc) => {
+            try {
+                const classDoc = await adminDb.collection('courses').doc(doc.id).collection('ClassData').doc('main').get();
+                return [doc.id, classDoc.exists ? classDoc.data() : null] as const;
+            } catch {
+                return [doc.id, null] as const;
+            }
+        })
+    );
+    const classDataByCourseId = new Map(classDataEntries);
+
+    const courses: CourseInfo[] = [];
+    for (const doc of courseDocs) {
         const data = doc.data();
         const teachersList = Array.isArray(data.teachers) ? data.teachers : [];
+        const classData = classDataByCourseId.get(doc.id) || {};
         const courseInfo: CourseInfo = {
             id: doc.id,
             name: data.name,
@@ -113,18 +133,20 @@ async function fetchCourseData(studentId: string, enrolledCourses: string[]) {
             status: data.status,
             gradeTags: data.gradeTags,
             subjectTag: data.subjectTag,
-            startDate: data.startDate,
-            endDate: data.endDate,
+            startDate: normalizeCourseDate(data.startDate),
+            endDate: normalizeCourseDate(data.endDate),
             teachers: teachersList,
-            description: data.description,
+            description: data.description || classData.description,
             teachingMethod: data.teachingMethod,
             courseNature: data.courseNature,
-            location: data.location,
-            liveStreamURL: data.liveStreamURL,
+            location: data.location || classData.location,
+            liveStreamURL: data.liveStreamURL || classData.liveStreamURL,
             coverImageURL: data.coverImageURL,
             classTimes: data.classTimes,
             archived: data.archived ?? false,
             teacherName: formatTeacherNames(teachersList, teacherLookup) || undefined,
+            customLinks: (classData.customLinks ?? data.customLinks) || [],
+            announcements: (classData.announcements ?? data.announcements) || [],
         };
         if (isCourseArchived(courseInfo)) continue;
         courses.push(courseInfo);

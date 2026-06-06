@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useHydrated } from '@/utils/useHydrated';
 import { 
   BookOpenIcon, 
   ClipboardDocumentListIcon, 
@@ -23,8 +24,21 @@ interface MinimalCourse {
 
 export default function StudentPanel() {
   const router = useRouter();
+  const hydrated = useHydrated();
   const { studentInfo, loading } = useStudentInfo();
   const [activeCourseCount, setActiveCourseCount] = useState<number | null>(null);
+  const [todayLabel, setTodayLabel] = useState('');
+
+  useEffect(() => {
+    setTodayLabel(
+      new Date().toLocaleDateString('zh-TW', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        weekday: 'long',
+      })
+    );
+  }, []);
 
   // 取得並計算非封存的課程數量
   useEffect(() => {
@@ -63,6 +77,14 @@ export default function StudentPanel() {
     { id: 'information', title: '個人資料', description: '查看個人資料與修改密碼', icon: <UserCircleIcon className="h-6 w-6" />, onClick: () => router.push('/student/information'), disabled: false },
   ];
 
+  if (!hydrated || (loading && !studentInfo)) {
+    return (
+      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+        <PageLoadingArea minHeight="min-h-[50vh]" />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
       {/* 歡迎橫幅 */}
@@ -78,7 +100,7 @@ export default function StudentPanel() {
             <div className="flex flex-col sm:flex-row gap-4 text-indigo-100">
                 <p className="flex items-center"><span className="bg-indigo-500/30 px-2 py-1 rounded-md text-sm mr-2 border border-indigo-400/30">學號</span> {studentInfo?.studentId}</p>
                 <p className="hidden sm:block">|</p>
-                <p>{new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}</p>
+                <p>{todayLabel || '\u00A0'}</p>
             </div>
           </div>
           <div className="text-center lg:text-right bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20">
@@ -178,9 +200,6 @@ export default function StudentPanel() {
         </div>
       </div>
 
-      {loading && studentInfo === null && (
-        <PageLoadingArea minHeight="min-h-[12rem]" className="mt-8" />
-      )}
     </div>
   );
 }

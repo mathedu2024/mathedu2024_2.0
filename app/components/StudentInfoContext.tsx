@@ -19,17 +19,48 @@ export interface StudentInfo {
 interface StudentInfoContextType {
   studentInfo: StudentInfo | null;
   loading: boolean;
-  refreshStudentInfo: () => Promise<void>;
+  refreshStudentInfo: (options?: { silent?: boolean }) => Promise<void>;
 }
 
 const StudentInfoContext = createContext<StudentInfoContextType | undefined>(undefined);
+
+function readStudentInfoFromSession(): StudentInfo | null {
+  interface SessionUser {
+    id?: string; uid?: string; userId?: string;
+    name?: string; studentId?: string; account?: string;
+    class?: string; grade?: string; email?: string;
+    enrolledCourses?: string[]; currentRole?: string; role?: string;
+  }
+  const session = getSession() as ({ user?: SessionUser } & SessionUser) | null;
+  if (!session) return null;
+  const user = session.user || session;
+  return {
+    id: user.id || user.uid || user.userId || '',
+    name: user.name || '未知使用者',
+    studentId: user.studentId || user.account || '',
+    class: user.class || '',
+    grade: user.grade || '',
+    email: user.email || '',
+    enrolledCourses: user.enrolledCourses || [],
+    account: user.account || '',
+    role: String(user.currentRole || user.role || 'student'),
+  };
+}
 
 export function StudentInfoProvider({ children }: { children: ReactNode }) {
   const [studentInfo, setStudentInfo] = useState<StudentInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const refreshStudentInfo = async () => {
-    setLoading(true);
+  useEffect(() => {
+    const fromSession = readStudentInfoFromSession();
+    if (fromSession) {
+      setStudentInfo(fromSession);
+      setLoading(false);
+    }
+  }, []);
+
+  const refreshStudentInfo = async (options?: { silent?: boolean }) => {
+    if (!options?.silent) setLoading(true);
     try {
       // 從系統 Session 獲取真實登入的使用者資料
       interface SessionUser {
@@ -68,7 +99,7 @@ export function StudentInfoProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    refreshStudentInfo();
+    void refreshStudentInfo({ silent: !!readStudentInfoFromSession() });
   }, []);
 
   useEffect(() => {

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
+import { normalizeCourseDate } from '@/services/courseDate';
 
 async function getCourses() {
   try {
@@ -7,21 +8,12 @@ async function getCourses() {
     
     const courses = snapshot.docs.map(doc => {
       const data = doc.data();
-      
-      // 輔助函式：如果欄位是 Firestore Timestamp，則轉換為 ISO 字串
-      const convertDate = (field: unknown) => {
-        const timestamp = field as { toDate?: () => Date };
-        if (timestamp && typeof timestamp.toDate === 'function') {
-          return timestamp.toDate().toISOString();
-        }
-        return field;
-      };
 
       return {
         id: doc.id,
         ...data,
-        startDate: convertDate(data.startDate),
-        endDate: convertDate(data.endDate),
+        startDate: normalizeCourseDate(data.startDate),
+        endDate: normalizeCourseDate(data.endDate),
       };
     });
 

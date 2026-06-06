@@ -5,6 +5,7 @@ import clsx from 'clsx';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { UserCircleIcon } from '@heroicons/react/24/outline';
+import { useHydrated } from '@/utils/useHydrated';
 
 interface UserInfo {
   id: string;
@@ -61,9 +62,10 @@ export default function Sidebar({
 }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const hydrated = useHydrated();
 
   // 新增：記住上一次的 userInfo，避免換頁時因為瞬間為 null 而造成畫面文字閃爍
-  const [persistedUserInfo, setPersistedUserInfo] = useState<UserInfo | null>(userInfo || globalCachedUserInfo);
+  const [persistedUserInfo, setPersistedUserInfo] = useState<UserInfo | null>(userInfo ?? null);
   const [persistedMenuItems, setPersistedMenuItems] = useState<MenuItem[]>(menuItems?.length > 0 ? menuItems : globalCachedMenuItems);
   const [optimisticTab, setOptimisticTab] = useState<string | null>(
     globalCachedActiveTab !== undefined ? (globalCachedActiveTab as string | null) : activeTab
@@ -197,6 +199,10 @@ export default function Sidebar({
   };
 
   const displayInfo = getUserDisplayInfo();
+  // hydration 完成前固定佔位，避免 SSR「?」與客戶端 session 姓名不一致
+  const safeDisplayInfo = hydrated
+    ? displayInfo
+    : { name: '', id: '', role: displayInfo.role };
 
   const sidebarClasses = clsx(
     'flex flex-col z-[60] bg-white border-r border-gray-200 shadow-sm',
@@ -231,14 +237,14 @@ export default function Sidebar({
         <div className={`p-4 border-b border-gray-100 ${!sidebarOpen ? 'flex justify-center' : ''}`}>
           <div className={`flex items-center gap-3 transition-all duration-300 ${!sidebarOpen ? 'justify-center' : ''}`}>
             <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0 shadow-sm">
-              {displayInfo.name?.[0] || '?'}
+              {safeDisplayInfo.name?.[0] || '?'}
             </div>
             {sidebarOpen && (
               <div className="overflow-hidden">
-                <div className="font-bold text-gray-900 text-sm truncate">{displayInfo.name}</div>
+                <div className="font-bold text-gray-900 text-sm truncate">{safeDisplayInfo.name || '\u00A0'}</div>
                 <div className="text-xs text-indigo-500 font-medium flex items-center mt-0.5">
-                  <span className="bg-indigo-50 px-1.5 py-0.5 rounded text-[10px] mr-1 border border-indigo-100">{displayInfo.role}</span>
-                  <span className="truncate">{displayInfo.id}</span>
+                  <span className="bg-indigo-50 px-1.5 py-0.5 rounded text-[10px] mr-1 border border-indigo-100">{safeDisplayInfo.role}</span>
+                  <span className="truncate">{safeDisplayInfo.id || '\u00A0'}</span>
                 </div>
               </div>
             )}

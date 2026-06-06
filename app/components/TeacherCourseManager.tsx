@@ -21,8 +21,14 @@ import {
   ClockIcon,
   EyeIcon,
   EyeSlashIcon,
+  MegaphoneIcon,
+  DocumentTextIcon,
+  FolderIcon,
+  ChatBubbleLeftRightIcon
 } from '@heroicons/react/24/outline';
 import CourseFilter from './CourseFilter';
+import Dropdown from './Dropdown';
+import { formatCourseDateForDisplay } from '@/services/courseDate';
 
 // --- 1. 共用 Modal 元件 (給 LessonManager 使用) ---
 const Modal = ({ open, onClose, title, size = 'md', children }: { open: boolean; onClose: () => void; title: string; size?: 'md' | 'lg' | 'xl'; children: React.ReactNode }) => {
@@ -75,6 +81,21 @@ interface LessonAttachment {
   visibleToStudents?: boolean;
 }
 
+interface CustomLink {
+  name: string;
+  url: string;
+  icon: string;
+}
+
+interface CourseAnnouncement {
+  id: string;
+  title: string;
+  type?: '公告事項' | '課程資訊';
+  content: string;
+  links: { name: string; url: string }[];
+  createdAt: string;
+}
+
 export interface Course {
   id: string;
   name: string;
@@ -95,6 +116,8 @@ export interface Course {
   showInIntroduction: boolean;
   archived: boolean;
   coverImageURL?: string;
+  customLinks?: CustomLink[];
+  announcements?: CourseAnnouncement[];
 }
 
 interface TeacherCourseManagerProps {
@@ -638,6 +661,65 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
   const [selectedSubject, setSelectedSubject] = useState('all');
   const [selectedNature, setSelectedNature] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [isSavingCourse, setIsSavingCourse] = useState(false);
+  const [showAnnouncementManager, setShowAnnouncementManager] = useState<Course | null>(null);
+  const [editingAnnouncement, setEditingAnnouncement] = useState<CourseAnnouncement | null>(null);
+  const [annIsSubmitting, setAnnIsSubmitting] = useState(false);
+
+  const handleShowAnnouncementManager = async (course: Course) => {
+      // 先立刻開啟視窗 (使用目前已有的資料)
+      setShowAnnouncementManager({ ...course });
+      try {
+          const res = await fetch(`/api/courses/classdata?courseId=${course.id}`);
+          if (res.ok) {
+              const data = await res.json();
+              // 在背景取得最新資料後，無縫更新視窗內的公告清單
+              setShowAnnouncementManager(prev => {
+                  if (prev && prev.id === course.id) {
+                      return { ...prev, announcements: data.announcements ?? prev.announcements ?? [] };
+                  }
+                  return prev;
+              });
+          }
+      } catch (e) {}
+  };
+
+  const handleUpdateCourseDescription = async () => {
+    if (!showCourseDetail) return;
+    setIsSavingCourse(true);
+    try {
+        const res = await fetch('/api/courses/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id: showCourseDetail.id,
+                description: showCourseDetail.description,
+                customLinks: showCourseDetail.customLinks
+            })
+        });
+        if (res.ok) {
+            Swal.fire({
+                icon: 'success',
+                title: '儲存成功',
+                text: '課程資訊已更新',
+                confirmButtonColor: '#4f46e5',
+                customClass: { popup: 'rounded-2xl' }
+            });
+            setCourses(prev => prev.map(c => c.id === showCourseDetail.id ? { 
+                ...c, 
+                description: showCourseDetail.description || '',
+                customLinks: showCourseDetail.customLinks || []
+            } : c));
+            setShowCourseDetail(null);
+        } else {
+            Swal.fire('錯誤', '更新失敗', 'error');
+        }
+    } catch (e) {
+        Swal.fire('錯誤', '更新失敗', 'error');
+    } finally {
+        setIsSavingCourse(false);
+    }
+  };
 
   const fetchTeacherNamesCallback = useCallback(async (teacherIds: string[]): Promise<{ [id: string]: string }> => {
     if (!teacherIds.length) return {};
@@ -702,34 +784,26 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
   useEffect(() => { fetchTeachers(); }, [fetchTeachers]);
 
   const handleShowCourseDetail = async (course: Course) => {
-    let fullCourse = course;
-    if (!course.description || !course.courseNature || !course.classTimes || !course.teachingMethod) {
-      const found = coursesState.find(c => c.id === course.id);
-      if (found) fullCourse = found;
-    }
-    
+    let fullCourse = courses.find((c) => c.id === course.id) ?? course;
     setShowCourseDetail(fullCourse);
-    
+
     try {
       const classDataRes = await fetch(`/api/courses/classdata?courseId=${course.id}`);
       if (classDataRes.ok) {
         const classData = await classDataRes.json();
-        fullCourse.location = classData.location || fullCourse.location;
-        fullCourse.description = classData.description || fullCourse.description;
-        fullCourse.liveStreamURL = classData.liveStreamURL || fullCourse.liveStreamURL;
-        setShowCourseDetail({ ...fullCourse });
+        setShowCourseDetail({
+          ...fullCourse,
+          location: classData.location || fullCourse.location,
+          description: classData.description || fullCourse.description,
+          liveStreamURL: classData.liveStreamURL || fullCourse.liveStreamURL,
+          customLinks: classData.customLinks || fullCourse.customLinks || [],
+          startDate: classData.startDate || fullCourse.startDate,
+          endDate: classData.endDate || fullCourse.endDate,
+        });
       }
     } catch (e) {
       console.log('無法獲取課程額外資料:', e);
     }
-  };
-  
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '未設定';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('zh-TW', {
-      year: 'numeric', month: '2-digit', day: '2-digit'
-    });
   };
 
   const getTeacherNames = (teacherIds: string[] | undefined | null) => {
@@ -843,47 +917,50 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
               <table className="w-full text-sm text-left text-gray-500">
                   <thead className="text-xs text-gray-700 uppercase bg-gray-50">
                       <tr>
-                          <th className="px-6 py-4 font-bold min-w-[200px] w-[250px]">課程名稱</th>
-                          <th className="px-6 py-4 font-bold min-w-[150px] w-[200px]">授課老師</th>
-                          <th className="px-6 py-4 font-bold text-center w-[120px]">學生人數</th>
-                          <th className="px-6 py-4 font-bold min-w-[220px]">上課時間</th>
-                          <th className="px-6 py-4 font-bold text-center min-w-[120px]">會議室</th>
-                          <th className="px-6 py-4 font-bold text-center w-[100px]">狀態</th>
-                          <th className="px-6 py-4 font-bold text-right w-[180px]">操作</th>
+                          <th className="px-6 py-4 font-bold min-w-[200px]">課程名稱</th>
+                          <th className="px-6 py-4 font-bold min-w-[150px]">授課老師</th>
+                          <th className="px-6 py-4 font-bold text-center whitespace-nowrap">學生數</th>
+                          <th className="px-6 py-4 font-bold min-w-[180px]">上課時間</th>
+                          <th className="px-6 py-4 font-bold text-center whitespace-nowrap">會議室</th>
+                          <th className="px-6 py-4 font-bold text-center whitespace-nowrap">狀態</th>
+                          <th className="px-6 py-4 font-bold text-right min-w-[180px]">操作</th>
                       </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                       {filteredCourses.map(course => (
                           <tr key={course.id} className="hover:bg-indigo-50/30 transition-colors">
                               <td className="px-6 py-4">
-                                  <div className="font-bold text-gray-900 whitespace-nowrap overflow-hidden text-ellipsis">{course.name}</div>
-                                  <div className="text-xs font-mono text-gray-500 mt-1">{course.code}</div>
+                                  <div className="font-bold text-gray-900 text-base whitespace-nowrap overflow-hidden text-ellipsis">{course.name}</div>
+                                  <div className="text-sm font-mono text-gray-500 mt-1">{course.code}</div>
                               </td>
                               <td className="px-6 py-4">
                                   <div className="flex items-center">
-                                      <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mr-3 text-xs font-bold shrink-0">{teacherNamesMap[course.id]?.[0]?.[0] || '師'}</div>
-                                      <span className="truncate max-w-[150px] whitespace-nowrap">{teacherNamesMap[course.id]?.join('、') || '載入中...'}</span>
+                                      <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mr-3 text-sm font-bold shrink-0">{teacherNamesMap[course.id]?.[0]?.[0] || '師'}</div>
+                                      <span className="truncate max-w-[150px] whitespace-nowrap text-sm">{teacherNamesMap[course.id]?.join('、') || '載入中...'}</span>
                                   </div>
                               </td>
                               <td className="px-6 py-4 text-center whitespace-nowrap">
-                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{studentCounts[course.id] ?? 0} 人</span>
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-gray-100 text-gray-800">{studentCounts[course.id] ?? 0} 人</span>
                               </td>
-                              <td className="px-6 py-4 text-gray-600 whitespace-nowrap">
-                                  {(course.classTimes || []).map((ct, i) => <div key={i}>{`${(ct as unknown as ClassTime).day} ${(ct as unknown as ClassTime).startTime}-${(ct as unknown as ClassTime).endTime}`}</div>)}
+                              <td className="px-6 py-4 text-gray-600">
+                                  <div className="line-clamp-2 text-sm leading-relaxed">
+                                      {(course.classTimes || []).map((ct, i) => <div key={i}>{`${(ct as unknown as ClassTime).day} ${(ct as unknown as ClassTime).startTime}-${(ct as unknown as ClassTime).endTime}`}</div>)}
+                                  </div>
                               </td>
                               <td className="px-6 py-4 text-center whitespace-nowrap">
                                   {course.liveStreamURL ? (
-                                      <a href={course.liveStreamURL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-indigo-600 hover:text-indigo-800 transition-colors bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-md text-xs font-bold">
-                                          <VideoCameraIcon className="w-3.5 h-3.5 mr-1" /> 進入會議室
+                                      <a href={course.liveStreamURL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-indigo-600 hover:text-indigo-800 transition-colors bg-indigo-50 hover:bg-indigo-100 p-2 rounded-lg text-sm font-bold" title="進入會議室">
+                                          <VideoCameraIcon className="w-5 h-5" />
                                       </a>
-                                  ) : <span className="text-gray-400 text-xs">無</span>}
+                                  ) : <span className="text-gray-400 text-sm">無</span>}
                               </td>
                               <td className="px-6 py-4 text-center whitespace-nowrap">
-                                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${getStatusColor(course.status)}`}>{course.status}</span>
+                                  <span className={`px-3 py-1 rounded-full text-sm font-bold ${getStatusColor(course.status)}`}>{course.status}</span>
                               </td>
                               <td className="px-6 py-4 text-right whitespace-nowrap">
                                   <div className="flex justify-end gap-2">
                                       <button className="px-3 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm" onClick={() => setShowLessonManager(course)}>管理</button>
+                                      <button className="px-3 py-1.5 bg-emerald-500 text-white text-sm font-medium rounded-lg hover:bg-emerald-600 transition-colors shadow-sm flex justify-center items-center" onClick={() => handleShowAnnouncementManager(course)}>公告</button>
                                       <button className="px-3 py-1.5 bg-white text-indigo-600 border border-indigo-200 text-sm font-medium rounded-lg hover:bg-indigo-50 transition-colors shadow-sm" onClick={() => handleShowCourseDetail(course)}>詳情</button>
                                   </div>
                               </td>
@@ -897,10 +974,10 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                 {filteredCourses.map(course => (
                     <div key={course.id} className="bg-white border border-gray-100 rounded-xl shadow-sm p-5">
                         <div className="flex justify-between mb-2">
-                            <div className="font-bold text-gray-900">{course.name}</div>
-                            <span className={`px-2 py-1 rounded text-xs ${getStatusColor(course.status)}`}>{course.status}</span>
+                            <div className="font-bold text-gray-900 text-lg">{course.name}</div>
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(course.status)}`}>{course.status}</span>
                         </div>
-                        <div className="text-xs text-gray-500 mb-4">{course.code}</div>
+                        <div className="text-sm font-mono text-gray-500 mb-4">{course.code}</div>
                         {course.liveStreamURL && (
                             <div className="mb-4">
                                 <a href={course.liveStreamURL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center w-full py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-sm font-bold transition-colors">
@@ -909,9 +986,10 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                                 </a>
                             </div>
                         )}
-                        <div className="flex justify-end gap-2">
-                            <button className="w-full py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm" onClick={() => setShowLessonManager(course)}>管理課程</button>
-                            <button className="w-full py-2 bg-white text-indigo-600 border border-indigo-200 text-sm font-medium rounded-lg hover:bg-indigo-50 transition-colors shadow-sm" onClick={() => handleShowCourseDetail(course)}>詳情</button>
+                        <div className="flex justify-end gap-2 mt-2">
+                            <button className="flex-1 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm" onClick={() => setShowLessonManager(course)}>管理</button>
+                            <button className="flex-1 py-2 bg-emerald-500 text-white text-sm font-medium rounded-lg hover:bg-emerald-600 transition-colors shadow-sm flex justify-center items-center" onClick={() => handleShowAnnouncementManager(course)}>公告</button>
+                            <button className="flex-1 py-2 bg-white text-indigo-600 border border-indigo-200 text-sm font-medium rounded-lg hover:bg-indigo-50 transition-colors shadow-sm" onClick={() => handleShowCourseDetail(course)}>詳情</button>
                         </div>
                     </div>
                 ))}
@@ -922,11 +1000,11 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
        {showCourseDetail && mounted && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowCourseDetail(null)}></div>
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl h-[90vh] overflow-hidden flex flex-col animate-bounce-in">
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-bounce-in">
             {/* Modal Header */}
             <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
               <h2 className="text-xl font-bold pr-8 line-clamp-1 flex items-center">
-                {showCourseDetail.name}
+                編輯課程資訊
               </h2>
               <button 
                 onClick={() => setShowCourseDetail(null)}
@@ -936,86 +1014,347 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
               </button>
             </div>
 
-            {/* Modal Content */}
-            <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
+            {/* Modal Content - Form Layout */}
+            <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
               
-              {/* Status Badge Row */}
-              <div className="flex flex-wrap gap-3 mb-6">
-                 <span className={`px-3 py-1 rounded-full text-sm font-bold ${getStatusColor(showCourseDetail.status)}`}>
-                   {showCourseDetail.status}
-                 </span>
-                 <span className="px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-600 font-medium">
-                   {showCourseDetail.courseNature}
-                 </span>
-                 <span className="px-3 py-1 rounded-full text-sm bg-indigo-50 text-indigo-600 font-medium">
-                   {showCourseDetail.teachingMethod}
-                 </span>
-              </div>
-
-              {/* Info Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 bg-gray-50 p-5 rounded-xl border border-gray-100">
-                <div>
-                   <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">授課老師</label>
-                   <p className="text-gray-800 font-medium">{getTeacherNames(showCourseDetail.teachers)}</p>
-                </div>
-                <div>
-                   <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">適用對象</label>
-                   <p className="text-gray-800 font-medium">{getGradeTags(showCourseDetail.gradeTags)} ({showCourseDetail.subjectTag})</p>
-                </div>
-                <div>
-                   <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">課程期間</label>
-                   <p className="text-gray-800 font-medium">
-                     {formatDate(showCourseDetail.startDate)} ~ {formatDate(showCourseDetail.endDate)}
-                   </p>
-                </div>
-                <div>
-                   <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-1">上課地點</label>
-                   <p className="text-gray-800 font-medium">{showCourseDetail.location || '未指定'}</p>
-                </div>
-              </div>
-
-              {/* Class Times */}
-              <div className="mb-8">
-                 <h4 className="text-lg font-bold text-gray-800 mb-3 border-l-4 border-emerald-400 pl-3">上課時間</h4>
-                 {Array.isArray(showCourseDetail.classTimes) && showCourseDetail.classTimes.length > 0 ? (
-                    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden"> 
-                       {showCourseDetail.classTimes.map((time: unknown, idx: number) => (
-                         <div key={idx} className="px-4 py-3 border-b border-gray-100 last:border-0 flex items-center text-gray-700 text-sm">
-                            <ClockIcon className="w-4 h-4 mr-3 text-gray-400" />
-                            {typeof time === 'object' && time !== null
-                              ? `${(time as ClassTime).day} ${(time as ClassTime).startTime} ~ ${(time as ClassTime).endTime}`
-                              : String(time)}
-                         </div>
-                       ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 italic text-sm">暫無時間表</p>
-                  )}
-              </div>
-
-              {/* Description */}
-              {showCourseDetail.description && (
-                <div className="mb-6">
-                  <h4 className="text-lg font-bold text-gray-800 mb-3 border-l-4 border-indigo-400 pl-3">課程介紹</h4>
-                  <div className="prose prose-sm md:prose-base max-w-none text-gray-600 bg-white p-1 rounded-lg">
-                    <p className="whitespace-pre-line leading-relaxed">{showCourseDetail.description}</p>
+              {/* Section 1: Basic Info (Read-only) */}
+              <div className="bg-gray-50/50 p-5 rounded-xl border border-gray-100">
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 flex items-center">
+                  <span className="w-1 h-4 bg-indigo-500 rounded-full mr-2"></span>
+                  基本資訊 (僅供檢視)
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">課程名稱</label>
+                    <input type="text" value={showCourseDetail.name} disabled className="w-full p-2.5 border border-gray-200 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">課程代碼</label>
+                    <input type="text" value={showCourseDetail.code} disabled className="w-full p-2.5 border border-gray-200 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">授課老師</label>
+                    <input type="text" value={getTeacherNames(showCourseDetail.teachers)} disabled className="w-full p-2.5 border border-gray-200 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed" />
                   </div>
                 </div>
-              )}
+              </div>
+
+              {/* Section 2: Content & Categorization (Partially Editable) */}
+              <div className="bg-gray-50/50 p-5 rounded-xl border border-gray-100">
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 flex items-center">
+                  <span className="w-1 h-4 bg-purple-500 rounded-full mr-2"></span>
+                  內容與分類
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">課程性質</label>
+                    <input type="text" value={showCourseDetail.courseNature || '未指定'} disabled className="w-full p-2.5 border border-gray-200 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">科目</label>
+                    <input type="text" value={showCourseDetail.subjectTag || '未指定'} disabled className="w-full p-2.5 border border-gray-200 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">適用年級</label>
+                    <input type="text" value={getGradeTags(showCourseDetail.gradeTags)} disabled className="w-full p-2.5 border border-gray-200 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">課程描述 <span className="text-indigo-500 text-xs ml-2 font-normal">(可編輯)</span></label>
+                    <textarea 
+                      value={showCourseDetail.description || ''} 
+                      onChange={e => setShowCourseDetail(prev => prev ? { ...prev, description: e.target.value } : null)} 
+                      className="w-full p-3 border border-gray-300 rounded-lg h-48 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all resize-none" 
+                      placeholder="請描述課程內容、目標等..."
+                    ></textarea>
+                  </div>
+                  <div className="md:col-span-2 mt-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center justify-between">
+                      <span>自訂連結按鈕 <span className="text-indigo-500 text-xs ml-2 font-normal">(可編輯)</span></span>
+                      <button type="button" onClick={() => setShowCourseDetail(prev => prev ? { ...prev, customLinks: [...(prev.customLinks || []), { name: '', url: '', icon: 'LinkIcon' }] } : null)} className="text-indigo-600 text-xs hover:text-indigo-800 flex items-center">
+                        <PlusIcon className="w-4 h-4 mr-1" /> 新增連結
+                      </button>
+                    </label>
+                    <div className="space-y-3 bg-white p-3 rounded-xl border border-gray-200">
+                      {(showCourseDetail.customLinks || []).map((link, idx) => (
+                        <div key={idx} className="flex flex-col sm:flex-row gap-2 items-start sm:items-center bg-gray-50 p-2 rounded-lg border border-gray-100">
+                          <select
+                            value={link.icon}
+                            onChange={(e) => {
+                              const newLinks = [...(showCourseDetail.customLinks || [])];
+                              newLinks[idx] = { ...newLinks[idx], icon: e.target.value };
+                              setShowCourseDetail(prev => prev ? { ...prev, customLinks: newLinks } : null);
+                            }}
+                            className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-indigo-500 outline-none"
+                          >
+                            <option value="LinkIcon">預設連結</option>
+                            <option value="VideoCameraIcon">視訊會議</option>
+                            <option value="DocumentTextIcon">文件</option>
+                            <option value="FolderIcon">資料夾</option>
+                            <option value="ChatBubbleLeftRightIcon">討論區</option>
+                          </select>
+                          <input 
+                            type="text" 
+                            placeholder="按鈕名稱" 
+                            value={link.name} 
+                            onChange={(e) => {
+                              const newLinks = [...(showCourseDetail.customLinks || [])];
+                              newLinks[idx] = { ...newLinks[idx], name: e.target.value };
+                              setShowCourseDetail(prev => prev ? { ...prev, customLinks: newLinks } : null);
+                            }}
+                            className="w-full sm:w-1/4 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-indigo-500 outline-none"
+                          />
+                          <input 
+                            type="url" 
+                            placeholder="網址 (URL)" 
+                            value={link.url} 
+                            onChange={(e) => {
+                              const newLinks = [...(showCourseDetail.customLinks || [])];
+                              newLinks[idx] = { ...newLinks[idx], url: e.target.value };
+                              setShowCourseDetail(prev => prev ? { ...prev, customLinks: newLinks } : null);
+                            }}
+                            className="w-full sm:flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-indigo-500 outline-none"
+                          />
+                          <button type="button" onClick={() => {
+                              const newLinks = [...(showCourseDetail.customLinks || [])];
+                              newLinks.splice(idx, 1);
+                              setShowCourseDetail(prev => prev ? { ...prev, customLinks: newLinks } : null);
+                          }} className="text-red-500 hover:bg-red-50 p-1.5 rounded-lg shrink-0">
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                      {!(showCourseDetail.customLinks && showCourseDetail.customLinks.length > 0) && (
+                        <div className="text-sm text-gray-400 italic py-1">尚無自訂連結</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 3: Time & Location (Read-only) */}
+              <div className="bg-gray-50/50 p-5 rounded-xl border border-gray-100">
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 flex items-center">
+                  <span className="w-1 h-4 bg-green-500 rounded-full mr-2"></span>
+                  時間與地點 (僅供檢視)
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">開始日期</label>
+                    <input type="text" value={formatCourseDateForDisplay(showCourseDetail.startDate)} disabled className="w-full p-2.5 border border-gray-200 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">結束日期</label>
+                    <input type="text" value={formatCourseDateForDisplay(showCourseDetail.endDate)} disabled className="w-full p-2.5 border border-gray-200 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">授課方式</label>
+                    <input type="text" value={showCourseDetail.teachingMethod || '未指定'} disabled className="w-full p-2.5 border border-gray-200 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">上課地點 / 直播網址</label>
+                    <input type="text" value={showCourseDetail.location || showCourseDetail.liveStreamURL || '未指定'} disabled className="w-full p-2.5 border border-gray-200 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed" />
+                  </div>
+                  <div className="md:col-span-2">
+                     <label className="block text-sm font-medium text-gray-700 mb-2">上課時段</label>
+                     {Array.isArray(showCourseDetail.classTimes) && showCourseDetail.classTimes.length > 0 ? (
+                        <div className="bg-gray-100 border border-gray-200 rounded-lg overflow-hidden"> 
+                           {showCourseDetail.classTimes.map((time: unknown, idx: number) => (
+                             <div key={idx} className="px-4 py-3 border-b border-gray-200 last:border-0 flex items-center text-gray-500 text-sm">
+                                <ClockIcon className="w-4 h-4 mr-3 text-gray-400" />
+                                {typeof time === 'object' && time !== null
+                                  ? `${(time as ClassTime).day} ${(time as ClassTime).startTime} ~ ${(time as ClassTime).endTime}`
+                                  : String(time)}
+                             </div>
+                           ))}
+                        </div>
+                      ) : (
+                        <p className="text-gray-500 text-sm p-2.5 bg-gray-100 rounded-lg border border-gray-200">未設定上課時段</p>
+                      )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 4: Status (Read-only) */}
+              <div className="bg-gray-50/50 p-5 rounded-xl border border-gray-100">
+                <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 flex items-center">
+                  <span className="w-1 h-4 bg-yellow-500 rounded-full mr-2"></span>
+                  狀態 (僅供檢視)
+                </h3>
+                <div className="grid grid-cols-1 gap-5">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">課程狀態</label>
+                    <input type="text" value={showCourseDetail.status || '未指定'} disabled className="w-full p-2.5 border border-gray-200 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed" />
+                  </div>
+                </div>
+              </div>
               
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 border-t border-gray-100 flex justify-end bg-gray-50/50">
+            <div className="p-4 border-t border-gray-100 flex justify-end gap-2 bg-gray-50/50">
               <button
                 onClick={() => setShowCourseDetail(null)}
                 className="px-6 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-100 font-medium transition-colors shadow-sm"
+                disabled={isSavingCourse}
               >
-                關閉視窗
+                取消
+              </button>
+              <button
+                onClick={handleUpdateCourseDescription}
+                className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-medium shadow-sm transition-colors flex items-center justify-center disabled:opacity-50"
+                disabled={isSavingCourse}
+              >
+                {isSavingCourse && <LoadingSpinner size={16} color="white" className="mr-2" />}
+                儲存變更
               </button>
             </div>
           </div>
         </div>, document.body
+       )}
+
+       {/* Announcement Manager Modal */}
+       {showAnnouncementManager && (
+        <Modal open={true} onClose={() => { setShowAnnouncementManager(null); setEditingAnnouncement(null); }} title={`「${showAnnouncementManager.name}」公告管理`} size="lg">
+          {editingAnnouncement ? (
+            <div className="p-6 flex flex-col h-full bg-white">
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                 <div>
+                   <label className="block text-sm font-bold text-gray-700 mb-1">公告標題 <span className="text-red-500">*</span></label>
+                   <input type="text" value={editingAnnouncement.title} onChange={e => setEditingAnnouncement(prev => ({...prev!, title: e.target.value}))} className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="輸入標題..." />
+                 </div>
+                 <div>
+                   <label className="block text-sm font-bold text-gray-700 mb-1">公告類型 <span className="text-red-500">*</span></label>
+                   <Dropdown
+                     value={editingAnnouncement.type || '公告事項'}
+                     onChange={val => setEditingAnnouncement(prev => ({...prev!, type: val as '公告事項' | '課程資訊'}))}
+                     options={[{ value: '公告事項', label: '公告事項' }, { value: '課程資訊', label: '課程資訊' }]}
+                     className="w-full"
+                   />
+                 </div>
+               </div>
+               <div className="mb-4">
+                 <label className="block text-sm font-bold text-gray-700 mb-1">公告內容 <span className="text-red-500">*</span></label>
+                 <textarea rows={6} value={editingAnnouncement.content} onChange={e => setEditingAnnouncement(prev => ({...prev!, content: e.target.value}))} className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none resize-none" placeholder="輸入內容..."></textarea>
+               </div>
+               <div className="mb-6 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                 <div className="flex justify-between items-center mb-3">
+                    <label className="block text-sm font-bold text-gray-700">相關連結</label>
+                    <button type="button" onClick={() => setEditingAnnouncement(prev => ({...prev!, links: [...(prev!.links || []), {name:'', url:''}]}))} className="text-indigo-600 text-xs font-bold hover:text-indigo-800 flex items-center"><PlusIcon className="w-4 h-4 mr-1"/>新增連結</button>
+                 </div>
+                 <div className="space-y-2">
+                   {(editingAnnouncement.links || []).map((link, idx) => (
+                     <div key={idx} className="flex gap-2 items-center">
+                       <input type="text" placeholder="連結名稱" value={link.name} onChange={e => {
+                         const newLinks = [...editingAnnouncement.links];
+                         newLinks[idx].name = e.target.value;
+                         setEditingAnnouncement(prev => ({...prev!, links: newLinks}));
+                       }} className="w-1/3 border border-gray-300 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+                       <input type="url" placeholder="網址 (URL)" value={link.url} onChange={e => {
+                         const newLinks = [...editingAnnouncement.links];
+                         newLinks[idx].url = e.target.value;
+                         setEditingAnnouncement(prev => ({...prev!, links: newLinks}));
+                       }} className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+                       <button type="button" onClick={() => {
+                         const newLinks = editingAnnouncement.links.filter((_, i) => i !== idx);
+                         setEditingAnnouncement(prev => ({...prev!, links: newLinks}));
+                       }} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"><TrashIcon className="w-4 h-4" /></button>
+                     </div>
+                   ))}
+                 </div>
+               </div>
+               <div className="flex justify-end gap-2 border-t border-gray-100 pt-4 mt-auto">
+                  <button type="button" onClick={() => setEditingAnnouncement(null)} className="px-5 py-2 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50">取消</button>
+                  <button type="button" onClick={async () => {
+                    if (!editingAnnouncement.title || !editingAnnouncement.content) {
+                      Swal.fire('警告', '標題與內容為必填', 'warning');
+                      return;
+                    }
+                    setAnnIsSubmitting(true);
+                    try {
+                      const currentAnns = showAnnouncementManager.announcements || [];
+                      let newAnns;
+                      if (editingAnnouncement.id === 'new') {
+                        newAnns = [{ ...editingAnnouncement, type: editingAnnouncement.type || '公告事項', id: Date.now().toString(), createdAt: new Date().toISOString() }, ...currentAnns];
+                      } else {
+                        newAnns = currentAnns.map(a => a.id === editingAnnouncement.id ? editingAnnouncement : a);
+                      }
+                      const res = await fetch('/api/courses/update', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: showAnnouncementManager.id, announcements: newAnns })
+                      });
+                      if (res.ok) {
+                        const updatedCourse = { ...showAnnouncementManager, announcements: newAnns };
+                        setShowAnnouncementManager(updatedCourse);
+                        setCourses(prev => prev.map(c => c.id === updatedCourse.id ? updatedCourse : c));
+                        setEditingAnnouncement(null);
+                        Swal.fire({icon: 'success', title: '儲存成功', customClass: { popup: 'rounded-2xl' }});
+                      } else {
+                        throw new Error('Update failed');
+                      }
+                    } catch (e) {
+                      Swal.fire('錯誤', '儲存失敗', 'error');
+                    } finally {
+                      setAnnIsSubmitting(false);
+                    }
+                  }} disabled={annIsSubmitting} className="px-5 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 flex items-center shadow-sm">
+                    {annIsSubmitting ? <LoadingSpinner size={16} color="white" className="mr-2" /> : null}儲存
+                  </button>
+               </div>
+            </div>
+          ) : (
+            <div className="p-6 flex flex-col h-full bg-white">
+               <div className="flex justify-between items-center mb-4">
+                  <h4 className="font-bold text-gray-800">公告列表</h4>
+                  <button onClick={() => setEditingAnnouncement({ id: 'new', title: '', type: '公告事項', content: '', links: [], createdAt: '' })} className="text-sm bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-lg font-bold hover:bg-indigo-100 flex items-center shadow-sm"><PlusIcon className="w-4 h-4 mr-1"/>新增公告</button>
+               </div>
+               <div className="space-y-3 overflow-y-auto custom-scrollbar flex-1 mb-4 min-h-[200px] border border-gray-100 p-3 rounded-xl bg-gray-50/50">
+                 {(showAnnouncementManager.announcements || []).length === 0 ? (
+                   <div className="text-center text-gray-400 py-10 flex flex-col items-center">
+                       <MegaphoneIcon className="w-10 h-10 mb-2 opacity-50"/>
+                       尚無公告
+                   </div>
+                 ) : (
+                   (showAnnouncementManager.announcements || []).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(ann => (
+                     <div key={ann.id} className="bg-white border border-gray-200 rounded-xl p-4 flex justify-between items-center hover:border-indigo-200 transition-colors shadow-sm">
+                       <div>
+                         <div className="flex items-center gap-2">
+                           <span className={`px-2 py-0.5 text-[10px] rounded-md font-bold whitespace-nowrap border ${ann.type === '課程資訊' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
+                               {ann.type || '公告事項'}
+                           </span>
+                           <h5 className="font-bold text-gray-900">{ann.title}</h5>
+                         </div>
+                         <div className="text-xs text-gray-500 mt-1 ml-1">{new Date(ann.createdAt).toLocaleDateString()}</div>
+                       </div>
+                       <div className="flex gap-2">
+                         <button onClick={() => setEditingAnnouncement(ann)} className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg"><PencilIcon className="w-5 h-5"/></button>
+                         <button onClick={async () => {
+                           const result = await Swal.fire({ title: '確定刪除？', text: '刪除後無法復原', icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444' });
+                           if (result.isConfirmed) {
+                             const newAnns = showAnnouncementManager.announcements!.filter(a => a.id !== ann.id);
+                             const res = await fetch('/api/courses/update', {
+                               method: 'POST',
+                               headers: { 'Content-Type': 'application/json' },
+                               body: JSON.stringify({ id: showAnnouncementManager.id, announcements: newAnns })
+                             });
+                             if (res.ok) {
+                               const updatedCourse = { ...showAnnouncementManager, announcements: newAnns };
+                               setShowAnnouncementManager(updatedCourse);
+                               setCourses(prev => prev.map(c => c.id === updatedCourse.id ? updatedCourse : c));
+                             }
+                           }
+                         }} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"><TrashIcon className="w-5 h-5"/></button>
+                       </div>
+                     </div>
+                   ))
+                 )}
+               </div>
+               <div className="flex justify-end border-t border-gray-100 pt-4">
+                 <button onClick={() => setShowAnnouncementManager(null)} className="px-5 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 font-medium">關閉</button>
+               </div>
+            </div>
+          )}
+        </Modal>
        )}
     </div>
   );
