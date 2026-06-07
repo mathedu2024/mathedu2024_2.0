@@ -27,8 +27,16 @@ import {
   ChatBubbleLeftRightIcon
 } from '@heroicons/react/24/outline';
 import CourseFilter from './CourseFilter';
-import Dropdown from './Dropdown';
+import Dropdown from './ui/Dropdown';
 import { formatCourseDateForDisplay } from '@/services/courseDate';
+
+const customLinkIconOptions = [
+  { value: 'LinkIcon', label: '預設連結' },
+  { value: 'VideoCameraIcon', label: '視訊會議' },
+  { value: 'DocumentTextIcon', label: '文件' },
+  { value: 'FolderIcon', label: '資料夾' },
+  { value: 'ChatBubbleLeftRightIcon', label: '討論區' },
+];
 
 // --- 1. 共用 Modal 元件 (給 LessonManager 使用) ---
 const Modal = ({ open, onClose, title, size = 'md', children }: { open: boolean; onClose: () => void; title: string; size?: 'md' | 'lg' | 'xl'; children: React.ReactNode }) => {
@@ -90,7 +98,6 @@ interface CustomLink {
 interface CourseAnnouncement {
   id: string;
   title: string;
-  type?: '公告事項' | '課程資訊';
   content: string;
   links: { name: string; url: string }[];
   createdAt: string;
@@ -451,41 +458,41 @@ function LessonManager({ courseId, courseName, courseCode, onClose, isArchived =
                             <Draggable key={lesson.id} draggableId={lesson.id} index={idx} isDragDisabled={isArchived}>
                                 {(provided: DraggableProvided) => (
                                     <div ref={provided.innerRef} {...provided.draggableProps} className="bg-white border border-gray-200 rounded-xl p-4 mb-3 shadow-sm flex flex-col gap-3">
-                                        <div className="flex justify-between items-start">
-                                            <div className="flex items-center gap-2">
-                                                 <div className={`cursor-move text-gray-300 ${isArchived ? 'hidden' : ''}`} {...provided.dragHandleProps}>
-                                                    <Bars3Icon className="w-6 h-6" />
-                                                 </div>
-                                                 <div>
-                                                     <span className="text-xs font-bold text-indigo-600 block">第 {idx + 1} 堂</span>
-                                                     <h4 className="font-bold text-gray-800">{lesson.title}</h4>
-                                                 </div>
-                                            </div>
-                                            <span className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600 font-mono">{lesson.date}</span>
+                                        <div className="flex items-start gap-2">
+                                             <div className={`cursor-move text-gray-300 mt-0.5 ${isArchived ? 'hidden' : ''}`} {...provided.dragHandleProps}>
+                                                <Bars3Icon className="w-6 h-6" />
+                                             </div>
+                                             <div className="flex-1">
+                                                 <span className="text-xs font-bold text-indigo-600 block mb-0.5">第 {idx + 1} 堂</span>
+                                                 <h4 className="font-bold text-gray-800 mb-1.5">{lesson.title}</h4>
+                                                 <span className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600 font-mono inline-block">{lesson.date}</span>
+                                             </div>
                                         </div>
-                                        <div>
-                                          <button
-                                            onClick={() => !isArchived && handleToggleLessonVisibility(lesson)}
-                                            className={`px-2.5 py-1 rounded-full text-xs font-bold border inline-flex items-center gap-1 ${
-                                              lesson.visibleToStudents !== false
-                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                                : 'bg-gray-100 text-gray-600 border-gray-200'
-                                            } ${isArchived ? 'cursor-default opacity-80' : ''}`}
-                                            disabled={isArchived}
-                                          >
-                                            {lesson.visibleToStudents !== false ? <EyeIcon className="w-3.5 h-3.5" /> : <EyeSlashIcon className="w-3.5 h-3.5" />}
-                                            學生端{lesson.visibleToStudents !== false ? '開放' : '隱藏'}
-                                          </button>
-                                        </div>
-                                        <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
-                                            <button onClick={() => handleEditClick(lesson)} className="flex items-center text-sm text-indigo-600 font-medium">
-                                                {isArchived ? <EyeIcon className="w-4 h-4 mr-1" /> : <PencilIcon className="w-4 h-4 mr-1" />} {isArchived ? '查看' : '編輯'}
-                                            </button>
-                                            {!isArchived && (
-                                              <button onClick={() => handleDeleteLesson(lesson.id)} className="flex items-center text-sm text-red-500 font-medium">
-                                                  <TrashIcon className="w-4 h-4 mr-1" /> 刪除
+                                        <div className="flex justify-between items-center pt-1 border-t border-gray-100 mt-1">
+                                            <div>
+                                              <button
+                                                onClick={() => !isArchived && handleToggleLessonVisibility(lesson)}
+                                                className={`px-2.5 py-1 rounded-full text-xs font-bold border inline-flex items-center gap-1 ${
+                                                  lesson.visibleToStudents !== false
+                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                    : 'bg-gray-100 text-gray-600 border-gray-200'
+                                                } ${isArchived ? 'cursor-default opacity-80' : ''}`}
+                                                disabled={isArchived}
+                                              >
+                                                {lesson.visibleToStudents !== false ? <EyeIcon className="w-3.5 h-3.5" /> : <EyeSlashIcon className="w-3.5 h-3.5" />}
+                                                學生端{lesson.visibleToStudents !== false ? '開放' : '隱藏'}
                                               </button>
-                                            )}
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <button onClick={() => handleEditClick(lesson)} className="flex items-center text-sm text-indigo-600 font-medium">
+                                                    {isArchived ? <EyeIcon className="w-4 h-4 mr-1" /> : <PencilIcon className="w-4 h-4 mr-1" />} {isArchived ? '查看' : '編輯'}
+                                                </button>
+                                                {!isArchived && (
+                                                  <button onClick={() => handleDeleteLesson(lesson.id)} className="flex items-center text-sm text-red-500 font-medium">
+                                                      <TrashIcon className="w-4 h-4 mr-1" /> 刪除
+                                                  </button>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 )}
@@ -547,24 +554,26 @@ function LessonManager({ courseId, courseName, courseCode, onClose, isArchived =
                  {!form.noAttachment && (
                     <div className="space-y-3 bg-gray-50 p-4 rounded-xl border border-gray-100">
                         {(form.attachments || []).map((att, idx) => (
-                           <div key={idx} className="flex gap-2 items-center">
-                              <input type="text" className={`border border-gray-300 rounded-lg px-3 py-2 w-1/3 text-sm focus:ring-indigo-500 ${isArchived ? 'bg-gray-100 text-gray-500' : ''}`} placeholder="檔案名稱" value={att.name} onChange={e => handleAttachmentChange(idx, 'name', e.target.value)} disabled={isArchived} />
-                              <input type="url" className={`border border-gray-300 rounded-lg px-3 py-2 flex-1 text-sm focus:ring-indigo-500 ${isArchived ? 'bg-gray-100 text-gray-500' : ''}`} placeholder="檔案連結 (URL)" value={att.url} onChange={e => handleAttachmentChange(idx, 'url', e.target.value)} disabled={isArchived} />
-                              <label className={`flex items-center text-xs text-gray-600 whitespace-nowrap px-2 ${isArchived ? 'opacity-60' : ''}`}>
-                                <input
-                                  type="checkbox"
-                                  className="w-4 h-4 text-indigo-600 rounded mr-1.5 accent-indigo-600 cursor-pointer disabled:opacity-50"
-                                  checked={att.visibleToStudents !== false}
-                                  onChange={(e) => handleAttachmentVisibilityChange(idx, e.target.checked)}
-                                  disabled={isArchived}
-                                />
-                                學生可見
-                              </label>
-                              {!isArchived && (form.attachments || []).length > 1 && (
-                                <button type="button" className="text-red-400 hover:text-red-600 p-1" onClick={() => setForm(f => ({...f, attachments: f.attachments?.filter((_, i) => i !== idx)}))}>
-                                   <XMarkIcon className="w-5 h-5"/>
-                                </button>
-                              )}
+                           <div key={idx} className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                              <input type="text" className={`border border-gray-300 rounded-lg px-3 py-2 w-full sm:w-1/3 text-sm focus:ring-indigo-500 ${isArchived ? 'bg-gray-100 text-gray-500' : ''}`} placeholder="檔案名稱" value={att.name} onChange={e => handleAttachmentChange(idx, 'name', e.target.value)} disabled={isArchived} />
+                              <div className="flex gap-2 items-center w-full sm:w-auto sm:flex-1">
+                                <input type="url" className={`border border-gray-300 rounded-lg px-3 py-2 flex-1 text-sm focus:ring-indigo-500 ${isArchived ? 'bg-gray-100 text-gray-500' : ''}`} placeholder="檔案連結 (URL)" value={att.url} onChange={e => handleAttachmentChange(idx, 'url', e.target.value)} disabled={isArchived} />
+                                <label className={`flex items-center text-xs text-gray-600 whitespace-nowrap px-2 ${isArchived ? 'opacity-60' : ''}`}>
+                                  <input
+                                    type="checkbox"
+                                    className="w-4 h-4 text-indigo-600 rounded mr-1.5 accent-indigo-600 cursor-pointer disabled:opacity-50"
+                                    checked={att.visibleToStudents !== false}
+                                    onChange={(e) => handleAttachmentVisibilityChange(idx, e.target.checked)}
+                                    disabled={isArchived}
+                                  />
+                                  學生可見
+                                </label>
+                                {!isArchived && (form.attachments || []).length > 1 && (
+                                  <button type="button" className="text-red-400 hover:text-red-600 p-1" onClick={() => setForm(f => ({...f, attachments: f.attachments?.filter((_, i) => i !== idx)}))}>
+                                     <XMarkIcon className="w-5 h-5"/>
+                                  </button>
+                                )}
+                              </div>
                            </div>
                         ))}
                         {!isArchived && (
@@ -973,11 +982,13 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
              <div className="md:hidden space-y-4">
                 {filteredCourses.map(course => (
                     <div key={course.id} className="bg-white border border-gray-100 rounded-xl shadow-sm p-5">
-                        <div className="flex justify-between mb-2">
+                        <div className="mb-2">
                             <div className="font-bold text-gray-900 text-lg">{course.name}</div>
-                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(course.status)}`}>{course.status}</span>
                         </div>
-                        <div className="text-sm font-mono text-gray-500 mb-4">{course.code}</div>
+                        <div className="text-sm font-mono text-gray-500 mb-2">{course.code}</div>
+                        <div className="mb-4">
+                            <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(course.status)}`}>{course.status}</span>
+                        </div>
                         {course.liveStreamURL && (
                             <div className="mb-4">
                                 <a href={course.liveStreamURL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center w-full py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-sm font-bold transition-colors">
@@ -1077,21 +1088,19 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                     <div className="space-y-3 bg-white p-3 rounded-xl border border-gray-200">
                       {(showCourseDetail.customLinks || []).map((link, idx) => (
                         <div key={idx} className="flex flex-col sm:flex-row gap-2 items-start sm:items-center bg-gray-50 p-2 rounded-lg border border-gray-100">
-                          <select
-                            value={link.icon}
-                            onChange={(e) => {
-                              const newLinks = [...(showCourseDetail.customLinks || [])];
-                              newLinks[idx] = { ...newLinks[idx], icon: e.target.value };
-                              setShowCourseDetail(prev => prev ? { ...prev, customLinks: newLinks } : null);
-                            }}
-                            className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-indigo-500 outline-none"
-                          >
-                            <option value="LinkIcon">預設連結</option>
-                            <option value="VideoCameraIcon">視訊會議</option>
-                            <option value="DocumentTextIcon">文件</option>
-                            <option value="FolderIcon">資料夾</option>
-                            <option value="ChatBubbleLeftRightIcon">討論區</option>
-                          </select>
+                          <div className="w-full sm:w-36">
+                            <Dropdown
+                              value={link.icon}
+                              onChange={(icon) => {
+                                const newLinks = [...(showCourseDetail.customLinks || [])];
+                                newLinks[idx] = { ...newLinks[idx], icon };
+                                setShowCourseDetail(prev => prev ? { ...prev, customLinks: newLinks } : null);
+                              }}
+                              options={customLinkIconOptions}
+                              placeholder="圖示"
+                              buttonClassName="py-2 text-sm h-10"
+                            />
+                          </div>
                           <input 
                             type="text" 
                             placeholder="按鈕名稱" 
@@ -1101,7 +1110,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                               newLinks[idx] = { ...newLinks[idx], name: e.target.value };
                               setShowCourseDetail(prev => prev ? { ...prev, customLinks: newLinks } : null);
                             }}
-                            className="w-full sm:w-1/4 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-indigo-500 outline-none"
+                            className="w-full sm:w-1/4 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-indigo-500 outline-none h-10"
                           />
                           <input 
                             type="url" 
@@ -1112,14 +1121,14 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                               newLinks[idx] = { ...newLinks[idx], url: e.target.value };
                               setShowCourseDetail(prev => prev ? { ...prev, customLinks: newLinks } : null);
                             }}
-                            className="w-full sm:flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-indigo-500 outline-none"
+                            className="w-full sm:flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-indigo-500 outline-none h-10"
                           />
                           <button type="button" onClick={() => {
                               const newLinks = [...(showCourseDetail.customLinks || [])];
                               newLinks.splice(idx, 1);
                               setShowCourseDetail(prev => prev ? { ...prev, customLinks: newLinks } : null);
-                          }} className="text-red-500 hover:bg-red-50 p-1.5 rounded-lg shrink-0">
-                            <TrashIcon className="w-4 h-4" />
+                          }} className="text-red-500 hover:bg-red-50 p-2 rounded-lg shrink-0">
+                            <TrashIcon className="w-5 h-5" />
                           </button>
                         </div>
                       ))}
@@ -1217,20 +1226,9 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
         <Modal open={true} onClose={() => { setShowAnnouncementManager(null); setEditingAnnouncement(null); }} title={`「${showAnnouncementManager.name}」公告管理`} size="lg">
           {editingAnnouncement ? (
             <div className="p-6 flex flex-col h-full bg-white">
-               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                 <div>
-                   <label className="block text-sm font-bold text-gray-700 mb-1">公告標題 <span className="text-red-500">*</span></label>
-                   <input type="text" value={editingAnnouncement.title} onChange={e => setEditingAnnouncement(prev => ({...prev!, title: e.target.value}))} className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="輸入標題..." />
-                 </div>
-                 <div>
-                   <label className="block text-sm font-bold text-gray-700 mb-1">公告類型 <span className="text-red-500">*</span></label>
-                   <Dropdown
-                     value={editingAnnouncement.type || '公告事項'}
-                     onChange={val => setEditingAnnouncement(prev => ({...prev!, type: val as '公告事項' | '課程資訊'}))}
-                     options={[{ value: '公告事項', label: '公告事項' }, { value: '課程資訊', label: '課程資訊' }]}
-                     className="w-full"
-                   />
-                 </div>
+               <div className="mb-4">
+                 <label className="block text-sm font-bold text-gray-700 mb-1">公告標題 <span className="text-red-500">*</span></label>
+                 <input type="text" value={editingAnnouncement.title} onChange={e => setEditingAnnouncement(prev => ({...prev!, title: e.target.value}))} className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="輸入標題..." />
                </div>
                <div className="mb-4">
                  <label className="block text-sm font-bold text-gray-700 mb-1">公告內容 <span className="text-red-500">*</span></label>
@@ -1248,16 +1246,16 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                          const newLinks = [...editingAnnouncement.links];
                          newLinks[idx].name = e.target.value;
                          setEditingAnnouncement(prev => ({...prev!, links: newLinks}));
-                       }} className="w-1/3 border border-gray-300 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+                             }} className="w-1/3 border border-gray-300 rounded-lg px-3 py-2 h-10 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
                        <input type="url" placeholder="網址 (URL)" value={link.url} onChange={e => {
                          const newLinks = [...editingAnnouncement.links];
                          newLinks[idx].url = e.target.value;
                          setEditingAnnouncement(prev => ({...prev!, links: newLinks}));
-                       }} className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+                             }} className="flex-1 border border-gray-300 rounded-lg px-3 py-2 h-10 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
                        <button type="button" onClick={() => {
                          const newLinks = editingAnnouncement.links.filter((_, i) => i !== idx);
                          setEditingAnnouncement(prev => ({...prev!, links: newLinks}));
-                       }} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"><TrashIcon className="w-4 h-4" /></button>
+                             }} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg" title="移除連結"><TrashIcon className="w-4 h-4" /></button>
                      </div>
                    ))}
                  </div>
@@ -1274,7 +1272,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                       const currentAnns = showAnnouncementManager.announcements || [];
                       let newAnns;
                       if (editingAnnouncement.id === 'new') {
-                        newAnns = [{ ...editingAnnouncement, type: editingAnnouncement.type || '公告事項', id: Date.now().toString(), createdAt: new Date().toISOString() }, ...currentAnns];
+                        newAnns = [{ ...editingAnnouncement, id: Date.now().toString(), createdAt: new Date().toISOString() }, ...currentAnns];
                       } else {
                         newAnns = currentAnns.map(a => a.id === editingAnnouncement.id ? editingAnnouncement : a);
                       }
@@ -1306,7 +1304,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
             <div className="p-6 flex flex-col h-full bg-white">
                <div className="flex justify-between items-center mb-4">
                   <h4 className="font-bold text-gray-800">公告列表</h4>
-                  <button onClick={() => setEditingAnnouncement({ id: 'new', title: '', type: '公告事項', content: '', links: [], createdAt: '' })} className="text-sm bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-lg font-bold hover:bg-indigo-100 flex items-center shadow-sm"><PlusIcon className="w-4 h-4 mr-1"/>新增公告</button>
+                  <button onClick={() => setEditingAnnouncement({ id: 'new', title: '', content: '', links: [], createdAt: '' })} className="text-sm bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-lg font-bold hover:bg-indigo-100 flex items-center shadow-sm"><PlusIcon className="w-4 h-4 mr-1"/>新增公告</button>
                </div>
                <div className="space-y-3 overflow-y-auto custom-scrollbar flex-1 mb-4 min-h-[200px] border border-gray-100 p-3 rounded-xl bg-gray-50/50">
                  {(showAnnouncementManager.announcements || []).length === 0 ? (
@@ -1318,18 +1316,13 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
                    (showAnnouncementManager.announcements || []).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(ann => (
                      <div key={ann.id} className="bg-white border border-gray-200 rounded-xl p-4 flex justify-between items-center hover:border-indigo-200 transition-colors shadow-sm">
                        <div>
-                         <div className="flex items-center gap-2">
-                           <span className={`px-2 py-0.5 text-[10px] rounded-md font-bold whitespace-nowrap border ${ann.type === '課程資訊' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
-                               {ann.type || '公告事項'}
-                           </span>
-                           <h5 className="font-bold text-gray-900">{ann.title}</h5>
-                         </div>
-                         <div className="text-xs text-gray-500 mt-1 ml-1">{new Date(ann.createdAt).toLocaleDateString()}</div>
+                         <h5 className="font-bold text-gray-900">{ann.title}</h5>
+                         <div className="text-xs text-gray-500 mt-1">{new Date(ann.createdAt).toLocaleDateString()}</div>
                        </div>
                        <div className="flex gap-2">
                          <button onClick={() => setEditingAnnouncement(ann)} className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg"><PencilIcon className="w-5 h-5"/></button>
                          <button onClick={async () => {
-                           const result = await Swal.fire({ title: '確定刪除？', text: '刪除後無法復原', icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444' });
+                           const result = await Swal.fire({ title: '確定刪除？', text: '刪除後無法復原', icon: 'warning', showCancelButton: true, confirmButtonText: '確定', cancelButtonText: '取消', confirmButtonColor: '#ef4444' });
                            if (result.isConfirmed) {
                              const newAnns = showAnnouncementManager.announcements!.filter(a => a.id !== ann.id);
                              const res = await fetch('/api/courses/update', {

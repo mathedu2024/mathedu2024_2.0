@@ -714,45 +714,48 @@ export default function ResourceManagement() {
             return (
               <div key={folder.id} className="bg-white border border-gray-100 rounded-xl shadow-sm p-5 flex flex-col gap-3 active:scale-[0.99] transition-transform">
                 <div className="flex justify-between items-start">
-                   <div>
-                       <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2">
-                         <FolderIcon className="w-5 h-5 text-indigo-500" />
-                         {folder.title}
+                   <div className="min-w-0 flex-1">
+                       <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2 truncate">
+                         <FolderIcon className="w-5 h-5 text-indigo-500 flex-shrink-0" />
+                         <span className="truncate">{folder.title}</span>
                        </h3>
-                       <p className="text-xs font-mono text-gray-500 mt-1 flex items-center gap-1">
-                         <KeyIcon className="w-3 h-3" /> {folder.indexCode} | {getCreatorDisplayName(folder)}
+                       <p className="text-xs font-mono text-gray-500 mt-1 flex items-center gap-1 truncate">
+                         <KeyIcon className="w-3 h-3 flex-shrink-0" /> 
+                         <span className="truncate">{folder.indexCode} | {getCreatorDisplayName(folder)}</span>
                        </p>
                    </div>
+                </div>
+                <div className="text-sm text-gray-600 flex items-center gap-1">
+                  <LinkIcon className="w-4 h-4 text-gray-400 flex-shrink-0" /> {folder.items.length} 個資源
+                </div>
+                <div className="border-t border-gray-100 pt-3 flex justify-between items-center gap-2">
                    <button
                      onClick={() => canEdit && toggleFolderPrivacy(folder)}
                      disabled={!canEdit}
-                     className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold transition-colors shadow-sm ${
+                     className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold transition-colors shadow-sm flex-shrink-0 ${
                        folder.status === 'public'
                          ? 'bg-emerald-50 text-emerald-700 ' + (canEdit ? 'hover:bg-emerald-100' : '')
                          : 'bg-gray-100 text-gray-600 ' + (canEdit ? 'hover:bg-gray-200' : '')
                      } ${!canEdit ? 'opacity-60 cursor-not-allowed' : ''}`}
                    >
-                     {folder.status === 'public' ? <GlobeAsiaAustraliaIcon className="h-3 w-3" /> : <LockClosedIcon className="h-3 w-3" />}
+                     {folder.status === 'public' ? <GlobeAsiaAustraliaIcon className="h-3 w-3 flex-shrink-0" /> : <LockClosedIcon className="h-3 w-3 flex-shrink-0" />}
                      {folder.status === 'public' ? '公開' : '私有'}
                    </button>
-                </div>
-                <div className="text-sm text-gray-600 flex items-center gap-1">
-                  <LinkIcon className="w-4 h-4 text-gray-400" /> {folder.items.length} 個資源
-                </div>
-                <div className="border-t border-gray-100 pt-3 flex justify-end gap-2">
-                   <button onClick={(e) => { e.stopPropagation(); openPreviewModal(folder); }} className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-all" title="預覽">
-                     <EyeIcon className="w-5 h-5" />
-                   </button>
-                   {canEdit && (
-                     <>
-                     <button onClick={(e) => { e.stopPropagation(); openModal(folder); }} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all">
-                       <PencilSquareIcon className="w-5 h-5" />
+                   <div className="flex gap-2">
+                     <button onClick={(e) => { e.stopPropagation(); openPreviewModal(folder); }} className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-all flex-shrink-0" title="預覽">
+                       <EyeIcon className="w-5 h-5" />
                      </button>
-                     <button onClick={(e) => { e.stopPropagation(); handleDelete(folder.id); }} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all">
-                       <TrashIcon className="w-5 h-5" />
-                     </button>
-                     </>
-                   )}
+                     {canEdit && (
+                       <>
+                       <button onClick={(e) => { e.stopPropagation(); openModal(folder); }} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all flex-shrink-0">
+                         <PencilSquareIcon className="w-5 h-5" />
+                       </button>
+                       <button onClick={(e) => { e.stopPropagation(); handleDelete(folder.id); }} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all flex-shrink-0">
+                         <TrashIcon className="w-5 h-5" />
+                       </button>
+                       </>
+                     )}
+                   </div>
                 </div>
               </div>
             );
@@ -772,16 +775,16 @@ export default function ResourceManagement() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-pop-in">
             {/* Modal Header */}
             <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 p-6 flex justify-between items-center text-white">
-              <div>
-                <h3 className="text-xl font-bold flex items-center gap-2">
-                  {editingFolder ? <PencilSquareIcon className="h-6 w-6" /> : <PlusIcon className="h-6 w-6" />}
-                  {editingFolder ? '編輯資源資料夾' : '建立資源資料夾'}
+              <div className="min-w-0 pr-4">
+                <h3 className="text-xl font-bold flex items-center gap-2 truncate">
+                  {editingFolder ? <PencilSquareIcon className="h-6 w-6 flex-shrink-0" /> : <PlusIcon className="h-6 w-6 flex-shrink-0" />}
+                  <span className="truncate">{editingFolder ? '編輯資源資料夾' : '建立資源資料夾'}</span>
                 </h3>
-                <p className="text-indigo-100 text-xs mt-1">
+                <p className="text-indigo-100 text-xs mt-1 truncate">
                   {editingFolder ? `索引碼：${editingFolder.indexCode}` : '系統將自動產生唯一的搜尋索引碼'}
                 </p>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="text-white/80 hover:text-white bg-white/10 p-2 rounded-full transition-colors">
+              <button onClick={() => setIsModalOpen(false)} className="text-white/80 hover:text-white hover:bg-white/20 p-2 rounded-full transition-colors flex-shrink-0">
                 <XMarkIcon className="h-6 w-6" />
               </button>
             </div>
@@ -789,27 +792,25 @@ export default function ResourceManagement() {
             {/* Modal Content */}
             <div className="p-8 max-h-[70vh] overflow-y-auto space-y-6">
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
-                  <label className="text-gray-700 text-sm font-bold md:text-right">資料夾名稱</label>
+                <div>
+                  <label className="block text-gray-700 text-sm font-bold mb-2">資料夾名稱</label>
                   <input 
                     type="text" 
                     value={formTitle}
                     onChange={(e) => setFormTitle(e.target.value)}
                     placeholder="例如：113學測複習講義" 
-                    className="md:col-span-3 px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                   />
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
-                  <label className="text-gray-700 text-sm font-bold md:text-right">隱私狀態</label>
-                  <div className="md:col-span-3">
-                    <Dropdown 
-                      value={formStatus}
-                      onChange={(val) => setFormStatus(val as 'public' | 'private')}
-                      options={privacyOptions}
-                      className="w-full"
-                      buttonClassName="border-gray-300"
-                    />
-                  </div>
+                <div>
+                  <label className="block text-gray-700 text-sm font-bold mb-2">隱私狀態</label>
+                  <Dropdown 
+                    value={formStatus}
+                    onChange={(val) => setFormStatus(val as 'public' | 'private')}
+                    options={privacyOptions}
+                    className="w-full"
+                    buttonClassName="border-gray-300"
+                  />
                 </div>
               </div>
 
@@ -939,16 +940,16 @@ export default function ResourceManagement() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] animate-pop-in">
             {/* Header */}
             <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 p-6 flex justify-between items-center text-white shrink-0">
-              <div>
-                <h3 className="text-xl font-bold flex items-center gap-2">
-                  <EyeIcon className="h-6 w-6" />
-                  預覽資源：{previewFolder.title}
+              <div className="min-w-0 pr-4">
+                <h3 className="text-xl font-bold flex items-center gap-2 truncate">
+                  <EyeIcon className="h-6 w-6 flex-shrink-0" />
+                  <span className="truncate">預覽資源：{previewFolder.title}</span>
                 </h3>
-                <p className="text-indigo-100 text-xs mt-1">
+                <p className="text-indigo-100 text-xs mt-1 truncate">
                   以學生視角查看資源內容。
                 </p>
               </div>
-              <button onClick={() => { setIsPreviewModalOpen(false); setPlayingVideoId(null); }} className="text-white/80 hover:text-white bg-white/10 p-2 rounded-full transition-colors">
+              <button onClick={() => { setIsPreviewModalOpen(false); setPlayingVideoId(null); }} className="text-white/80 hover:text-white hover:bg-white/20 p-2 rounded-full transition-colors flex-shrink-0">
                 <XMarkIcon className="h-6 w-6" />
               </button>
             </div>

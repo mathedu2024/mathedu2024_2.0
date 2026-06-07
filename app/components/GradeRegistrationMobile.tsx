@@ -28,6 +28,7 @@ interface Props {
   onUpdateRegularScore: (studentId: string, colIdx: number, value?: number) => void;
   _onUpdatePeriodicScore: (studentId: string, scoreName: string, value?: number) => void;
   isArchived?: boolean;
+  onEditColumn?: (kind: 'regular' | 'periodic', id: number | string) => void;
 }
 
 export default function GradeRegistrationMobile({
@@ -40,6 +41,7 @@ export default function GradeRegistrationMobile({
   onUpdateRegularScore,
   _onUpdatePeriodicScore,
   isArchived = false,
+  onEditColumn,
 }: Props) {
   const [openIdx, setOpenIdx] = useState<number | null>(null);
   const [openPeriodicIdx, setOpenPeriodicIdx] = useState<number | null>(null);
@@ -73,7 +75,15 @@ export default function GradeRegistrationMobile({
                     <div className="flex items-center gap-3 overflow-hidden">
                         <span className={`w-1.5 h-6 rounded-full flex-shrink-0 ${isOpen ? 'bg-indigo-500' : 'bg-gray-300'}`}></span>
                         <div className="flex flex-col overflow-hidden">
-                            <span className="font-bold text-gray-900 text-base truncate">{label}</span>
+                            <span 
+                              className="font-bold text-gray-900 text-base truncate cursor-pointer hover:text-indigo-600 active:text-indigo-600"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onEditColumn?.('regular', idx);
+                              }}
+                            >
+                              {label}
+                            </span>
                             <span className="text-xs text-gray-500 truncate">{detail?.type || '一般'} {detail?.date ? `• ${detail.date}` : '• (尚未設定)'}</span>
                         </div>
                     </div>
@@ -144,7 +154,15 @@ export default function GradeRegistrationMobile({
                             <div className="flex items-center gap-3">
                                 <span className={`w-1.5 h-6 rounded-full flex-shrink-0 ${isOpen ? 'bg-indigo-500' : 'bg-gray-300'}`}></span>
                                 <div className="flex flex-col">
-                                  <span className="font-bold text-gray-900 text-base">{title}</span>
+                                  <span 
+                                    className="font-bold text-gray-900 text-base cursor-pointer hover:text-indigo-600 active:text-indigo-600"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onEditColumn?.('periodic', scoreName);
+                                    }}
+                                  >
+                                    {title}
+                                  </span>
                                   {meta?.date ? (
                                     <span className="text-xs text-gray-500 font-mono">{meta.date}</span>
                                   ) : (
@@ -196,24 +214,24 @@ export default function GradeRegistrationMobile({
             <div key={stu.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
               <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-50">
                 <div className="flex flex-col">
-                  <span className="text-sm font-bold text-gray-900">{stu.name}</span>
-                  <span className="text-xs text-gray-500 font-mono">{stu.studentId}</span>
+                  <span className="text-base font-bold text-gray-900">{stu.name}</span>
+                  <span className="text-sm text-gray-500 font-mono">{stu.studentId}</span>
                 </div>
                 <div className="text-right">
-                  <span className="text-[10px] text-gray-400 block uppercase font-bold">總成績</span>
-                  <span className={`text-xl font-black ${stu.total < 60 ? 'text-red-600' : 'text-indigo-600'}`}>
+                  <span className="text-xs text-gray-400 block uppercase font-bold">總成績</span>
+                  <span className={`text-2xl font-black ${stu.total < 60 ? 'text-red-600' : 'text-indigo-600'}`}>
                     {stu.total}
                   </span>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-gray-50 p-2 rounded-lg text-center border border-gray-100">
-                  <span className="text-[10px] text-gray-500 block mb-1">平時加權</span>
-                  <span className="text-sm font-bold text-gray-700 font-mono">{stu.regWeighted.toFixed(1)}</span>
+                  <span className="text-xs text-gray-500 block mb-1">平時加權</span>
+                  <span className="text-base font-bold text-gray-700 font-mono">{stu.regWeighted.toFixed(1)}</span>
                 </div>
                 <div className="bg-gray-50 p-2 rounded-lg text-center border border-gray-100">
-                  <span className="text-[10px] text-gray-500 block mb-1">定期平均</span>
-                  <span className="text-sm font-bold text-gray-700 font-mono">{stu.pAvg.toFixed(1)}</span>
+                  <span className="text-xs text-gray-500 block mb-1">定期平均</span>
+                  <span className="text-base font-bold text-gray-700 font-mono">{stu.pAvg.toFixed(1)}</span>
                 </div>
               </div>
             </div>

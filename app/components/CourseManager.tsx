@@ -8,8 +8,16 @@ import { createPortal } from 'react-dom';
 
 import Swal from 'sweetalert2';
 import Image from 'next/image';
-import Dropdown from './Dropdown';
+import Dropdown from './ui/Dropdown';
 import { removeCoursesFromEnrolledList } from '@/services/courseId';
+
+const customLinkIconOptions = [
+  { value: 'LinkIcon', label: '預設連結' },
+  { value: 'VideoCameraIcon', label: '視訊會議' },
+  { value: 'DocumentTextIcon', label: '文件' },
+  { value: 'FolderIcon', label: '資料夾' },
+  { value: 'ChatBubbleLeftRightIcon', label: '討論區' },
+];
 
 // Heroicons
 import { 
@@ -49,7 +57,6 @@ interface CustomLink {
 interface CourseAnnouncement {
   id: string;
   title: string;
-  type?: '公告事項' | '課程資訊';
   content: string;
   links: { name: string; url: string }[];
   createdAt: string;
@@ -1179,22 +1186,19 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                   <div className="space-y-3 bg-white p-3 rounded-lg border border-gray-200">
                                     {(editingCourse.customLinks || []).map((link, idx) => (
                                       <div key={idx} className="flex gap-2 items-center">
-                                        <select
-                                          value={link.icon}
-                                          onChange={(e) => {
-                                            const newLinks = [...(editingCourse.customLinks || [])];
-                                            newLinks[idx] = { ...newLinks[idx], icon: e.target.value };
-                                            setEditingCourse(prev => prev ? { ...prev, customLinks: newLinks } : null);
-                                          }}
-                                          disabled={isEditingArchived}
-                                          className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-indigo-500 outline-none bg-white"
-                                        >
-                                          <option value="LinkIcon">預設連結</option>
-                                          <option value="VideoCameraIcon">視訊會議</option>
-                                          <option value="DocumentTextIcon">文件</option>
-                                          <option value="FolderIcon">資料夾</option>
-                                          <option value="ChatBubbleLeftRightIcon">討論區</option>
-                                        </select>
+                                        <div className={`w-36 ${isEditingArchived ? 'pointer-events-none opacity-60' : ''}`}>
+                                          <Dropdown
+                                            value={link.icon}
+                                            onChange={(icon) => {
+                                              const newLinks = [...(editingCourse.customLinks || [])];
+                                              newLinks[idx] = { ...newLinks[idx], icon };
+                                              setEditingCourse(prev => prev ? { ...prev, customLinks: newLinks } : null);
+                                            }}
+                                            options={customLinkIconOptions}
+                                            placeholder="圖示"
+                                            buttonClassName="py-2 text-sm h-10"
+                                          />
+                                        </div>
                                         <input 
                                           type="text" 
                                           placeholder="按鈕名稱" 
@@ -1205,7 +1209,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                             newLinks[idx] = { ...newLinks[idx], name: e.target.value };
                                             setEditingCourse(prev => prev ? { ...prev, customLinks: newLinks } : null);
                                           }}
-                                          className="w-1/3 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-indigo-500 outline-none"
+                                          className="w-1/3 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-indigo-500 outline-none h-10"
                                         />
                                         <input 
                                           type="url" 
@@ -1217,7 +1221,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                             newLinks[idx] = { ...newLinks[idx], url: e.target.value };
                                             setEditingCourse(prev => prev ? { ...prev, customLinks: newLinks } : null);
                                           }}
-                                          className="flex-1 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-indigo-500 outline-none"
+                                          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-indigo-500 outline-none h-10"
                                         />
                                         {!isEditingArchived && (
                                             <button type="button" onClick={() => {
@@ -1295,7 +1299,6 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                             onChange={(value) => setEditingCourse(prev => prev ? { ...prev, status: value as Course['status'] } : null)}
                                             options={courseStatuses.map(s => ({ value: s, label: s }))}
                                             placeholder="選擇課程狀態"
-                                        menuPlacement="top"
                                             className="w-full"
                                         />
                                 </div>
@@ -1381,20 +1384,9 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
               <Modal open={true} onClose={() => { setShowAnnouncementManager(null); setEditingAnnouncement(null); }} title={`「${showAnnouncementManager.name}」公告管理`} size="lg">
                 {editingAnnouncement ? (
                   <div className="p-6 flex flex-col h-full bg-white">
-                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                       <div>
-                         <label className="block text-sm font-bold text-gray-700 mb-1">公告標題 <span className="text-red-500">*</span></label>
-                         <input type="text" value={editingAnnouncement.title} onChange={e => setEditingAnnouncement(prev => ({...prev!, title: e.target.value}))} className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="輸入標題..." />
-                       </div>
-                       <div>
-                         <label className="block text-sm font-bold text-gray-700 mb-1">公告類型 <span className="text-red-500">*</span></label>
-                         <Dropdown
-                           value={editingAnnouncement.type || '公告事項'}
-                           onChange={val => setEditingAnnouncement(prev => ({...prev!, type: val as '公告事項' | '課程資訊'}))}
-                           options={[{ value: '公告事項', label: '公告事項' }, { value: '課程資訊', label: '課程資訊' }]}
-                           className="w-full"
-                         />
-                       </div>
+                     <div className="mb-4">
+                       <label className="block text-sm font-bold text-gray-700 mb-1">公告標題 <span className="text-red-500">*</span></label>
+                       <input type="text" value={editingAnnouncement.title} onChange={e => setEditingAnnouncement(prev => ({...prev!, title: e.target.value}))} className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="輸入標題..." />
                      </div>
                      <div className="mb-4">
                        <label className="block text-sm font-bold text-gray-700 mb-1">公告內容 <span className="text-red-500">*</span></label>
@@ -1412,16 +1404,16 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                const newLinks = [...editingAnnouncement.links];
                                newLinks[idx].name = e.target.value;
                                setEditingAnnouncement(prev => ({...prev!, links: newLinks}));
-                             }} className="w-1/3 border border-gray-300 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+                             }} className="w-1/3 border border-gray-300 rounded-lg px-3 py-2 h-10 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
                              <input type="url" placeholder="網址 (URL)" value={link.url} onChange={e => {
                                const newLinks = [...editingAnnouncement.links];
                                newLinks[idx].url = e.target.value;
                                setEditingAnnouncement(prev => ({...prev!, links: newLinks}));
-                             }} className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+                             }} className="flex-1 border border-gray-300 rounded-lg px-3 py-2 h-10 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
                              <button type="button" onClick={() => {
                                const newLinks = editingAnnouncement.links.filter((_, i) => i !== idx);
                                setEditingAnnouncement(prev => ({...prev!, links: newLinks}));
-                             }} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"><TrashIcon className="w-4 h-4" /></button>
+                             }} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg" title="移除連結"><TrashIcon className="w-4 h-4" /></button>
                            </div>
                          ))}
                        </div>
@@ -1438,7 +1430,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                             const currentAnns = showAnnouncementManager.announcements || [];
                             let newAnns;
                             if (editingAnnouncement.id === 'new') {
-                              newAnns = [{ ...editingAnnouncement, type: editingAnnouncement.type || '公告事項', id: Date.now().toString(), createdAt: new Date().toISOString() }, ...currentAnns];
+                              newAnns = [{ ...editingAnnouncement, id: Date.now().toString(), createdAt: new Date().toISOString() }, ...currentAnns];
                             } else {
                               newAnns = currentAnns.map(a => a.id === editingAnnouncement.id ? editingAnnouncement : a);
                             }
@@ -1470,7 +1462,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                   <div className="p-6 flex flex-col h-full bg-white">
                      <div className="flex justify-between items-center mb-4">
                         <h4 className="font-bold text-gray-800">公告列表</h4>
-                        <button onClick={() => setEditingAnnouncement({ id: 'new', title: '', type: '公告事項', content: '', links: [], createdAt: '' })} className="text-sm bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-lg font-bold hover:bg-indigo-100 flex items-center shadow-sm"><PlusIcon className="w-4 h-4 mr-1"/>新增公告</button>
+                        <button onClick={() => setEditingAnnouncement({ id: 'new', title: '', content: '', links: [], createdAt: '' })} className="text-sm bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-lg font-bold hover:bg-indigo-100 flex items-center shadow-sm"><PlusIcon className="w-4 h-4 mr-1"/>新增公告</button>
                      </div>
                      <div className="space-y-3 overflow-y-auto custom-scrollbar flex-1 mb-4 min-h-[200px] border border-gray-100 p-3 rounded-xl bg-gray-50/50">
                        {(showAnnouncementManager.announcements || []).length === 0 ? (
@@ -1482,13 +1474,8 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                          (showAnnouncementManager.announcements || []).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(ann => (
                            <div key={ann.id} className="bg-white border border-gray-200 rounded-xl p-4 flex justify-between items-center hover:border-indigo-200 transition-colors shadow-sm">
                              <div>
-                               <div className="flex items-center gap-2">
-                                 <span className={`px-2 py-0.5 text-[10px] rounded-md font-bold whitespace-nowrap border ${ann.type === '課程資訊' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
-                                     {ann.type || '公告事項'}
-                                 </span>
-                                 <h5 className="font-bold text-gray-900">{ann.title}</h5>
-                               </div>
-                               <div className="text-xs text-gray-500 mt-1 ml-1">{new Date(ann.createdAt).toLocaleDateString()}</div>
+                               <h5 className="font-bold text-gray-900">{ann.title}</h5>
+                               <div className="text-xs text-gray-500 mt-1">{new Date(ann.createdAt).toLocaleDateString()}</div>
                              </div>
                              <div className="flex gap-2">
                                <button onClick={() => setEditingAnnouncement(ann)} className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg"><PencilSquareIcon className="w-5 h-5"/></button>

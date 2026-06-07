@@ -83,8 +83,8 @@ const BookingModal: React.FC<BookingModalProps> = ({ slot, userInfo, onClose, on
       });
 
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || 'Failed to book appointment');
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || '伺服器錯誤，請稍後再試');
       }
 
       // Send email via EmailJS

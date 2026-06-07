@@ -4,6 +4,21 @@ import { CSSProperties, Fragment, useRef, useState, useEffect, useCallback } fro
 import { createPortal } from 'react-dom';
 import { Listbox, Transition } from '@headlessui/react';
 import { ChevronUpDownIcon } from '@heroicons/react/20/solid';
+import {
+  DROPDOWN_BUTTON_CLASS,
+  DROPDOWN_MENU_CLASS,
+  DROPDOWN_OPTION_ACTIVE_CLASS,
+  DROPDOWN_OPTION_BASE_CLASS,
+  DROPDOWN_OPTION_INACTIVE_CLASS,
+} from './dropdownStyles';
+
+export {
+  DROPDOWN_BUTTON_CLASS,
+  DROPDOWN_MENU_CLASS,
+  DROPDOWN_OPTION_BASE_CLASS,
+  DROPDOWN_OPTION_ACTIVE_CLASS,
+  DROPDOWN_OPTION_INACTIVE_CLASS,
+} from './dropdownStyles';
 
 interface Option {
   value: string;
@@ -16,10 +31,11 @@ interface DropdownProps {
   options: Option[];
   placeholder?: string;
   className?: string;
+  buttonClassName?: string;
   style?: CSSProperties;
 }
 
-export default function Dropdown({ value, onChange, options, placeholder = 'Select an option', className = '', style }: DropdownProps) {
+export default function Dropdown({ value, onChange, options, placeholder = 'Select an option', className = '', buttonClassName = '', style }: DropdownProps) {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const optionsRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<{ top?: number; bottom?: number; left: number; width: number }>({ left: 0, width: 0 });
@@ -93,7 +109,7 @@ export default function Dropdown({ value, onChange, options, placeholder = 'Sele
           >
             <Listbox.Options
               ref={optionsRef}
-              className="fixed z-[100000] bg-white border border-gray-200 rounded-xl shadow-xl max-h-60 overflow-auto focus:outline-none py-1"
+              className={DROPDOWN_MENU_CLASS}
               style={{
                 left: `${position.left}px`,
                 width: `${position.width}px`,
@@ -107,8 +123,8 @@ export default function Dropdown({ value, onChange, options, placeholder = 'Sele
                   key={option.value}
                   value={option.value}
                   className={({ active, selected }) =>
-                    `cursor-pointer select-none relative py-2.5 pl-4 pr-10 transition-colors ${
-                      active ? 'bg-indigo-50 text-indigo-900' : 'text-gray-900'
+                    `${DROPDOWN_OPTION_BASE_CLASS} ${
+                      active ? DROPDOWN_OPTION_ACTIVE_CLASS : DROPDOWN_OPTION_INACTIVE_CLASS
                     } ${selected ? 'font-medium' : 'font-normal'}`
                   }
                 >
@@ -137,7 +153,7 @@ export default function Dropdown({ value, onChange, options, placeholder = 'Sele
             <Listbox.Button 
               ref={buttonRef}
               style={style} 
-              className="select-unified flex items-center justify-between w-full px-4 py-2.5 text-left border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all sm:text-sm cursor-pointer shadow-sm"
+              className={`${DROPDOWN_BUTTON_CLASS} ${buttonClassName}`}
             >
               <span className={`truncate ${!value ? 'text-gray-400' : 'text-gray-900'}`}>
                 {(options || []).find(o => o.value === value)?.label || placeholder}

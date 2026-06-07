@@ -83,7 +83,10 @@ export default function TeacherAdminManager() {
 
       // 檢查帳號是否重複
       const res = await fetch('/api/admin/list');
-      const adminList: AdminTeacher[] = await res.json();
+      if (!res.ok) {
+        throw new Error('伺服器錯誤，請稍後再試');
+      }
+      const adminList: AdminTeacher[] = await res.json().catch(() => []);
       const isDuplicate = adminList.some((item: AdminTeacher) => {
         if (isUpdating && item.id === teacherData.id) {
           return false;
@@ -103,7 +106,11 @@ export default function TeacherAdminManager() {
         password: isUpdating ? teacherData.password : DEFAULT_PASSWORD,
       };
 
-      await fetch('/api/admin/create-user', { method: 'POST', body: JSON.stringify(data) });
+      const createRes = await fetch('/api/admin/create-user', { method: 'POST', body: JSON.stringify(data) });
+      if (!createRes.ok) {
+        const errData = await createRes.json().catch(() => ({}));
+        throw new Error(errData.error || '伺服器錯誤，請稍後再試');
+      }
 
       setTeachers(prevTeachers => {
         if (isUpdating) {
@@ -118,7 +125,7 @@ export default function TeacherAdminManager() {
       setIsEditing(false);
     } catch (error) {
       console.error('Submit error:', error);
-      Swal.fire('錯誤', '儲存失敗，請稍後再試。', 'error');
+      Swal.fire('錯誤', error instanceof Error ? error.message : '儲存失敗，請稍後再試。', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -313,7 +320,7 @@ export default function TeacherAdminManager() {
                       type="checkbox" 
                       checked={editingTeacher?.roles?.includes('admin') || false} 
                       onChange={e => setEditingTeacher(prev => prev ? { ...prev, roles: e.target.checked ? [...(prev.roles || []), 'admin'] : (prev.roles || []).filter(r => r !== 'admin') } : null)} 
-                      className="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 mr-3"
+                      className="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 mr-3 accent-indigo-600 cursor-pointer"
                     />
                     <ShieldCheckIcon className="w-5 h-5 mr-2" />
                     <span className="font-medium">系統管理員</span>
@@ -324,7 +331,7 @@ export default function TeacherAdminManager() {
                       type="checkbox" 
                       checked={editingTeacher?.roles?.includes('teacher') || false} 
                       onChange={e => setEditingTeacher(prev => prev ? { ...prev, roles: e.target.checked ? [...(prev.roles || []), 'teacher'] : (prev.roles || []).filter(r => r !== 'teacher') } : null)} 
-                      className="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 mr-3"
+                      className="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 mr-3 accent-indigo-600 cursor-pointer"
                     />
                     <AcademicCapIcon className="w-5 h-5 mr-2" />
                     <span className="font-medium">授課老師</span>

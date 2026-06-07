@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import clsx from 'clsx';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -153,15 +153,66 @@ export default function Sidebar({
   // 使用目前傳入的 menuItems，如果是空陣列則退回使用上一次記住的狀態
   const currentMenuItems = menuItems && menuItems.length > 0 ? menuItems : persistedMenuItems;
 
+  // 廣播側邊欄的選單項目，讓 Navigation 在手機版時能合併顯示
+  const syncSidebar = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('sidebar-sync', {
+        detail: {
+          menuItems: currentMenuItems,
+          dashboardHref,
+          activeTab: optimisticTab,
+        }
+      }));
+    }
+  }, [currentMenuItems, dashboardHref, optimisticTab]);
+
+  useEffect(() => {
+    syncSidebar();
+  }, [syncSidebar]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('request-sidebar-sync', syncSidebar as EventListener);
+      return () => window.removeEventListener('request-sidebar-sync', syncSidebar as EventListener);
+    }
+  }, [syncSidebar]);
+
+  // 監聽來自 Navigation 手機版選單的標籤切換請求
+  useEffect(() => {
+    const handleTabChangeRequest = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const tab = customEvent.detail;
+      globalCachedActiveTab = tab;
+      setOptimisticTab(tab);
+      onTabChange(tab);
+    };
+    
+    if (typeof window !== 'undefined') {
+      window.addEventListener('request-tab-change', handleTabChangeRequest);
+      return () => window.removeEventListener('request-tab-change', handleTabChangeRequest);
+    }
+  }, [onTabChange]);
+
   // 當點擊登出時清除所有快取
-  const handleLogoutClick = () => {
+  const handleLogoutClick = useCallback(() => {
     globalCachedUserInfo = null;
     globalCachedMenuItems = [];
+    globalCachedActiveTab = null;
     if (typeof window !== 'undefined') {
       try { sessionStorage.removeItem('sidebar_user_info'); } catch (e) {}
+      // 主動觸發全域登出事件，讓 Navigation 等元件也能立刻清空畫面
+      window.dispatchEvent(new Event('auth-logout'));
     }
     onLogout();
-  };
+  }, [onLogout]);
+
+  // 監聽來自 Navigation 手機版選單的登出請求
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('request-logout', handleLogoutClick);
+      return () => window.removeEventListener('request-logout', handleLogoutClick);
+    }
+  }, [handleLogoutClick]);
 
   // 判斷用戶角色
   const getUserRole = (): string => {
@@ -213,25 +264,12 @@ export default function Sidebar({
       'w-0 md:w-20': !sidebarOpen, // 手機版關閉時寬度設為 0，避免影響佈局計算
       '-translate-x-full md:translate-x-0': !sidebarOpen, // 手機隱藏，桌機縮小
       'translate-x-0': sidebarOpen, // Show when open
-      'max-md:hidden': !sidebarOpen, // 手機關閉時完全不渲染佔位，避免任何殘影
+      'max-md:hidden': true, // 手機版將側邊欄內容合併至上方導覽列，因此完全隱藏
     }
   );
 
   return (
     <>
-      {/* 手機版開關按鈕：確保只有在「手機版」且「選單關閉」時才顯示 */}
-      {!sidebarOpen && (
-        <button
-          onClick={onToggleSidebar}
-          className="md:hidden fixed bottom-6 left-6 z-50 p-3 bg-indigo-600 text-white rounded-full shadow-lg hover:bg-indigo-700 transition-all active:scale-90"
-          aria-label="展開側邊欄"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
-      )}
-
       {/* 統一的側邊欄 */}
       <aside className={sidebarClasses}>
         <div className={`p-4 border-b border-gray-100 ${!sidebarOpen ? 'flex justify-center' : ''}`}>
@@ -438,14 +476,6 @@ export default function Sidebar({
           </button>
         </div>
       </aside>
-      
-      {/* Mobile Overlay */}
-      {sidebarOpen && (
-        <div 
-            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 md:hidden"
-            onClick={onToggleSidebar}
-        />
-      )}
     </>
   );
 }

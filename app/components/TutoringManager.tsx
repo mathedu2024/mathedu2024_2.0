@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { PlusIcon, PencilIcon, TrashIcon, UserIcon, MapPinIcon, ClockIcon, TagIcon, ChatBubbleLeftRightIcon, EnvelopeIcon, ClipboardIcon, ChevronDownIcon, CalendarIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { format as formatFns, startOfWeek, addDays, isSameDay, parseISO, isPast, addWeeks, subWeeks, type Locale } from 'date-fns';
@@ -12,6 +12,8 @@ import Swal from 'sweetalert2';
 import { isCourseArchived } from './StudentCourseSelector';
 import LoadingSpinner from './LoadingSpinner';
 import PageLoadingArea from './ui/PageLoadingArea';
+import Dropdown from './ui/Dropdown';
+import MultiSelectDropdown from './MultiSelectDropdown';
 
 interface UserInfo {
   id: string;
@@ -63,94 +65,6 @@ const subjectOptions = [
   { label: '化學', value: '化學' },
   { label: '生物', value: '生物' },
 ];
-
-const Dropdown = ({ value, onChange, options, placeholder, className }: { 
-  value: string; 
-  onChange: (val: string) => void; 
-  options: { value: string; label: string }[]; 
-  placeholder?: string; 
-  className?: string; 
-}) => {
-  return (
-    <div className={`relative ${className}`}>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white appearance-none"
-      >
-        {placeholder && <option value="" disabled>{placeholder}</option>}
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>{opt.label}</option>
-        ))}
-      </select>
-      <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-        <ChevronDownIcon className="w-4 h-4 text-gray-500" />
-      </div>
-    </div>
-  );
-};
-
-// Simple MultiSelectDropdown Component
-const MultiSelectDropdown = ({ options, selectedOptions, onChange, placeholder }: { 
-  options: { label: string; value: string }[], 
-  selectedOptions: string[], 
-  onChange: (values: string[]) => void, 
-  placeholder: string 
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const handleToggle = (value: string) => {
-    if (selectedOptions.includes(value)) {
-      onChange(selectedOptions.filter(item => item !== value));
-    } else {
-      onChange([...selectedOptions, value]);
-    }
-  };
-
-  return (
-    <div className="relative" ref={containerRef}>
-      <div 
-        className="w-full px-4 py-2 bg-white border border-gray-300 rounded-xl cursor-pointer flex justify-between items-center"
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        <span className={`block truncate ${selectedOptions.length === 0 ? 'text-gray-400' : 'text-gray-900'}`}>
-          {selectedOptions.length === 0 ? placeholder : `${selectedOptions.length} 個已選擇`}
-        </span>
-        <ChevronDownIcon className="w-4 h-4 text-gray-500" />
-      </div>
-      {isOpen && (
-        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-xl shadow-lg max-h-60 overflow-auto">
-          {options.map((option) => (
-            <div 
-              key={option.value} 
-              className="px-4 py-2 hover:bg-indigo-50 cursor-pointer flex items-center"
-              onClick={() => handleToggle(option.value)}
-            >
-              <input 
-                type="checkbox" 
-                checked={selectedOptions.includes(option.value)} 
-                readOnly 
-                className="mr-2 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-              />
-              <span className="text-gray-700">{option.label}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
 
 // 修正：重新命名為 safeFormat 並放寬型別檢查，確保徹底解決參數錯誤
 const safeFormat = (date: Date | number, formatStr: string, options?: { locale?: Locale }) => {
@@ -325,8 +239,8 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(selectedSlot ? { ...payload, id: selectedSlot.id } : payload),
       });
-      const data = await res.json();
       if (res.ok) {
+        const data = await res.json();
         alerts.showSuccess(data.message);
         Swal.fire({
           icon: 'success',
@@ -339,11 +253,12 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
         setIsModalOpen(false);
         fetchSlots();
       } else {
-        alerts.showError(data.error || '操作失敗');
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || '伺服器錯誤，請稍後再試');
       }
     } catch (error) {
       console.error('Submission error:', error);
-      alerts.showError('發生未預期的錯誤');
+      alerts.showError(error instanceof Error ? error.message : '發生未預期的錯誤');
     } finally {
       setLoading(false);
     }
@@ -812,7 +727,7 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
                   <label className="inline-flex items-center cursor-pointer">
                     <input
                       type="radio"
-                      className="form-radio text-indigo-600 focus:ring-indigo-500"
+                  className="form-radio text-indigo-600 focus:ring-indigo-500 accent-indigo-600"
                       name="qualificationType"
                       value="grades_subjects"
                       checked={form.qualifications.type === 'grades_subjects'}
@@ -826,7 +741,7 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
                   <label className="inline-flex items-center cursor-pointer">
                     <input
                       type="radio"
-                      className="form-radio text-indigo-600 focus:ring-indigo-500"
+                  className="form-radio text-indigo-600 focus:ring-indigo-500 accent-indigo-600"
                       name="qualificationType"
                       value="classes"
                       checked={form.qualifications.type === 'classes'}

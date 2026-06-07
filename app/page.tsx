@@ -252,9 +252,9 @@ export default function Home() {
               ${isFilterOpen ? 'max-h-[1000px] opacity-100 overflow-visible mt-2' : 'max-h-0 md:max-h-none opacity-0 md:opacity-100 overflow-hidden md:overflow-visible'}
             `}>
               <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-                <Dropdown value={selectedContentType} onChange={setSelectedContentType} options={contentTypeOptions} placeholder="類型" className="w-full sm:w-32" />
-                <Dropdown value={selectedSubject} onChange={setSelectedSubject} options={subjectOptions} placeholder="科目" className="w-full sm:w-32" />
-                <Dropdown value={selectedGrade} onChange={setSelectedGrade} options={gradeOptions} placeholder="年級" className="w-full sm:w-32" />
+                <Dropdown value={selectedContentType} onChange={setSelectedContentType} options={contentTypeOptions} placeholder="類型" className="w-full sm:w-36" />
+                <Dropdown value={selectedSubject} onChange={setSelectedSubject} options={subjectOptions} placeholder="科目" className="w-full sm:w-36" />
+                <Dropdown value={selectedGrade} onChange={setSelectedGrade} options={gradeOptions} placeholder="年級" className="w-full sm:w-36" />
               </div>
             </div>
           </div>

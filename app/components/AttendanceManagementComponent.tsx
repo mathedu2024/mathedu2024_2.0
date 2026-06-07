@@ -164,7 +164,7 @@ const FixedDropdownPortal = ({ isOpen, onClose, options, onSelect, triggerRef }:
 };
 
 // --- 請假按鈕組件 (整合懸浮選單) ---
-const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { currentStatus: string, onSetStatus: (val: string) => void, disabled?: boolean }) => {
+const LeaveButton = ({ currentStatus, onSetStatus, disabled = false, isMobile = false }: { currentStatus: string, onSetStatus: (val: string) => void, disabled?: boolean, isMobile?: boolean }) => {
   const [isOpen, setIsOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   
@@ -173,12 +173,12 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
 
   return (
     <>
-      <div className="relative inline-flex items-center">
+      <div className={`relative inline-flex items-stretch ${isMobile ? 'w-full' : ''}`}>
         {/* 左側：主按鈕 (點擊切換為預設請假或保持當前假別) */}
         <button
           disabled={disabled}
           onClick={() => onSetStatus(isLeave ? currentStatus : '病假')}
-          className={`px-3 py-1.5 rounded-l-lg border text-xs font-bold transition-all border-r-0 ${
+          className={`px-3 ${isMobile ? 'py-2 flex-1' : 'py-1.5'} rounded-l-lg border text-xs font-bold transition-all border-r-0 flex items-center justify-center ${
             isLeave 
               ? 'bg-blue-500 text-white border-blue-500 shadow-md ring-2 ring-blue-200' 
               : 'bg-white text-gray-500 hover:bg-blue-50 hover:text-blue-600 border-gray-200'
@@ -192,7 +192,7 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
           disabled={disabled}
           ref={buttonRef}
           onClick={() => setIsOpen(!isOpen)}
-          className={`px-1.5 py-1.5 rounded-r-lg border text-xs font-bold transition-all flex items-center justify-center ${
+          className={`px-1.5 ${isMobile ? 'py-2' : 'py-1.5'} rounded-r-lg border text-xs font-bold transition-all flex items-center justify-center ${
             isLeave 
               ? 'bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-200' 
               : 'bg-white text-gray-500 hover:bg-blue-50 hover:text-blue-600 border-gray-200'
@@ -235,7 +235,6 @@ function AttendanceRosterManager({ activityId, courseId, courseName, students = 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activityInfo, setActivityInfo] = useState<AttendanceActivity | null>(initialActivityData || null);
-  const [filterStatus, setFilterStatus] = useState<string>('全部');
 
   const fetchRecords = useCallback(async () => {
     setLoading(true);
@@ -383,37 +382,32 @@ function AttendanceRosterManager({ activityId, courseId, courseName, students = 
     };
   }, [safeStudents, getRecordForStudent]);
 
-  const filteredStudents = safeStudents.filter(s => {
-      const rec = getRecordForStudent(s);
-      if (filterStatus === '全部') return true;
-      if (filterStatus === '未點') return !rec || !rec.status;
-      if (filterStatus === '出席') return rec?.status === 'present';
-      if (filterStatus === '遲到') return rec?.status === 'late';
-      if (filterStatus === '曠課') return rec?.status === 'absent';
-      if (filterStatus === '請假') return rec?.status === 'leave';
-      return true;
-  });
-
   return (
     <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pb-20 flex flex-col h-full animate-fade-in">
       {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
         <div className="border-l-4 border-indigo-500 pl-4">
-          <div className="flex items-center gap-2">
-            <button onClick={onClose} className="mr-1 p-2 rounded-full hover:bg-gray-100 text-gray-500 transition-colors">
+          <div className="flex items-start gap-2">
+            <button onClick={onClose} className="mr-1 p-2 rounded-full hover:bg-gray-100 text-gray-500 transition-colors mt-0.5">
               <ArrowLeftIcon className="w-6 h-6" />
             </button>
-            <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-              {activityInfo?.name || '點名活動'}
-              {activityInfo?.mode === 'digital' && (
-                <span className="bg-indigo-100 text-indigo-700 px-2 py-1 rounded text-xs font-bold flex items-center shadow-sm border border-indigo-200">
-                  <QrCodeIcon className="w-3 h-3 mr-1"/>
-                  簽到碼: <span className="text-lg ml-1 font-mono">{activityInfo.checkInCode}</span>
-                </span>
-              )}
-            </h1>
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+                <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+                  {activityInfo?.name || '點名活動'}
+                </h1>
+                {activityInfo?.mode === 'digital' && (
+                  <div className="inline-flex">
+                    <span className="bg-indigo-100 text-indigo-700 px-2 py-1.5 rounded-lg text-sm font-bold flex items-center shadow-sm border border-indigo-200">
+                      <QrCodeIcon className="w-4 h-4 mr-1.5"/>
+                      簽到碼: <span className="text-lg ml-1 font-mono tracking-wider">{activityInfo.checkInCode}</span>
+                    </span>
+                  </div>
+                )}
+              </div>
+              <p className="text-gray-500 text-sm mt-1">{courseName} • 共 {safeStudents.length} 人</p>
+            </div>
           </div>
-          <p className="text-gray-500 text-sm mt-1">{courseName} • 共 {safeStudents.length} 人</p>
         </div>
         {!isArchived && (
           <div className="flex gap-2 self-end md:self-auto">
@@ -447,17 +441,9 @@ function AttendanceRosterManager({ activityId, courseId, courseName, students = 
         <div className="bg-gray-50 border border-gray-100 p-2 rounded-lg text-center col-span-2 md:col-span-1"><div className="text-xs text-gray-500 font-bold">未點</div><div className="text-lg font-bold text-gray-600">{stats.unrecorded}</div></div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar mb-4">
-        <FunnelIcon className="w-4 h-4 text-gray-400 shrink-0" />
-        {['全部', '未點', '出席', '曠課', '請假', '遲到'].map((status) => (
-          <button key={status} onClick={() => setFilterStatus(status)} className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors border ${filterStatus === status ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>{status}</button>
-        ))}
-      </div>
-
       {/* Roster Table */}
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col">
-          {filteredStudents.length === 0 ? (
+          {safeStudents.length === 0 ? (
               <div className="text-center py-12 text-gray-400">沒有符合條件的學生</div>
           ) : (
              <>
@@ -472,7 +458,7 @@ function AttendanceRosterManager({ activityId, courseId, courseName, students = 
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                            {filteredStudents.map((student) => {
+                            {safeStudents.map((student) => {
                                 const currentRecord = records[student.studentId] || { status: '' };
                                 const currentStatus = currentRecord.status;
                                 const currentLeaveType = currentRecord.leaveType;
@@ -514,7 +500,7 @@ function AttendanceRosterManager({ activityId, courseId, courseName, students = 
 
                 {/* Mobile View */}
                 <div className="md:hidden p-4 space-y-4 bg-gray-50/50">
-                     {filteredStudents.map((student) => {
+                     {safeStudents.map((student) => {
                          const currentRecord = records[student.studentId] || { status: '' };
                          const currentStatus = currentRecord.status;
                          const currentLeaveType = currentRecord.leaveType;
@@ -526,17 +512,16 @@ function AttendanceRosterManager({ activityId, courseId, courseName, students = 
                                     {currentStatus && <span className="px-2 py-1 rounded text-xs font-bold bg-gray-100 text-gray-700">{currentStatus === 'present' ? '出席' : currentStatus === 'late' ? '遲到' : currentStatus === 'absent' ? '曠課' : currentLeaveType || '請假'}</span>}
                                 </div>
                                 
-                                <div className="flex flex-wrap gap-2 mb-3">
-                                    <button disabled={isArchived} onClick={() => handleSetStatus(student.studentId, 'present')} className={`px-4 py-2 flex-1 rounded border text-xs font-bold ${currentStatus==='present'?'bg-emerald-100 text-emerald-700 border-emerald-300':'bg-white text-gray-500'} ${isArchived ? 'opacity-60 cursor-not-allowed' : ''}`}>出席</button>
-                                    <button disabled={isArchived} onClick={() => handleSetStatus(student.studentId, 'late')} className={`px-4 py-2 flex-1 rounded border text-xs font-bold ${currentStatus==='late'?'bg-amber-100 text-amber-700 border-amber-300':'bg-white text-gray-500'} ${isArchived ? 'opacity-60 cursor-not-allowed' : ''}`}>遲到</button>
-                                    <button disabled={isArchived} onClick={() => handleSetStatus(student.studentId, 'absent')} className={`px-4 py-2 flex-1 rounded border text-xs font-bold ${currentStatus==='absent'?'bg-rose-100 text-rose-700 border-rose-300':'bg-white text-gray-500'} ${isArchived ? 'opacity-60 cursor-not-allowed' : ''}`}>曠課</button>
-                                    <div className="flex-1">
-                                        <LeaveButton 
-                                            currentStatus={currentStatus === 'leave' ? currentLeaveType || '事假' : ''}
-                                            onSetStatus={(val) => handleSetLeave(student.studentId, val)}
-                                            disabled={isArchived}
-                                        />
-                                    </div>
+                                <div className="grid grid-cols-4 gap-2 mb-3">
+                                    <button disabled={isArchived} onClick={() => handleSetStatus(student.studentId, 'present')} className={`py-2 rounded-lg border text-xs font-bold ${currentStatus==='present'?'bg-emerald-100 text-emerald-700 border-emerald-300':'bg-white text-gray-500'} ${isArchived ? 'opacity-60 cursor-not-allowed' : ''}`}>出席</button>
+                                    <button disabled={isArchived} onClick={() => handleSetStatus(student.studentId, 'late')} className={`py-2 rounded-lg border text-xs font-bold ${currentStatus==='late'?'bg-amber-100 text-amber-700 border-amber-300':'bg-white text-gray-500'} ${isArchived ? 'opacity-60 cursor-not-allowed' : ''}`}>遲到</button>
+                                    <button disabled={isArchived} onClick={() => handleSetStatus(student.studentId, 'absent')} className={`py-2 rounded-lg border text-xs font-bold ${currentStatus==='absent'?'bg-rose-100 text-rose-700 border-rose-300':'bg-white text-gray-500'} ${isArchived ? 'opacity-60 cursor-not-allowed' : ''}`}>曠課</button>
+                                    <LeaveButton 
+                                        currentStatus={currentStatus === 'leave' ? currentLeaveType || '事假' : ''}
+                                        onSetStatus={(val) => handleSetLeave(student.studentId, val)}
+                                        disabled={isArchived}
+                                        isMobile={true}
+                                    />
                                 </div>
 
                                 <input type="text" placeholder="新增備註..." className={`w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-indigo-500 outline-none ${isArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-gray-50'}`} disabled={isArchived} readOnly={isArchived} value={notes[student.studentId] || ''} onChange={(e) => handleNoteChange(student.studentId, e.target.value)} />
@@ -550,13 +535,6 @@ function AttendanceRosterManager({ activityId, courseId, courseName, students = 
       </>
       )}
       
-      {!isArchived && !loading && (
-        <div className="md:hidden fixed bottom-6 right-6 z-40">
-            <button onClick={handleSave} disabled={saving} className="w-14 h-14 bg-indigo-600 text-white rounded-full shadow-xl flex items-center justify-center hover:bg-indigo-700 transition-all disabled:bg-gray-400">
-                {saving ? <LoadingSpinner size={24} color="white" /> : <CloudArrowUpIcon className="w-7 h-7" />}
-            </button>
-        </div>
-      )}
     </div>
   );
 }
@@ -948,22 +926,25 @@ function AttendanceActivityList({ courseId, courseName, courseCode, onBack, onSe
               <div className="md:hidden space-y-4">
                   {activities.map((activity) => (
                       <div key={activity.id} className="bg-white border border-gray-100 rounded-xl shadow-sm p-5 flex flex-col gap-3 active:scale-[0.99] transition-transform" onClick={() => onSelectActivity(activity)}>
-                          <div className="flex justify-between items-start">
-                               <div><span className="text-xs font-mono text-gray-500 block mb-1">{formatDate(activity.date)}</span><h4 className="font-bold text-gray-800 text-lg">{activity.name}</h4></div>
-                               <span className={`px-2 py-1 rounded text-xs border bg-gray-50 text-gray-700`}>
-                                   {activity.mode === 'digital' ? '數字點名' : '手動點名'}
-                               </span>
+                          <div>
+                               <h4 className="font-bold text-gray-800 text-lg mb-1">{activity.name}</h4>
+                               <div className="flex items-center flex-wrap gap-2 text-xs text-gray-500 font-mono">
+                                   <span>{formatDate(activity.date)}</span>
+                                   <span className="px-2 py-0.5 rounded border bg-gray-50 text-gray-700">
+                                       {activity.mode === 'digital' ? '數字點名' : '手動點名'}
+                                   </span>
+                               </div>
                           </div>
                           {activity.mode === 'digital' && (
                               <div className="bg-gray-50 px-3 py-2 rounded text-indigo-700 text-sm font-bold flex items-center border border-gray-200">
                                   <QrCodeIcon className="w-4 h-4 mr-2"/> 代碼: {activity.checkInCode}
                               </div>
                           )}
-                          <div className="flex justify-end gap-3 pt-3 border-t border-gray-50 mt-1">
+                          <div className={`grid ${!isArchived ? 'grid-cols-2' : 'grid-cols-1'} gap-3 pt-3 border-t border-gray-50 mt-1`}>
                                {!isArchived && (
-                                 <button onClick={(e) => { e.stopPropagation(); handleDelete(activity.id); }} className="flex items-center text-sm text-gray-500 hover:text-red-600 font-medium px-2 py-1"><TrashIcon className="w-4 h-4 mr-1" /> 刪除</button>
+                                 <button onClick={(e) => { e.stopPropagation(); handleDelete(activity.id); }} className="w-full flex items-center justify-center text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium py-2"><TrashIcon className="w-4 h-4 mr-1" /> 刪除</button>
                                )}
-                               <button className="flex items-center text-sm text-indigo-600 font-bold ml-auto">{isArchived ? '查看紀錄' : '點名'} <ChevronRightIcon className="w-4 h-4 ml-1" /></button>
+                               <button className="w-full flex items-center justify-center text-sm text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg font-bold py-2">{isArchived ? '查看紀錄' : '進入點名'} <ChevronRightIcon className="w-4 h-4 ml-1" /></button>
                           </div>
                       </div>
                   ))}

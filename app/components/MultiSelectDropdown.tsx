@@ -1,7 +1,12 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { ChevronUpDownIcon, CheckIcon } from '@heroicons/react/20/solid';
+import { CheckIcon } from '@heroicons/react/20/solid';
+import {
+  MULTISELECT_BUTTON_CLASS,
+  MULTISELECT_MENU_CLASS,
+  MULTISELECT_OPTION_BASE_CLASS,
+} from './ui/dropdownStyles';
 
 interface Option {
   label: string;
@@ -53,24 +58,24 @@ export default function MultiSelectDropdown({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="relative w-full cursor-pointer bg-white py-2.5 pl-4 pr-10 text-left border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent sm:text-sm transition-all"
+        className={MULTISELECT_BUTTON_CLASS}
       >
-        <span className={`block truncate ${selectedItems.length === 0 ? 'text-gray-400' : 'text-gray-900'}`}>
+        <span className="block truncate text-gray-900">
           {selectedItems.length === 0
-            ? placeholder
-            : selectedItems.length === 1
-            ? selectedItems[0].label
-            : `${selectedItems.length} 個已選擇`}
+              ? placeholder
+              : selectedItems.length === 1
+              ? selectedItems[0].label
+              : `${selectedItems.length} 個已選擇`}
         </span>
-        <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-          <ChevronUpDownIcon className="h-5 w-5 text-gray-400" aria-hidden="true" />
-        </span>
+        <div className="pointer-events-none flex items-center text-gray-500 ml-2 flex-shrink-0">
+          <svg className={`w-4 h-4 transform transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+        </div>
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-xl bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+        <div className={MULTISELECT_MENU_CLASS}>
           {options.length === 0 ? (
-            <div className="relative cursor-default select-none py-2 px-4 text-gray-700">
+            <div className="relative cursor-default select-none py-2.5 px-4 text-gray-500">
               無選項
             </div>
           ) : (
@@ -80,16 +85,16 @@ export default function MultiSelectDropdown({
                 <div
                   key={option.value}
                   onClick={() => handleToggleOption(option.value)}
-                  className={`relative cursor-pointer select-none py-2.5 pl-10 pr-4 transition-colors ${
-                    isSelected ? 'bg-indigo-50 text-indigo-900' : 'text-gray-900 hover:bg-gray-50'
+                  className={`${MULTISELECT_OPTION_BASE_CLASS} ${
+                    isSelected ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-gray-800 hover:bg-gray-50'
                   }`}
                 >
-                  <span className={`block truncate ${isSelected ? 'font-medium' : 'font-normal'}`}>
+                  <span className="block truncate">
                     {option.label}
                   </span>
                   {isSelected && (
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-indigo-600">
-                      <CheckIcon className="h-5 w-5" aria-hidden="true" />
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-indigo-600">
+                      <CheckIcon className="h-4 w-4" aria-hidden="true" />
                     </span>
                   )}
                 </div>

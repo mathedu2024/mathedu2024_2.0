@@ -78,7 +78,7 @@ export default function AnnouncementManager() {
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedContentType, setSelectedContentType] = useState<string>('全部');
-  const [selectedSubject, setSelectedSubject] = useState<string>('');
+  const [selectedSubject, setSelectedSubject] = useState<string>('全部');
   const [selectedGrade, setSelectedGrade] = useState<string>('全部');
   const [searchTerm, setSearchTerm] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -158,11 +158,11 @@ export default function AnnouncementManager() {
               : ann
           ));
         } else {
-          const errorData = await response.json();
+          const errorData = await response.json().catch(() => ({}));
           Swal.fire({
             icon: 'error',
             title: '更新失敗',
-            text: errorData.error || '未知錯誤',
+            text: errorData.error || '伺服器錯誤，請稍後再試',
             confirmButtonColor: '#ef4444',
             customClass: { popup: 'rounded-2xl' }
           });
@@ -194,11 +194,11 @@ export default function AnnouncementManager() {
           };
           setAnnouncements(prev => [newAnnouncement, ...prev]);
         } else {
-          const errorData = await response.json();
+          const errorData = await response.json().catch(() => ({}));
           Swal.fire({
             icon: 'error',
             title: '建立失敗',
-            text: errorData.error || '未知錯誤',
+            text: errorData.error || '伺服器錯誤，請稍後再試',
             confirmButtonColor: '#ef4444',
             customClass: { popup: 'rounded-2xl' }
           });
@@ -332,7 +332,7 @@ export default function AnnouncementManager() {
 
   const filteredAnnouncements = announcements.filter(announcement => {
     const contentTypeMatch = selectedContentType === '全部' || announcement.contentType === selectedContentType;
-    const subjectMatch = selectedSubject === '' || announcement.subject === selectedSubject;
+    const subjectMatch = selectedSubject === '全部' || announcement.subject === selectedSubject;
     const gradeMatch = selectedGrade === '全部' || announcement.grade === selectedGrade;
     const searchTermMatch = !searchTerm ||
       announcement.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -426,12 +426,15 @@ export default function AnnouncementManager() {
                       options={[{ value: '全部', label: '全部類型' }, ...contentTypeOptions]}
                       placeholder="全部類型"
                       className="w-full"
+                      buttonClassName="!text-black [&_span]:!text-black"
                   />
                   <Dropdown
                       value={selectedSubject}
                       onChange={setSelectedSubject}
-                      options={subjectOptions}
+                      options={[{ value: '全部', label: '全部科目' }, ...subjectOptions.filter(o => o.value !== '')]}
+                      placeholder="全部科目"
                       className="w-full"
+                      buttonClassName="!text-black [&_span]:!text-black"
                   />
                   <Dropdown
                       value={selectedGrade}
@@ -439,6 +442,7 @@ export default function AnnouncementManager() {
                       options={[{ value: '全部', label: '全部年級' }, ...gradeOptions.filter(o => o.value !== '')]}
                       placeholder="全部年級"
                       className="w-full"
+                      buttonClassName="!text-black [&_span]:!text-black"
                   />
                   <div className="relative">
                       <input
@@ -492,6 +496,7 @@ export default function AnnouncementManager() {
                             options={contentTypeOptions}
                             placeholder="全部類別"
                             className="w-full"
+                            buttonClassName="!text-black [&_span]:!text-black"
                         />
                     </div>
                     <div>
@@ -502,6 +507,7 @@ export default function AnnouncementManager() {
                             options={subjectOptions}
                             placeholder="全部科目"
                             className="w-full"
+                            buttonClassName="!text-black [&_span]:!text-black"
                         />
                     </div>
                     <div>
@@ -512,6 +518,7 @@ export default function AnnouncementManager() {
                             options={gradeOptions}
                             placeholder="全部年級"
                             className="w-full"
+                            buttonClassName="!text-black [&_span]:!text-black"
                         />
                     </div>
                 </div>
@@ -553,14 +560,14 @@ export default function AnnouncementManager() {
                                         placeholder="連結名稱"
                                         value={link.name}
                                         onChange={e => updateLink(index, 'name', e.target.value)}
-                                        className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                        className="flex-1 px-3 py-2 h-10 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
                                     />
                                     <input
                                         type="url"
                                         placeholder="連結網址 (URL)"
                                         value={link.url}
                                         onChange={e => updateLink(index, 'url', e.target.value)}
-                                        className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                        className="flex-1 px-3 py-2 h-10 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
                                     />
                                     <button
                                         type="button"

@@ -80,7 +80,7 @@ export default function StudentManager() {
   const [isEditing, setIsEditing] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
-  const [batchGrade, setBatchGrade] = useState<string>('');
+  const [batchGrade, setBatchGrade] = useState<string>('不變更');
   const [batchCourses, setBatchCourses] = useState<string[]>([]);
   const [batchRemoveCourses, setBatchRemoveCourses] = useState<string[]>([]);
   const [mobileBatchPanelOpen, setMobileBatchPanelOpen] = useState(false);
@@ -377,7 +377,7 @@ export default function StudentManager() {
       Swal.fire('提示', '請先勾選要批次修改的學生。', 'info');
       return;
     }
-    if (!batchGrade && batchCourses.length === 0 && batchRemoveCourses.length === 0) {
+    if (batchGrade === '不變更' && batchCourses.length === 0 && batchRemoveCourses.length === 0) {
       Swal.fire('提示', '請至少設定要更新的年級、加入課程或移除課程。', 'info');
       return;
     }
@@ -387,7 +387,7 @@ export default function StudentManager() {
       html: `
         <div style="text-align:left;line-height:1.8">
           <div>選取學生數：<b>${selectedStudentIds.length}</b></div>
-          <div>調整年級：<b>${batchGrade || '不變更'}</b></div>
+          <div>調整年級：<b>${batchGrade === '不變更' ? '不變更' : batchGrade}</b></div>
           <div>加入課程數：<b>${batchCourses.length}</b></div>
           <div>移除課程數：<b>${batchRemoveCourses.length}</b></div>
         </div>
@@ -417,7 +417,7 @@ export default function StudentManager() {
             const coursesToRemove = resolveCoursesFromCatalog(batchRemoveCourses, courses);
             newCourses = removeCoursesFromEnrolledList(newCourses, coursesToRemove);
           }
-          const finalGrade = batchGrade || originalStudent.grade;
+          const finalGrade = batchGrade === '不變更' ? originalStudent.grade : batchGrade;
 
           const syncedCourses = await updateStudentCourses(studentId, oldCourses, newCourses, {
             id: originalStudent.studentId,
@@ -453,7 +453,7 @@ export default function StudentManager() {
         html: `
           <div style="text-align:left;line-height:1.8">
             <div>成功更新學生：<b>${updatedCount}</b> 筆</div>
-            <div>更新年級：<b>${batchGrade ? '是' : '否'}</b></div>
+            <div>更新年級：<b>${batchGrade !== '不變更' ? '是' : '否'}</b></div>
             <div>加入課程：<b>${batchCourses.length}</b> 堂</div>
             <div>移除課程：<b>${batchRemoveCourses.length}</b> 堂</div>
           </div>
@@ -461,7 +461,7 @@ export default function StudentManager() {
         confirmButtonColor: '#4f46e5',
       });
       setSelectedStudentIds([]);
-      setBatchGrade('');
+      setBatchGrade('不變更');
       setBatchCourses([]);
       setBatchRemoveCourses([]);
       fetchStudents();
@@ -880,7 +880,7 @@ export default function StudentManager() {
                 <Dropdown
                   value={batchGrade}
                   onChange={setBatchGrade}
-                  options={[{ value: '', label: '年級不變更' }, ...grades.map((g) => ({ value: g, label: `改為 ${g}` }))]}
+                  options={[{ value: '不變更', label: '年級不變更' }, ...grades.map((g) => ({ value: g, label: `改為 ${g}` }))]}
                   placeholder="年級不變更"
                   className="w-full"
                 />
@@ -903,7 +903,7 @@ export default function StudentManager() {
               </div>
               <button
                 onClick={handleBatchUpdate}
-                disabled={loading || selectedStudentIds.length === 0 || (!batchGrade && batchCourses.length === 0 && batchRemoveCourses.length === 0)}
+                disabled={loading || selectedStudentIds.length === 0 || (batchGrade === '不變更' && batchCourses.length === 0 && batchRemoveCourses.length === 0)}
                 className={`${mobileBatchPanelOpen ? 'flex' : 'hidden'} md:flex bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-2.5 px-5 rounded-xl shadow-sm transition-all items-center justify-center`}
               >
                 批次修改

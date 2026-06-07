@@ -10,6 +10,11 @@ export default function Navigation() {
   const pathname = usePathname();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [session, setSessionState] = useState<SessionData | null>(null);
+  const [sidebarData, setSidebarData] = useState<{
+    menuItems: any[];
+    dashboardHref?: string;
+    activeTab?: string | null;
+  } | null>(null);
 
   const refreshSession = useCallback(() => {
     setSessionState(getSession());
@@ -24,17 +29,74 @@ export default function Navigation() {
   }, [pathname, refreshSession]);
 
   useEffect(() => {
-    const onAuthChange = () => refreshSession();
-    window.addEventListener('auth-logout', onAuthChange);
-    window.addEventListener('storage', onAuthChange);
+    const handleAuthLogout = () => {
+      setSessionState(null); // 登出時，立刻強制清空登入狀態，避免資料殘留
+      setSidebarData(null);
+    };
+    const handleStorage = () => {
+      refreshSession();
+    };
+    window.addEventListener('auth-logout', handleAuthLogout);
+    window.addEventListener('storage', handleStorage);
     return () => {
-      window.removeEventListener('auth-logout', onAuthChange);
-      window.removeEventListener('storage', onAuthChange);
+      window.removeEventListener('auth-logout', handleAuthLogout);
+      window.removeEventListener('storage', handleStorage);
     };
   }, [refreshSession]);
 
+  useEffect(() => {
+    const handleSidebarSync = (e: any) => {
+      setSidebarData(e.detail);
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('sidebar-sync', handleSidebarSync);
+      // 初始化時主動請求側邊欄發送資料，以防 Navigation 比較晚掛載
+      window.dispatchEvent(new Event('request-sidebar-sync'));
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('sidebar-sync', handleSidebarSync);
+      }
+    };
+  }, []);
+
   const isActive = (path: string) => {
     return pathname === path;
+  };
+
+  const isManagementRole = (sessionData: any) => {
+    if (!sessionData) return false;
+    const role = sessionData.currentRole || sessionData.role;
+    if (Array.isArray(role)) {
+      const roles = role.map((r: string) => r.toLowerCase());
+      return roles.includes('admin') || roles.includes('管理員') || roles.includes('teacher') || roles.includes('老師');
+    }
+    if (typeof role === 'string') {
+      const r = role.toLowerCase();
+      return r === 'admin' || r === '管理員' || r === 'teacher' || r === '老師';
+    }
+    return false;
+  };
+
+  const getCourseLoginHref = () => {
+    if (!session) return '/login';
+    if (!isManagementRole(session)) return '/student';
+    return '/login';
+  };
+
+  const getUserRoleDisplay = (sessionData: any) => {
+    if (!sessionData) return '學生';
+    const role = sessionData.currentRole || sessionData.role;
+    if (Array.isArray(role)) {
+      const roles = role.map((r: string) => r.toLowerCase());
+      if (roles.includes('admin') || roles.includes('管理員')) return '管理員';
+      if (roles.includes('teacher') || roles.includes('老師')) return '老師';
+    } else if (typeof role === 'string') {
+      const r = role.toLowerCase();
+      if (r === 'admin' || r === '管理員') return '管理員';
+      if (r === 'teacher' || r === '老師') return '老師';
+    }
+    return '學生';
   };
 
   const navLinks = [
@@ -75,44 +137,15 @@ export default function Navigation() {
                 {link.label}
               </Link>
             ))}
-            <>
-                <Link
-                  href={
-                    session &&
-                    typeof session === 'object' &&
-                    session !== null &&
-                    'role' in session &&
-                    ((session as { role?: string }).role === 'admin' ||
-                      (session as { role?: string }).role === 'teacher' ||
-                      (session as { role?: string }).role === '管理員' ||
-                      (session as { role?: string }).role === '老師')
-                      ? '/back-panel'
-                      : '/panel'
-                  }
-                  className={`ml-2 inline-flex items-center px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
-                    isActive('/panel')
-                      ? 'bg-indigo-50 text-indigo-600 shadow-sm'
-                      : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600'
-                  }`}
-                >
-                  網站管理
-                </Link>
-                <Link
-                  href={
-                    session &&
-                    typeof session === 'object' &&
-                    session !== null &&
-                    'role' in session &&
-                    ((session as { role?: string }).role === 'student' ||
-                      (session as { role?: string }).role === '學生')
-                      ? '/student'
-                      : '/login'
-                  }
-                  className="ml-4 inline-flex items-center px-5 py-2 border border-transparent text-sm font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm hover:shadow-md transition-all transform hover:-translate-y-0.5"
-                >
-                  登入課程
-                </Link>
-            </>
+            <Link href="/panel" className={`ml-2 inline-flex items-center px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${isActive('/panel') ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600'}`}>
+              網站管理
+            </Link>
+            <Link
+              href={getCourseLoginHref()}
+              className="ml-4 inline-flex items-center px-5 py-2 border border-transparent text-sm font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm hover:shadow-md transition-all transform hover:-translate-y-0.5"
+            >
+              登入課程
+            </Link>
           </div>
 
           {/* Mobile menu button */}
@@ -134,7 +167,7 @@ export default function Navigation() {
       </div>
 
       {/* Mobile menu */}
-      <div className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out ${isMenuOpen ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'}`}>
+      <div className={`md:hidden overflow-y-auto custom-scrollbar transition-all duration-300 ease-in-out ${isMenuOpen ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'}`}>
         <div className="px-4 pt-2 pb-4 space-y-2 bg-gray-50 border-t border-gray-100 shadow-inner">
           {navLinks.map((link) => (
             <Link
@@ -150,20 +183,139 @@ export default function Navigation() {
               {link.label}
             </Link>
           ))}
-          <>
+          
+          {session ? (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="flex items-center px-4 mb-4">
+                <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold shadow-sm">
+                  {session.name?.[0] || '?'}
+                </div>
+                <div className="ml-3">
+                  <div className="text-base font-bold text-gray-800">{session.name}</div>
+                  <div className="text-sm font-medium text-gray-500">
+                    {getUserRoleDisplay(session)}
+                  </div>
+                </div>
+              </div>
+
+              {sidebarData ? (
+                <div className="space-y-1">
+                  {sidebarData.dashboardHref ? (
+                    <Link
+                      href={sidebarData.dashboardHref}
+                      className={`block px-4 py-3 rounded-xl text-base font-medium transition-colors ${
+                        isActive(sidebarData.dashboardHref) ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600'
+                      }`}
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      儀表板
+                    </Link>
+                  ) : (
+                    <button
+                      className={`block w-full text-left px-4 py-3 rounded-xl text-base font-medium transition-colors ${
+                        sidebarData.activeTab === null ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600'
+                      }`}
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        if (typeof window !== 'undefined') {
+                          window.dispatchEvent(new CustomEvent('request-tab-change', { detail: null }));
+                        }
+                      }}
+                    >
+                      儀表板
+                    </button>
+                  )}
+                  
+                  {sidebarData.menuItems.map((item: any) => {
+                    if (item.id.startsWith('divider')) {
+                      return <div key={item.id} className="border-t border-gray-100 mx-4 my-2" />;
+                    }
+                    const isPersonalInfo = item.id === 'change-password' || item.id === 'information';
+                    const displayItem = isPersonalInfo ? {
+                        ...item,
+                        id: 'information',
+                        title: '個人資料',
+                        href: '/student/information',
+                    } : item;
+
+                    if (displayItem.href && !displayItem.disabled) {
+                      return (
+                        <Link
+                          key={displayItem.id}
+                          href={displayItem.href}
+                          className={`block px-4 py-3 rounded-xl text-base font-medium transition-colors ${
+                            isActive(displayItem.href) ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600'
+                          }`}
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          {displayItem.title}
+                        </Link>
+                      );
+                    }
+                    
+                    if (!displayItem.disabled) {
+                      return (
+                        <button
+                          key={displayItem.id}
+                          className={`block w-full text-left px-4 py-3 rounded-xl text-base font-medium transition-colors ${
+                            sidebarData.activeTab === displayItem.id ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600'
+                          }`}
+                          onClick={() => {
+                            setIsMenuOpen(false);
+                            if (typeof window !== 'undefined') {
+                              window.dispatchEvent(new CustomEvent('request-tab-change', { detail: displayItem.id }));
+                            }
+                          }}
+                        >
+                          {displayItem.title}
+                        </button>
+                      );
+                    }
+                    
+                    return null;
+                  })}
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <Link
+                    href={isManagementRole(session) ? '/back-panel' : '/student'}
+                    className="block px-4 py-3 rounded-xl text-base font-medium transition-colors text-gray-600 hover:bg-gray-50 hover:text-indigo-600"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    進入儀表板
+                  </Link>
+                </div>
+              )}
+              
+              <button
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  if (typeof window !== 'undefined') {
+                    if (sidebarData) {
+                      // 若 Sidebar 存在，發送事件交給 Sidebar 執行完整的登出邏輯與清除快取
+                      window.dispatchEvent(new Event('request-logout'));
+                    } else {
+                      // 防呆機制：若無 Sidebar (例如首頁)，嘗試呼叫 API 並觸發全域登出
+                      Promise.all([
+                        fetch('/api/auth/logout', { method: 'POST' }).catch(() => {}),
+                        fetch('/api/logout', { method: 'POST' }).catch(() => {})
+                      ]).finally(() => {
+                        window.dispatchEvent(new Event('auth-logout'));
+                        sessionStorage.removeItem('sidebar_user_info');
+                        window.location.href = '/';
+                      });
+                    }
+                  }
+                }}
+                className="block w-full text-left px-4 py-3 mt-2 rounded-xl text-base font-medium text-red-500 hover:bg-red-50 transition-colors"
+              >
+                登出
+              </button>
+            </div>
+          ) : (
+            <>
               <Link
-                href={
-                  session &&
-                  typeof session === 'object' &&
-                  session !== null &&
-                  'role' in session &&
-                  ((session as { role?: string }).role === 'admin' ||
-                    (session as { role?: string }).role === 'teacher' ||
-                    (session as { role?: string }).role === '管理員' ||
-                    (session as { role?: string }).role === '老師')
-                    ? '/back-panel'
-                    : '/panel'
-                }
+                href="/panel"
                 className={`block px-4 py-3 rounded-xl text-base font-medium transition-colors ${
                   isActive('/panel')
                     ? 'bg-white text-indigo-600 shadow-sm'
@@ -174,22 +326,14 @@ export default function Navigation() {
                 網站管理
               </Link>
               <Link
-                href={
-                  session &&
-                  typeof session === 'object' &&
-                  session !== null &&
-                  'role' in session &&
-                  ((session as { role?: string }).role === 'student' ||
-                    (session as { role?: string }).role === '學生')
-                    ? '/student'
-                    : '/login'
-                }
+                href="/login"
                 className="block px-4 py-3 mt-4 text-left rounded-xl text-base font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition-colors"
                 onClick={() => setIsMenuOpen(false)}
               >
                 登入課程
               </Link>
-          </>
+            </>
+          )}
         </div>
       </div>
     </nav>

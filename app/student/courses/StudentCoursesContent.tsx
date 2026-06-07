@@ -11,7 +11,7 @@ import { BookOpenIcon, ClockIcon, MapPinIcon, UserIcon, VideoCameraIcon, Megapho
 // Interfaces
 interface ClassTime { day: string; startTime: string; endTime: string; }
 interface CustomLink { name: string; url: string; icon: string; }
-interface CourseAnnouncement { id: string; title: string; type?: '公告事項' | '課程資訊'; content: string; links: { name: string; url: string }[]; createdAt: string; }
+interface CourseAnnouncement { id: string; title: string; content: string; links: { name: string; url: string }[]; createdAt: string; }
 interface Course { id: string; name: string; code: string; status: string; archived?: boolean; gradeTags: string[]; subjectTag: string; startDate: string; endDate: string; teachers: string[]; teacherName?: string; description: string; teachingMethod: string; courseNature: string; location?: string; liveStreamURL?: string; coverImageURL?: string; classTimes?: ClassTime[]; customLinks?: CustomLink[]; announcements?: CourseAnnouncement[]; }
 interface Lesson { id: string; title: string; date: string; progress: string; attachments: Array<string | { url: string; name?: string; visibleToStudents?: boolean }>; videos: string[]; homework: string; onlineExam: string; examScope: string; notes: string; createdAt: string | number | { toDate: () => Date }; order?: number; }
 
@@ -21,9 +21,12 @@ function LessonDetail({ lesson, index, selectedCourse, router }: { lesson: Lesso
   return (
     <div className="bg-white border border-gray-100 rounded-xl p-5 hover:shadow-md hover:border-indigo-200 transition-all duration-300 group">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-start gap-4">
-           <div className="flex-shrink-0 w-10 h-10 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 font-bold">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+           <div className="hidden sm:flex flex-shrink-0 w-10 h-10 bg-indigo-50 rounded-full items-center justify-center text-indigo-600 font-bold">
               {index + 1}
+           </div>
+           <div className="sm:hidden inline-block w-fit bg-indigo-50 text-indigo-600 font-bold text-xs px-2.5 py-1 rounded-md mb-1">
+              第 {index + 1} 堂
            </div>
            <div>
               <h4 className="text-lg font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">
@@ -86,9 +89,12 @@ export default function StudentCoursesContent() {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loadingLessons, setLoadingLessons] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [announcementPage, setAnnouncementPage] = useState<number>(1);
+  const [activeCourseTab, setActiveCourseTab] = useState<'info' | 'announcements'>('info');
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<CourseAnnouncement | null>(null);
   const [courseDetails, setCourseDetails] = useState<{ customLinks?: CustomLink[], announcements?: CourseAnnouncement[] }>({});
   const lessonsPerPage = 5;
+  const announcementsPerPage = 3;
 
   const fetchCourses = useCallback(async (options?: { silent?: boolean }) => {
     if (!studentInfo) return;
@@ -160,6 +166,8 @@ export default function StudentCoursesContent() {
       
       // 切換課程時，先清空舊的詳細資料，避免畫面短暫殘留
       setCourseDetails({});
+      setAnnouncementPage(1);
+      setActiveCourseTab('info');
       
       try {
         const res = await fetch(`/api/courses/classdata?courseId=${selectedCourse.id}`);
@@ -236,8 +244,14 @@ export default function StudentCoursesContent() {
   const activeLinks = (courseDetails.customLinks && courseDetails.customLinks.length > 0 ? courseDetails.customLinks : selectedCourse?.customLinks) || [];
   const activeAnnouncements = (courseDetails.announcements && courseDetails.announcements.length > 0 ? courseDetails.announcements : selectedCourse?.announcements) || [];
 
+  const sortedAnnouncements = [...activeAnnouncements].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const indexOfLastAnnouncement = announcementPage * announcementsPerPage;
+  const indexOfFirstAnnouncement = indexOfLastAnnouncement - announcementsPerPage;
+  const currentAnnouncements = sortedAnnouncements.slice(indexOfFirstAnnouncement, indexOfLastAnnouncement);
+  const totalAnnouncementPages = Math.ceil(sortedAnnouncements.length / announcementsPerPage);
+
   return (
-    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pt-6 md:pt-8 pb-10 flex flex-col h-full animate-fade-in">
+    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pt-6 md:pt-8 pb-10 flex flex-col min-h-full animate-fade-in">
       {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div className="border-l-4 border-indigo-500 pl-4">
@@ -256,8 +270,8 @@ export default function StudentCoursesContent() {
       {loadingCourses ? (
         <PageLoadingArea minHeight="min-h-[16rem]" />
       ) : courses.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300">
-            <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-4xl text-gray-300">📚</div>
+        <div className="text-center py-20 bg-gray-50 rounded-2xl border border-dashed border-gray-300">
+            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 text-4xl text-gray-300 shadow-sm">📚</div>
             <h3 className="text-xl font-bold text-gray-900 mb-2">尚無課程</h3>
             <p className="text-gray-500">您目前還沒有選擇任何課程</p>
         </div>
@@ -297,6 +311,23 @@ export default function StudentCoursesContent() {
                         </span>
                     </div>
                     </div>
+
+                    <div className="flex gap-6 border-b border-white/20 mb-6">
+                      <button
+                        onClick={() => setActiveCourseTab('info')}
+                        className={`pb-3 font-bold text-lg transition-all border-b-2 ${activeCourseTab === 'info' ? 'border-white text-white' : 'border-transparent text-white/60 hover:text-white/90'}`}
+                      >
+                        課程資訊
+                      </button>
+                      <button
+                        onClick={() => setActiveCourseTab('announcements')}
+                        className={`pb-3 font-bold text-lg transition-all border-b-2 ${activeCourseTab === 'announcements' ? 'border-white text-white' : 'border-transparent text-white/60 hover:text-white/90'}`}
+                      >
+                        課程公告
+                      </button>
+                    </div>
+
+                    {activeCourseTab === 'info' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-indigo-50">
                     <div className="flex items-start">
                         <ClockIcon className="w-5 h-5 mr-3 mt-0.5 opacity-70" />
@@ -324,7 +355,14 @@ export default function StudentCoursesContent() {
                             <ClockIcon className="w-5 h-5 mr-3 mt-0.5 opacity-70" />
                             <div>
                                 <p className="text-xs uppercase tracking-wider opacity-70 mb-1">上課時間</p>
-                                <p className="font-medium">{selectedCourse.classTimes.map(time => `${time.day} ${time.startTime}-${time.endTime}`).join('、')}</p>
+                                <div className="font-medium">
+                                    {selectedCourse.classTimes.map((time, idx, arr) => (
+                                        <React.Fragment key={idx}>
+                                            <span className="block sm:inline">{`${time.day} ${time.startTime}-${time.endTime}`}</span>
+                                            {idx < arr.length - 1 && <span className="hidden sm:inline">、</span>}
+                                        </React.Fragment>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     )}
@@ -334,10 +372,10 @@ export default function StudentCoursesContent() {
                                 href={selectedCourse.liveStreamURL} 
                                 target="_blank" 
                                 rel="noopener noreferrer" 
-                                className="inline-flex items-center px-5 py-2.5 bg-white text-indigo-600 rounded-xl font-bold text-sm hover:bg-indigo-50 transition-colors shadow-lg shadow-indigo-900/20"
+                                className="inline-flex items-center gap-2 min-w-[160px] px-5 py-2.5 bg-white text-indigo-600 rounded-xl font-bold text-sm hover:bg-indigo-50 transition-colors shadow-lg shadow-indigo-900/20"
                              >
-                                <VideoCameraIcon className="w-5 h-5 mr-2" />
-                                進入線上會議
+                                <VideoCameraIcon className="w-5 h-5 shrink-0" />
+                                <span className="flex-1 text-center">進入線上會議</span>
                              </a>
                         )}
                         {activeLinks.map((link, idx) => (
@@ -346,42 +384,48 @@ export default function StudentCoursesContent() {
                                 href={link.url} 
                                 target="_blank" 
                                 rel="noopener noreferrer" 
-                                className="inline-flex items-center px-5 py-2.5 bg-white text-indigo-600 rounded-xl font-bold text-sm hover:bg-indigo-50 transition-colors shadow-lg shadow-indigo-900/20"
+                                className="inline-flex items-center gap-2 min-w-[160px] px-5 py-2.5 bg-white text-indigo-600 rounded-xl font-bold text-sm hover:bg-indigo-50 transition-colors shadow-lg shadow-indigo-900/20"
                              >
-                                {renderIcon(link.icon, "w-5 h-5 mr-2")}
-                                {link.name}
+                                {renderIcon(link.icon, "w-5 h-5 shrink-0")}
+                                <span className="flex-1 text-center">{link.name}</span>
                              </a>
                         ))}
                     </div>
+                    </div>
+                    )}
 
-                    {/* 課程公告併入色塊 */}
-                    {activeAnnouncements.length > 0 && (
-                      <div className="col-span-1 md:col-span-2 lg:col-span-3 mt-6 pt-6 border-t border-white/20">
-                        <h4 className="text-lg font-bold text-white flex items-center mb-4">
-                          <MegaphoneIcon className="w-6 h-6 mr-3 opacity-90" />
-                          課程公告
-                        </h4>
-                        <div className="space-y-2">
-                          {[...activeAnnouncements].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(ann => (
-                            <div key={ann.id} onClick={() => setSelectedAnnouncement(ann)} className="cursor-pointer bg-white/10 hover:bg-white/20 backdrop-blur-sm p-4 rounded-xl border border-white/10 transition-colors flex justify-between items-center group shadow-sm">
-                               <div className="flex items-center gap-3">
-                                 <div className="w-8 h-8 rounded-full bg-white/20 text-white flex items-center justify-center shrink-0">
-                                   <MegaphoneIcon className="w-4 h-4" />
-                                 </div>
-                                 <h4 className="font-bold text-white group-hover:text-indigo-50 transition-colors line-clamp-1">{ann.title}</h4>
-                               </div>
-                               <span className="text-xs text-indigo-100 font-mono ml-4 shrink-0 hidden sm:block opacity-80">{new Date(ann.createdAt).toLocaleDateString()}</span>
+                    {activeCourseTab === 'announcements' && (
+                      <div className="animate-fade-in">
+                        {activeAnnouncements.length > 0 ? (
+                          <>
+                            <div className="space-y-3">
+                              {currentAnnouncements.map(ann => (
+                                <div key={ann.id} onClick={() => setSelectedAnnouncement(ann)} className="cursor-pointer bg-white/10 hover:bg-white/20 backdrop-blur-sm p-4 rounded-xl border border-white/10 transition-colors flex justify-between items-center group shadow-sm">
+                                   <div className="flex items-center gap-3">
+                                     <div className="w-8 h-8 rounded-full bg-white/20 text-white flex items-center justify-center shrink-0">
+                                       <MegaphoneIcon className="w-4 h-4" />
+                                     </div>
+                                     <h4 className="font-bold text-white group-hover:text-indigo-50 transition-colors line-clamp-1">{ann.title}</h4>
+                                   </div>
+                                   <span className="text-xs text-indigo-100 font-mono ml-4 shrink-0 hidden sm:block opacity-80">{new Date(ann.createdAt).toLocaleDateString()}</span>
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
+                            <Pagination currentPage={announcementPage} totalPages={totalAnnouncementPages} setCurrentPage={setAnnouncementPage} />
+                          </>
+                        ) : (
+                          <div className="text-center py-10 bg-white/10 rounded-xl border border-white/20 text-white/80 backdrop-blur-sm shadow-sm">
+                            <MegaphoneIcon className="w-12 h-12 mx-auto mb-3 opacity-60" />
+                            目前沒有課程公告
+                          </div>
+                        )}
                       </div>
                     )}
-                    </div>
                 </div>
               </div>
 
               {/* 課程列表區塊 */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8 mb-4">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
                   <h3 className="text-xl font-bold text-gray-900 flex items-center">
                     <span className="w-1.5 h-6 bg-indigo-500 rounded-full mr-3"></span>
@@ -394,7 +438,7 @@ export default function StudentCoursesContent() {
                   <PageLoadingArea />
                 ) : lessons.length === 0 ? (
                   <div className="text-center py-20 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                      <div className="text-gray-300 text-5xl mb-4">📝</div>
+                      <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 text-4xl text-gray-300 shadow-sm">📝</div>
                       <p className="text-gray-500 font-medium">此課程尚未發布任何內容</p>
                   </div>
                 ) : (

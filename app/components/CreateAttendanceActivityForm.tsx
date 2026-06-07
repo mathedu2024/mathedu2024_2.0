@@ -270,7 +270,7 @@ export default function CreateAttendanceActivityForm({ courseId, onComplete, onC
         const responseText = await response.text();
         console.error('Create Activity Response Text:', responseText);
         
-        let errorMessage = `建立活動失敗 (${response.status})`;
+        let errorMessage = `伺服器錯誤，請稍後再試`;
         try {
           let errorData = JSON.parse(responseText);
           // 處理雙重序列化的 JSON 字串 (Handle double-encoded JSON string)
