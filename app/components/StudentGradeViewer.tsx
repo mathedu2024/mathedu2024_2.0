@@ -28,14 +28,14 @@ const Modal = ({ open, onClose, title, size = 'md', children }: { open: boolean;
 
   return createPortal(
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex justify-center items-center p-4 animate-fade-in">
-      <div className={`bg-white rounded-2xl shadow-2xl w-full ${size === 'lg' ? 'max-w-4xl' : 'max-w-lg'} max-h-[90vh] overflow-y-auto animate-bounce-in border border-gray-100`}>
-        <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+      <div className={`bg-white rounded-2xl shadow-2xl w-full ${size === 'lg' ? 'max-w-4xl' : 'max-w-lg'} max-h-full sm:max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in border border-gray-100`}>
+        <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex-shrink-0">
           <h3 className="text-xl font-bold text-gray-800">{title}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-200">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
-        <div className="p-6">
+        <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
           {children}
         </div>
       </div>

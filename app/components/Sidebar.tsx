@@ -6,6 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { UserCircleIcon } from '@heroicons/react/24/outline';
 import { useHydrated } from '@/utils/useHydrated';
+import { isCompactNavMode, useCompactNav } from '@/utils/useCompactNav';
 
 interface UserInfo {
   id: string;
@@ -63,6 +64,7 @@ export default function Sidebar({
   const router = useRouter();
   const pathname = usePathname();
   const hydrated = useHydrated();
+  const isCompactNav = useCompactNav();
 
   // 新增：記住上一次的 userInfo，避免換頁時因為瞬間為 null 而造成畫面文字閃爍
   const [persistedUserInfo, setPersistedUserInfo] = useState<UserInfo | null>(userInfo ?? null);
@@ -123,20 +125,17 @@ export default function Sidebar({
   }, [activeTab, pathname, dashboardHref]);
 
   useEffect(() => {
-    
-    // 修正：僅在組件初次掛載時執行初始化檢查
-    // 移除 sidebarOpen 依賴，避免每次打開選單時又觸發自動關閉邏輯
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
-      if (sidebarOpen) onToggleSidebar();
+    if (isCompactNav && sidebarOpen) {
+      onToggleSidebar();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isCompactNav]);
 
   // 當點選功能時自動關閉側邊欄
   const handleTabChange = (tab: string | null) => {
     onTabChange(tab);
     // 如果是手機版或側邊欄是展開狀態，點選後關閉
-    if (window.innerWidth < 768 && sidebarOpen) {
+    if (isCompactNavMode() && sidebarOpen) {
       onToggleSidebar();
     }
   };
@@ -259,12 +258,12 @@ export default function Sidebar({
     'flex flex-col z-[60] bg-white border-r border-gray-200 shadow-sm',
     'transition-all duration-300 ease-in-out',
     'fixed top-16 left-0 h-[calc(100vh-64px)]',
-    {
+    isCompactNav && 'hidden',
+    !isCompactNav && {
       'w-64': sidebarOpen,
-      'w-0 md:w-20': !sidebarOpen, // 手機版關閉時寬度設為 0，避免影響佈局計算
-      '-translate-x-full md:translate-x-0': !sidebarOpen, // 手機隱藏，桌機縮小
-      'translate-x-0': sidebarOpen, // Show when open
-      'max-md:hidden': true, // 手機版將側邊欄內容合併至上方導覽列，因此完全隱藏
+      'w-0 md:w-20': !sidebarOpen,
+      '-translate-x-full md:translate-x-0': !sidebarOpen,
+      'translate-x-0': sidebarOpen,
     }
   );
 
@@ -353,7 +352,7 @@ export default function Sidebar({
                 const handlePersonalInfoClick = () => {
                   globalCachedActiveTab = displayItem.id;
                   setOptimisticTab(displayItem.id);
-                  if (window.innerWidth < 768 && sidebarOpen) {
+                  if (isCompactNavMode() && sidebarOpen) {
                     onToggleSidebar();
                   }
                 };

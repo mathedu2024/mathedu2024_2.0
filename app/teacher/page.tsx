@@ -182,7 +182,7 @@ function TeacherPageContent() {
             onClick={handleCloseModal}
           ></div>
           
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl h-[90vh] overflow-hidden flex flex-col animate-bounce-in">
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-full sm:h-[90vh] overflow-hidden flex flex-col animate-bounce-in">
             {/* Modal Header */}
             <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
               <div className="flex items-center gap-3">
@@ -266,7 +266,7 @@ function TeacherPageContent() {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 border-t border-gray-100 flex justify-end bg-gray-50/50">
+            <div className="p-4 border-t border-gray-100 flex justify-end bg-gray-50/50 flex-shrink-0">
               <button
                 onClick={handleCloseModal}
                 className="px-6 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-100 font-medium transition-colors shadow-sm"

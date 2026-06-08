@@ -54,7 +54,7 @@ const Modal = ({ open, onClose, title, size = 'md', children }: { open: boolean;
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex justify-center items-center p-4 animate-fade-in">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
-      <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${maxWidthClass} max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in border border-gray-100`}>
+      <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${maxWidthClass} max-h-full sm:max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in border border-gray-100`}>
         <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
           <h3 className="text-xl font-bold flex items-center">{title}</h3>
           <button onClick={onClose} className="text-white/80 hover:text-white transition-colors p-1 rounded-full hover:bg-white/20">
@@ -1011,7 +1011,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
        {showCourseDetail && mounted && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowCourseDetail(null)}></div>
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-bounce-in">
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-full sm:max-h-[90vh] overflow-hidden flex flex-col animate-bounce-in">
             {/* Modal Header */}
             <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
               <h2 className="text-xl font-bold pr-8 line-clamp-1 flex items-center">

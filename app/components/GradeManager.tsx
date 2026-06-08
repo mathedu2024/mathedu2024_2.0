@@ -77,7 +77,7 @@ const Modal = ({ open, onClose, title, size = 'md', children }: { open?: boolean
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex justify-center items-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
-      <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${maxWidth} max-h-[90vh] flex flex-col overflow-hidden`}>
+      <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${maxWidth} max-h-full sm:max-h-[90vh] flex flex-col overflow-hidden`}>
         <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white">
           <h3 className="font-bold flex items-center">{title}</h3>
           <button onClick={onClose} className="text-white/80 hover:text-white">

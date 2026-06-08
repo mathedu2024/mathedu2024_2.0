@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useStudentInfo } from '../StudentInfoContext';
 import PageLoadingArea from '@/components/ui/PageLoadingArea';
 import StudentCourseSelector, { getCourseDisplayKey } from '@/components/StudentCourseSelector';
-import { BookOpenIcon, ClockIcon, MapPinIcon, UserIcon, VideoCameraIcon, MegaphoneIcon, LinkIcon, DocumentTextIcon, FolderIcon, ChatBubbleLeftRightIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { BookOpenIcon, ClockIcon, MapPinIcon, UserIcon, VideoCameraIcon, MegaphoneIcon, LinkIcon, DocumentTextIcon, FolderIcon, ChatBubbleLeftRightIcon, XMarkIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 
 // Interfaces
 interface ClassTime { day: string; startTime: string; endTime: string; }
@@ -69,11 +69,11 @@ const Pagination = ({ currentPage, totalPages, setCurrentPage }: { currentPage: 
   }
   return (
     <div className="flex items-center justify-center space-x-2 mt-8">
-      <button onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} disabled={currentPage === 1} className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${currentPage === 1 ? 'bg-gray-50 text-gray-300 cursor-not-allowed' : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200 hover:text-indigo-600'}`}>上一頁</button>
-      {startPage > 1 && (<><button onClick={() => setCurrentPage(1)} className="w-10 h-10 rounded-xl text-sm font-medium bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 border border-gray-200 transition-all">1</button>{startPage > 2 && <span className="px-2 text-gray-400">...</span>}</>)}
-      {pageNumbers.map(number => (<button key={number} onClick={() => setCurrentPage(number)} className={`w-10 h-10 rounded-xl text-sm font-bold transition-all shadow-sm ${currentPage === number ? 'bg-indigo-600 text-white shadow-indigo-200' : 'bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 border border-gray-200'}`}>{number}</button>))}
-      {endPage < totalPages && (<>{endPage < totalPages - 1 && <span className="px-2 text-gray-400">...</span>}<button onClick={() => setCurrentPage(totalPages)} className="w-10 h-10 rounded-xl text-sm font-medium bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 border border-gray-200 transition-all">{totalPages}</button></>)}
-      <button onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))} disabled={currentPage === totalPages} className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${currentPage === totalPages ? 'bg-gray-50 text-gray-300 cursor-not-allowed' : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200 hover:text-indigo-600'}`}>下一頁</button>
+      <button onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} disabled={currentPage === 1} className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm ${currentPage === 1 ? 'bg-gray-50 text-gray-300 border border-gray-200 cursor-not-allowed shadow-none' : 'bg-white text-gray-600 hover:bg-indigo-50 border border-gray-200 hover:text-indigo-600'}`}><ChevronLeftIcon className="w-5 h-5 stroke-2" /></button>
+      {startPage > 1 && (<><button onClick={() => setCurrentPage(1)} className="w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 border border-gray-200">1</button>{startPage > 2 && <span className="px-2 text-gray-400">...</span>}</>)}
+      {pageNumbers.map(number => (<button key={number} onClick={() => setCurrentPage(number)} className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm ${currentPage === number ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 border border-indigo-600' : 'bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 border border-gray-200'}`}>{number}</button>))}
+      {endPage < totalPages && (<>{endPage < totalPages - 1 && <span className="px-2 text-gray-400">...</span>}<button onClick={() => setCurrentPage(totalPages)} className="w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 border border-gray-200">{totalPages}</button></>)}
+      <button onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))} disabled={currentPage === totalPages} className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm ${currentPage === totalPages ? 'bg-gray-50 text-gray-300 border border-gray-200 cursor-not-allowed shadow-none' : 'bg-white text-gray-600 hover:bg-indigo-50 border border-gray-200 hover:text-indigo-600'}`}><ChevronRightIcon className="w-5 h-5 stroke-2" /></button>
     </div>
   );
 };

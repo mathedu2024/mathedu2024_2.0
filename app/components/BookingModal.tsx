@@ -158,7 +158,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ slot, userInfo, onClose, on
         />
 
         <motion.div
-          className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden"
+          className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-full sm:max-h-[90vh] flex flex-col overflow-hidden"
           variants={modalVariants}
           initial="hidden"
           animate="visible"

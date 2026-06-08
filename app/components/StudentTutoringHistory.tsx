@@ -397,9 +397,9 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
       {/* Edit Modal */}
       {isEditModalOpen && selectedAppointment && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-[99999] p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-bounce-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-full sm:max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in">
             {/* Header */}
-            <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-4 flex justify-between items-center text-white">
+            <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-4 flex justify-between items-center text-white flex-shrink-0">
                 <h3 className="font-bold flex items-center text-lg">
                     <PencilIcon className="w-5 h-5 mr-2" /> 編輯預約問題
                 </h3>
@@ -410,8 +410,8 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
             </div>
 
             {/* Content & Form */}
-            <form onSubmit={handleUpdateAppointment}>
-              <div className="p-6">
+            <form onSubmit={handleUpdateAppointment} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
                 <label htmlFor="problemDescription" className="block text-sm font-bold text-gray-700 mb-2">您想討論的問題或需求</label>
                 <textarea
                   id="problemDescription"
@@ -425,7 +425,7 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
               </div>
               
               {/* Footer */}
-              <div className="p-4 bg-gray-50 border-t border-gray-100 flex gap-2 justify-end">
+              <div className="p-4 bg-gray-50 border-t border-gray-100 flex gap-2 justify-end flex-shrink-0">
                 <button 
                   type="button" 
                   onClick={() => setIsEditModalOpen(false)} 
@@ -449,9 +449,9 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
       {/* Details Modal */}
       {isDetailsModalOpen && detailsAppointment && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-[99999] p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-bounce-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-full sm:max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in">
             {/* Header */}
-            <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
                 <h3 className="font-bold flex items-center text-lg">
                     <EyeIcon className="w-5 h-5 mr-2" /> 預約詳情
                 </h3>
@@ -462,7 +462,7 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
             </div>
             
             {/* Content */}
-            <div className="p-6 space-y-4 text-sm">
+            <div className="p-6 space-y-4 text-sm overflow-y-auto custom-scrollbar flex-1">
               <div className="flex items-center justify-between bg-gray-50 p-3 rounded-xl border border-gray-100">
                 <span className="text-gray-500 font-medium">預約狀態</span>
                 {getStatusChip(detailsAppointment.status)}
@@ -522,7 +522,7 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
             </div>
             
             {/* Footer */}
-            <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end">
+            <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end flex-shrink-0">
               <button 
                 type="button" 
                 onClick={() => setIsDetailsModalOpen(false)} 

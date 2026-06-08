@@ -38,7 +38,7 @@ export default function CounselingContent() {
       ) : (
       <>
       {/* Tabs + 篩選器 */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl w-fit">
           <button
             onClick={() => setActiveTab('request')}
@@ -63,27 +63,29 @@ export default function CounselingContent() {
         </div>
 
         {activeTab === 'history' && (
-          <div className="flex flex-wrap items-center gap-2 sm:ml-auto sm:justify-end">
-            <FunnelIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
-            <input
-              type="date"
-              value={dateRange.from}
-              onChange={(e) => setDateRange((prev) => ({ ...prev, from: e.target.value }))}
-              className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
-              aria-label="起始日期"
-            />
-            <span className="text-gray-400">~</span>
-            <input
-              type="date"
-              value={dateRange.to}
-              onChange={(e) => setDateRange((prev) => ({ ...prev, to: e.target.value }))}
-              className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
-              aria-label="結束日期"
-            />
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <FunnelIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+              <input
+                type="date"
+                value={dateRange.from}
+                onChange={(e) => setDateRange((prev) => ({ ...prev, from: e.target.value }))}
+                className="border border-gray-200 rounded-lg px-2 sm:px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white min-w-0"
+                aria-label="起始日期"
+              />
+              <span className="text-gray-400 flex-shrink-0">~</span>
+              <input
+                type="date"
+                value={dateRange.to}
+                onChange={(e) => setDateRange((prev) => ({ ...prev, to: e.target.value }))}
+                className="border border-gray-200 rounded-lg px-2 sm:px-3 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white min-w-0"
+                aria-label="結束日期"
+              />
+            </div>
             <button
               type="button"
               onClick={() => setDateRange({ from: getDefaultDateFrom(), to: getDefaultDateTo() })}
-              className="text-xs font-medium text-gray-500 hover:text-indigo-600 px-3 py-1.5 hover:bg-gray-100 rounded-lg transition-colors whitespace-nowrap"
+              className="text-xs font-medium text-gray-700 sm:text-gray-500 hover:text-indigo-600 px-3 py-2 sm:py-1.5 bg-gray-100 sm:bg-transparent hover:bg-gray-200 sm:hover:bg-gray-100 rounded-lg transition-colors whitespace-nowrap"
             >
               重設為近一個月
             </button>

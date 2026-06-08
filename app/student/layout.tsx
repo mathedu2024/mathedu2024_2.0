@@ -6,6 +6,7 @@ import { logoutClient } from '../utils/logoutClient';
 import Sidebar from '../components/Sidebar';
 import { useStudentInfo, StudentInfoProvider } from './StudentInfoContext';
 import { BookOpenIcon, ClipboardDocumentListIcon, CheckCircleIcon, PencilIcon, CalendarIcon, KeyIcon, CloudArrowDownIcon } from '@heroicons/react/24/outline';
+import { useCompactNav } from '../utils/useCompactNav';
 
 const studentFeatures = [
   { id: 'courses', title: '我的課程', icon: <BookOpenIcon /> },
@@ -25,10 +26,11 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { studentInfo, loading, clearStudentInfo } = useStudentInfo();
   const [, startTransition] = useTransition();
+  const isCompactNav = useCompactNav();
 
   useEffect(() => {
-    setSidebarOpen(window.innerWidth >= 768);
-  }, []);
+    setSidebarOpen(!isCompactNav);
+  }, [isCompactNav]);
 
   useEffect(() => {
     const pathSegments = pathname.split('/').filter(Boolean);
@@ -83,7 +85,7 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
 
         <main
           className={`flex-1 min-w-0 transition-[padding] duration-300 relative bg-gray-50 pl-0 ${
-            sidebarOpen ? 'md:pl-64' : 'md:pl-20'
+            isCompactNav ? '' : sidebarOpen ? 'md:pl-64' : 'md:pl-20'
           }`}
         >
           {children}

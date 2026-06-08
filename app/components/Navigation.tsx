@@ -4,10 +4,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { getSession, type SessionData } from '../utils/session';
+import { useCompactNav } from '../utils/useCompactNav';
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 
 export default function Navigation() {
   const pathname = usePathname();
+  const isCompactNav = useCompactNav();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [session, setSessionState] = useState<SessionData | null>(null);
   const [sidebarData, setSidebarData] = useState<{
@@ -22,11 +24,16 @@ export default function Navigation() {
 
   useEffect(() => {
     refreshSession();
-  }, [refreshSession]);
-
-  useEffect(() => {
-    refreshSession();
   }, [pathname, refreshSession]);
+
+  // 當使用者跳出儀表板頁面時，清空側邊欄選單資料
+  // 確保手機版選單不殘留上一次的功能上色，並改為顯示「回到儀表板」
+  useEffect(() => {
+    const isDashboardRoute = pathname.startsWith('/student') || pathname.startsWith('/back-panel') || pathname.startsWith('/panel');
+    if (!isDashboardRoute) {
+      setSidebarData(null);
+    }
+  }, [pathname]);
 
   useEffect(() => {
     const handleAuthLogout = () => {
@@ -50,8 +57,6 @@ export default function Navigation() {
     };
     if (typeof window !== 'undefined') {
       window.addEventListener('sidebar-sync', handleSidebarSync);
-      // 初始化時主動請求側邊欄發送資料，以防 Navigation 比較晚掛載
-      window.dispatchEvent(new Event('request-sidebar-sync'));
     }
     return () => {
       if (typeof window !== 'undefined') {
@@ -123,7 +128,7 @@ export default function Navigation() {
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex md:items-center md:space-x-1">
+          <div className={`${isCompactNav ? 'hidden' : 'hidden md:flex'} md:items-center md:space-x-1`}>
             {navLinks.map((link) => (
               <Link
                 key={link.href}
@@ -149,7 +154,7 @@ export default function Navigation() {
           </div>
 
           {/* Mobile menu button */}
-          <div className="md:hidden flex items-center flex-shrink-0">
+          <div className={`${isCompactNav ? 'flex' : 'md:hidden flex'} items-center flex-shrink-0`}>
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className="inline-flex items-center justify-center p-2 rounded-xl text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 focus:outline-none transition-colors"
@@ -167,7 +172,7 @@ export default function Navigation() {
       </div>
 
       {/* Mobile menu */}
-      <div className={`md:hidden overflow-y-auto custom-scrollbar transition-all duration-300 ease-in-out ${isMenuOpen ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'}`}>
+      <div className={`${isCompactNav ? 'block' : 'md:hidden'} overflow-y-auto custom-scrollbar transition-all duration-300 ease-in-out ${isMenuOpen ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'}`}>
         <div className="px-4 pt-2 pb-4 space-y-2 bg-gray-50 border-t border-gray-100 shadow-inner">
           {navLinks.map((link) => (
             <Link
@@ -253,26 +258,33 @@ export default function Navigation() {
                       );
                     }
                     
-                    if (!displayItem.disabled) {
+                    if (displayItem.disabled) {
                       return (
-                        <button
+                        <div
                           key={displayItem.id}
-                          className={`block w-full text-left px-4 py-3 rounded-xl text-base font-medium transition-colors ${
-                            sidebarData.activeTab === displayItem.id ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600'
-                          }`}
-                          onClick={() => {
-                            setIsMenuOpen(false);
-                            if (typeof window !== 'undefined') {
-                              window.dispatchEvent(new CustomEvent('request-tab-change', { detail: displayItem.id }));
-                            }
-                          }}
+                          className="block px-4 py-3 rounded-xl text-base font-medium text-gray-400 opacity-50 cursor-not-allowed bg-gray-50"
                         >
                           {displayItem.title}
-                        </button>
+                        </div>
                       );
                     }
-                    
-                    return null;
+
+                    return (
+                      <button
+                        key={displayItem.id}
+                        className={`block w-full text-left px-4 py-3 rounded-xl text-base font-medium transition-colors ${
+                          sidebarData.activeTab === displayItem.id ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600'
+                        }`}
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          if (typeof window !== 'undefined') {
+                            window.dispatchEvent(new CustomEvent('request-tab-change', { detail: displayItem.id }));
+                          }
+                        }}
+                      >
+                        {displayItem.title}
+                      </button>
+                    );
                   })}
                 </div>
               ) : (
@@ -282,7 +294,7 @@ export default function Navigation() {
                     className="block px-4 py-3 rounded-xl text-base font-medium transition-colors text-gray-600 hover:bg-gray-50 hover:text-indigo-600"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    進入儀表板
+                    回到儀表板
                   </Link>
                 </div>
               )}

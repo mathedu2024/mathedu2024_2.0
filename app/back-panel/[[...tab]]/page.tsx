@@ -27,6 +27,7 @@ import {
   getBackPanelRole,
 } from '@/utils/backPanelSession';
 import { logoutClient } from '@/utils/logoutClient';
+import { useCompactNav } from '@/utils/useCompactNav';
 import type { Course } from '@/components/TeacherCourseManager';
 
 function BackPanelModulePlaceholder() {
@@ -153,12 +154,11 @@ function BackPanel() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [adminStats, setAdminStats] = useState({ studentCount: 0, teacherCount: 0, courseCount: 0 });
   const [error, setError] = useState<string | null>(null);
+  const isCompactNav = useCompactNav();
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setSidebarOpen(window.innerWidth >= 768);
-    }
-  }, []);
+    setSidebarOpen(!isCompactNav);
+  }, [isCompactNav]);
 
   const handleActivity = useCallback(() => setLastActivity(Date.now()), []);
 
@@ -594,7 +594,7 @@ function BackPanel() {
       {/* 手機版不預留側欄寬度（避免 SSR/hydration 誤判寬度造成左側空白、內容右移）；md 以上再隨收合狀態留白 */}
       <div
         className={`flex-1 flex flex-col min-h-0 min-w-0 bg-gray-50 transition-[padding] duration-300 ease-in-out pl-0 ${
-          sidebarOpen ? 'md:pl-64' : 'md:pl-20'
+          isCompactNav ? '' : sidebarOpen ? 'md:pl-64' : 'md:pl-20'
         }`}
       >
         {renderContent()}

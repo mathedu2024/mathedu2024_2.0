@@ -551,7 +551,7 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
 
       {showBookingsModal && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-[9999] p-4 animate-fade-in">
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in transform scale-100">
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-full sm:max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in transform scale-100">
             <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
               <h2 className="text-xl font-bold flex items-center">{currentSlotTitle} - 預約名單</h2>
               <button 
@@ -613,7 +613,7 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
 
       {isModalOpen && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-[9999] p-4 animate-fade-in">
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in transform scale-100">
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-full sm:max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in transform scale-100">
             <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
               <h2 className="text-xl font-bold flex items-center">
                   {selectedSlot ? '編輯輔導時段' : '新增輔導時段'}

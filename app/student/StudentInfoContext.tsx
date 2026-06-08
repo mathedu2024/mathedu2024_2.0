@@ -39,15 +39,6 @@ export const StudentInfoProvider = ({ children }: { children: React.ReactNode })
   const [studentInfo, setStudentInfo] = useState<StudentInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // 須在 hydration 後執行（勿用 useLayoutEffect），否則側欄姓名會與 SSR 不一致
-  useEffect(() => {
-    const session = getSession();
-    if (session && isStudentSession(session)) {
-      setStudentInfo(buildStudentInfoFromSession(session));
-      setLoading(false);
-    }
-  }, []);
-
   const clearStudentInfo = () => {
     setStudentInfo(null);
     setLoading(false);
@@ -60,7 +51,6 @@ export const StudentInfoProvider = ({ children }: { children: React.ReactNode })
   }, []);
 
   useEffect(() => {
-
     // 安全機制：設定 3 秒超時，避免 loading 狀態卡死導致畫面全白
     const safetyTimer = setTimeout(() => {
       setLoading(prev => {
@@ -69,12 +59,9 @@ export const StudentInfoProvider = ({ children }: { children: React.ReactNode })
       });
     }, 3000);
 
-    // 1. 優先檢查本地 Session (解決登入後跳轉回 Login 的問題)
     const session = getSession();
     if (session && isStudentSession(session)) {
-      if (!studentInfo) {
-        setStudentInfo(buildStudentInfoFromSession(session));
-      }
+      setStudentInfo(buildStudentInfoFromSession(session));
       setLoading(false);
 
       const fetchStudentData = async () => {

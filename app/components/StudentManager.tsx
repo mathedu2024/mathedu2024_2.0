@@ -1262,7 +1262,7 @@ export default function StudentManager() {
       {/* Import Excel Modal */}
       {isImportModalOpen && createPortal(
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md flex flex-col overflow-hidden animate-bounce-in">
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md max-h-full sm:max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in">
             <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
               <h3 className="text-xl font-bold flex items-center">
                 <CloudArrowUpIcon className="w-6 h-6 mr-2" />
@@ -1272,7 +1272,7 @@ export default function StudentManager() {
                 <XMarkIcon className="w-6 h-6" />
               </button>
             </div>
-            <div className="p-6 bg-white">
+            <div className="p-6 bg-white overflow-y-auto flex-1 custom-scrollbar">
             
             <div 
               className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${dragActive ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 bg-gray-50 hover:bg-gray-100'}`}

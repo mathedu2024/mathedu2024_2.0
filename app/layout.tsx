@@ -4,7 +4,6 @@ import { Noto_Sans_TC } from "next/font/google";
 import "./globals.css";
 import 'sweetalert2/dist/sweetalert2.min.css';
 import Navigation from './components/Navigation';
-import { StudentInfoProvider } from './components/StudentInfoContext';
 import AutoLogout from './AutoLogout';
 
 const notoSansTC = Noto_Sans_TC({
@@ -46,17 +45,15 @@ export default function RootLayout({
       </head>
 
       <body className={`${notoSansTC.className} bg-gray-50 text-gray-900 h-screen flex flex-col antialiased overflow-hidden`}>
-        <StudentInfoProvider>
-          <AutoLogout />
-          {/* Navigation 導覽列 */}
-          <Navigation />
-          
-          <main className="w-full flex-1 overflow-y-auto overflow-x-hidden relative">
-            {children}
-          </main>
-          
-          <div id="modal-root"></div>
-        </StudentInfoProvider>
+        <AutoLogout />
+        {/* Navigation 導覽列 */}
+        <Navigation />
+        
+        <main className="w-full flex-1 overflow-y-auto overflow-x-hidden relative">
+          {children}
+        </main>
+        
+        <div id="modal-root"></div>
       </body>
     </html>
   );
