@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { getSession, type SessionData } from '../utils/session';
 import { useCompactNav } from '../utils/useCompactNav';
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
+import { logoutClient } from '../utils/logoutClient';
 
 export default function Navigation() {
   const pathname = usePathname();
@@ -89,6 +90,12 @@ export default function Navigation() {
     return '/login';
   };
 
+  const getPanelHref = () => {
+    if (!session) return '/panel';
+    if (isManagementRole(session)) return '/back-panel';
+    return '/panel';
+  };
+
   const getUserRoleDisplay = (sessionData: any) => {
     if (!sessionData) return '學生';
     const role = sessionData.currentRole || sessionData.role;
@@ -142,7 +149,7 @@ export default function Navigation() {
                 {link.label}
               </Link>
             ))}
-            <Link href="/panel" className={`ml-2 inline-flex items-center px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${isActive('/panel') ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600'}`}>
+            <Link href={getPanelHref()} className={`ml-2 inline-flex items-center px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${isActive('/panel') || pathname.startsWith('/back-panel') ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600'}`}>
               網站管理
             </Link>
             <Link
@@ -300,22 +307,22 @@ export default function Navigation() {
               )}
               
               <button
-                onClick={() => {
+                onClick={async () => {
                   setIsMenuOpen(false);
                   if (typeof window !== 'undefined') {
                     if (sidebarData) {
                       // 若 Sidebar 存在，發送事件交給 Sidebar 執行完整的登出邏輯與清除快取
                       window.dispatchEvent(new Event('request-logout'));
                     } else {
-                      // 防呆機制：若無 Sidebar (例如首頁)，嘗試呼叫 API 並觸發全域登出
-                      Promise.all([
-                        fetch('/api/auth/logout', { method: 'POST' }).catch(() => {}),
-                        fetch('/api/logout', { method: 'POST' }).catch(() => {})
-                      ]).finally(() => {
-                        window.dispatchEvent(new Event('auth-logout'));
-                        sessionStorage.removeItem('sidebar_user_info');
+                      // 防呆機制：若無 Sidebar (例如首頁)，改用統一的 logoutClient 登出邏輯
+                      window.dispatchEvent(new Event('auth-logout'));
+                      sessionStorage.removeItem('sidebar_user_info');
+                      try {
+                        await logoutClient('/');
+                      } catch (error) {
+                        console.error('Logout failed:', error);
                         window.location.href = '/';
-                      });
+                      }
                     }
                   }
                 }}

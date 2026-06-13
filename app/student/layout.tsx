@@ -27,6 +27,7 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
   const { studentInfo, loading, clearStudentInfo } = useStudentInfo();
   const [, startTransition] = useTransition();
   const isCompactNav = useCompactNav();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
     setSidebarOpen(!isCompactNav);
@@ -42,10 +43,10 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
   // 新增：如果未登入且載入完成，自動導向登入頁面
   useEffect(() => {
     // 加入延遲檢查，避免在狀態切換瞬間誤判
-    if (!loading && !studentInfo) {
+    if (!loading && !studentInfo && !isLoggingOut) {
       router.push('/login');
     }
-  }, [loading, studentInfo, router]);
+  }, [loading, studentInfo, router, isLoggingOut]);
 
   const handleTabChange = (tab: string | null) => {
     setActiveTab(tab);
@@ -61,12 +62,13 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
   };
 
   const handleLogout = async () => {
+    setIsLoggingOut(true);
     clearStudentInfo();
     await logoutClient('/login');
   };
 
   // 未登入且已確認無 session：導向登入（不渲染版面，避免與已登入狀態混淆）
-  if (!loading && !studentInfo) {
+  if (!loading && !studentInfo && !isLoggingOut) {
     return null;
   }
 

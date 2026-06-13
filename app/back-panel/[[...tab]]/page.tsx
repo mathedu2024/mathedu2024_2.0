@@ -155,6 +155,7 @@ function BackPanel() {
   const [adminStats, setAdminStats] = useState({ studentCount: 0, teacherCount: 0, courseCount: 0 });
   const [error, setError] = useState<string | null>(null);
   const isCompactNav = useCompactNav();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
     setSidebarOpen(!isCompactNav);
@@ -172,12 +173,13 @@ function BackPanel() {
   }, []);
 
   const handleLogout = useCallback(async () => {
+    setIsLoggingOut(true);
     await logoutClient('/panel');
   }, []);
 
   useEffect(() => {
     const checkActivity = () => {
-      if (isChildProcessing) return;
+      if (isChildProcessing || isLoggingOut) return;
       if (Date.now() - lastActivity > 3 * 60 * 1000) {
         void logoutClient('/panel');
       }
@@ -190,13 +192,15 @@ function BackPanel() {
       clearInterval(interval);
       events.forEach(event => window.removeEventListener(event, handleActivity));
     };
-  }, [isChildProcessing, lastActivity, router, handleActivity]);
+  }, [isChildProcessing, lastActivity, router, handleActivity, isLoggingOut]);
 
   useEffect(() => {
     setError(null);
     const session = getSession();
     if (!session) {
-      router.push('/panel');
+      if (!isLoggingOut) {
+        router.push('/panel');
+      }
       return;
     }
     const userRole = getBackPanelRole(session);
@@ -236,7 +240,7 @@ function BackPanel() {
     if (userRole === '老師') {
       void fetchTeacher();
     }
-  }, [router, handleLogout]);
+  }, [router, handleLogout, isLoggingOut]);
 
   // 初始化 activeTab 根據網址 params
   useEffect(() => {

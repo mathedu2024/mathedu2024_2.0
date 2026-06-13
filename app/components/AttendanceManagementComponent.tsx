@@ -68,6 +68,15 @@ const LEAVE_OPTIONS = [
 
 const ALL_LEAVE_VALUES = LEAVE_OPTIONS.map(l => l.value);
 
+// 出席細項
+const PRESENT_OPTIONS = [
+  { value: 'present', label: '出席', color: 'text-emerald-600' },
+  { value: 'late', label: '遲到', color: 'text-amber-600' },
+  { value: 'early_leave', label: '早退', color: 'text-orange-600' },
+  { value: 'late_and_early_leave', label: '遲到、早退', color: 'text-red-500' },
+];
+const ALL_PRESENT_VALUES = PRESENT_OPTIONS.map(l => l.value);
+
 // ==========================================
 // 2. 共用 UI 元件 (Modal & Portal Dropdown)
 // ==========================================
@@ -105,7 +114,7 @@ interface FixedDropdownProps {
 }
 
 const FixedDropdownPortal = ({ isOpen, onClose, options, onSelect, triggerRef }: FixedDropdownProps) => {
-  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
+  const [coords, setCoords] = useState({ top: 0, left: 0 });
 
   useEffect(() => {
     if (isOpen) {
@@ -113,9 +122,8 @@ const FixedDropdownPortal = ({ isOpen, onClose, options, onSelect, triggerRef }:
         if (triggerRef.current) {
           const rect = triggerRef.current.getBoundingClientRect();
           setCoords({
-            top: rect.bottom + 4,
-            left: rect.left,
-            width: Math.max(rect.width, 100)
+            top: rect.bottom + 6,
+            left: rect.right - 96
           });
         }
       };
@@ -146,14 +154,14 @@ const FixedDropdownPortal = ({ isOpen, onClose, options, onSelect, triggerRef }:
   return createPortal(
     <div 
       id="fixed-portal-menu"
-      className="fixed z-[99999] bg-white rounded-lg shadow-xl border border-gray-200 py-1 animate-fade-in-down"
-      style={{ top: coords.top, left: coords.left, minWidth: coords.width }}
+      className="fixed z-[99999] bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-gray-100 py-1.5 animate-fade-in-down w-24 overflow-hidden"
+      style={{ top: coords.top, left: coords.left }}
     >
       {options.map((opt) => (
         <button
           key={opt.value}
           onClick={() => { onSelect(opt.value); onClose(); }}
-          className={`w-full text-left px-4 py-2 text-sm hover:bg-blue-50 font-medium ${opt.color || 'text-gray-700'}`}
+          className={`w-full text-center px-1 py-2 text-base hover:bg-gray-100 font-bold transition-colors ${opt.color || 'text-gray-700'}`}
         >
           {opt.label}
         </button>
@@ -163,8 +171,90 @@ const FixedDropdownPortal = ({ isOpen, onClose, options, onSelect, triggerRef }:
   );
 };
 
+// --- 出席按鈕組件 (整合懸浮選單) ---
+const PresentButton = ({ currentStatus, onSetStatus, disabled = false }: { currentStatus: string, onSetStatus: (val: string) => void, disabled?: boolean }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  
+  const isPresentType = ALL_PRESENT_VALUES.includes(currentStatus);
+  const selectedOption = PRESENT_OPTIONS.find(o => o.value === currentStatus);
+  const displayLabel = selectedOption ? selectedOption.label : '出席';
+  
+  let containerBorderBg = 'border-gray-200 bg-white';
+  let radioBorder = 'border-gray-300';
+  let dotBg = '';
+  let textCls = 'text-gray-500';
+  let btnCls = 'text-gray-400 hover:bg-gray-100';
+
+  if (isPresentType) {
+    if (currentStatus === 'present') {
+      containerBorderBg = 'border-emerald-200 bg-emerald-50/50';
+      radioBorder = 'border-emerald-500';
+      dotBg = 'bg-emerald-500';
+      textCls = 'text-emerald-500';
+      btnCls = 'text-emerald-500 hover:bg-emerald-100';
+    } else if (currentStatus === 'late') {
+      containerBorderBg = 'border-amber-200 bg-amber-50/50';
+      radioBorder = 'border-amber-500';
+      dotBg = 'bg-amber-500';
+      textCls = 'text-amber-500';
+      btnCls = 'text-amber-500 hover:bg-amber-100';
+    } else if (currentStatus === 'early_leave') {
+      containerBorderBg = 'border-orange-200 bg-orange-50/50';
+      radioBorder = 'border-orange-500';
+      dotBg = 'bg-orange-500';
+      textCls = 'text-orange-500';
+      btnCls = 'text-orange-500 hover:bg-orange-100';
+    } else {
+      containerBorderBg = 'border-red-200 bg-red-50/50';
+      radioBorder = 'border-red-500';
+      dotBg = 'bg-red-500';
+      textCls = 'text-red-500';
+      btnCls = 'text-red-500 hover:bg-red-100';
+    }
+  }
+
+  return (
+    <>
+      <div className="relative flex items-center gap-1.5">
+        <label className={`flex items-center gap-1.5 ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
+          <input 
+            type="radio" 
+            checked={isPresentType} 
+            onChange={() => !disabled && onSetStatus(isPresentType ? currentStatus : 'present')} 
+            disabled={disabled}
+            className="hidden"
+          />
+          <div className={`w-5 h-5 rounded-full border flex items-center justify-center flex-shrink-0 ${radioBorder}`}>
+            {isPresentType && <div className={`w-2.5 h-2.5 rounded-full ${dotBg}`} />}
+          </div>
+          <span className={`text-base font-bold whitespace-nowrap ${textCls}`}>{displayLabel}</span>
+        </label>
+        
+        <button
+          type="button"
+          disabled={disabled}
+          ref={buttonRef}
+          onClick={(e) => { e.preventDefault(); setIsOpen(!isOpen); }}
+          className={`p-1 rounded-full transition-all ${btnCls} ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+        >
+          <ChevronDownIcon className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      <FixedDropdownPortal 
+        isOpen={isOpen}
+        onClose={() => setIsOpen(false)}
+        triggerRef={buttonRef}
+        options={PRESENT_OPTIONS}
+        onSelect={onSetStatus}
+      />
+    </>
+  );
+};
+
 // --- 請假按鈕組件 (整合懸浮選單) ---
-const LeaveButton = ({ currentStatus, onSetStatus, disabled = false, isMobile = false }: { currentStatus: string, onSetStatus: (val: string) => void, disabled?: boolean, isMobile?: boolean }) => {
+const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { currentStatus: string, onSetStatus: (val: string) => void, disabled?: boolean }) => {
   const [isOpen, setIsOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   
@@ -173,1056 +263,1104 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false, isMobile = 
 
   return (
     <>
-      <div className={`relative inline-flex items-stretch ${isMobile ? 'w-full' : ''}`}>
-        {/* 左側：主按鈕 (點擊切換為預設請假或保持當前假別) */}
-        <button
-          disabled={disabled}
-          onClick={() => onSetStatus(isLeave ? currentStatus : '病假')}
-          className={`px-3 ${isMobile ? 'py-2 flex-1' : 'py-1.5'} rounded-l-lg border text-xs font-bold transition-all border-r-0 flex items-center justify-center ${
-            isLeave 
-              ? 'bg-blue-500 text-white border-blue-500 shadow-md ring-2 ring-blue-200' 
-              : 'bg-white text-gray-500 hover:bg-blue-50 hover:text-blue-600 border-gray-200'
-          } ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
-        >
-          {displayLabel}
-        </button>
+      <div className="relative flex items-center gap-1.5">
+        <label className={`flex items-center gap-1.5 ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
+          <input 
+            type="radio" 
+            checked={isLeave} 
+            onChange={() => !disabled && onSetStatus(isLeave ? currentStatus : '病假')} 
+            disabled={disabled}
+            className="hidden"
+          />
+          <div className={`w-5 h-5 rounded-full border flex items-center justify-center flex-shrink-0 ${isLeave ? 'border-blue-500' : 'border-gray-300'}`}>
+            {isLeave && <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />}
+          </div>
+          <span className={`text-base font-bold whitespace-nowrap ${isLeave ? 'text-blue-500' : 'text-gray-500'}`}>{displayLabel}</span>
+        </label>
         
-        {/* 右側：下拉觸發 (僅在已是請假狀態或想要選擇假別時使用) */}
-        <button
-          disabled={disabled}
-          ref={buttonRef}
-          onClick={() => setIsOpen(!isOpen)}
-          className={`px-1.5 ${isMobile ? 'py-2' : 'py-1.5'} rounded-r-lg border text-xs font-bold transition-all flex items-center justify-center ${
-            isLeave 
-              ? 'bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-200' 
-              : 'bg-white text-gray-500 hover:bg-blue-50 hover:text-blue-600 border-gray-200'
-          } ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
-        >
-          <ChevronDownIcon className="w-3 h-3" />
-        </button>
-      </div>
-
-      <FixedDropdownPortal 
-        isOpen={isOpen}
-        onClose={() => setIsOpen(false)}
-        triggerRef={buttonRef}
-        options={LEAVE_OPTIONS}
-        onSelect={onSetStatus}
-      />
-    </>
-  );
-};
-
-// ==========================================
-// 3. 第三層：點名執行 (AttendanceRosterManager)
-// ==========================================
-
-interface AttendanceRosterManagerProps {
-  activityId: string;
-  courseId: string;
-  courseName: string;
-  students: Student[];
-  onClose: () => void;
-  initialActivityData?: AttendanceActivity | null;
-  isArchived?: boolean;
-}
-
-function AttendanceRosterManager({ activityId, courseId, courseName, students = [], onClose, initialActivityData, isArchived = false }: AttendanceRosterManagerProps) {
-  const safeStudents = Array.isArray(students) ? students : [];
+          <button
+            type="button"
+            disabled={disabled}
+            ref={buttonRef}
+            onClick={(e) => { e.preventDefault(); setIsOpen(!isOpen); }}
+            className={`p-1 rounded-full transition-all ${isLeave ? 'text-blue-500 hover:bg-blue-100' : 'text-gray-400 hover:bg-gray-100'} ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+          >
+            <ChevronDownIcon className="w-3.5 h-3.5" />
+          </button>
+        </div>
   
-  const [records, setRecords] = useState<Record<string, { status: string; leaveType?: string }>>({});
-  const [notes, setNotes] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [activityInfo, setActivityInfo] = useState<AttendanceActivity | null>(initialActivityData || null);
-
-  const fetchRecords = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/attendance/records/get', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ courseId, activityId })
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const recordMap: Record<string, { status: string; leaveType?: string }> = {};
-        const noteMap: Record<string, string> = {};
-        if (data.records && Array.isArray(data.records)) {
-            data.records.forEach((r: AttendanceRecord) => {
-                recordMap[r.studentId] = { status: r.status, leaveType: r.leaveType };
-                if (r.note) noteMap[r.studentId] = r.note;
-            });
-        }
-        setRecords(recordMap);
-        setNotes(noteMap);
-        if (data.activity) setActivityInfo(data.activity);
-      }
-    } catch (error) {
-      console.error(error);
-      Swal.fire({
-        icon: 'error',
-        title: '錯誤',
-        text: '無法載入點名紀錄',
-        confirmButtonColor: '#ef4444',
-        customClass: { popup: 'rounded-2xl' }
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [courseId, activityId]);
-
-  useEffect(() => { fetchRecords(); }, [fetchRecords]);
-
-  // Handlers
-  const handleSetStatus = (studentId: string, status: string) => {
-    setRecords(prev => ({ ...prev, [studentId]: { status, leaveType: prev[studentId]?.leaveType } }));
-  };
-
-  const handleSetLeave = (studentId: string, leaveType: string) => {
-    setRecords(prev => ({ ...prev, [studentId]: { status: 'leave', leaveType } }));
-  };
-
-  const handleNoteChange = (studentId: string, note: string) => {
-    setNotes(prev => ({ ...prev, [studentId]: note }));
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const recordsArray = safeStudents.map((student) => {
-        const data = getRecordForStudent(student);
-        return {
-          studentId: student.studentId,
-          status: data?.status || '',
-          leaveType: data?.leaveType || '',
-          note: notes[student.studentId] || (student.id ? notes[student.id] : '') || '',
-        };
-      });
-
-      const res = await fetch('/api/attendance/records/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ courseId, activityId, records: recordsArray })
-      });
-
-      if (!res.ok) throw new Error('Save failed');
-      Swal.fire({
-        icon: 'success',
-        title: '儲存成功',
-        text: '點名紀錄已成功儲存',
-        confirmButtonColor: '#4f46e5',
-        customClass: { popup: 'rounded-2xl' }
-      });
-    } catch (error) {
-      console.error('Save records error:', error);
-      Swal.fire({
-        icon: 'error',
-        title: '儲存失敗',
-        text: '請稍後再試',
-        confirmButtonColor: '#ef4444',
-        customClass: { popup: 'rounded-2xl' }
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const markAllPresent = () => {
-    setRecords(prev => {
-      const newRecords = { ...prev };
-      safeStudents.forEach(s => {
-        if (!newRecords[s.studentId] || !newRecords[s.studentId].status) {
-          newRecords[s.studentId] = { status: 'present' };
-        }
-      });
-      return newRecords;
-    });
-    Swal.fire({
-      icon: 'success',
-      title: '已將未點名學生設為出席',
-      confirmButtonText: '太棒了',
-      confirmButtonColor: '#4f46e5',
-      timer: 1500,
-      timerProgressBar: true,
-      customClass: { popup: 'rounded-2xl' }
-    });
-  };
-
-  const getRecordForStudent = useCallback((student: Student) => {
-    return records[student.studentId] || (student.id ? records[student.id] : undefined);
-  }, [records]);
-
-  // 統計僅計算目前課程名單內的學生
-  const stats = useMemo(() => {
-    let present = 0;
-    let late = 0;
-    let leave = 0;
-    let absent = 0;
-    let recorded = 0;
-
-    safeStudents.forEach((student) => {
-      const rec = getRecordForStudent(student);
-      if (!rec?.status) return;
-      recorded++;
-      if (rec.status === 'present') present++;
-      else if (rec.status === 'late') late++;
-      else if (rec.status === 'leave') leave++;
-      else if (rec.status === 'absent') absent++;
-    });
-
-    return {
-      present,
-      late,
-      leave,
-      absent,
-      total: safeStudents.length,
-      unrecorded: safeStudents.length - recorded,
-    };
-  }, [safeStudents, getRecordForStudent]);
-
-  return (
-    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pb-20 flex flex-col h-full animate-fade-in">
-      {/* Header Area */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
-        <div className="border-l-4 border-indigo-500 pl-4">
-          <div className="flex items-start gap-2">
-            <button onClick={onClose} className="mr-1 p-2 rounded-full hover:bg-gray-100 text-gray-500 transition-colors mt-0.5">
-              <ArrowLeftIcon className="w-6 h-6" />
-            </button>
-            <div className="flex flex-col gap-2">
-              <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
-                <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-                  {activityInfo?.name || '點名活動'}
-                </h1>
-                {activityInfo?.mode === 'digital' && (
-                  <div className="inline-flex">
-                    <span className="bg-indigo-100 text-indigo-700 px-2 py-1.5 rounded-lg text-sm font-bold flex items-center shadow-sm border border-indigo-200">
-                      <QrCodeIcon className="w-4 h-4 mr-1.5"/>
-                      簽到碼: <span className="text-lg ml-1 font-mono tracking-wider">{activityInfo.checkInCode}</span>
-                    </span>
-                  </div>
-                )}
-              </div>
-              <p className="text-gray-500 text-sm mt-1">{courseName} • 共 {safeStudents.length} 人</p>
-            </div>
-          </div>
-        </div>
-        {!isArchived && (
-          <div className="flex gap-2 self-end md:self-auto">
-            <button onClick={markAllPresent} className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center">
-              <CheckCircleIcon className="w-4 h-4 mr-1" /> 一鍵全到
-            </button>
-            <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center transform active:scale-95">
-              {saving ? <LoadingSpinner size={16} color="white" /> : <><CloudArrowUpIcon className="w-5 h-5 mr-1" /> 儲存紀錄</>}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {loading ? (
-        <PageLoadingArea />
-      ) : (
-      <>
-      {isArchived && (
-        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl flex items-center shadow-sm mb-4">
-          <span className="font-bold mr-2">提示：</span>
-          此課程已封存，您只能查看點名紀錄，無法進行修改。
-        </div>
-      )}
-
-      {/* Stats Bar */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4 mb-4">
-        <div className="bg-emerald-50 border border-emerald-100 p-2 rounded-lg text-center"><div className="text-xs text-emerald-600 font-bold">出席</div><div className="text-lg font-bold text-emerald-700">{stats.present}</div></div>
-        <div className="bg-rose-50 border border-rose-100 p-2 rounded-lg text-center"><div className="text-xs text-rose-600 font-bold">曠課</div><div className="text-lg font-bold text-rose-700">{stats.absent}</div></div>
-        <div className="bg-blue-50 border border-blue-100 p-2 rounded-lg text-center"><div className="text-xs text-blue-600 font-bold">請假</div><div className="text-lg font-bold text-blue-700">{stats.leave}</div></div>
-        <div className="bg-amber-50 border border-amber-100 p-2 rounded-lg text-center"><div className="text-xs text-amber-600 font-bold">遲到</div><div className="text-lg font-bold text-amber-700">{stats.late}</div></div>
-        <div className="bg-gray-50 border border-gray-100 p-2 rounded-lg text-center col-span-2 md:col-span-1"><div className="text-xs text-gray-500 font-bold">未點</div><div className="text-lg font-bold text-gray-600">{stats.unrecorded}</div></div>
-      </div>
-
-      {/* Roster Table */}
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col">
-          {safeStudents.length === 0 ? (
-              <div className="text-center py-12 text-gray-400">沒有符合條件的學生</div>
-          ) : (
-             <>
-                <div className="hidden md:block overflow-x-auto">
-                    <table className="w-full text-sm text-left text-gray-500" style={{ minWidth: '800px' }}>
-                        <thead className="bg-gray-50 text-xs text-gray-700 uppercase sticky top-0 z-10">
-                            <tr>
-                                <th className="px-6 py-4 font-bold w-[120px]">學號</th>
-                                <th className="px-6 py-4 font-bold w-[120px]">姓名</th>
-                                <th className="px-6 py-4 font-bold w-[380px]">點名狀態</th>
-                                <th className="px-6 py-4 font-bold">備註</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {safeStudents.map((student) => {
-                                const currentRecord = records[student.studentId] || { status: '' };
-                                const currentStatus = currentRecord.status;
-                                const currentLeaveType = currentRecord.leaveType;
-                                
-                                return (
-                                    <tr key={student.studentId} className={`hover:bg-indigo-50/30 transition-colors ${!currentStatus ? 'bg-orange-50/10' : ''}`}>
-                                        <td className="px-6 py-4 font-mono text-gray-900">{student.studentId}</td>
-                                        <td className="px-6 py-4 font-bold text-gray-900">{student.name}</td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex gap-2 items-center">
-                                                {/* 出席 */}
-                                                <button disabled={isArchived} onClick={() => handleSetStatus(student.studentId, 'present')} className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${currentStatus === 'present' ? 'bg-emerald-500 text-white border-emerald-500 shadow-md ring-2 ring-emerald-200' : 'bg-white text-gray-500 hover:bg-emerald-50 hover:text-emerald-600'} ${isArchived ? 'opacity-60 cursor-not-allowed' : ''}`}>出席</button>
-                                                
-                                                {/* 遲到 */}
-                                                <button disabled={isArchived} onClick={() => handleSetStatus(student.studentId, 'late')} className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${currentStatus === 'late' ? 'bg-amber-500 text-white border-amber-500 shadow-md ring-2 ring-amber-200' : 'bg-white text-gray-500 hover:bg-amber-50 hover:text-amber-600'} ${isArchived ? 'opacity-60 cursor-not-allowed' : ''}`}>遲到</button>
-
-                                                {/* 曠課 */}
-                                                <button disabled={isArchived} onClick={() => handleSetStatus(student.studentId, 'absent')} className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${currentStatus === 'absent' ? 'bg-rose-500 text-white border-rose-500 shadow-md ring-2 ring-rose-200' : 'bg-white text-gray-500 hover:bg-rose-50 hover:text-rose-600'} ${isArchived ? 'opacity-60 cursor-not-allowed' : ''}`}>曠課</button>
-                                                
-                                                {/* 請假 (特殊處理：帶有懸浮選單的按鈕) */}
-                                                <div className="relative">
-                                                    <LeaveButton 
-                                                        currentStatus={currentStatus === 'leave' ? currentLeaveType || '事假' : ''}
-                                                        onSetStatus={(val) => handleSetLeave(student.studentId, val)}
-                                                        disabled={isArchived}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <input type="text" placeholder="備註..." className={`w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:ring-1 focus:ring-indigo-500 outline-none ${isArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white'}`} disabled={isArchived} readOnly={isArchived} value={notes[student.studentId] || ''} onChange={(e) => handleNoteChange(student.studentId, e.target.value)} />
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-
-                {/* Mobile View */}
-                <div className="md:hidden p-4 space-y-4 bg-gray-50/50">
-                     {safeStudents.map((student) => {
-                         const currentRecord = records[student.studentId] || { status: '' };
-                         const currentStatus = currentRecord.status;
-                         const currentLeaveType = currentRecord.leaveType;
-                         
-                         return (
-                            <div key={student.studentId} className={`bg-white border rounded-xl p-4 shadow-sm ${!currentStatus ? 'border-orange-200 bg-orange-50/30' : 'border-gray-200'}`}>
-                                <div className="flex justify-between items-center mb-3">
-                                    <div><div className="font-bold text-gray-900 text-lg">{student.name}</div><div className="text-xs font-mono text-gray-500">{student.studentId}</div></div>
-                                    {currentStatus && <span className="px-2 py-1 rounded text-xs font-bold bg-gray-100 text-gray-700">{currentStatus === 'present' ? '出席' : currentStatus === 'late' ? '遲到' : currentStatus === 'absent' ? '曠課' : currentLeaveType || '請假'}</span>}
-                                </div>
-                                
-                                <div className="grid grid-cols-4 gap-2 mb-3">
-                                    <button disabled={isArchived} onClick={() => handleSetStatus(student.studentId, 'present')} className={`py-2 rounded-lg border text-xs font-bold ${currentStatus==='present'?'bg-emerald-100 text-emerald-700 border-emerald-300':'bg-white text-gray-500'} ${isArchived ? 'opacity-60 cursor-not-allowed' : ''}`}>出席</button>
-                                    <button disabled={isArchived} onClick={() => handleSetStatus(student.studentId, 'late')} className={`py-2 rounded-lg border text-xs font-bold ${currentStatus==='late'?'bg-amber-100 text-amber-700 border-amber-300':'bg-white text-gray-500'} ${isArchived ? 'opacity-60 cursor-not-allowed' : ''}`}>遲到</button>
-                                    <button disabled={isArchived} onClick={() => handleSetStatus(student.studentId, 'absent')} className={`py-2 rounded-lg border text-xs font-bold ${currentStatus==='absent'?'bg-rose-100 text-rose-700 border-rose-300':'bg-white text-gray-500'} ${isArchived ? 'opacity-60 cursor-not-allowed' : ''}`}>曠課</button>
-                                    <LeaveButton 
-                                        currentStatus={currentStatus === 'leave' ? currentLeaveType || '事假' : ''}
-                                        onSetStatus={(val) => handleSetLeave(student.studentId, val)}
-                                        disabled={isArchived}
-                                        isMobile={true}
-                                    />
-                                </div>
-
-                                <input type="text" placeholder="新增備註..." className={`w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-indigo-500 outline-none ${isArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-gray-50'}`} disabled={isArchived} readOnly={isArchived} value={notes[student.studentId] || ''} onChange={(e) => handleNoteChange(student.studentId, e.target.value)} />
-                            </div>
-                         );
-                     })}
-                </div>
-             </>
-          )}
-      </div>
+        <FixedDropdownPortal 
+          isOpen={isOpen}
+          onClose={() => setIsOpen(false)}
+          triggerRef={buttonRef}
+          options={LEAVE_OPTIONS}
+          onSelect={onSetStatus}
+        />
       </>
-      )}
-      
-    </div>
-  );
-}
-
-// ==========================================
-// 4. 第二層：活動列表 (AttendanceActivityList)
-// ==========================================
-
-interface AttendanceActivityListProps {
-  courseId: string;
-  courseName: string;
-  courseCode: string;
-  onBack: () => void;
-  isArchived?: boolean;
-  onSelectActivity: (activity: AttendanceActivity) => void;
-}
-
-function AttendanceActivityList({ courseId, courseName, courseCode, onBack, onSelectActivity, isArchived = false }: AttendanceActivityListProps) {
-  const [activities, setActivities] = useState<AttendanceActivity[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-
-  const formatDate = (isoString: string) => {
-    if (!isoString) return '';
-    try {
-      const date = new Date(isoString);
-      if (isNaN(date.getTime())) return isoString; // Return original if invalid
-
-      const year = date.getFullYear();
-      const month = (date.getMonth() + 1).toString().padStart(2, '0');
-      const day = date.getDate().toString().padStart(2, '0');
-      const hours = date.getHours().toString().padStart(2, '0');
-      const minutes = date.getMinutes().toString().padStart(2, '0');
-
-      return `${year}/${month}/${day} ${hours}:${minutes}`;
-    } catch {
-      return isoString; // Return original on error
-    }
+    );
   };
-
-  // 載入資料 (強化欄位讀取邏輯 & 解決第二層空白問題)
-  const fetchActivities = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/attendance/activities/list', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ courseId })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          const mappedData = data.map((item: {
-            id: string;
-            name?: string;
-            title?: string;
-            date?: unknown;
-            startTime?: unknown;
-            mode?: 'manual' | 'digital';
-            checkInMethod?: string;
-            type?: string;
-            checkInCode?: string;
-          }) => {
-            const toISO = (d: unknown) => {
-              if (!d) return undefined;
-              if (typeof d === 'string') return d;
-              if (typeof d === 'object' && d !== null && '_seconds' in d && '_nanoseconds' in d) {
-                return new Date((d as { _seconds: number })._seconds * 1000 + (d as { _nanoseconds: number })._nanoseconds / 1000000).toISOString();
-              }
-              try { return new Date(d as string | number).toISOString(); } catch { return String(d); }
-            };
-
-            const dateISO = toISO(item.date);
-            const startTimeISO = toISO(item.startTime);
-
-            const rawDate =
-              dateISO ||
-              startTimeISO ||
-              new Date().toISOString();
-
-            const mode: 'manual' | 'digital' =
-              item.mode ||
-              (item.checkInMethod === 'numeric' ? 'digital' : 'manual');
-
-            return {
-              id: item.id,
-              name: item.name || item.title || '未命名活動',
-              date: rawDate,
-              type: item.type || '一般課程',
-              mode,
-              checkInCode: item.checkInCode,
-            };
-          });
-
-          const sorted = mappedData.sort(
-            (a, b) =>
-              new Date(b.date).getTime() - new Date(a.date).getTime()
-          );
-          setActivities(sorted);
-        } else {
-          setActivities([]);
-        }
-      } else {
-        setActivities([]);
-      }
-    } catch { Swal.fire('錯誤', '無法載入點名活動', 'error'); } finally { setLoading(false); }
-  }, [courseId]);
-
-  useEffect(() => { fetchActivities(); }, [fetchActivities]);
-
-  // 匯出紀錄
-  const handleExport = async () => {
-    if (activities.length === 0) return Swal.fire('提示', '無資料可匯出', 'info');
+  
+  // ==========================================
+  // 3. 第三層：點名執行 (AttendanceRosterManager)
+  // ==========================================
+  
+  interface AttendanceRosterManagerProps {
+    activityId: string;
+    courseId: string;
+    courseName: string;
+    students: Student[];
+    onClose: () => void;
+    initialActivityData?: AttendanceActivity | null;
+    isArchived?: boolean;
+  }
+  
+  function AttendanceRosterManager({ activityId, courseId, courseName, students = [], onClose, initialActivityData, isArchived = false }: AttendanceRosterManagerProps) {
+    const safeStudents = Array.isArray(students) ? students : [];
     
-    Swal.fire({
-      title: '正在準備匯出資料',
-      text: '請稍候...',
-      allowOutsideClick: false,
-      didOpen: () => { Swal.showLoading(); }
-    });
-
-    try {
-      // 動態載入 ExcelJS，避免拖慢系統初始載入速度
-      const ExcelJS = (await import('exceljs')).default;
-      // 1. 建立 Excel 活頁簿
-      const workbook = new ExcelJS.Workbook();
-      
-      // --- 第一個工作表：活動摘要 ---
-      const worksheet = workbook.addWorksheet('點名活動摘要');
-
-      // 定義摘要表欄位
-      worksheet.columns = [
-        { header: '日期 / 開始時間', key: 'date', width: 22 },
-        { header: '類型', key: 'type', width: 16 },
-        { header: '活動名稱', key: 'name', width: 32 },
-        { header: '點名方式', key: 'mode', width: 16 },
-        { header: '點名代碼', key: 'checkInCode', width: 16 },
-      ];
-
-      // 填入點名活動資料
-      activities.forEach((a) => {
-        worksheet.addRow({
-          date: formatDate(a.date),
-          type: a.type,
-          name: a.name,
-          mode: a.mode === 'digital' ? '數字點名' : '手動點名',
-          checkInCode: a.mode === 'digital' ? a.checkInCode || '' : '',
-        });
-      });
-
-      // 設定摘要表標題樣式 (藍色背景、白色文字)
-      worksheet.getRow(1).eachCell((cell) => {
-        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
-        cell.alignment = { vertical: 'middle', horizontal: 'center' };
-      });
-
-      // --- 第二個工作表：學生出缺席總表 ---
-      const worksheet2 = workbook.addWorksheet('學生出缺席詳細名單');
-      
-      // 優化：直接抓取該課程學生名單，避免抓取全校學生資料浪費資源
-      const stuRes = await fetch(`/api/course-student-list/list?courseId=${encodeURIComponent(courseId)}`);
-      let students: Student[] = [];
-      if (stuRes.ok) {
-        const roster = await stuRes.json();
-        students = (Array.isArray(roster) ? roster : []).map((s: any) => ({
-          id: String(s.id || s.studentId || ''),
-          studentId: String(s.studentId || s.id || ''),
-          name: String(s.name || ''),
-        }));
-
-        students.sort((a, b) => {
-          const idA = a.studentId;
-          const idB = b.studentId;
-          const aIsAlpha = /^[A-Za-z]/.test(idA);
-          const bIsAlpha = /^[A-Za-z]/.test(idB);
-          
-          if (aIsAlpha && !bIsAlpha) return 1;
-          if (!aIsAlpha && bIsAlpha) return -1;
-          
-          return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
-        });
-      }
-
-      // 抓取所有點名活動的詳細紀錄 (併行處理以提升效能)
-      const allRecordsPromises = activities.map(async (a) => {
+    const [records, setRecords] = useState<Record<string, { status: string; leaveType?: string }>>({});
+    const [notes, setNotes] = useState<Record<string, string>>({});
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [activityInfo, setActivityInfo] = useState<AttendanceActivity | null>(initialActivityData || null);
+  
+    const fetchRecords = useCallback(async () => {
+      setLoading(true);
+      try {
         const res = await fetch('/api/attendance/records/get', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ courseId, activityId: a.id })
+          body: JSON.stringify({ courseId, activityId })
+        });
+  
+        if (res.ok) {
+          const data = await res.json();
+          const recordMap: Record<string, { status: string; leaveType?: string }> = {};
+          const noteMap: Record<string, string> = {};
+          if (data.records && Array.isArray(data.records)) {
+              data.records.forEach((r: AttendanceRecord) => {
+                  recordMap[r.studentId] = { status: r.status, leaveType: r.leaveType };
+                  if (r.note) noteMap[r.studentId] = r.note;
+              });
+          }
+          setRecords(recordMap);
+          setNotes(noteMap);
+          if (data.activity) setActivityInfo(data.activity);
+        }
+      } catch (error) {
+        console.error(error);
+        Swal.fire({
+          icon: 'error',
+          title: '錯誤',
+          text: '無法載入點名紀錄',
+          confirmButtonColor: '#ef4444',
+          customClass: { popup: 'rounded-2xl' }
+        });
+      } finally {
+        setLoading(false);
+      }
+    }, [courseId, activityId]);
+  
+    useEffect(() => { fetchRecords(); }, [fetchRecords]);
+  
+    // Handlers
+    const handleSetStatus = (studentId: string, status: string) => {
+      setRecords(prev => ({ ...prev, [studentId]: { status, leaveType: prev[studentId]?.leaveType } }));
+    };
+  
+    const handleSetLeave = (studentId: string, leaveType: string) => {
+      setRecords(prev => ({ ...prev, [studentId]: { status: 'leave', leaveType } }));
+    };
+  
+    const handleNoteChange = (studentId: string, note: string) => {
+      setNotes(prev => ({ ...prev, [studentId]: note }));
+    };
+  
+    const handleSave = async () => {
+      setSaving(true);
+      try {
+        const recordsArray = safeStudents.map((student) => {
+          const data = getRecordForStudent(student);
+          return {
+            studentId: student.studentId,
+            status: data?.status || '',
+            leaveType: data?.leaveType || '',
+            note: notes[student.studentId] || (student.id ? notes[student.id] : '') || '',
+          };
+        });
+  
+        const res = await fetch('/api/attendance/records/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ courseId, activityId, records: recordsArray })
+        });
+  
+        if (!res.ok) throw new Error('Save failed');
+        Swal.fire({
+          icon: 'success',
+          title: '儲存成功',
+          text: '點名紀錄已成功儲存',
+          confirmButtonColor: '#4f46e5',
+          customClass: { popup: 'rounded-2xl' }
+        });
+      } catch (error) {
+        console.error('Save records error:', error);
+        Swal.fire({
+          icon: 'error',
+          title: '儲存失敗',
+          text: '請稍後再試',
+          confirmButtonColor: '#ef4444',
+          customClass: { popup: 'rounded-2xl' }
+        });
+      } finally {
+        setSaving(false);
+      }
+    };
+  
+    const markAllPresent = () => {
+      setRecords(prev => {
+        const newRecords = { ...prev };
+        safeStudents.forEach(s => {
+          if (!newRecords[s.studentId] || !newRecords[s.studentId].status) {
+            newRecords[s.studentId] = { status: 'present' };
+          }
+        });
+        return newRecords;
+      });
+      Swal.fire({
+        icon: 'success',
+        title: '已將未點名學生設為出席',
+        confirmButtonText: '太棒了',
+        confirmButtonColor: '#4f46e5',
+        timer: 1500,
+        timerProgressBar: true,
+        customClass: { popup: 'rounded-2xl' }
+      });
+    };
+  
+    const getRecordForStudent = useCallback((student: Student) => {
+      return records[student.studentId] || (student.id ? records[student.id] : undefined);
+    }, [records]);
+  
+    // 統計僅計算目前課程名單內的學生
+    const stats = useMemo(() => {
+      let present = 0;
+      let late = 0;
+      let early_leave = 0;
+      let late_and_early_leave = 0;
+      let leave = 0;
+      let absent = 0;
+      let recorded = 0;
+  
+      safeStudents.forEach((student) => {
+        const rec = getRecordForStudent(student);
+        if (!rec?.status) return;
+        recorded++;
+        if (rec.status === 'present') present++;
+        else if (rec.status === 'late') late++;
+        else if (rec.status === 'early_leave') early_leave++;
+        else if (rec.status === 'late_and_early_leave') late_and_early_leave++;
+        else if (rec.status === 'leave') leave++;
+        else if (rec.status === 'absent') absent++;
+      });
+  
+      return {
+        present,
+        late,
+        early_leave,
+        late_and_early_leave,
+        leave,
+        absent,
+        total: safeStudents.length,
+        unrecorded: safeStudents.length - recorded,
+      };
+    }, [safeStudents, getRecordForStudent]);
+  
+    return (
+      <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pb-20 flex flex-col h-full animate-fade-in">
+        {/* Header Area */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
+          <div className="border-l-4 border-indigo-500 pl-4">
+            <div className="flex items-start gap-2">
+              <button onClick={onClose} className="mr-1 p-2 rounded-full hover:bg-gray-100 text-gray-500 transition-colors mt-0.5">
+                <ArrowLeftIcon className="w-6 h-6" />
+              </button>
+              <div className="flex flex-col gap-2">
+                <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+                  <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+                    {activityInfo?.name || '點名活動'}
+                  </h1>
+                  {activityInfo?.mode === 'digital' && (
+                    <div className="inline-flex">
+                      <span className="bg-indigo-100 text-indigo-700 px-2 py-1.5 rounded-lg text-sm font-bold flex items-center shadow-sm border border-indigo-200">
+                        <QrCodeIcon className="w-4 h-4 mr-1.5"/>
+                        簽到碼: <span className="text-lg ml-1 font-mono tracking-wider">{activityInfo.checkInCode}</span>
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <p className="text-gray-500 text-sm mt-1">{courseName} • 共 {safeStudents.length} 人</p>
+              </div>
+            </div>
+          </div>
+          {!isArchived && (
+            <div className="flex gap-2 self-end md:self-auto">
+              <button onClick={markAllPresent} className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center">
+                <CheckCircleIcon className="w-4 h-4 mr-1" /> 一鍵全到
+              </button>
+              <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center transform active:scale-95">
+                {saving ? <LoadingSpinner size={16} color="white" /> : <><CloudArrowUpIcon className="w-5 h-5 mr-1" /> 儲存紀錄</>}
+              </button>
+            </div>
+          )}
+        </div>
+  
+        {loading ? (
+          <PageLoadingArea />
+        ) : (
+        <>
+        {isArchived && (
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl flex items-center shadow-sm mb-4">
+            <span className="font-bold mr-2">提示：</span>
+            此課程已封存，您只能查看點名紀錄，無法進行修改。
+          </div>
+        )}
+  
+        {/* Stats Bar */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4 mb-4">
+          <div className="bg-emerald-50 border border-emerald-100 p-2 rounded-lg text-center"><div className="text-xs text-emerald-600 font-bold">出席</div><div className="text-lg font-bold text-emerald-700">{stats.present}</div></div>
+          <div className="bg-rose-50 border border-rose-100 p-2 rounded-lg text-center"><div className="text-xs text-rose-600 font-bold">曠課</div><div className="text-lg font-bold text-rose-700">{stats.absent}</div></div>
+          <div className="bg-blue-50 border border-blue-100 p-2 rounded-lg text-center"><div className="text-xs text-blue-600 font-bold">請假</div><div className="text-lg font-bold text-blue-700">{stats.leave}</div></div>
+          <div className="bg-amber-50 border border-amber-100 p-2 rounded-lg text-center"><div className="text-xs text-amber-600 font-bold">遲/早退</div><div className="text-lg font-bold text-amber-700">{stats.late + stats.early_leave + stats.late_and_early_leave}</div></div>
+          <div className="bg-gray-50 border border-gray-100 p-2 rounded-lg text-center col-span-2 md:col-span-1"><div className="text-xs text-gray-500 font-bold">未點</div><div className="text-lg font-bold text-gray-600">{stats.unrecorded}</div></div>
+        </div>
+  
+        {/* Roster Table */}
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col">
+            {safeStudents.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">沒有符合條件的學生</div>
+            ) : (
+               <>
+                  <div className="hidden md:block overflow-x-auto">
+                      <table className="w-full text-sm text-left text-gray-500" style={{ minWidth: '800px' }}>
+                          <thead className="bg-gray-50 text-xs text-gray-700 uppercase sticky top-0 z-10">
+                              <tr>
+                                  <th className="px-6 py-4 font-bold w-1/6">學號</th>
+                                  <th className="px-6 py-4 font-bold w-1/6">姓名</th>
+                                  <th className="px-6 py-4 font-bold w-1/3">點名狀態</th>
+                                  <th className="px-6 py-4 font-bold w-1/3">備註</th>
+                              </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                              {safeStudents.map((student) => {
+                                  const currentRecord = records[student.studentId] || { status: '' };
+                                  const currentStatus = currentRecord.status;
+                                  const currentLeaveType = currentRecord.leaveType;
+                                  
+                                  return (
+                                      <tr key={student.studentId} className={`hover:bg-indigo-50/30 transition-colors ${!currentStatus ? 'bg-orange-50/10' : ''}`}>
+                                          <td className="px-6 py-4 font-mono text-gray-900">{student.studentId}</td>
+                                          <td className="px-6 py-4 font-bold text-gray-900">{student.name}</td>
+                                          <td className="px-6 py-4">
+                                              <div className="grid grid-cols-3 gap-2 items-center w-full">
+                                                  {/* 出席/遲到/早退 */}
+                                                  <div className="flex justify-start">
+                                                      <PresentButton 
+                                                          currentStatus={currentStatus} 
+                                                          onSetStatus={(val) => handleSetStatus(student.studentId, val)} 
+                                                          disabled={isArchived}
+                                                      />
+                                                  </div>
+  
+                                                  {/* 曠課 */}
+                                                  <div className="flex justify-center">
+                                                      <label className={`flex items-center gap-1.5 ${isArchived ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
+                                                          <input type="radio" checked={currentStatus === 'absent'} onChange={() => !isArchived && handleSetStatus(student.studentId, 'absent')} className="hidden" disabled={isArchived} />
+                                                          <div className={`w-5 h-5 rounded-full border flex items-center justify-center flex-shrink-0 ${currentStatus === 'absent' ? 'border-rose-500' : 'border-gray-300'}`}>
+                                                              {currentStatus === 'absent' && <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />}
+                                                          </div>
+                                                          <span className={`text-base font-bold ${currentStatus === 'absent' ? 'text-rose-500' : 'text-gray-500'}`}>曠課</span>
+                                                      </label>
+                                                  </div>
+                                                  
+                                                  {/* 請假 (特殊處理：帶有懸浮選單的按鈕) */}
+                                                  <div className="flex justify-end pr-4 xl:pr-8">
+                                                      <LeaveButton 
+                                                          currentStatus={currentStatus === 'leave' ? currentLeaveType || '事假' : ''}
+                                                          onSetStatus={(val) => handleSetLeave(student.studentId, val)}
+                                                          disabled={isArchived}
+                                                      />
+                                                  </div>
+                                              </div>
+                                          </td>
+                                          <td className="px-6 py-4">
+                                              <input type="text" placeholder="備註..." className={`w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:ring-1 focus:ring-indigo-500 outline-none ${isArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white'}`} disabled={isArchived} readOnly={isArchived} value={notes[student.studentId] || ''} onChange={(e) => handleNoteChange(student.studentId, e.target.value)} />
+                                          </td>
+                                      </tr>
+                                  );
+                              })}
+                          </tbody>
+                      </table>
+                  </div>
+  
+                  {/* Mobile View */}
+                  <div className="md:hidden p-4 space-y-4 bg-gray-50/50">
+                       {safeStudents.map((student) => {
+                           const currentRecord = records[student.studentId] || { status: '' };
+                           const currentStatus = currentRecord.status;
+                           const currentLeaveType = currentRecord.leaveType;
+                           
+                           return (
+                              <div key={student.studentId} className={`bg-white border rounded-xl p-4 shadow-sm ${!currentStatus ? 'border-orange-200 bg-orange-50/30' : 'border-gray-200'}`}>
+                                  <div className="flex justify-between items-center mb-3">
+                                      <div><div className="font-bold text-gray-900 text-lg">{student.name}</div><div className="text-xs font-mono text-gray-500">{student.studentId}</div></div>
+                                      {currentStatus && <span className="px-2 py-1 rounded text-xs font-bold bg-gray-100 text-gray-700">{
+                                        currentStatus === 'present' ? '出席' :
+                                        currentStatus === 'late' ? '遲到' :
+                                        currentStatus === 'early_leave' ? '早退' :
+                                        currentStatus === 'late_and_early_leave' ? '遲到、早退' :
+                                        currentStatus === 'absent' ? '曠課' : currentLeaveType || '請假'
+                                      }</span>}
+                                  </div>
+                                  
+                                  <div className="flex flex-col gap-3 w-full mt-3 pt-3 border-t border-gray-100">
+                                    <div className="grid grid-cols-3 w-full items-center px-1">
+                                      <div className="flex justify-start">
+                                        <PresentButton 
+                                            currentStatus={currentStatus}
+                                            onSetStatus={(val) => handleSetStatus(student.studentId, val)}
+                                            disabled={isArchived}
+                                        />
+                                      </div>
+                                      <div className="flex justify-center">
+                                        <label className={`flex items-center gap-1.5 ${isArchived ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
+                                            <input type="radio" checked={currentStatus === 'absent'} onChange={() => !isArchived && handleSetStatus(student.studentId, 'absent')} className="hidden" disabled={isArchived} />
+                                            <div className={`w-5 h-5 rounded-full border flex items-center justify-center flex-shrink-0 ${currentStatus === 'absent' ? 'border-rose-500' : 'border-gray-300'}`}>
+                                                {currentStatus === 'absent' && <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />}
+                                            </div>
+                                            <span className={`text-base font-bold ${currentStatus === 'absent' ? 'text-rose-500' : 'text-gray-500'}`}>曠課</span>
+                                        </label>
+                                      </div>
+                                      <div className="flex justify-end">
+                                        <LeaveButton 
+                                            currentStatus={currentStatus === 'leave' ? currentLeaveType || '事假' : ''}
+                                            onSetStatus={(val) => handleSetLeave(student.studentId, val)}
+                                            disabled={isArchived}
+                                        />
+                                      </div>
+                                    </div>
+                                    <div className="w-full">
+                                      <input type="text" placeholder="備註..." className={`w-full border border-gray-200 rounded-lg px-3 py-2 text-base focus:ring-1 focus:ring-indigo-500 outline-none ${isArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-gray-50'}`} disabled={isArchived} readOnly={isArchived} value={notes[student.studentId] || ''} onChange={(e) => handleNoteChange(student.studentId, e.target.value)} />
+                                    </div>
+                                  </div>
+                              </div>
+                           );
+                       })}
+                  </div>
+               </>
+            )}
+        </div>
+        </>
+        )}
+        
+      </div>
+    );
+  }
+  
+  // ==========================================
+  // 4. 第二層：活動列表 (AttendanceActivityList)
+  // ==========================================
+  
+  interface AttendanceActivityListProps {
+    courseId: string;
+    courseName: string;
+    courseCode: string;
+    onBack: () => void;
+    isArchived?: boolean;
+    onSelectActivity: (activity: AttendanceActivity) => void;
+  }
+  
+  function AttendanceActivityList({ courseId, courseName, courseCode, onBack, onSelectActivity, isArchived = false }: AttendanceActivityListProps) {
+    const [activities, setActivities] = useState<AttendanceActivity[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  
+    const formatDate = (isoString: string) => {
+      if (!isoString) return '';
+      try {
+        const date = new Date(isoString);
+        if (isNaN(date.getTime())) return isoString; // Return original if invalid
+  
+        const year = date.getFullYear();
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+        const hours = date.getHours().toString().padStart(2, '0');
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+  
+        return `${year}/${month}/${day} ${hours}:${minutes}`;
+      } catch {
+        return isoString; // Return original on error
+      }
+    };
+  
+    // 載入資料 (強化欄位讀取邏輯 & 解決第二層空白問題)
+    const fetchActivities = useCallback(async () => {
+      setLoading(true);
+      try {
+        const res = await fetch('/api/attendance/activities/list', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ courseId })
         });
         if (res.ok) {
           const data = await res.json();
-          return { activityId: a.id, records: data.records || [] };
-        }
-        return { activityId: a.id, records: [] };
-      });
-      const allRecordsData = await Promise.all(allRecordsPromises);
-
-      // 設定總表欄位 (基礎欄位：學號、姓名)
-      const columns = [
-        { header: '學號', key: 'studentId', width: 15 },
-        { header: '姓名', key: 'name', width: 15 },
-      ];
-
-      // 動態增加點名日期欄位 (每個活動一欄)
-      activities.forEach(a => {
-        const headerDate = formatDate(a.date).split(' ')[0];
-        columns.push({ header: `${headerDate}\n${a.name}`, key: a.id, width: 20 });
-      });
-      worksheet2.columns = columns;
-
-      // 填充學生資料列
-      students.forEach(student => {
-        const rowData: Record<string, string> = {
-          studentId: student.studentId,
-          name: student.name
-        };
-        
-        activities.forEach(activity => {
-          const activityData = allRecordsData.find(d => d.activityId === activity.id);
-          const record = activityData?.records.find((r: AttendanceRecord) => r.studentId === student.studentId);
-          rowData[activity.id] = record ? record.status : '未點名';
-        });
-        
-        const row = worksheet2.addRow(rowData);
-        
-        // 針對不同狀態標記顏色 (選擇性功能)
-        row.eachCell((cell, colNumber) => {
-          if (colNumber > 2) { // 狀態欄位
-            if (cell.value === '出席') cell.font = { color: { argb: 'FF10B981' } }; // 綠色
-            if (cell.value === '曠課') cell.font = { color: { argb: 'FFEF4444' } }; // 紅色
-            if (cell.value === '遲到') cell.font = { color: { argb: 'FFF59E0B' } }; // 橘色
-          }
-        });
-      });
-
-      // 標題列美化 (自動換行、置中)
-      const headerRow2 = worksheet2.getRow(1);
-      headerRow2.height = 40;
-      headerRow2.eachCell((cell) => {
-        cell.font = { bold: true };
-        cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
-      });
-
-      // 2. 生成 Buffer 並觸發下載
-      const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], {
-        type:
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${courseName}_點名紀錄.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-
-      Swal.close();
-      Swal.fire('成功', '已匯出點名紀錄 Excel 檔案', 'success');
-    } catch (e) {
-      console.error('Export attendance error:', e);
-      Swal.fire('錯誤', '匯出失敗，請稍後再試。', 'error');
-    }
-  };
-
-  const handleDelete = async (activityId: string) => {
-    const result = await Swal.fire({
-      title: '確定刪除?', text: "刪除後資料無法復原！", icon: 'warning',
-      showCancelButton: true, confirmButtonColor: '#ef4444', confirmButtonText: '刪除', cancelButtonText: '取消', customClass: { popup: 'rounded-2xl' }
-    });
-    if (result.isConfirmed) {
-      try {
-        await fetch('/api/attendance/activities/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ courseId, activityId }) });
-        setActivities(prev => prev.filter(a => a.id !== activityId));
-        Swal.fire('已刪除', '活動已移除', 'success');
-      } catch { Swal.fire('錯誤', '刪除失敗', 'error'); }
-    }
-  };
-
-  return (
-    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pb-10 flex flex-col h-full animate-fade-in">
-      {/* Header Area */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
-        <div className="border-l-4 border-indigo-500 pl-4">
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-            <CalendarDaysIcon className="h-8 w-8 text-indigo-600" />
-            {courseName}
-          </h1>
-          <p className="text-gray-500 text-sm mt-1">點名活動列表</p>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          <button
-            className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors shadow-sm font-medium flex items-center"
-            onClick={onBack}
-          >
-            <ArrowLeftIcon className="w-4 h-4 mr-2" /> 返回課程
-          </button>
-          {!isArchived && (
-            <button className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center" onClick={() => setIsCreateModalOpen(true)}>
-              <PlusIcon className="w-4 h-4 mr-2" /> 新增點名
-            </button>
-          )}
-          <button
-            onClick={handleExport}
-            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center"
-          >
-            <ArrowDownTrayIcon className="w-4 h-4 mr-2" /> 匯出紀錄
-          </button>
-        </div>
-      </div>
-
-      {isArchived && (
-        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl flex items-center shadow-sm mb-4">
-          <span className="font-bold mr-2">提示：</span>
-          此課程已封存，您只能查看活動列表及匯出紀錄，無法新增或刪除點名活動。
-        </div>
-      )}
-
-      {/* 外部表單 Modal Wrapper */}
-      {isCreateModalOpen && (
-          <Modal open={true} onClose={() => setIsCreateModalOpen(false)} title="新增點名活動">
-              <CreateAttendanceActivityForm 
-                courseId={courseId}
-                onClose={() => setIsCreateModalOpen(false)}
-                onComplete={() => { setIsCreateModalOpen(false); fetchActivities(); }}
-              />
-          </Modal>
-      )}
-
-      {loading ? (
-        <PageLoadingArea />
-      ) : activities.length === 0 ? (
-           <div className="text-center py-16 px-6 bg-white rounded-2xl border border-dashed border-gray-300">
-               <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400"><ClipboardDocumentCheckIcon className="w-8 h-8" /></div>
-               <h3 className="mt-2 text-xl font-bold text-gray-900">尚無點名紀錄</h3>
-               {!isArchived && (
-                 <button className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm mt-4" onClick={() => setIsCreateModalOpen(true)}>新增點名活動</button>
-               )}
-           </div>
-       ) : (
-           <>
-              <div className="hidden md:block bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-                 <div className="overflow-x-auto">
-                 <table className="w-full min-w-[860px] text-sm text-left text-gray-500">
-                    <thead className="bg-gray-50 text-xs text-gray-700 uppercase">
-                        <tr>
-                            <th className="px-6 py-4 font-bold w-[160px]">日期</th>
-                            <th className="px-6 py-4 font-bold w-[120px]">類型</th>
-                            <th className="px-6 py-4 font-bold min-w-[200px]">活動名稱</th>
-                            <th className="px-6 py-4 font-bold w-[150px]">點名代碼</th>
-                            <th className="px-6 py-4 font-bold text-right w-[150px]">操作</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                        {activities.map((activity) => (
-                            <tr key={activity.id} className="hover:bg-indigo-50/30 transition-colors group">
-                                <td className="px-6 py-4 font-mono text-gray-900 font-bold whitespace-nowrap">{formatDate(activity.date)}</td>
-                                <td className="px-6 py-4 font-bold whitespace-nowrap text-gray-700">
-                                    {activity.mode === 'digital' ? '數字點名' : '手動點名'}
-                                </td>
-                                <td className="px-6 py-4 font-bold text-gray-900">{activity.name}</td>
-                                <td className="px-6 py-4 font-mono text-gray-700 font-bold">
-                                    {activity.mode === 'digital' ? (
-                                        <span className="bg-gray-100 px-2 py-1 rounded text-indigo-600">{activity.checkInCode || '-'}</span>
-                                    ) : (
-                                        <span className="text-xs text-gray-400"> - </span>
-                                    )}
-                                </td>
-                                <td className="px-6 py-4 text-right whitespace-nowrap">
-                                    <div className="flex justify-end gap-2">
-                                        <button onClick={() => onSelectActivity(activity)} className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center">{isArchived ? '查看紀錄' : '進入點名'}</button>
-                                        {!isArchived && (
-                                          <button onClick={() => handleDelete(activity.id)} className="text-red-500 hover:text-red-700 p-1.5 rounded-md hover:bg-red-50"><TrashIcon className="w-4 h-4" /></button>
-                                        )}
-                                    </div>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                 </table>
-                 </div>
-              </div>
-              
-              {/* Mobile View */}
-              <div className="md:hidden space-y-4">
-                  {activities.map((activity) => (
-                      <div key={activity.id} className="bg-white border border-gray-100 rounded-xl shadow-sm p-5 flex flex-col gap-3 active:scale-[0.99] transition-transform" onClick={() => onSelectActivity(activity)}>
-                          <div>
-                               <h4 className="font-bold text-gray-800 text-lg mb-1">{activity.name}</h4>
-                               <div className="flex items-center flex-wrap gap-2 text-xs text-gray-500 font-mono">
-                                   <span>{formatDate(activity.date)}</span>
-                                   <span className="px-2 py-0.5 rounded border bg-gray-50 text-gray-700">
-                                       {activity.mode === 'digital' ? '數字點名' : '手動點名'}
-                                   </span>
-                               </div>
-                          </div>
-                          {activity.mode === 'digital' && (
-                              <div className="bg-gray-50 px-3 py-2 rounded text-indigo-700 text-sm font-bold flex items-center border border-gray-200">
-                                  <QrCodeIcon className="w-4 h-4 mr-2"/> 代碼: {activity.checkInCode}
-                              </div>
-                          )}
-                          <div className={`grid ${!isArchived ? 'grid-cols-2' : 'grid-cols-1'} gap-3 pt-3 border-t border-gray-50 mt-1`}>
-                               {!isArchived && (
-                                 <button onClick={(e) => { e.stopPropagation(); handleDelete(activity.id); }} className="w-full flex items-center justify-center text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium py-2"><TrashIcon className="w-4 h-4 mr-1" /> 刪除</button>
-                               )}
-                               <button className="w-full flex items-center justify-center text-sm text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg font-bold py-2">{isArchived ? '查看紀錄' : '進入點名'} <ChevronRightIcon className="w-4 h-4 ml-1" /></button>
-                          </div>
-                      </div>
-                  ))}
-              </div>
-           </>
-       )}
-    </div>
-  );
-}
-
-// ==========================================
-// 5. 第一層：主入口 (AttendanceManagementComponent)
-// ==========================================
-
-interface AttendanceManagementComponentProps {
-  courses?: Course[];
-  userInfo?: { id: string; name?: string; role?: string | string[] } | null;
-}
-
-export default function AttendanceManagementComponent({ courses: externalCourses, userInfo }: AttendanceManagementComponentProps = {}) {
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
-  const [selectedActivity, setSelectedActivity] = useState<AttendanceActivity | null>(null);
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [studentCounts, setStudentCounts] = useState<Record<string, number>>({});
-  const [students, setStudents] = useState<Student[]>([]);
-  const [loadingStudents, setLoadingStudents] = useState(false);
-
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedGrade, setSelectedGrade] = useState('all');
-  const [selectedSubject, setSelectedSubject] = useState('all');
-  const [selectedNature, setSelectedNature] = useState('all');
-  const [selectedStatus, setSelectedStatus] = useState('all');
-
-  useEffect(() => {
-    const filterCoursesForUser = (courseList: Course[]) => {
-      // 優先使用傳入的 userInfo，否則從 session 取得
-      let currentUserId = userInfo?.id;
-      if (!currentUserId) {
-        const session = getSession() as { user?: { id?: string; userId?: string; uid?: string }; id?: string; userId?: string; uid?: string } | null;
-        if (!session) return [];
-        const user = session.user || session;
-        currentUserId = user.id || user.userId || user.uid;
-      }
-
-      if (!currentUserId) return []; // 無識別 ID 時，不回傳任何課程
-
-      return courseList.filter(c => {
-        if (!c.teachers || !Array.isArray(c.teachers)) return false;
-        
-        // 嚴格比對 teachers 陣列，不再給予管理員豁免，以確保與成績系統行為完全一致
-        return c.teachers.includes(currentUserId);
-      });
-    };
-
-    if (externalCourses && externalCourses.length > 0) {
-      setCourses(filterCoursesForUser(externalCourses));
-      setLoading(false);
-      return;
-    }
-    const fetchCourses = async () => {
-      try {
-        const response = await fetch('/api/courses/list', { method: 'POST' });
-        if (response.ok) {
-          const coursesData: Course[] = await response.json();
-          setCourses(filterCoursesForUser(coursesData));
-          setLoading(false); // 提早解除載入狀態，優先顯示課程列表
-          
-          // 背景抓取學生名單以計算人數
-          fetch('/api/student/list')
-            .then(resStudents => resStudents.ok ? resStudents.json() : [])
-            .then(allStudents => {
-              const newCounts: Record<string, number> = {};
-              coursesData.forEach(course => {
-                const courseKey = `${course.name}(${course.code})`;
-                const count = allStudents.filter((s: any) => s.enrolledCourses && (s.enrolledCourses.includes(course.id) || s.enrolledCourses.includes(courseKey))).length;
-                newCounts[course.id] = count;
-              });
-              setStudentCounts(newCounts);
-            }).catch(console.error);
-        }
-      } catch (error) { console.error(error); setLoading(false); }
-    };
-    fetchCourses();
-  }, [externalCourses, userInfo?.id]);
-
-  useEffect(() => {
-    if (selectedActivity && selectedCourse) {
-      const fetchStudents = async () => {
-        setLoadingStudents(true);
-        try {
-          const res = await fetch(`/api/course-student-list/list?courseId=${encodeURIComponent(selectedCourse.id)}`);
-          if (res.ok) {
-            const roster = await res.json();
-            const enrolledStudents: Student[] = (Array.isArray(roster) ? roster : []).map((s: { id?: string; studentId?: string; name?: string }) => ({
-              id: String(s.id || s.studentId || ''),
-              studentId: String(s.studentId || s.id || ''),
-              name: String(s.name || ''),
-            }));
-
-            enrolledStudents.sort((a, b) => {
-              const idA = a.studentId;
-              const idB = b.studentId;
-              const aIsAlpha = /^[A-Za-z]/.test(idA);
-              const bIsAlpha = /^[A-Za-z]/.test(idB);
-              
-              if (aIsAlpha && !bIsAlpha) return 1;
-              if (!aIsAlpha && bIsAlpha) return -1;
-              
-              return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
+          if (Array.isArray(data)) {
+            const mappedData = data.map((item: {
+              id: string;
+              name?: string;
+              title?: string;
+              date?: unknown;
+              startTime?: unknown;
+              mode?: 'manual' | 'digital';
+              checkInMethod?: string;
+              type?: string;
+              checkInCode?: string;
+            }) => {
+              const toISO = (d: unknown) => {
+                if (!d) return undefined;
+                if (typeof d === 'string') return d;
+                if (typeof d === 'object' && d !== null && '_seconds' in d && '_nanoseconds' in d) {
+                  return new Date((d as { _seconds: number })._seconds * 1000 + (d as { _nanoseconds: number })._nanoseconds / 1000000).toISOString();
+                }
+                try { return new Date(d as string | number).toISOString(); } catch { return String(d); }
+              };
+  
+              const dateISO = toISO(item.date);
+              const startTimeISO = toISO(item.startTime);
+  
+              const rawDate =
+                dateISO ||
+                startTimeISO ||
+                new Date().toISOString();
+  
+              const mode: 'manual' | 'digital' =
+                item.mode ||
+                (item.checkInMethod === 'numeric' ? 'digital' : 'manual');
+  
+              return {
+                id: item.id,
+                name: item.name || item.title || '未命名活動',
+                date: rawDate,
+                type: item.type || '一般課程',
+                mode,
+                checkInCode: item.checkInCode,
+              };
             });
-            setStudents(enrolledStudents);
+  
+            const sorted = mappedData.sort(
+              (a, b) =>
+                new Date(b.date).getTime() - new Date(a.date).getTime()
+            );
+            setActivities(sorted);
           } else {
-            setStudents([]);
+            setActivities([]);
           }
-        } catch { setStudents([]); } finally { setLoadingStudents(false); }
-      };
-      fetchStudents();
-    }
-  }, [selectedActivity, selectedCourse]);
-
-  const filteredCourses = useMemo(() => {
-    return courses.filter((course: Course) => {
-      const statusMatch = selectedStatus === 'all' ? !(course.status && course.status.includes('已封存')) && !(course.name && course.name.includes('已封存')) : course.status === selectedStatus;
-      const natureMatch = selectedNature === 'all' || course.courseNature === selectedNature;
-
-      return ((course.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-             (course.code?.toLowerCase() || '').includes(searchTerm.toLowerCase())) && 
-             (selectedGrade === 'all' || (course.gradeTags && Array.isArray(course.gradeTags) && course.gradeTags.includes(selectedGrade))) && 
-             (selectedSubject === 'all' || course.subjectTag === selectedSubject) &&
-             natureMatch &&
-             statusMatch;
-    }).sort((a, b) => {
-        const statuses = ['報名中', '開課中', '未開課', '已額滿', '已結束', '已封存', '資料建置中...'];
-        const statusA = statuses.indexOf(a.status || '');
-        const statusB = statuses.indexOf(b.status || '');
-        const priorityA = statusA !== -1 ? statusA : 999;
-        const priorityB = statusB !== -1 ? statusB : 999;
-
-        if (priorityA !== priorityB) {
-            return priorityA - priorityB;
+        } else {
+          setActivities([]);
         }
-
-        const codeA = a.code || '';
-        const codeB = b.code || '';
-
-        const codeCompare = codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
+      } catch { Swal.fire('錯誤', '無法載入點名活動', 'error'); } finally { setLoading(false); }
+    }, [courseId]);
+  
+    useEffect(() => { fetchActivities(); }, [fetchActivities]);
+  
+    // 匯出紀錄
+    const handleExport = async () => {
+      if (activities.length === 0) return Swal.fire('提示', '無資料可匯出', 'info');
+      
+      Swal.fire({
+        title: '正在準備匯出資料',
+        text: '請稍候...',
+        allowOutsideClick: false,
+        didOpen: () => { Swal.showLoading(); }
+      });
+  
+      try {
+        // 動態載入 ExcelJS，避免拖慢系統初始載入速度
+        const ExcelJS = (await import('exceljs')).default;
+        // 1. 建立 Excel 活頁簿
+        const workbook = new ExcelJS.Workbook();
         
-        if (codeCompare !== 0) return codeCompare;
+        // --- 第一個工作表：活動摘要 ---
+        const worksheet = workbook.addWorksheet('點名活動摘要');
+  
+        // 定義摘要表欄位
+        worksheet.columns = [
+          { header: '日期 / 開始時間', key: 'date', width: 22 },
+          { header: '類型', key: 'type', width: 16 },
+          { header: '活動名稱', key: 'name', width: 32 },
+          { header: '點名方式', key: 'mode', width: 16 },
+          { header: '點名代碼', key: 'checkInCode', width: 16 },
+        ];
+  
+        // 填入點名活動資料
+        activities.forEach((a) => {
+          worksheet.addRow({
+            date: formatDate(a.date),
+            type: a.type,
+            name: a.name,
+            mode: a.mode === 'digital' ? '數字點名' : '手動點名',
+            checkInCode: a.mode === 'digital' ? a.checkInCode || '' : '',
+          });
+        });
+  
+        // 設定摘要表標題樣式 (藍色背景、白色文字)
+        worksheet.getRow(1).eachCell((cell) => {
+          cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        });
+  
+        // --- 第二個工作表：學生出缺席總表 ---
+        const worksheet2 = workbook.addWorksheet('學生出缺席詳細名單');
         
-        const nameA = a.name || '';
-        const nameB = b.name || '';
-        return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
-    });
-  }, [courses, searchTerm, selectedGrade, selectedSubject, selectedNature, selectedStatus]);
-
-  // Layer 3
-  if (selectedActivity && selectedCourse) {
-    if (loadingStudents) {
-      return (
-        <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pb-10 flex flex-col h-full animate-fade-in">
-          <PageHeader
-            title={selectedActivity.name || '點名活動'}
-            description={`${selectedCourse.name} • 載入學生名單`}
-          />
-          <PageLoadingArea />
-        </div>
-      );
-    }
-    return <AttendanceRosterManager activityId={selectedActivity.id} courseId={selectedCourse.id} courseName={selectedCourse.name} students={students} onClose={() => setSelectedActivity(null)} initialActivityData={selectedActivity} isArchived={selectedCourse.status === '已封存'} />;
-  }
-
-  // Layer 2
-  if (selectedCourse) {
+        // 優化：直接抓取該課程學生名單，避免抓取全校學生資料浪費資源
+        const stuRes = await fetch(`/api/course-student-list/list?courseId=${encodeURIComponent(courseId)}`);
+        let students: Student[] = [];
+        if (stuRes.ok) {
+          const roster = await stuRes.json();
+          students = (Array.isArray(roster) ? roster : []).map((s: any) => ({
+            id: String(s.id || s.studentId || ''),
+            studentId: String(s.studentId || s.id || ''),
+            name: String(s.name || ''),
+          }));
+  
+          students.sort((a, b) => {
+            const idA = a.studentId;
+            const idB = b.studentId;
+            const aIsAlpha = /^[A-Za-z]/.test(idA);
+            const bIsAlpha = /^[A-Za-z]/.test(idB);
+            
+            if (aIsAlpha && !bIsAlpha) return 1;
+            if (!aIsAlpha && bIsAlpha) return -1;
+            
+            return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
+          });
+        }
+  
+        // 抓取所有點名活動的詳細紀錄 (併行處理以提升效能)
+        const allRecordsPromises = activities.map(async (a) => {
+          const res = await fetch('/api/attendance/records/get', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ courseId, activityId: a.id })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            return { activityId: a.id, records: data.records || [] };
+          }
+          return { activityId: a.id, records: [] };
+        });
+        const allRecordsData = await Promise.all(allRecordsPromises);
+  
+        // 設定總表欄位 (基礎欄位：學號、姓名)
+        const columns = [
+          { header: '學號', key: 'studentId', width: 15 },
+          { header: '姓名', key: 'name', width: 15 },
+        ];
+  
+        // 動態增加點名日期欄位 (每個活動一欄)
+        activities.forEach(a => {
+          const headerDate = formatDate(a.date).split(' ')[0];
+          columns.push({ header: `${headerDate}\n${a.name}`, key: a.id, width: 20 });
+        });
+        worksheet2.columns = columns;
+  
+        // 填充學生資料列
+        students.forEach(student => {
+          const rowData: Record<string, string> = {
+            studentId: student.studentId,
+            name: student.name
+          };
+          
+          activities.forEach(activity => {
+            const activityData = allRecordsData.find(d => d.activityId === activity.id);
+            const record = activityData?.records.find((r: AttendanceRecord) => r.studentId === student.studentId);
+            let displayStatus = '未點名';
+            if (record) {
+              if (record.status === 'present') displayStatus = '出席';
+              else if (record.status === 'late') displayStatus = '遲到';
+              else if (record.status === 'early_leave') displayStatus = '早退';
+              else if (record.status === 'late_and_early_leave') displayStatus = '遲到、早退';
+              else if (record.status === 'absent') displayStatus = '曠課';
+              else if (record.status === 'leave') displayStatus = record.leaveType || '請假';
+              else displayStatus = record.status;
+            }
+            rowData[activity.id] = displayStatus;
+          });
+          
+          const row = worksheet2.addRow(rowData);
+          
+          // 針對不同狀態標記顏色 (選擇性功能)
+          row.eachCell((cell, colNumber) => {
+            if (colNumber > 2) { // 狀態欄位
+              if (cell.value === '出席') cell.font = { color: { argb: 'FF10B981' } }; // 綠色
+              if (cell.value === '曠課') cell.font = { color: { argb: 'FFEF4444' } }; // 紅色
+              if (cell.value === '遲到' || cell.value === '早退' || cell.value === '遲到、早退') cell.font = { color: { argb: 'FFF59E0B' } }; // 橘色
+            }
+          });
+        });
+  
+        // 標題列美化 (自動換行、置中)
+        const headerRow2 = worksheet2.getRow(1);
+        headerRow2.height = 40;
+        headerRow2.eachCell((cell) => {
+          cell.font = { bold: true };
+          cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
+        });
+  
+        // 2. 生成 Buffer 並觸發下載
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], {
+          type:
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${courseName}_點名紀錄.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+  
+        Swal.close();
+        Swal.fire('成功', '已匯出點名紀錄 Excel 檔案', 'success');
+      } catch (e) {
+        console.error('Export attendance error:', e);
+        Swal.fire('錯誤', '匯出失敗，請稍後再試。', 'error');
+      }
+    };
+  
+    const handleDelete = async (activityId: string) => {
+      const result = await Swal.fire({
+        title: '確定刪除?', text: "刪除後資料無法復原！", icon: 'warning',
+        showCancelButton: true, confirmButtonColor: '#ef4444', confirmButtonText: '刪除', cancelButtonText: '取消', customClass: { popup: 'rounded-2xl' }
+      });
+      if (result.isConfirmed) {
+        try {
+          await fetch('/api/attendance/activities/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ courseId, activityId }) });
+          setActivities(prev => prev.filter(a => a.id !== activityId));
+          Swal.fire('已刪除', '活動已移除', 'success');
+        } catch { Swal.fire('錯誤', '刪除失敗', 'error'); }
+      }
+    };
+  
     return (
-      <AttendanceActivityList 
-        courseId={selectedCourse.id} 
-        courseName={selectedCourse.name} 
-        courseCode={selectedCourse.code} // 傳遞課程代碼
-        onBack={() => setSelectedCourse(null)} 
-        isArchived={selectedCourse.status === '已封存'}
-        onSelectActivity={(activity) => setSelectedActivity(activity)} 
-      />
-    );
-  }
-
-  // Layer 1
-  return (
-    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pb-10 flex flex-col h-full animate-fade-in">
-      <PageHeader
-        title="點名管理"
-        description="記錄學生的出缺席狀況，包含手動點名與數字簽到。"
-        icon={<CalendarDaysIcon className="h-8 w-8 text-indigo-600" />}
-      />
-
-      {loading ? (
-        <PageLoadingArea />
-      ) : courses.length === 0 ? (
-           <div className="text-center py-16 px-6 bg-white rounded-2xl border border-dashed border-gray-300">
-               <h3 className="mt-2 text-xl font-bold text-gray-900">尚無可管理的課程</h3>
-           </div>
-       ) : (
-          <>
-            {/* 篩選器 */}
-            {!loading && courses.length > 0 && (
-              <CourseFilter
-                searchTerm={searchTerm}
-                onSearchChange={setSearchTerm}
-                selectedGrade={selectedGrade}
-                onGradeChange={setSelectedGrade}
-                selectedSubject={selectedSubject}
-                onSubjectChange={setSelectedSubject}
-                selectedNature={selectedNature}
-                onNatureChange={setSelectedNature}
-                selectedStatus={selectedStatus}
-                onStatusChange={setSelectedStatus}
-                onReset={() => {
-                  setSearchTerm('');
-                  setSelectedGrade('all');
-                  setSelectedSubject('all');
-                  setSelectedNature('all');
-                  setSelectedStatus('all');
-                }}
-              />
+      <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pb-10 flex flex-col h-full animate-fade-in">
+        {/* Header Area */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
+          <div className="border-l-4 border-indigo-500 pl-4">
+            <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+              <CalendarDaysIcon className="h-8 w-8 text-indigo-600" />
+              {courseName}
+            </h1>
+            <p className="text-gray-500 text-sm mt-1">點名活動列表</p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <button
+              className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors shadow-sm font-medium flex items-center"
+              onClick={onBack}
+            >
+              <ArrowLeftIcon className="w-4 h-4 mr-2" /> 返回課程
+            </button>
+            {!isArchived && (
+              <button className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center" onClick={() => setIsCreateModalOpen(true)}>
+                <PlusIcon className="w-4 h-4 mr-2" /> 新增點名
+              </button>
             )}
-
-            {filteredCourses.length === 0 ? (
-                <div className="text-center py-16 px-6 bg-white rounded-2xl border border-dashed border-gray-300">
-                    <h3 className="mt-2 text-xl font-bold text-gray-900">尚無符合的課程</h3>
+            <button
+              onClick={handleExport}
+              className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center"
+            >
+              <ArrowDownTrayIcon className="w-4 h-4 mr-2" /> 匯出紀錄
+            </button>
+          </div>
+        </div>
+  
+        {isArchived && (
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl flex items-center shadow-sm mb-4">
+            <span className="font-bold mr-2">提示：</span>
+            此課程已封存，您只能查看活動列表及匯出紀錄，無法新增或刪除點名活動。
+          </div>
+        )}
+  
+        {/* 外部表單 Modal Wrapper */}
+        {isCreateModalOpen && (
+            <Modal open={true} onClose={() => setIsCreateModalOpen(false)} title="新增點名活動">
+                <CreateAttendanceActivityForm 
+                  courseId={courseId}
+                  onClose={() => setIsCreateModalOpen(false)}
+                  onComplete={() => { setIsCreateModalOpen(false); fetchActivities(); }}
+                />
+            </Modal>
+        )}
+  
+        {loading ? (
+          <PageLoadingArea />
+        ) : activities.length === 0 ? (
+             <div className="text-center py-16 px-6 bg-white rounded-2xl border border-dashed border-gray-300">
+                 <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400"><ClipboardDocumentCheckIcon className="w-8 h-8" /></div>
+                 <h3 className="mt-2 text-xl font-bold text-gray-900">尚無點名紀錄</h3>
+                 {!isArchived && (
+                   <button className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm mt-4" onClick={() => setIsCreateModalOpen(true)}>新增點名活動</button>
+                 )}
+             </div>
+         ) : (
+             <>
+                <div className="hidden md:block bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                   <div className="overflow-x-auto">
+                   <table className="w-full min-w-[860px] text-sm text-left text-gray-500">
+                      <thead className="bg-gray-50 text-xs text-gray-700 uppercase">
+                          <tr>
+                              <th className="px-6 py-4 font-bold w-[160px]">日期</th>
+                              <th className="px-6 py-4 font-bold w-[120px]">類型</th>
+                              <th className="px-6 py-4 font-bold min-w-[200px]">活動名稱</th>
+                              <th className="px-6 py-4 font-bold w-[150px]">點名代碼</th>
+                              <th className="px-6 py-4 font-bold text-right w-[150px]">操作</th>
+                          </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                          {activities.map((activity) => (
+                              <tr key={activity.id} className="hover:bg-indigo-50/30 transition-colors group">
+                                  <td className="px-6 py-4 font-mono text-gray-900 font-bold whitespace-nowrap">{formatDate(activity.date)}</td>
+                                  <td className="px-6 py-4 font-bold whitespace-nowrap text-gray-700">
+                                      {activity.mode === 'digital' ? '數字點名' : '手動點名'}
+                                  </td>
+                                  <td className="px-6 py-4 font-bold text-gray-900">{activity.name}</td>
+                                  <td className="px-6 py-4 font-mono text-gray-700 font-bold">
+                                      {activity.mode === 'digital' ? (
+                                          <span className="bg-gray-100 px-2 py-1 rounded text-indigo-600">{activity.checkInCode || '-'}</span>
+                                      ) : (
+                                          <span className="text-xs text-gray-400"> - </span>
+                                      )}
+                                  </td>
+                                  <td className="px-6 py-4 text-right whitespace-nowrap">
+                                      <div className="flex justify-end gap-2">
+                                          <button onClick={() => onSelectActivity(activity)} className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center">{isArchived ? '查看紀錄' : '進入點名'}</button>
+                                          {!isArchived && (
+                                            <button onClick={() => handleDelete(activity.id)} className="text-red-500 hover:text-red-700 p-1.5 rounded-md hover:bg-red-50"><TrashIcon className="w-4 h-4" /></button>
+                                          )}
+                                      </div>
+                                  </td>
+                              </tr>
+                          ))}
+                      </tbody>
+                   </table>
+                   </div>
                 </div>
-            ) : (
-              <>
-                <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden hidden md:block">
-                    <table className="w-full text-sm text-left text-gray-500">
-                        <thead className="bg-gray-50 text-xs text-gray-700 uppercase">
-                            <tr>
-                                <th className="px-6 py-4 font-bold min-w-[250px]">課程名稱</th>
-                                <th className="px-6 py-4 font-bold text-center w-[150px]">學生人數</th>
-                                <th className="px-6 py-4 font-bold text-right w-[150px]">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {filteredCourses.map((course) => (
-                            <tr key={course.id} className="hover:bg-indigo-50/30 transition-colors group">
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <div className="font-bold text-gray-900 text-base">{course.name}</div>
-                                    <div className="text-xs font-mono text-gray-500 mt-1">{course.code}</div>
-                                </td>
-                                <td className="px-6 py-4 text-center whitespace-nowrap">
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                       <UserGroupIcon className="w-3 h-3 mr-1"/>{studentCounts[course.id] ?? '-'} 人
-                                    </span>
-                                </td>
-                                <td className="px-6 py-4 text-right whitespace-nowrap">
-                                    <button onClick={() => setSelectedCourse(course)} className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">管理</button>
-                                </td>
-                            </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                
+                {/* Mobile View */}
                 <div className="md:hidden space-y-4">
-                    {filteredCourses.map((course) => (
-                        <div key={course.id} className="bg-white border border-gray-100 rounded-xl shadow-sm p-5 flex flex-col gap-3 active:scale-[0.99] transition-transform" onClick={() => setSelectedCourse(course)}>
-                            <div className="flex justify-between items-start">
-                                 <div><h3 className="font-bold text-gray-900 text-lg">{course.name}</h3><p className="text-xs font-mono text-gray-500">{course.code}</p></div>
-                                 <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-600 shrink-0"><UserGroupIcon className="w-3 h-3 mr-1"/>{studentCounts[course.id] ?? '-'} 人</span>
+                    {activities.map((activity) => (
+                        <div key={activity.id} className="bg-white border border-gray-100 rounded-xl shadow-sm p-5 flex flex-col gap-3 active:scale-[0.99] transition-transform" onClick={() => onSelectActivity(activity)}>
+                            <div>
+                                 <h4 className="font-bold text-gray-800 text-lg mb-1">{activity.name}</h4>
+                                 <div className="flex items-center flex-wrap gap-2 text-xs text-gray-500 font-mono">
+                                     <span>{formatDate(activity.date)}</span>
+                                     <span className="px-2 py-0.5 rounded border bg-gray-50 text-gray-700">
+                                         {activity.mode === 'digital' ? '數字點名' : '手動點名'}
+                                     </span>
+                                 </div>
                             </div>
-                            <div className="border-t border-gray-100 pt-3 flex justify-end">
-                                 <button onClick={(e) => { e.stopPropagation(); setSelectedCourse(course); }} className="w-full flex items-center justify-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors">管理點名 <ChevronRightIcon className="w-4 h-4 ml-1" /></button>
+                            {activity.mode === 'digital' && (
+                                <div className="bg-gray-50 px-3 py-2 rounded text-indigo-700 text-sm font-bold flex items-center border border-gray-200">
+                                    <QrCodeIcon className="w-4 h-4 mr-2"/> 代碼: {activity.checkInCode}
+                                </div>
+                            )}
+                            <div className={`grid ${!isArchived ? 'grid-cols-2' : 'grid-cols-1'} gap-3 pt-3 border-t border-gray-50 mt-1`}>
+                                 {!isArchived && (
+                                   <button onClick={(e) => { e.stopPropagation(); handleDelete(activity.id); }} className="w-full flex items-center justify-center text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium py-2"><TrashIcon className="w-4 h-4 mr-1" /> 刪除</button>
+                                 )}
+                                 <button className="w-full flex items-center justify-center text-sm text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg font-bold py-2">{isArchived ? '查看紀錄' : '進入點名'} <ChevronRightIcon className="w-4 h-4 ml-1" /></button>
                             </div>
                         </div>
                     ))}
                 </div>
-              </>
-            )}
-          </>
-       )}
-    </div>
-  );
-}
+             </>
+         )}
+      </div>
+    );
+  }
+  
+  // ==========================================
+  // 5. 第一層：主入口 (AttendanceManagementComponent)
+  // ==========================================
+  
+  interface AttendanceManagementComponentProps {
+    courses?: Course[];
+    userInfo?: { id: string; name?: string; role?: string | string[] } | null;
+  }
+  
+  export default function AttendanceManagementComponent({ courses: externalCourses, userInfo }: AttendanceManagementComponentProps = {}) {
+    const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+    const [selectedActivity, setSelectedActivity] = useState<AttendanceActivity | null>(null);
+    const [courses, setCourses] = useState<Course[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [studentCounts, setStudentCounts] = useState<Record<string, number>>({});
+    const [students, setStudents] = useState<Student[]>([]);
+    const [loadingStudents, setLoadingStudents] = useState(false);
+  
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedGrade, setSelectedGrade] = useState('all');
+    const [selectedSubject, setSelectedSubject] = useState('all');
+    const [selectedNature, setSelectedNature] = useState('all');
+    const [selectedStatus, setSelectedStatus] = useState('all');
+  
+    useEffect(() => {
+      const filterCoursesForUser = (courseList: Course[]) => {
+        // 優先使用傳入的 userInfo，否則從 session 取得
+        let currentUserId = userInfo?.id;
+        if (!currentUserId) {
+          const session = getSession() as { user?: { id?: string; userId?: string; uid?: string }; id?: string; userId?: string; uid?: string } | null;
+          if (!session) return [];
+          const user = session.user || session;
+          currentUserId = user.id || user.userId || user.uid;
+        }
+  
+        if (!currentUserId) return []; // 無識別 ID 時，不回傳任何課程
+  
+        return courseList.filter(c => {
+          if (!c.teachers || !Array.isArray(c.teachers)) return false;
+          
+          // 嚴格比對 teachers 陣列，不再給予管理員豁免，以確保與成績系統行為完全一致
+          return c.teachers.includes(currentUserId);
+        });
+      };
+  
+      if (externalCourses && externalCourses.length > 0) {
+        setCourses(filterCoursesForUser(externalCourses));
+        setLoading(false);
+        return;
+      }
+      const fetchCourses = async () => {
+        try {
+          const response = await fetch('/api/courses/list', { method: 'POST' });
+          if (response.ok) {
+            const coursesData: Course[] = await response.json();
+            setCourses(filterCoursesForUser(coursesData));
+            setLoading(false); // 提早解除載入狀態，優先顯示課程列表
+            
+            // 背景抓取學生名單以計算人數
+            fetch('/api/student/list')
+              .then(resStudents => resStudents.ok ? resStudents.json() : [])
+              .then(allStudents => {
+                const newCounts: Record<string, number> = {};
+                coursesData.forEach(course => {
+                  const courseKey = `${course.name}(${course.code})`;
+                  const count = allStudents.filter((s: any) => s.enrolledCourses && (s.enrolledCourses.includes(course.id) || s.enrolledCourses.includes(courseKey))).length;
+                  newCounts[course.id] = count;
+                });
+                setStudentCounts(newCounts);
+              }).catch(console.error);
+          }
+        } catch (error) { console.error(error); setLoading(false); }
+      };
+      fetchCourses();
+    }, [externalCourses, userInfo?.id]);
+  
+    useEffect(() => {
+      if (selectedActivity && selectedCourse) {
+        const fetchStudents = async () => {
+          setLoadingStudents(true);
+          try {
+            const res = await fetch(`/api/course-student-list/list?courseId=${encodeURIComponent(selectedCourse.id)}`);
+            if (res.ok) {
+              const roster = await res.json();
+              const enrolledStudents: Student[] = (Array.isArray(roster) ? roster : []).map((s: { id?: string; studentId?: string; name?: string }) => ({
+                id: String(s.id || s.studentId || ''),
+                studentId: String(s.studentId || s.id || ''),
+                name: String(s.name || ''),
+              }));
+  
+              enrolledStudents.sort((a, b) => {
+                const idA = a.studentId;
+                const idB = b.studentId;
+                const aIsAlpha = /^[A-Za-z]/.test(idA);
+                const bIsAlpha = /^[A-Za-z]/.test(idB);
+                
+                if (aIsAlpha && !bIsAlpha) return 1;
+                if (!aIsAlpha && bIsAlpha) return -1;
+                
+                return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
+              });
+              setStudents(enrolledStudents);
+            } else {
+              setStudents([]);
+            }
+          } catch { setStudents([]); } finally { setLoadingStudents(false); }
+        };
+        fetchStudents();
+      }
+    }, [selectedActivity, selectedCourse]);
+  
+    const filteredCourses = useMemo(() => {
+      return courses.filter((course: Course) => {
+        const statusMatch = selectedStatus === 'all' ? !(course.status && course.status.includes('已封存')) && !(course.name && course.name.includes('已封存')) : course.status === selectedStatus;
+        const natureMatch = selectedNature === 'all' || course.courseNature === selectedNature;
+  
+        return ((course.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+               (course.code?.toLowerCase() || '').includes(searchTerm.toLowerCase())) && 
+               (selectedGrade === 'all' || (course.gradeTags && Array.isArray(course.gradeTags) && course.gradeTags.includes(selectedGrade))) && 
+               (selectedSubject === 'all' || course.subjectTag === selectedSubject) &&
+               natureMatch &&
+               statusMatch;
+      }).sort((a, b) => {
+          const statuses = ['報名中', '開課中', '未開課', '已額滿', '已結束', '已封存', '資料建置中...'];
+          const statusA = statuses.indexOf(a.status || '');
+          const statusB = statuses.indexOf(b.status || '');
+          const priorityA = statusA !== -1 ? statusA : 999;
+          const priorityB = statusB !== -1 ? statusB : 999;
+  
+          if (priorityA !== priorityB) {
+              return priorityA - priorityB;
+          }
+  
+          const codeA = a.code || '';
+          const codeB = b.code || '';
+  
+          const codeCompare = codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
+          
+          if (codeCompare !== 0) return codeCompare;
+          
+          const nameA = a.name || '';
+          const nameB = b.name || '';
+          return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
+      });
+    }, [courses, searchTerm, selectedGrade, selectedSubject, selectedNature, selectedStatus]);
+  
+    // Layer 3
+    if (selectedActivity && selectedCourse) {
+      if (loadingStudents) {
+        return (
+          <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pb-10 flex flex-col h-full animate-fade-in">
+            <PageHeader
+              title={selectedActivity.name || '點名活動'}
+              description={`${selectedCourse.name} • 載入學生名單`}
+            />
+            <PageLoadingArea />
+          </div>
+        );
+      }
+      return <AttendanceRosterManager activityId={selectedActivity.id} courseId={selectedCourse.id} courseName={selectedCourse.name} students={students} onClose={() => setSelectedActivity(null)} initialActivityData={selectedActivity} isArchived={selectedCourse.status === '已封存'} />;
+    }
+  
+    // Layer 2
+    if (selectedCourse) {
+      return (
+        <AttendanceActivityList 
+          courseId={selectedCourse.id} 
+          courseName={selectedCourse.name} 
+          courseCode={selectedCourse.code} // 傳遞課程代碼
+          onBack={() => setSelectedCourse(null)} 
+          isArchived={selectedCourse.status === '已封存'}
+          onSelectActivity={(activity) => setSelectedActivity(activity)} 
+        />
+      );
+    }
+  
+    // Layer 1
+    return (
+      <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pb-10 flex flex-col h-full animate-fade-in">
+        <PageHeader
+          title="點名管理"
+          description="記錄學生的出缺席狀況，包含手動點名與數字簽到。"
+          icon={<CalendarDaysIcon className="h-8 w-8 text-indigo-600" />}
+        />
+  
+        {loading ? (
+          <PageLoadingArea />
+        ) : courses.length === 0 ? (
+             <div className="text-center py-16 px-6 bg-white rounded-2xl border border-dashed border-gray-300">
+                 <h3 className="mt-2 text-xl font-bold text-gray-900">尚無可管理的課程</h3>
+             </div>
+         ) : (
+            <>
+              {/* 篩選器 */}
+              {!loading && courses.length > 0 && (
+                <CourseFilter
+                  searchTerm={searchTerm}
+                  onSearchChange={setSearchTerm}
+                  selectedGrade={selectedGrade}
+                  onGradeChange={setSelectedGrade}
+                  selectedSubject={selectedSubject}
+                  onSubjectChange={setSelectedSubject}
+                  selectedNature={selectedNature}
+                  onNatureChange={setSelectedNature}
+                  selectedStatus={selectedStatus}
+                  onStatusChange={setSelectedStatus}
+                  onReset={() => {
+                    setSearchTerm('');
+                    setSelectedGrade('all');
+                    setSelectedSubject('all');
+                    setSelectedNature('all');
+                    setSelectedStatus('all');
+                  }}
+                />
+              )}
+  
+              {filteredCourses.length === 0 ? (
+                  <div className="text-center py-16 px-6 bg-white rounded-2xl border border-dashed border-gray-300">
+                      <h3 className="mt-2 text-xl font-bold text-gray-900">尚無符合的課程</h3>
+                  </div>
+              ) : (
+                <>
+                  <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden hidden md:block">
+                      <table className="w-full text-sm text-left text-gray-500">
+                          <thead className="bg-gray-50 text-xs text-gray-700 uppercase">
+                              <tr>
+                                  <th className="px-6 py-4 font-bold min-w-[250px]">課程名稱</th>
+                                  <th className="px-6 py-4 font-bold text-center w-[150px]">學生人數</th>
+                                  <th className="px-6 py-4 font-bold text-right w-[150px]">操作</th>
+                              </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                              {filteredCourses.map((course) => (
+                              <tr key={course.id} className="hover:bg-indigo-50/30 transition-colors group">
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                      <div className="font-bold text-gray-900 text-base">{course.name}</div>
+                                      <div className="text-xs font-mono text-gray-500 mt-1">{course.code}</div>
+                                  </td>
+                                  <td className="px-6 py-4 text-center whitespace-nowrap">
+                                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                         <UserGroupIcon className="w-3 h-3 mr-1"/>{studentCounts[course.id] ?? '-'} 人
+                                      </span>
+                                  </td>
+                                  <td className="px-6 py-4 text-right whitespace-nowrap">
+                                      <button onClick={() => setSelectedCourse(course)} className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">管理</button>
+                                  </td>
+                              </tr>
+                              ))}
+                          </tbody>
+                      </table>
+                  </div>
+                  <div className="md:hidden space-y-4">
+                      {filteredCourses.map((course) => (
+                          <div key={course.id} className="bg-white border border-gray-100 rounded-xl shadow-sm p-5 flex flex-col gap-3 active:scale-[0.99] transition-transform" onClick={() => setSelectedCourse(course)}>
+                              <div className="flex justify-between items-start">
+                                   <div><h3 className="font-bold text-gray-900 text-lg">{course.name}</h3><p className="text-xs font-mono text-gray-500">{course.code}</p></div>
+                                   <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-600 shrink-0"><UserGroupIcon className="w-3 h-3 mr-1"/>{studentCounts[course.id] ?? '-'} 人</span>
+                              </div>
+                              <div className="border-t border-gray-100 pt-3 flex justify-end">
+                                   <button onClick={(e) => { e.stopPropagation(); setSelectedCourse(course); }} className="w-full flex items-center justify-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors">管理點名 <ChevronRightIcon className="w-4 h-4 ml-1" /></button>
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+                </>
+              )}
+            </>
+         )}
+      </div>
+    );
+  }
+  
