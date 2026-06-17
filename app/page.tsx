@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import Dropdown from '@/components/ui/Dropdown';
+import 'react-quill-new/dist/quill.snow.css';
 
 export interface Exam {
   id: string;
@@ -24,9 +25,9 @@ interface Announcement {
 }
 
 const mockExams: Exam[] = [
-  { id: 'gsat', name: '學科能力測驗 (學測)', startDate: '2025-01-18', endDate: '2025-01-20' },
-  { id: 'tcat', name: '四技二專統一入學測驗 (統測)', startDate: '2025-04-26', endDate: '2025-04-27' },
-  { id: 'bcat', name: '國中教育會考 (會考)', startDate: '2025-05-17', endDate: '2025-05-18' },
+  { id: 'gsat', name: '學科能力測驗', startDate: '2025-01-18', endDate: '2025-01-20' },
+  { id: 'tcat', name: '四技二專統一入學測驗', startDate: '2025-04-26', endDate: '2025-04-27' },
+  { id: 'bcat', name: '國中教育會考', startDate: '2025-05-17', endDate: '2025-05-18' },
   { id: 'ast', name: '分科測驗', startDate: '2025-07-11', endDate: '2025-07-12' }
 ];
 
@@ -60,6 +61,51 @@ const itemVariants = {
   hidden: { y: 20, opacity: 0 },
   visible: { y: 0, opacity: 1, transition: { duration: 0.5 } },
 };
+
+const quillDisplayStyles = `
+  .ql-snow .ql-editor {
+    padding: 0;
+  }
+  .ql-snow .ql-size-small {
+    font-size: 0.85em;
+  }
+  .ql-snow .ql-size-large {
+    font-size: 1.5em;
+  }
+  .ql-snow .ql-size-huge {
+    font-size: 2.5em;
+  }
+  .ql-snow .ql-editor ol, .ql-snow .ql-editor ul {
+    padding-left: 1.5em;
+  }
+  .ql-snow .ql-editor ol > li, .ql-snow .ql-editor ul > li {
+    list-style-type: none;
+  }
+  .ql-snow .ql-editor ol {
+    counter-reset: list-1;
+  }
+  .ql-snow .ql-editor ol > li::before {
+    counter-increment: list-1;
+    content: counter(list-1, decimal) ". ";
+    margin-left: -1.5em;
+    margin-right: 0.3em;
+    text-align: right;
+    white-space: nowrap;
+    width: 1.2em;
+    display: inline-block;
+    line-height: inherit;
+  }
+  .ql-snow .ql-editor ul > li::before {
+    content: '•';
+    margin-left: -1.5em;
+    margin-right: 0.3em;
+    text-align: center;
+    white-space: nowrap;
+    width: 1.2em;
+    display: inline-block;
+    line-height: inherit;
+  }
+`;
 
 const formatDate = (dateInput: unknown) => {
   if (!dateInput) return '無日期';
@@ -175,6 +221,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gray-50">
+      <style>{quillDisplayStyles}</style>
       
       <div className="pt-8 pb-6 md:pt-16 md:pb-12 text-center px-4">
         <div className="max-w-4xl mx-auto">
@@ -279,7 +326,16 @@ export default function Home() {
                     </button>
                     {isExpanded && (
                       <div className="p-5 border-t border-gray-100 bg-gray-50/50">
-                        <div className="prose prose-sm max-w-none text-gray-600 whitespace-pre-line leading-relaxed mb-6">{ann.content}</div>
+                        {/<[a-z][\s\S]*>/i.test(ann.content) ? (
+                          <div className="ql-snow">
+                            <div
+                              className="ql-editor text-gray-600 mb-6"
+                              dangerouslySetInnerHTML={{ __html: ann.content }}
+                            />
+                          </div>
+                        ) : (
+                          <div className="prose prose-sm max-w-none text-gray-600 whitespace-pre-line leading-relaxed mb-6">{ann.content}</div>
+                        )}
                       </div>
                     )}
                   </motion.div>

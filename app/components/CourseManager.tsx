@@ -10,6 +10,7 @@ import Swal from 'sweetalert2';
 import Image from 'next/image';
 import Dropdown from './ui/Dropdown';
 import { removeCoursesFromEnrolledList } from '@/services/courseId';
+import RichTextEditor from '../../components/RichTextEditor';
 
 const customLinkIconOptions = [
   { value: 'LinkIcon', label: '預設連結' },
@@ -186,7 +187,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
         const fetchTeachers = async () => {
             try {
                 // 只抓 users 集合中有老師資格的帳號
-                const res1 = await fetch('/api/teacher/list');
+                const res1 = await fetch('/api/teacher/list', { headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' } });
                 let usersTeachers = await res1.json();
                 // 過濾掉沒有 name 欄位的
                 usersTeachers = usersTeachers.filter((t: { role?: string[] | string; roles?: string[] | string; name?: string }) => (
@@ -850,12 +851,12 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center text-gray-600">
-                                                        <UserIcon className="w-4 h-4 mr-1.5 text-gray-400" />
-                                                        <span className="truncate max-w-[150px]">
-                                                            {course.teachers.map(tid => allTeachers.find(t => t.id === tid)?.name).join(', ') || '未指定'}
-                                                        </span>
+                                                <td className="px-6 py-4 max-w-[200px]">
+                                                    <div className="flex items-center text-gray-600 w-full">
+                                                        <UserIcon className="w-4 h-4 mr-1.5 text-gray-400 shrink-0" />
+                                                        <div className="truncate min-w-0 flex-1" title={course.teachers.map(tid => allTeachers.find(t => t.id === tid)?.name).filter(Boolean).join(', ') || '未指定'}>
+                                                            {course.teachers.map(tid => allTeachers.find(t => t.id === tid)?.name).filter(Boolean).join(', ') || '未指定'}
+                                                        </div>
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4">
@@ -1389,8 +1390,12 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                        <input type="text" value={editingAnnouncement.title} onChange={e => setEditingAnnouncement(prev => ({...prev!, title: e.target.value}))} className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="輸入標題..." />
                      </div>
                      <div className="mb-4">
-                       <label className="block text-sm font-bold text-gray-700 mb-1">公告內容 <span className="text-red-500">*</span></label>
-                       <textarea rows={6} value={editingAnnouncement.content} onChange={e => setEditingAnnouncement(prev => ({...prev!, content: e.target.value}))} className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none resize-none" placeholder="輸入內容..."></textarea>
+                 <label className="block text-sm font-bold text-gray-700 mb-1.5">公告內容 <span className="text-red-500">*</span></label>
+                 <RichTextEditor
+                    value={editingAnnouncement.content}
+                    onChange={content => setEditingAnnouncement(prev => ({...prev!, content}))}
+                    placeholder="輸入內容..."
+                 />
                      </div>
                      <div className="mb-6 bg-gray-50 p-4 rounded-xl border border-gray-200">
                        <div className="flex justify-between items-center mb-3">

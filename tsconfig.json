@@ -44,6 +44,7 @@
       ]
     },
     "baseUrl": ".",
+    "ignoreDeprecations": "5.0",
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
     "typeRoots": [

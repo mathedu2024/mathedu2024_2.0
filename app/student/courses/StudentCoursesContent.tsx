@@ -7,6 +7,7 @@ import { useStudentInfo } from '../StudentInfoContext';
 import PageLoadingArea from '@/components/ui/PageLoadingArea';
 import StudentCourseSelector, { getCourseDisplayKey } from '@/components/StudentCourseSelector';
 import { BookOpenIcon, ClockIcon, MapPinIcon, UserIcon, VideoCameraIcon, MegaphoneIcon, LinkIcon, DocumentTextIcon, FolderIcon, ChatBubbleLeftRightIcon, XMarkIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import 'react-quill-new/dist/quill.snow.css';
 
 // Interfaces
 interface ClassTime { day: string; startTime: string; endTime: string; }
@@ -16,6 +17,51 @@ interface Course { id: string; name: string; code: string; status: string; archi
 interface Lesson { id: string; title: string; date: string; progress: string; attachments: Array<string | { url: string; name?: string; visibleToStudents?: boolean }>; videos: string[]; homework: string; onlineExam: string; examScope: string; notes: string; createdAt: string | number | { toDate: () => Date }; order?: number; }
 
 const isCourseArchived = (course: Course): boolean => course.archived === true || String(course.archived) === 'true';
+
+const quillDisplayStyles = `
+  .ql-snow .ql-editor {
+    padding: 0;
+  }
+  .ql-snow .ql-size-small {
+    font-size: 0.85em;
+  }
+  .ql-snow .ql-size-large {
+    font-size: 1.5em;
+  }
+  .ql-snow .ql-size-huge {
+    font-size: 2.5em;
+  }
+  .ql-snow .ql-editor ol, .ql-snow .ql-editor ul {
+    padding-left: 1.5em;
+  }
+  .ql-snow .ql-editor ol > li, .ql-snow .ql-editor ul > li {
+    list-style-type: none;
+  }
+  .ql-snow .ql-editor ol {
+    counter-reset: list-1;
+  }
+  .ql-snow .ql-editor ol > li::before {
+    counter-increment: list-1;
+    content: counter(list-1, decimal) ". ";
+    margin-left: -1.5em;
+    margin-right: 0.3em;
+    text-align: right;
+    white-space: nowrap;
+    width: 1.2em;
+    display: inline-block;
+    line-height: inherit;
+  }
+  .ql-snow .ql-editor ul > li::before {
+    content: '•';
+    margin-left: -1.5em;
+    margin-right: 0.3em;
+    text-align: center;
+    white-space: nowrap;
+    width: 1.2em;
+    display: inline-block;
+    line-height: inherit;
+  }
+`;
 
 function LessonDetail({ lesson, index, selectedCourse, router }: { lesson: Lesson; index: number; selectedCourse: Course | null; router: ReturnType<typeof useRouter> }) {
   return (
@@ -252,6 +298,8 @@ export default function StudentCoursesContent() {
 
   return (
     <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pt-6 md:pt-8 pb-10 flex flex-col min-h-full animate-fade-in">
+      <style>{quillDisplayStyles}</style>
+
       {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div className="border-l-4 border-indigo-500 pl-4">
@@ -467,9 +515,16 @@ export default function StudentCoursesContent() {
             </div>
             <div className="p-6 flex-1 overflow-y-auto custom-scrollbar bg-white">
               <div className="text-xs text-gray-500 mb-4 font-mono pb-4 border-b border-gray-100">發布日期：{new Date(selectedAnnouncement.createdAt).toLocaleDateString()}</div>
-              <div className="prose prose-sm text-gray-700 whitespace-pre-line mb-6">
-                {selectedAnnouncement.content}
-              </div>
+              {/<[a-z][\s\S]*>/i.test(selectedAnnouncement.content) ? (
+                <div className="ql-snow">
+                  <div
+                    className="ql-editor text-gray-700 mb-6"
+                    dangerouslySetInnerHTML={{ __html: selectedAnnouncement.content }}
+                  />
+                </div>
+              ) : (
+                <div className="prose prose-sm text-gray-700 whitespace-pre-line mb-6">{selectedAnnouncement.content}</div>
+              )}
               {selectedAnnouncement.links && selectedAnnouncement.links.length > 0 && (
                 <div className="space-y-2 mt-6 pt-4 border-t border-gray-100">
                   <h5 className="font-bold text-gray-800 text-sm mb-3">相關連結</h5>

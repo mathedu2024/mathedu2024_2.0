@@ -5,6 +5,7 @@ import LoadingSpinner from './LoadingSpinner';
 import PageLoadingArea from './ui/PageLoadingArea';
 import Swal from 'sweetalert2';
 import Dropdown from './ui/Dropdown';
+import RichTextEditor from '../../components/RichTextEditor';
 import { 
   PlusIcon, 
   PencilIcon, 
@@ -526,14 +527,13 @@ export default function AnnouncementManager() {
                 {/* 內容 */}
                 <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1.5">內容 <span className="text-red-500">*</span></label>
-                    <textarea
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all shadow-sm resize-none"
-                        rows={8}
-                        value={form.content}
-                        onChange={e => setForm(prev => ({ ...prev, content: e.target.value }))}
+                    <div>
+                      <RichTextEditor
+                        value={form.content || ''}
+                        onChange={(c) => setForm(prev => ({ ...prev, content: c }))}
                         placeholder="請輸入公告詳細內容..."
-                        required
-                    />
+                      />
+                    </div>
                 </div>
 
                 {/* 連結管理 */}
