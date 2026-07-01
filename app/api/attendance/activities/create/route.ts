@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/firebaseAdmin';
+import { assignUniqueCheckInCode } from '@/services/attendanceCode';
 import { getSessionFromCookie } from '@/utils/session';
 
 export async function POST(req: NextRequest) {
@@ -22,10 +23,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
     }
 
-    let checkInCode = null;
-    if (checkInMethod === 'numeric') {
-      checkInCode = Math.floor(100000 + Math.random() * 900000).toString();
-    }
+    const checkInCode = await assignUniqueCheckInCode(adminDb, courseId, checkInMethod);
 
     const activityData = {
       title,

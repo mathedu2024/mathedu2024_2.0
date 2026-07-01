@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
@@ -223,16 +223,16 @@ export default function Home() {
     <main className="min-h-screen bg-gray-50">
       <style>{quillDisplayStyles}</style>
       
-      <div className="pt-8 pb-6 md:pt-16 md:pb-12 text-center px-4">
+      <div className="pt-4 pb-4 sm:pt-8 sm:pb-6 md:pt-16 md:pb-12 text-center px-3 sm:px-4">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl md:text-5xl font-bold text-gray-800 mb-4">
+          <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold text-gray-800 mb-4">
             歡迎來到 <span className="text-indigo-600">高中學習資源教育網 2.0</span>
           </h1>
           <p className="text-gray-500 text-lg md:text-xl">在家也能學好數學，掌握學習新趨勢</p>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
+      <div className="page-shell space-y-12">
         
       
         <div className="bg-indigo-600 rounded-2xl p-6 md:p-10 shadow-xl text-white relative overflow-hidden">

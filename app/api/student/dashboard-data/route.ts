@@ -63,23 +63,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden: Invalid role or missing user ID' }, { status: 403 });
     }
 
+    const body = await req.json().catch(() => ({}));
+    const coursesOnly = body.coursesOnly === true;
+
     const studentProfileDoc = await adminDb.collection('student_data').doc(userId).get();
     if (!studentProfileDoc.exists) {
-        // Fallback to query by studentId if userId is not the document ID
         const studentQuery = await adminDb.collection('student_data').where('studentId', '==', userId).limit(1).get();
         if (studentQuery.empty) {
             return NextResponse.json({ error: 'Student profile not found' }, { status: 404 });
         }
         const studentDoc = studentQuery.docs[0];
-        const studentId = studentDoc.id;
+        const studentId = studentDoc.data().studentId || studentDoc.id;
         const enrolledCourses = studentDoc.data().enrolledCourses || [];
-        return fetchCourseData(studentId, enrolledCourses);
+        return fetchCourseData(studentId, enrolledCourses, coursesOnly);
     }
     
     const studentId = studentProfileDoc.data()?.studentId || userId;
     const enrolledCourses = studentProfileDoc.data()?.enrolledCourses || [];
 
-    return fetchCourseData(studentId, enrolledCourses);
+    return fetchCourseData(studentId, enrolledCourses, coursesOnly);
 
   } catch (error: unknown) {
     let message = 'An unexpected error occurred';
@@ -91,7 +93,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function fetchCourseData(studentId: string, enrolledCourses: string[]) {
+async function fetchCourseData(studentId: string, enrolledCourses: string[], coursesOnly = false) {
     if (enrolledCourses.length === 0) {
         return NextResponse.json({ courses: [], grades: {} });
     }
@@ -109,17 +111,22 @@ async function fetchCourseData(studentId: string, enrolledCourses: string[]) {
         courseDocs.push(doc);
     }
 
-    const classDataEntries = await Promise.all(
-        courseDocs.map(async (doc) => {
-            try {
-                const classDoc = await adminDb.collection('courses').doc(doc.id).collection('ClassData').doc('main').get();
-                return [doc.id, classDoc.exists ? classDoc.data() : null] as const;
-            } catch {
-                return [doc.id, null] as const;
-            }
-        })
-    );
-    const classDataByCourseId = new Map(classDataEntries);
+    const classDataByCourseId = coursesOnly
+        ? new Map<string, Record<string, unknown>>()
+        : new Map(
+            (
+                await Promise.all(
+                    courseDocs.map(async (doc) => {
+                        try {
+                            const classDoc = await adminDb.collection('courses').doc(doc.id).collection('ClassData').doc('main').get();
+                            return [doc.id, classDoc.exists ? classDoc.data() : null] as const;
+                        } catch {
+                            return [doc.id, null] as const;
+                        }
+                    })
+                )
+            )
+        );
 
     const courses: CourseInfo[] = [];
     for (const doc of courseDocs) {
@@ -136,20 +143,24 @@ async function fetchCourseData(studentId: string, enrolledCourses: string[]) {
             startDate: normalizeCourseDate(data.startDate),
             endDate: normalizeCourseDate(data.endDate),
             teachers: teachersList,
-            description: data.description || classData.description,
+            description: coursesOnly ? (data.description || '') : (data.description || classData.description),
             teachingMethod: data.teachingMethod,
             courseNature: data.courseNature,
-            location: data.location || classData.location,
-            liveStreamURL: data.liveStreamURL || classData.liveStreamURL,
+            location: coursesOnly ? data.location : (data.location || classData.location),
+            liveStreamURL: coursesOnly ? data.liveStreamURL : (data.liveStreamURL || classData.liveStreamURL),
             coverImageURL: data.coverImageURL,
             classTimes: data.classTimes,
             archived: data.archived ?? false,
             teacherName: formatTeacherNames(teachersList, teacherLookup) || undefined,
-            customLinks: (classData.customLinks ?? data.customLinks) || [],
-            announcements: (classData.announcements ?? data.announcements) || [],
+            customLinks: coursesOnly ? [] : ((classData.customLinks ?? data.customLinks) || []),
+            announcements: coursesOnly ? [] : ((classData.announcements ?? data.announcements) || []),
         };
         if (isCourseArchived(courseInfo)) continue;
         courses.push(courseInfo);
+    }
+
+    if (coursesOnly) {
+        return NextResponse.json({ courses, grades: {} });
     }
 
     const grades: Record<

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
@@ -143,7 +143,7 @@ function PasswordManager({ onPasswordChangeSuccess, apiEndpoint = '/api/student/
   }
 
   return (
-    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 flex flex-col h-full animate-fade-in">
+    <div className="page-shell w-full min-w-0 flex flex-col h-full animate-fade-in">
       {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
         <div className="border-l-4 border-indigo-500 pl-4">
@@ -246,7 +246,7 @@ function PasswordManager({ onPasswordChangeSuccess, apiEndpoint = '/api/student/
 
         {/* Right Column: Change Password */}
         <div className="lg:col-span-1">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden sticky top-8">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden md:sticky md:top-8">
             <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center">
               <KeyIcon className="w-5 h-5 text-gray-500 mr-2" />
               <h3 className="text-lg font-bold text-gray-800">修改密碼</h3>

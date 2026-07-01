@@ -17,6 +17,12 @@ interface CourseShortInfo extends ArchivableCourse {
 export const getCourseDisplayKey = (course: { name: string; code: string }): string =>
   `${course.name}(${course.code})`;
 
+export function formatCourseDisplayLabel(key: string): string {
+  const match = key.match(/^(.+)\(([^()]+)\)$/);
+  if (match) return `${match[1]}（${match[2]}）`;
+  return key;
+}
+
 export function dedupeCoursesByDisplayKey<T extends CourseShortInfo>(courses: T[]): T[] {
   const seen = new Set<string>();
   return courses.filter((course) => {
@@ -35,6 +41,8 @@ interface StudentCourseSelectorProps {
   onErrorClear?: () => void;
   label?: string;
   placeholder?: string;
+  /** 課程列表載入中時保留已選課程，避免選項暫空導致選取被清掉 */
+  loadingCourses?: boolean;
 }
 
 /**
@@ -48,35 +56,47 @@ export default function StudentCourseSelector({
   error,
   onErrorClear,
   label = "選擇課程",
-  placeholder = "請選擇課程"
+  placeholder = "請選擇課程",
+  loadingCourses = false,
 }: StudentCourseSelectorProps) {
   const activeCourses = useMemo(
     () => dedupeCoursesByDisplayKey(courses).filter((c) => !isCourseArchived(c)),
     [courses]
   );
 
+  const selectorOptions = useMemo(() => {
+    const courseOptions = activeCourses.map((course) => ({
+      value: getCourseDisplayKey(course),
+      label: `${course.name}（${course.code}）`,
+    }));
+
+    const extras: { value: string; label: string }[] = [];
+    if (selectedCourse && !courseOptions.some((o) => o.value === selectedCourse)) {
+      extras.push({
+        value: selectedCourse,
+        label: formatCourseDisplayLabel(selectedCourse),
+      });
+    }
+
+    return [{ value: '', label: placeholder }, ...extras, ...courseOptions];
+  }, [activeCourses, selectedCourse, placeholder]);
+
   useEffect(() => {
-    if (!selectedCourse) return;
+    if (!selectedCourse || loadingCourses) return;
     const stillActive = activeCourses.some((c) => getCourseDisplayKey(c) === selectedCourse);
     if (!stillActive) onChange('');
-  }, [activeCourses, selectedCourse, onChange]);
+  }, [activeCourses, selectedCourse, onChange, loadingCourses]);
 
   return (
-    <div className="mb-8 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+    <div className="mb-6 sm:mb-8 bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-gray-100 min-w-0">
       <label className="block text-sm font-bold text-gray-700 mb-2">{label}</label>
-      <div className="relative">
+      <div className="relative min-w-0">
         <Dropdown
           value={selectedCourse}
           onChange={onChange}
-          options={[
-            { value: '', label: placeholder },
-            ...activeCourses.map((course) => ({
-              value: getCourseDisplayKey(course),
-              label: `${course.name}（${course.code}）`,
-            })),
-          ]}
+          options={selectorOptions}
           placeholder={placeholder}
-          className="w-full md:w-1/3 min-w-[280px]"
+          className="w-full md:w-1/3 min-w-0"
         />
       </div>
       {error && (

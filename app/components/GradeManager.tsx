@@ -1,6 +1,7 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { createPortal, } from 'react-dom';
 import LoadingSpinner from './LoadingSpinner';
 import PageLoadingArea from './ui/PageLoadingArea';
@@ -29,6 +30,8 @@ import {
   mergePeriodicColumnDetails,
 } from '@/services/gradeShape';
 
+// --- 1. 型別定義 (TypeScript Interfaces) ---
+
 interface UserInfo { id: string; name: string; role: string; }
 interface CourseInfo { id: string; name: string; code: string; gradeTags?: string[]; subjectTag?: string; courseNature?: string; status?: string; }
 type RegularType = '小考' | '作業' | '上課態度';
@@ -49,13 +52,14 @@ interface ComputedStudentGradeRow extends StudentGradeRow {
   aAvg: number;
   regWeighted: number;
   pAvg: number;
-  total: number;
+  originalTotal: number;
+  finalTotal: number;
 }
 
 
-interface ColumnDetail { type: RegularType; name: string; date: string; nature?: string; }
+interface ColumnDetail { type: RegularType; name: string; date: string; nature?: string; maxScore?: number; }
 
-type PeriodicColumnMeta = { name: string; date: string; type: string };
+type PeriodicColumnMeta = { name: string; date: string; type: string; maxScore?: number; };
 
 /** 定期評量欄位固定三欄（與 Firestore / 採計鍵名一致） */
 const FIXED_PERIODIC_KEYS = [...DEFAULT_PERIODIC_ITEM_KEYS] as string[];
@@ -91,7 +95,14 @@ const Modal = ({ open, onClose, title, size = 'md', children }: { open?: boolean
   );
 };
 
-export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null }) {
+export default function GradeManager({
+  userInfo,
+  courseCodeFromUrl = '',
+}: {
+  userInfo?: UserInfo | null;
+  courseCodeFromUrl?: string;
+}) {
+  const router = useRouter();
   const [courses, setCourses] = useState<CourseInfo[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<CourseInfo | null>(null);
   const [students, setStudents] = useState<StudentGradeRow[]>([]);
@@ -148,9 +159,10 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
       const pVals = pEnabledNames.map((n) => stu.periodicScores?.[n]).filter((v): v is number => typeof v === 'number' && !isNaN(v));
       const pAvg = pVals.length > 0 ? pVals.reduce((a,b)=>a+b,0)/pVals.length : 0;
 
-      const total = Math.round(regWeighted * (percents.periodic / 100) + pAvg * ((100 - percents.periodic) / 100));
+      const originalTotal = Math.round(regWeighted * (percents.periodic / 100) + pAvg * ((100 - percents.periodic) / 100));
+      const finalTotal = stu.manualAdjust ?? originalTotal;
       
-      return { ...stu, qAvg, hAvg, aAvg, regWeighted, pAvg, total };
+      return { ...stu, qAvg, hAvg, aAvg, regWeighted, pAvg, originalTotal, finalTotal };
     });
   }, [students, columnDetails, settings]);
 
@@ -162,6 +174,14 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
       return type === 'reg' 
         ? { ...s, regularScores: { ...s.regularScores, [key]: num } }
         : { ...s, periodicScores: { ...s.periodicScores, [key]: num } };
+    }));
+  }, []);
+
+  const handleFinalScoreChange = useCallback((id: string, val: string) => {
+    const num = val === '' ? undefined : parseInt(val, 10);
+    setStudents(prev => prev.map(s => {
+      if (s.id !== id) return s;
+      return { ...s, manualAdjust: num };
     }));
   }, []);
 
@@ -214,6 +234,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
           type: '小考',
           name: `平時項目${nextIdx + 1}`,
           date: '',
+          maxScore: 100,
         },
       }));
       return c + 1;
@@ -232,7 +253,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
         });
             const currentCount = Object.keys(prev).length;
             let newCount = currentCount - 1;
-            while (newCount < 10) {
+            while (newCount < 10) { // 確保至少有 10 欄
               next[String(newCount)] = { type: '小考', name: '', date: '' };
               newCount++;
             }
@@ -257,6 +278,18 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
     []
   );
 
+  const selectCourse = useCallback(
+    (course: CourseInfo | null) => {
+      setSelectedCourse(course);
+      if (course) {
+        router.push(`/back-panel/teacher-grades/${encodeURIComponent(course.code)}`);
+      } else {
+        router.push('/back-panel/teacher-grades');
+      }
+    },
+    [router]
+  );
+
   // --- 副作用 (Fetch Data) ---
   useEffect(() => {
     if (userInfo) {
@@ -267,6 +300,20 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
         .finally(() => setIsLoading(false));
     }
   }, [userInfo]);
+
+  useEffect(() => {
+    if (!courseCodeFromUrl) {
+      setSelectedCourse(null);
+      return;
+    }
+    if (courses.length === 0) return;
+
+    const decodedCode = decodeURIComponent(courseCodeFromUrl);
+    const course = courses.find((c) => c.code === decodedCode);
+    if (course) {
+      setSelectedCourse((prev) => (prev?.id === course.id ? prev : course));
+    }
+  }, [courseCodeFromUrl, courses]);
 
   useEffect(() => {
     if (selectedCourse) {
@@ -290,6 +337,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                 type: '小考',
                 name: '',
                 date: '',
+                maxScore: 100,
               };
             }
             fetchedRegularColumns = 10;
@@ -325,7 +373,16 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           courseId: selectedCourse.id,
-          students,
+          // 移除客戶端計算的欄位，只傳送純粹的學生資料
+          students: students.map(s => {
+            const { id, studentId, name, grade, regularScores, periodicScores, manualAdjust } = s;
+            return {
+              id, studentId, name, grade,
+              regularScores: regularScores || {},
+              periodicScores: periodicScores || {},
+              manualAdjust: manualAdjust,
+            };
+          }),
           columnDetails,
           regularColumns,
           settings,
@@ -352,7 +409,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
     }
   };
 
-  const handleExportGrades = useCallback(() => {
+  const handleExportGrades = useCallback(async () => {
     if (!selectedCourse || computedData.length === 0) {
       Swal.fire({
         icon: 'info',
@@ -364,54 +421,101 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
       return;
     }
 
-    const escapeCsv = (value: string | number | undefined | null) => {
-      const raw = value === undefined || value === null ? '' : String(value);
-      if (raw.includes('"') || raw.includes(',') || raw.includes('\n')) {
-        return `"${raw.replace(/"/g, '""')}"`;
-      }
-      return raw;
-    };
-
-    const regularHeaders = Array.from({ length: regularColumns }).map((_, i) => {
-      const detail = columnDetails[i];
-      return detail?.name || `平時${i + 1}`;
+    Swal.fire({
+      title: '正在產生 Excel 檔案...',
+      allowOutsideClick: false,
+      didOpen: () => { Swal.showLoading(); },
     });
-    const periodicHeaders = [...FIXED_PERIODIC_KEYS];
 
-    const headers: string[] = [
-      '學號',
-      '姓名',
-      ...regularHeaders,
-      ...periodicHeaders,
-      '平時加權',
-      '定期平均',
-      '總成績',
-    ];
+    try {
+      const ExcelJS = (await import('exceljs')).default;
+      const workbook = new ExcelJS.Workbook();
+      // 移除 Excel 工作表名稱中不允許的字元，並將長度限制在 31 字元內
+      const sanitizedSheetName = `${selectedCourse.name} 成績`
+        .replace(/[*?:\\/\[\]]/g, '')
+        .substring(0, 31);
+      const worksheet = workbook.addWorksheet(sanitizedSheetName);
 
-    const rows: (string | number)[][] = computedData.map((stu) => [
-      stu.studentId,
-      stu.name,
-      ...Array.from({ length: regularColumns }).map((_, i) => stu.regularScores[i] ?? ''),
-      ...FIXED_PERIODIC_KEYS.map((key) => stu.periodicScores?.[key] ?? ''),
-      stu.regWeighted.toFixed(1),
-      stu.pAvg.toFixed(1),
-      stu.total,
-    ]);
+      const regularHeaders = Array.from({ length: regularColumns }).map((_, i) => {
+        const detail = columnDetails[i];
+        return detail?.name || `平時${i + 1}`;
+      });
 
-    const csv = [headers, ...rows]
-      .map((line) => line.map((cell) => escapeCsv(cell)).join(','))
-      .join('\n');
+      worksheet.columns = [
+        { header: '學號', key: 'studentId', width: 15 },
+        { header: '姓名', key: 'name', width: 12 },
+        ...regularHeaders.map(h => ({ header: h, key: h, width: 12 })),
+        ...FIXED_PERIODIC_KEYS.map(h => ({ header: h, key: h, width: 15 })),
+        { header: '平時加權', key: 'regWeighted', width: 12 },
+        { header: '定期平均', key: 'pAvg', width: 12 },
+        { header: '原始成績', key: 'originalTotal', width: 12 },
+        { header: '最終成績', key: 'finalTotal', width: 12 },
+      ];
 
-    const bom = '\uFEFF';
-    const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${selectedCourse.name}_完整成績匯出.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+      // 標題列樣式
+      worksheet.getRow(1).eachCell((cell) => {
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF6366F1' } }; // indigo-500
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      });
+
+      // 填入資料
+      computedData.forEach((stu) => {
+        const rowData: Record<string, any> = {
+          studentId: stu.studentId,
+          name: stu.name,
+        };
+        regularHeaders.forEach((h, i) => {
+          rowData[h] = stu.regularScores[i] ?? '';
+        });
+        FIXED_PERIODIC_KEYS.forEach(key => {
+          rowData[key] = stu.periodicScores?.[key] ?? '';
+        });
+        rowData.regWeighted = parseFloat(stu.regWeighted.toFixed(1));
+        rowData.pAvg = parseFloat(stu.pAvg.toFixed(1));
+        rowData.originalTotal = stu.originalTotal;
+        rowData.finalTotal = stu.finalTotal;
+        
+        const row = worksheet.addRow(rowData);
+
+        // 設定不及格紅字
+        const finalTotalCell = row.getCell('finalTotal');
+        if (stu.finalTotal < 60) {
+          finalTotalCell.font = { bold: true, color: { argb: 'FFDC2626' } }; // red-600
+        }
+      });
+
+      // 生成檔案並下載
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${selectedCourse.name}_完整成績匯出.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      Swal.fire({
+        icon: 'success',
+        title: '匯出成功',
+        text: '成績 Excel 檔案已下載。',
+        confirmButtonColor: '#4f46e5',
+        customClass: { popup: 'rounded-2xl' },
+      });
+    } catch (error) {
+      console.error('匯出 Excel 失敗:', error);
+      Swal.fire({
+        icon: 'error',
+        title: '匯出失敗',
+        text: '產生 Excel 檔案時發生錯誤，請稍後再試。',
+        confirmButtonColor: '#ef4444',
+        customClass: { popup: 'rounded-2xl' },
+      });
+    }
   }, [selectedCourse, computedData, regularColumns, columnDetails]);
 
   const filteredCourses = useMemo(() => {
@@ -453,7 +557,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
 
   // --- 渲染部分 ---
   return (
-    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 flex flex-col h-full animate-fade-in">
+    <div className="page-shell w-full min-w-0 flex flex-col h-full animate-fade-in">
       {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
         <div className="border-l-4 border-indigo-500 pl-4">
@@ -464,7 +568,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
           <p className="text-gray-500 text-sm mt-1">設定評量比例並登記學生的平時與定期成績。</p>
         </div>
         {selectedCourse && (
-          <button onClick={() => setSelectedCourse(null)} className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors shadow-sm font-medium flex items-center text-sm">
+          <button onClick={() => selectCourse(null)} className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors shadow-sm font-medium flex items-center text-sm">
             <ArrowLeftIcon className="w-4 h-4 mr-2" /> 返回列表
           </button>
         )}
@@ -520,7 +624,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                                   <div className="text-xs font-mono text-gray-500 mt-1">{course.code}</div>
                               </td>
                               <td className="px-6 py-4 text-right whitespace-nowrap">
-                                  <button onClick={() => setSelectedCourse(course)} className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
+                                  <button onClick={() => selectCourse(course)} className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
                                       管理成績
                                   </button>
                               </td>
@@ -533,7 +637,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
           {/* 手機版卡片視圖 */}
           <div className="md:hidden space-y-4">
               {filteredCourses.map(course => (
-                  <div key={course.id} className="bg-white border border-gray-100 rounded-xl shadow-sm p-5 flex flex-col gap-3 active:scale-[0.99] transition-transform" onClick={() => setSelectedCourse(course)}>
+                  <div key={course.id} className="bg-white border border-gray-100 rounded-xl shadow-sm p-5 flex flex-col gap-3 active:scale-[0.99] transition-transform" onClick={() => selectCourse(course)}>
                       <div className="flex justify-between items-start">
                            <div>
                                <h3 className="font-bold text-gray-900 text-lg">{course.name}</h3>
@@ -541,7 +645,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                            </div>
                       </div>
                       <div className="border-t border-gray-100 pt-3 flex justify-end">
-                           <button onClick={(e) => { e.stopPropagation(); setSelectedCourse(course); }} className="w-full flex items-center justify-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
+                           <button onClick={(e) => { e.stopPropagation(); selectCourse(course); }} className="w-full flex items-center justify-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
                                管理成績
                            </button>
                       </div>
@@ -571,7 +675,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
             </div>
             
             <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:items-center gap-3 w-full lg:w-auto lg:ml-auto">
-              <button className="px-3 sm:px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 transition-colors shadow-sm flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed text-sm whitespace-nowrap" onClick={() => setShowSettingsModal(true)} disabled={isArchived}><AdjustmentsHorizontalIcon className="w-5 h-5 mr-1.5 shrink-0" />權重設定</button>
+              <button className="px-3 sm:px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 transition-colors shadow-sm flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed text-sm whitespace-nowrap" onClick={() => setShowSettingsModal(true)} disabled={isArchived}><AdjustmentsHorizontalIcon className="w-5 h-5 mr-1.5 shrink-0" />課程成績設定</button>
               {selectedTab === 'regular' && !isArchived && (
                 <button
                   type="button"
@@ -609,6 +713,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
               students={computedData} 
               regularColumns={regularColumns}
               columnDetails={columnDetails}
+              onUpdateFinalScore={handleFinalScoreChange}
               _periodicScores={FIXED_PERIODIC_KEYS}
               periodicColumnDetails={periodicColumnDetails}
               onUpdateRegularScore={(studentId, colIdx, value) => handleScoreChange(studentId, 'reg', colIdx, String(value ?? ''))}
@@ -673,7 +778,8 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                       <>
                           <th className="px-4 py-4 text-center border-b border-gray-200 text-base">平時加權</th>
                           <th className="px-4 py-4 text-center border-b border-gray-200 text-base">定期平均</th>
-                          <th className="px-4 py-4 text-center text-indigo-600 border-b border-gray-200 text-base">總成績</th>
+                          <th className="px-4 py-4 text-center border-b border-gray-200 text-base">原始成績</th>
+                          <th className="px-4 py-4 text-center text-indigo-600 border-b border-gray-200 text-base">最終成績</th>
                       </>
                     )}
                   </tr>
@@ -684,12 +790,13 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                       {selectedTab === 'regular' && Array.from({ length: regularColumns }).map((_, colIdx) => {
                         const isSetup = !!(columnDetails[colIdx]?.name && columnDetails[colIdx]?.date);
                         return (
-                          <td key={colIdx} className="px-4 py-2 text-center">
+                          <td key={colIdx} className="px-4 py-2 text-center align-middle">
                             <input 
-                              type="number" 
+                              type="text"
+                              inputMode="numeric"
                               title={!isSetup ? "請先設定項目名稱與日期" : ""}
                               placeholder="-"
-                              className={`w-20 border rounded-lg px-2 py-1.5 text-center text-base font-semibold focus:ring-2 focus:ring-indigo-500 outline-none ${ (stu.regularScores[colIdx] ?? 0) < 60 ? 'text-red-500 font-bold' : ''} ${isArchived || !isSetup ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+                              className={`w-20 border rounded-lg px-2 py-1.5 text-center text-base font-semibold focus:ring-2 focus:ring-indigo-500 outline-none ${ (stu.regularScores[colIdx] ?? 0) < 60 ? 'text-red-500 font-bold' : ''} ${isArchived || !isSetup ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''} appearance-none`}
                               value={stu.regularScores[colIdx] ?? ''}
                               onChange={(e) => handleScoreChange(stu.id, 'reg', colIdx, e.target.value)}
                               disabled={isArchived || !isSetup}
@@ -700,12 +807,13 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                       {selectedTab === 'periodic' && FIXED_PERIODIC_KEYS.map((pk) => {
                           const isSetup = !!periodicColumnDetails[pk]?.date;
                           return (
-                          <td key={pk} className="px-4 py-2 text-center">
+                          <td key={pk} className="px-4 py-2 text-center align-middle">
                             <input
-                              type="number"
+                              type="text"
+                              inputMode="numeric"
                                 title={!isSetup ? "請先設定日期" : ""}
                                 placeholder="-"
-                                className={`w-20 border rounded-lg px-2 py-1.5 text-center text-base font-semibold focus:ring-2 focus:ring-indigo-500 outline-none ${(stu.periodicScores?.[pk] ?? 0) < 60 ? 'text-red-500 font-bold' : ''} ${isArchived || !isSetup ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+                                className={`w-20 border rounded-lg px-2 py-1.5 text-center text-base font-semibold focus:ring-2 focus:ring-indigo-500 outline-none ${(stu.periodicScores?.[pk] ?? 0) < 60 ? 'text-red-500 font-bold' : ''} ${isArchived || !isSetup ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''} appearance-none`}
                               value={stu.periodicScores?.[pk] ?? ''}
                               onChange={(e) => handleScoreChange(stu.id, 'peri', pk, e.target.value)}
                                 disabled={isArchived || !isSetup}
@@ -715,9 +823,20 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                         })}
                       {selectedTab === 'total' && (
                         <>
-                          <td className="px-4 py-4 text-center font-mono text-base font-semibold">{stu.regWeighted.toFixed(1)}</td>
-                          <td className="px-4 py-4 text-center font-mono text-base font-semibold">{stu.pAvg.toFixed(1)}</td>
-                          <td className={`px-4 py-4 text-center font-bold text-xl ${stu.total < 60 ? 'text-red-600' : 'text-indigo-600'}`}>{stu.total}</td>
+                          <td className="px-4 py-4 text-center font-mono text-base font-semibold align-middle">{stu.regWeighted.toFixed(1)}</td>
+                          <td className="px-4 py-4 text-center font-mono text-base font-semibold align-middle">{stu.pAvg.toFixed(1)}</td>
+                          <td className="px-4 py-4 text-center font-mono text-base font-semibold align-middle">{stu.originalTotal}</td>
+                          <td className="px-4 py-2 text-center align-middle">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              placeholder="-"
+                              className={`w-24 border rounded-lg px-2 py-1.5 text-center text-base font-semibold focus:ring-2 focus:ring-indigo-500 outline-none ${stu.finalTotal < 60 ? 'text-red-600 font-bold' : 'text-indigo-600'} ${isArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''} appearance-none`}
+                              value={stu.finalTotal ?? ''}
+                              onChange={(e) => handleFinalScoreChange(stu.id, e.target.value)}
+                              disabled={isArchived}
+                            />
+                          </td>
                         </>
                       )}
                     </tr>
@@ -733,7 +852,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
       )}
 
       {/* 權重設定 Modal */}
-      <Modal open={showSettingsModal} onClose={() => setShowSettingsModal(false)} title="成績比例與採計設定" size="lg">
+      <Modal open={showSettingsModal} onClose={() => setShowSettingsModal(false)} title="課程成績設定" size="lg">
         {(() => {
           const s = (settings ?? defaultGradeSettings) as GradeSettings;
           const regSum = s.percents.quiz + s.percents.hw + s.percents.att;
@@ -837,26 +956,48 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
               </div>
               <div className="border-t border-gray-200 pt-6 space-y-4">
                 <div className="text-base font-bold text-gray-900">學生端顯示設定</div>
-                <label className="flex items-center gap-3 text-base font-medium text-gray-900 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="w-5 h-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 accent-indigo-600 cursor-pointer"
-                    checked={s.periodicEnabled?.['showTotalGradeToStudents'] !== false}
-                    onChange={(e) =>
-                      setSettings((prev) => {
-                        const base = (prev ?? defaultGradeSettings) as GradeSettings;
-                        return {
-                          ...base,
-                          periodicEnabled: {
-                            ...base.periodicEnabled,
-                            showTotalGradeToStudents: e.target.checked,
-                          },
-                        };
-                      })
-                    }
-                  />
-                  允許學生查看「總成績」
-                </label>
+                <div className="flex flex-col gap-3">
+                  <label className="flex items-center gap-3 text-base font-medium text-gray-900 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="w-5 h-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 accent-indigo-600 cursor-pointer"
+                      checked={s.periodicEnabled?.['showOriginalTotalToStudents'] !== false}
+                      onChange={(e) =>
+                        setSettings((prev) => {
+                          const base = (prev ?? defaultGradeSettings) as GradeSettings;
+                          return {
+                            ...base,
+                            periodicEnabled: {
+                              ...base.periodicEnabled,
+                              showOriginalTotalToStudents: e.target.checked,
+                            },
+                          };
+                        })
+                      }
+                    />
+                    允許學生查看「原始成績」
+                  </label>
+                  <label className="flex items-center gap-3 text-base font-medium text-gray-900 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="w-5 h-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 accent-indigo-600 cursor-pointer"
+                      checked={s.periodicEnabled?.['showFinalTotalToStudents'] !== false}
+                      onChange={(e) =>
+                        setSettings((prev) => {
+                          const base = (prev ?? defaultGradeSettings) as GradeSettings;
+                          return {
+                            ...base,
+                            periodicEnabled: {
+                              ...base.periodicEnabled,
+                              showFinalTotalToStudents: e.target.checked,
+                            },
+                          };
+                        })
+                      }
+                    />
+                    允許學生查看「最終成績」
+                  </label>
+                </div>
               </div>
               <div className="pt-2">
                 <button
@@ -884,7 +1025,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
         {columnEditor && (
           <div className="space-y-6">
             {columnEditor.kind === 'regular' ? (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
                 <div className="sm:col-span-1">
                   <label className="text-xs text-gray-500">項目名稱</label>
                   <input
@@ -899,6 +1040,25 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                           type: prev[String(columnEditor.index)]?.type ?? '小考',
                           name: e.target.value,
                           date: prev[String(columnEditor.index)]?.date ?? '',
+                          maxScore: prev[String(columnEditor.index)]?.maxScore ?? 100,
+                        },
+                      }))
+                    }
+                  />
+                </div>
+                <div className="sm:col-span-1">
+                  <label className="text-xs text-gray-500">滿分</label>
+                  <input
+                    type="number"
+                    className={`w-full border rounded-lg p-2 mt-1 ${isArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+                    value={columnDetails[columnEditor.index]?.maxScore ?? 100}
+                    disabled={isArchived}
+                    onChange={(e) =>
+                      setColumnDetails((prev) => ({
+                        ...prev,
+                        [String(columnEditor.index)]: {
+                          ...(prev[String(columnEditor.index)] as ColumnDetail),
+                          maxScore: Number(e.target.value) || 100,
                         },
                       }))
                     }
@@ -918,6 +1078,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                           type: prev[String(columnEditor.index)]?.type ?? '小考',
                           name: prev[String(columnEditor.index)]?.name ?? '',
                           date: e.target.value,
+                          maxScore: prev[String(columnEditor.index)]?.maxScore ?? 100,
                         },
                       }))
                     }
@@ -935,6 +1096,7 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                             type: type as RegularType,
                             name: prev[String(columnEditor.index)]?.name ?? '',
                             date: prev[String(columnEditor.index)]?.date ?? '',
+                            maxScore: prev[String(columnEditor.index)]?.maxScore ?? 100,
                           },
                         }))
                       }
@@ -945,40 +1107,61 @@ export default function GradeManager({ userInfo }: { userInfo?: UserInfo | null 
                   </div>
                 </div>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="sm:col-span-2 rounded-lg bg-gray-50 border border-gray-100 px-4 py-3">
+            ) : ( // 定期評量項目設定
+              <div className="space-y-4">
+                <div className="rounded-lg bg-gray-50 border border-gray-100 px-4 py-3 w-full">
                   <div className="text-xs text-gray-500">評量名稱（固定）</div>
                   <div className="text-base font-bold text-gray-900 mt-1">{columnEditor.key}</div>
                 </div>
-                <div>
-                  <label className="text-xs text-gray-500">日期</label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="text-xs text-gray-500">日期</label>
+                    <input
+                      type="date"
+                      className={`w-full border rounded-lg p-2 mt-1 ${isArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+                      value={periodicColumnDetails[columnEditor.key]?.date ?? ''}
+                      disabled={isArchived}
+                      onChange={(e) =>
+                        setPeriodicColumnDetails((prev) => ({
+                          ...prev,
+                          [columnEditor.key]: {
+                            name: columnEditor.key,
+                            date: e.target.value,
+                            type: prev[columnEditor.key]?.type ?? '定期評量',
+                            maxScore: prev[columnEditor.key]?.maxScore ?? 100,
+                          },
+                        }))
+                      }
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500">成績類別</label>
+                    <input
+                      type="text"
+                      className="w-full border rounded-lg p-2 mt-1 bg-gray-100 text-gray-500 cursor-not-allowed"
+                      value={periodicColumnDetails[columnEditor.key]?.type ?? '定期評量'}
+                      disabled
+                      readOnly
+                    />
+                  </div>
+                  <div>
+                  <label className="text-xs text-gray-500">滿分</label>
                   <input
-                    type="date"
+                    type="number"
                     className={`w-full border rounded-lg p-2 mt-1 ${isArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
-                    value={periodicColumnDetails[columnEditor.key]?.date ?? ''}
+                    value={periodicColumnDetails[columnEditor.key]?.maxScore ?? 100}
                     disabled={isArchived}
                     onChange={(e) =>
                       setPeriodicColumnDetails((prev) => ({
                         ...prev,
                         [columnEditor.key]: {
-                          name: columnEditor.key,
-                          date: e.target.value,
-                          type: prev[columnEditor.key]?.type ?? '定期評量',
+                          ...(prev[columnEditor.key] as PeriodicColumnMeta),
+                          maxScore: Number(e.target.value) || 100,
                         },
                       }))
                     }
                   />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500">成績類別</label>
-                  <input
-                    type="text"
-                    className="w-full border rounded-lg p-2 mt-1 bg-gray-100 text-gray-500 cursor-not-allowed"
-                    value={periodicColumnDetails[columnEditor.key]?.type ?? '定期評量'}
-                    disabled
-                    readOnly
-                  />
+                  </div>
                 </div>
               </div>
             )}

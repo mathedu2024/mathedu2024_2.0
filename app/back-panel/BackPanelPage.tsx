@@ -1,7 +1,7 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 
@@ -32,7 +32,7 @@ import type { Course } from '@/components/TeacherCourseManager';
 
 function BackPanelModulePlaceholder() {
   return (
-    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 py-6 space-y-4 animate-pulse" aria-hidden>
+    <div className="page-shell w-full min-w-0 py-6 space-y-4 animate-pulse" aria-hidden>
       <div className="h-8 bg-gray-200/80 rounded-lg w-48" />
       <div className="h-32 bg-gray-100 rounded-2xl border border-gray-100" />
       <div className="h-24 bg-gray-100 rounded-2xl border border-gray-100" />
@@ -57,7 +57,11 @@ const GradeManager = dynamic(() => import('@/components/GradeManager'), { ssr: f
 const ResourceManagement = dynamic(() => import('@/components/ResourceManagement'), { ssr: false, ...loadingFallback });
 const TutoringManager = dynamic(() => import('@/components/TutoringManager'), { ssr: false, ...loadingFallback });
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const AttendanceManagementComponent = dynamic<{ courses: Course[] }>(() => import('@/components/AttendanceManagementComponent') as any, { ssr: false, ...loadingFallback });
+const AttendanceManagementComponent = dynamic<{
+  courses: Course[];
+  courseCodeFromUrl?: string;
+  attendanceCodeFromUrl?: string;
+}>(() => import('@/components/AttendanceManagementComponent') as any, { ssr: false, ...loadingFallback });
 
 // ============================================================================
 // 類型定義
@@ -142,9 +146,14 @@ const TEACHER_MENU_CONFIG: MenuConfigItem[] = [
   { id: 'password', title: '個人資料', description: '檢視與修改個人資料與密碼', icon: <UserCircleIcon />, color: 'rose', href: '/back-panel/password' },
 ];
 
+function getBackPanelSegments(pathname: string): string[] {
+  return pathname.replace(/^\/back-panel\/?/, '').split('/').filter(Boolean);
+}
+
 function BackPanel() {
   const router = useRouter();
-  const params = useParams();
+  const pathname = usePathname();
+  const pathSegments = useMemo(() => getBackPanelSegments(pathname), [pathname]);
   // 1. 狀態 hooks 命名與學生端一致
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>(null);
@@ -242,13 +251,12 @@ function BackPanel() {
     }
   }, [router, handleLogout, isLoggingOut]);
 
-  // 初始化 activeTab 根據網址 params
+  // 初始化 activeTab 根據網址 path
   useEffect(() => {
-    const p = params?.tab;
-    const tab = Array.isArray(p) ? p[0] : p;
+    const tab = pathSegments[0];
     if (tab) setActiveTab(tab as Tab);
     else setActiveTab(null);
-  }, [params?.tab]); // 修正：只依賴具體的 tab 參數，避免整個 params 物件變動導致循環觸發
+  }, [pathSegments]);
 
   // 切換分頁時，更新網址 path
   const handleTabChange = useCallback((tab: Tab | null) => {
@@ -273,6 +281,20 @@ function BackPanel() {
     return userInfo.role === 'teacher' || userInfo.role === '老師';
   }, [userInfo]);
 
+  const teacherGradesCourseCode = useMemo(() => {
+    if (pathSegments[0] !== 'teacher-grades' || !pathSegments[1]) return '';
+    return decodeURIComponent(pathSegments[1]);
+  }, [pathSegments]);
+
+  const teacherAttendanceRoute = useMemo(() => {
+    if (pathSegments[0] !== 'teacher-attendance') {
+      return { courseCode: '', attendanceCode: '' };
+    }
+    return {
+      courseCode: pathSegments[1] ? decodeURIComponent(pathSegments[1]) : '',
+      attendanceCode: pathSegments[2] ? decodeURIComponent(pathSegments[2]) : '',
+    };
+  }, [pathSegments]);
 
   useEffect(() => {
     if (isAdmin) {
@@ -386,7 +408,7 @@ function BackPanel() {
       ];
 
       return (
-        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 mt-6 animate-fade-in">
+        <div className="page-shell w-full min-w-0 mt-6 animate-fade-in">
           {/* 歡迎區塊 - 升級為 Indigo 漸層與圓角 */}
           <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 rounded-2xl shadow-lg p-6 md:p-8 text-white mb-8 relative overflow-hidden">
             {/* 裝飾性背景圓 */}
@@ -550,11 +572,23 @@ function BackPanel() {
         case 'admin-teachers': return <TeacherAdminManager />;
         case 'password': return <PasswordManager apiEndpoint='/api/auth/change-password' userInfo={normalizedUserInfo || undefined} />;
         case 'teacher-courses': return <TeacherCourseManager userInfo={normalizedUserInfo} courses={courses} />;
-        case 'teacher-grades': return <GradeManager userInfo={normalizedUserInfo} />;
+        case 'teacher-grades':
+          return (
+            <GradeManager
+              userInfo={normalizedUserInfo}
+              courseCodeFromUrl={teacherGradesCourseCode}
+            />
+          );
         case 'teacher-exams': return <TeacherExamManager />;
         case 'tutoring': return <TutoringManager userInfo={normalizedUserInfo} courses={courses} />;
         case 'teacher-attendance':
-          return <AttendanceManagementComponent courses={courses} />;
+          return (
+            <AttendanceManagementComponent
+              courses={courses}
+              courseCodeFromUrl={teacherAttendanceRoute.courseCode}
+              attendanceCodeFromUrl={teacherAttendanceRoute.attendanceCode}
+            />
+          );
         case 'resources': return <ResourceManagement />;
         default: return null;
       }
@@ -563,14 +597,14 @@ function BackPanel() {
     // For placeholder pages like 'teacher-exams', render without the standard header.
     if (activeTab === 'teacher-exams') {
       return (
-        <div className="animate-fade-in flex flex-col bg-gray-50/50 p-4 md:p-6">
+        <div className="animate-fade-in flex flex-col bg-gray-50/50 p-3 sm:p-4 md:p-6 min-w-0">
           {componentToRender}
         </div>
       );
     }
 
     return (
-      <div className="animate-fade-in flex flex-col bg-gray-50/50 p-4 md:p-6">
+      <div className="animate-fade-in flex flex-col bg-gray-50/50 p-3 sm:p-4 md:p-6 min-w-0">
         <div className="flex flex-col gap-6">
           {componentToRender}
         </div>
@@ -607,7 +641,7 @@ function BackPanel() {
   );
 }
 
-export default function BackPanelWrapper() {
+export default function BackPanelPage() {
   return (
     <Suspense>
       <BackPanel />

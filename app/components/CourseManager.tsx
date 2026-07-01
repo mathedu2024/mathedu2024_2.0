@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import React, { useState, useEffect } from 'react';
 import MultiSelectDropdown from './MultiSelectDropdown';
 import DatePicker from "react-datepicker";
@@ -718,7 +718,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
     const isStudentListArchived = showStudentListModal?.status === '已封存' || String(showStudentListModal?.archived) === 'true';
 
     return (
-        <div className="max-w-7xl mx-auto w-full px-4 md:px-6 flex flex-col h-full animate-fade-in">
+        <div className="page-shell w-full min-w-0 flex flex-col h-full animate-fade-in">
             {/* Header Area */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
                 <div className="border-l-4 border-indigo-500 pl-4">

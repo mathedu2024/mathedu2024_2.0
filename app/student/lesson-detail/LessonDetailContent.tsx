@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -33,9 +33,13 @@ interface LessonDetail {
   attachments: Array<string | { url: string; name?: string; visibleToStudents?: boolean }>;
   videos: string[];
   homework: string;
+  noHomework?: boolean;
   onlineExam: string;
+  noOnlineExam?: boolean;
   examScope: string;
+  noExamScope?: boolean;
   notes: string;
+  noNotes?: boolean;
   courseName?: string;
   courseCode?: string;
   courseId?: string;
@@ -147,9 +151,13 @@ export default function LessonDetailPage() {
       return;
     }
 
-    if (lesson && (lesson.courseCode || lesson.courseId)) {
-      const queryId = lesson.courseCode || lesson.courseId;
-      router.push(`/student/courses?courseId=${queryId}`);
+    if (lesson && lesson.courseCode) {
+      router.push(`/student/courses/${encodeURIComponent(lesson.courseCode)}`);
+      return;
+    }
+
+    if (lesson?.courseId) {
+      router.push(`/student/courses/${encodeURIComponent(lesson.courseId)}`);
       return;
     }
 
@@ -159,7 +167,7 @@ export default function LessonDetailPage() {
   // Loading Skeleton
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pt-6 md:pt-8 pb-10 flex flex-col h-full">
+      <div className="page-shell w-full min-w-0 pt-4 sm:pt-6 md:pt-8 pb-10 flex flex-col h-full">
         <div className="w-full animate-pulse grid grid-cols-1 lg:grid-cols-3 gap-8">
            {/* Header Skeleton */}
           <div className="lg:col-span-3 h-20 bg-gray-200 rounded-2xl mb-4"></div>
@@ -180,7 +188,7 @@ export default function LessonDetailPage() {
   // Error State (Fallback)
   if (!lesson) {
     return (
-      <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pt-6 md:pt-8 pb-10 flex flex-col h-full items-center justify-center">
+      <div className="page-shell w-full min-w-0 pt-4 sm:pt-6 md:pt-8 pb-10 flex flex-col h-full items-center justify-center">
         <div className="bg-white p-8 rounded-2xl shadow-sm text-center max-w-md w-full">
           <div className="text-red-500 text-5xl mb-4">⚠️</div>
           <h2 className="text-2xl font-bold text-gray-900 mb-4">找不到課程資訊</h2>
@@ -200,8 +208,13 @@ export default function LessonDetailPage() {
     ? getEmbedUrl(lesson.videos[currentVideoIndex]) 
     : null;
 
+  const showHomework = !lesson.noHomework && !!lesson.homework?.trim();
+  const showOnlineExam = !lesson.noOnlineExam && !!lesson.onlineExam?.trim();
+  const showExamScope = !lesson.noExamScope && !!lesson.examScope?.trim();
+  const showNotes = !lesson.noNotes && !!lesson.notes?.trim();
+
   return (
-    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pt-6 md:pt-8 pb-10 flex flex-col h-full animate-fade-in">
+    <div className="page-shell w-full min-w-0 pt-4 sm:pt-6 md:pt-8 pb-10 flex flex-col h-full animate-fade-in">
         
         {/* Header Section */}
         <div className="mb-8">
@@ -304,58 +317,13 @@ export default function LessonDetailPage() {
                 </div>
               )}
             </div>
-
-            {/* Exam & Homework Section (Placed below video on large screens) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Online Exam Card */}
-                {lesson.onlineExam && (
-                  <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow relative overflow-hidden">
-                     <div className="absolute top-0 right-0 w-24 h-24 bg-green-50 rounded-bl-full -mr-4 -mt-4 z-0"></div>
-                     <div className="relative z-10">
-                        <h3 className="text-lg font-bold text-gray-800 mb-2 flex items-center">
-                          <span className="w-8 h-8 rounded-lg bg-green-100 text-green-600 flex items-center justify-center mr-2">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                          </span>
-                          線上測驗
-                        </h3>
-                        <p className="text-gray-500 text-sm mb-4">請點擊下方按鈕前往測驗平台進行考試。</p>
-                        <a 
-                          href={lesson.onlineExam} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center text-green-600 font-semibold hover:text-green-700"
-                        >
-                          開始考試 <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-                        </a>
-                     </div>
-                  </div>
-                )}
-
-                {/* Homework Card */}
-                {lesson.homework && (
-                   <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow relative overflow-hidden">
-                      <div className="absolute top-0 right-0 w-24 h-24 bg-orange-50 rounded-bl-full -mr-4 -mt-4 z-0"></div>
-                      <div className="relative z-10">
-                         <h3 className="text-lg font-bold text-gray-800 mb-2 flex items-center">
-                           <span className="w-8 h-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center mr-2">
-                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                           </span>
-                           回家作業
-                         </h3>
-                         <div className="text-gray-600 text-sm whitespace-pre-wrap bg-orange-50/50 p-3 rounded-lg border border-orange-100">
-                           {lesson.homework}
-                         </div>
-                      </div>
-                   </div>
-                )}
-            </div>
           </div>
 
           {/* Right Column: Info & Attachments */}
           <div className="lg:col-span-1 space-y-6">
             
             {/* Additional Info Cards (Moved to top) */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-6">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 w-full space-y-6">
                <h3 className="text-lg font-bold text-gray-800 mb-4 border-l-4 border-indigo-500 pl-3">課程資訊</h3>
 
                {/* Date */}
@@ -385,7 +353,7 @@ export default function LessonDetailPage() {
                )}
 
                {/* Exam Scope */}
-               {lesson.examScope && (
+               {showExamScope && (
                  <div>
                     <h4 className="flex items-center text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
                         <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>
@@ -398,15 +366,15 @@ export default function LessonDetailPage() {
                )}
 
                {/* Notes */}
-               {lesson.notes && (
+               {showNotes && (
                  <div>
                     <h4 className="flex items-center text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
                         <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>
                         備註事項
                     </h4>
-                    <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-100 text-yellow-800 text-sm whitespace-pre-wrap">
+                    <p className="text-gray-800 font-medium bg-gray-50 p-3 rounded-lg border border-gray-100 whitespace-pre-wrap">
                        {lesson.notes}
-                    </div>
+                    </p>
                  </div>
                )}
 
@@ -433,7 +401,7 @@ export default function LessonDetailPage() {
                 }
                 return false;
             }) && (
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 w-full">
                  <h3 className="text-lg font-bold text-gray-800 mb-4 border-l-4 border-indigo-500 pl-3">課程講義與附件</h3>
                  <div className="space-y-3">
                     {(lesson.attachments as unknown[])
@@ -477,6 +445,33 @@ export default function LessonDetailPage() {
                         );
                       })}
                  </div>
+              </div>
+            )}
+
+            {/* Homework Card */}
+            {showHomework && (
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 w-full">
+                <h3 className="text-lg font-bold text-gray-800 mb-4 border-l-4 border-orange-500 pl-3">回家作業</h3>
+                <p className="text-gray-800 font-medium bg-gray-50 p-3 rounded-lg border border-gray-100 whitespace-pre-wrap">
+                  {lesson.homework}
+                </p>
+              </div>
+            )}
+
+            {/* Online Exam Card */}
+            {showOnlineExam && (
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 w-full">
+                <h3 className="text-lg font-bold text-gray-800 mb-4 border-l-4 border-green-500 pl-3">線上測驗</h3>
+                <p className="text-gray-500 text-sm mb-4">請點擊下方按鈕前往測驗平台進行考試。</p>
+                <a
+                  href={lesson.onlineExam}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center w-full px-4 py-3 bg-green-50 text-green-700 font-semibold rounded-lg border border-green-100 hover:bg-green-100 transition-colors"
+                >
+                  開始考試
+                  <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                </a>
               </div>
             )}
           </div>

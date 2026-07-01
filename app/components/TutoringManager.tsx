@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
@@ -436,7 +436,7 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
         </div>
       );
     }
-    return <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">{days}</div>;
+    return <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2">{days}</div>;
   };
 
   const filteredSlots = useMemo(() => {
@@ -444,7 +444,7 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
   }, [slots, selectedDate]);
 
   return (
-    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 flex flex-col h-full animate-fade-in">
+    <div className="page-shell w-full min-w-0 flex flex-col h-full animate-fade-in">
         {/* Header Area */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
           <div className="border-l-4 border-indigo-500 pl-4">

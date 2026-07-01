@@ -76,10 +76,10 @@ export default function StudentLoginPage() {
 
   return (
     // 1. 背景：統一使用 cubes 紋理 + 淺灰底色
-    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center bg-gray-50 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] px-4">
+    <div className="min-h-[calc(100vh-64px)] flex items-center justify-center bg-gray-50 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] px-3 sm:px-4 py-6">
       
       {/* 2. 卡片：比照老師端樣式 (Padding, Shadow, Rounded) */}
-      <div className="bg-white p-8 md:p-10 rounded-2xl shadow-xl w-full max-w-md text-center border-t-4 border-indigo-600 animate-fade-in relative">
+      <div className="bg-white p-6 sm:p-8 md:p-10 rounded-2xl shadow-xl w-full max-w-md text-center border-t-4 border-indigo-600 animate-fade-in relative">
         
         
         {/* 3. 圖示：學生專用 Icon (學士帽)，使用靛藍色系 */}

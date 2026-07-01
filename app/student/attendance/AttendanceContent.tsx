@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { getSession } from '@/utils/session';
@@ -91,7 +91,7 @@ const ActivityCard = ({ activity }: { activity: Activity }) => {
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-lg transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 min-w-[320px]">
+    <div className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-lg transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full min-w-0">
       {/* 標題與時間 (前方無圖示) */}
       <div className="flex-1">
         <div className="flex items-center gap-2 mb-1">
@@ -164,7 +164,7 @@ const CourseGroupedList = ({ activities, emptyText }: { activities: Activity[], 
           
           {/* 該課程的活動列表 */}
           <div className="overflow-x-auto pb-1 touch-pan-x">
-            <div className="grid gap-3 min-w-[320px]">
+            <div className="grid gap-3 w-full min-w-0">
               {courseActivities.map(activity => (
                 <ActivityCard key={activity.id} activity={activity} />
               ))}
@@ -480,7 +480,7 @@ export default function AttendanceContent() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pt-6 md:pt-8 pb-10 flex flex-col h-full animate-fade-in">
+    <div className="page-shell w-full min-w-0 pt-4 sm:pt-6 md:pt-8 pb-10 flex flex-col h-full animate-fade-in">
       {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div className="border-l-4 border-indigo-500 pl-4">

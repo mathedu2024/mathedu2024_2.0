@@ -1,5 +1,10 @@
 import { adminDb as db } from './firebase-admin';
 import * as admin from 'firebase-admin';
+import {
+  assignUniqueCheckInCode,
+  generateUniqueDigitalCheckInCode,
+  getUsedCheckInCodes,
+} from './attendanceCode';
 
 // Base student data structure
 interface Student {
@@ -328,15 +333,13 @@ interface CheckInData {
 export async function createAttendanceActivity(data: AttendanceActivityData): Promise<{ activityId: string; checkInCode: string | null; }> {
   try {
     const { courseId, roster, ...activityData } = data;
-    let checkInCode: string | null = null;
     let status = 'scheduled';
 
-    if (data.creationMode === 'instant' && data.checkInMethod === 'numeric') {
-      checkInCode = Math.floor(100000 + Math.random() * 900000).toString();
-      status = 'active';
-    } else if (data.checkInMethod === 'manual') {
+    if (data.creationMode === 'instant' || data.checkInMethod === 'manual') {
       status = 'active';
     }
+
+    const checkInCode = await assignUniqueCheckInCode(db, courseId, data.checkInMethod);
 
     const activityPayload = {
       ...activityData,
@@ -392,12 +395,24 @@ export async function createAttendanceActivity(data: AttendanceActivityData): Pr
 export async function startAttendanceActivity(courseId: string, activityId: string): Promise<string> {
     try {
         const activityRef = db.collection('courses').doc(courseId).collection('attendance').doc(activityId);
-        
-        const checkInCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const activityDoc = await activityRef.get();
+        if (!activityDoc.exists) {
+            throw new Error('點名活動不存在。');
+        }
+
+        const existingCode = activityDoc.data()?.checkInCode;
+        let checkInCode = typeof existingCode === 'string' && existingCode.length > 0
+          ? existingCode
+          : null;
+
+        if (!checkInCode) {
+          const used = await getUsedCheckInCodes(db, courseId, activityId);
+          checkInCode = generateUniqueDigitalCheckInCode(used);
+        }
 
         await activityRef.update({
             status: 'active',
-            checkInCode: checkInCode,
+            checkInCode,
             startedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
 

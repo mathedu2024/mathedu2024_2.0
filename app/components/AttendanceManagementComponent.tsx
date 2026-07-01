@@ -1,6 +1,7 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import Swal from 'sweetalert2';
 import LoadingSpinner from './LoadingSpinner';
@@ -56,6 +57,38 @@ interface AttendanceRecord {
   note?: string;
 }
 
+function serializeAttendanceState(
+  students: Student[],
+  records: Record<string, { status: string; leaveType?: string }>,
+  notes: Record<string, string>
+): string {
+  const payload = students.map((student) => {
+    const data = records[student.studentId] || (student.id ? records[student.id] : undefined);
+    return {
+      studentId: student.studentId,
+      status: data?.status || '',
+      leaveType: data?.leaveType || '',
+      note: notes[student.studentId] || (student.id ? notes[student.id] : '') || '',
+    };
+  });
+  return JSON.stringify(payload);
+}
+
+async function confirmDiscardAttendanceChanges(): Promise<boolean> {
+  const result = await Swal.fire({
+    icon: 'warning',
+    title: '尚未儲存點名紀錄',
+    text: '您有尚未儲存的修改，確定要離開嗎？離開後變更將會遺失。',
+    showCancelButton: true,
+    confirmButtonText: '離開',
+    cancelButtonText: '繼續編輯',
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: '#6b7280',
+    customClass: { popup: 'rounded-2xl' },
+  });
+  return result.isConfirmed;
+}
+
 // 假別細項
 const LEAVE_OPTIONS = [
   { value: '病假', label: '病假', color: 'text-blue-600' },
@@ -76,6 +109,178 @@ const PRESENT_OPTIONS = [
   { value: 'late_and_early_leave', label: '遲到、早退', color: 'text-red-500' },
 ];
 const ALL_PRESENT_VALUES = PRESENT_OPTIONS.map(l => l.value);
+
+function buildAttendanceUrl(courseCode?: string, attendanceCode?: string) {
+  if (!courseCode) return '/back-panel/teacher-attendance';
+  if (!attendanceCode) {
+    return `/back-panel/teacher-attendance/${encodeURIComponent(courseCode)}`;
+  }
+  return `/back-panel/teacher-attendance/${encodeURIComponent(courseCode)}/${encodeURIComponent(attendanceCode)}`;
+}
+
+function shouldDisplayCheckInCode(activity: AttendanceActivity): boolean {
+  return activity.mode === 'digital' && !!activity.checkInCode && /^\d{6}$/.test(activity.checkInCode);
+}
+
+type AttendanceRouteLayer = 'list' | 'course' | 'activity';
+
+const PENDING_ATTENDANCE_COURSE_KEY = 'teacher-attendance-pending-course';
+const PENDING_ATTENDANCE_ACTIVITY_KEY = 'teacher-attendance-pending-activity';
+
+function getAttendanceRouteLayer(courseCodeFromUrl: string, attendanceCodeFromUrl: string): AttendanceRouteLayer {
+  if (attendanceCodeFromUrl) return 'activity';
+  if (courseCodeFromUrl) return 'course';
+  return 'list';
+}
+
+function filterCoursesForUser(
+  courseList: Course[],
+  userInfo?: { id: string; name?: string; role?: string | string[] } | null
+): Course[] {
+  let currentUserId = userInfo?.id;
+  if (!currentUserId) {
+    const session = getSession() as { user?: { id?: string; userId?: string; uid?: string }; id?: string; userId?: string; uid?: string } | null;
+    if (!session) return [];
+    const user = session.user || session;
+    currentUserId = user.id || user.userId || user.uid;
+  }
+  if (!currentUserId) return [];
+
+  return courseList.filter((c) => {
+    if (!c.teachers || !Array.isArray(c.teachers)) return false;
+    return c.teachers.includes(currentUserId);
+  });
+}
+
+function getPendingAttendanceCourse(courseCode: string): Course | null {
+  if (typeof window === 'undefined' || !courseCode) return null;
+  try {
+    const raw = sessionStorage.getItem(PENDING_ATTENDANCE_COURSE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { code?: string; id?: string; name?: string };
+    if (parsed.code !== courseCode || !parsed.id) return null;
+    return { id: parsed.id, name: parsed.name || courseCode, code: parsed.code };
+  } catch {
+    return null;
+  }
+}
+
+function setPendingAttendanceCourse(course: Course) {
+  if (typeof window === 'undefined' || !course.code || !course.id) return;
+  try {
+    sessionStorage.setItem(
+      PENDING_ATTENDANCE_COURSE_KEY,
+      JSON.stringify({ id: course.id, name: course.name, code: course.code })
+    );
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function clearPendingAttendanceCourse() {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.removeItem(PENDING_ATTENDANCE_COURSE_KEY);
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function getPendingAttendanceActivity(courseCode: string, attendanceCode: string): AttendanceActivity | null {
+  if (typeof window === 'undefined' || !courseCode || !attendanceCode) return null;
+  try {
+    const raw = sessionStorage.getItem(PENDING_ATTENDANCE_ACTIVITY_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as {
+      courseCode?: string;
+      attendanceCode?: string;
+      id?: string;
+      name?: string;
+      date?: string;
+      type?: string;
+      mode?: 'manual' | 'digital';
+      checkInCode?: string;
+    };
+    if (parsed.courseCode !== courseCode || parsed.attendanceCode !== attendanceCode || !parsed.id) return null;
+    return {
+      id: parsed.id,
+      name: parsed.name || '點名活動',
+      date: parsed.date || new Date().toISOString(),
+      type: parsed.type || '一般課程',
+      mode: parsed.mode || 'manual',
+      checkInCode: parsed.checkInCode || attendanceCode,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function setPendingAttendanceActivity(courseCode: string, attendanceCode: string, activity: AttendanceActivity) {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem(
+      PENDING_ATTENDANCE_ACTIVITY_KEY,
+      JSON.stringify({
+        courseCode,
+        attendanceCode,
+        id: activity.id,
+        name: activity.name,
+        date: activity.date,
+        type: activity.type,
+        mode: activity.mode,
+        checkInCode: activity.checkInCode || attendanceCode,
+      })
+    );
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function clearPendingAttendanceActivity() {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.removeItem(PENDING_ATTENDANCE_ACTIVITY_KEY);
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function mapActivityFromApi(item: {
+  id: string;
+  name?: string;
+  title?: string;
+  date?: unknown;
+  startTime?: unknown;
+  mode?: 'manual' | 'digital';
+  checkInMethod?: string;
+  type?: string;
+  checkInCode?: string;
+}): AttendanceActivity {
+  const toISO = (d: unknown) => {
+    if (!d) return undefined;
+    if (typeof d === 'string') return d;
+    if (typeof d === 'object' && d !== null && '_seconds' in d && '_nanoseconds' in d) {
+      return new Date((d as { _seconds: number })._seconds * 1000 + (d as { _nanoseconds: number })._nanoseconds / 1000000).toISOString();
+    }
+    try { return new Date(d as string | number).toISOString(); } catch { return String(d); }
+  };
+
+  const dateISO = toISO(item.date);
+  const startTimeISO = toISO(item.startTime);
+  const rawDate = dateISO || startTimeISO || new Date().toISOString();
+  const mode: 'manual' | 'digital' =
+    item.mode ||
+    (item.checkInMethod === 'numeric' ? 'digital' : 'manual');
+
+  return {
+    id: item.id,
+    name: item.name || item.title || '未命名活動',
+    date: rawDate,
+    type: item.type || '一般課程',
+    mode,
+    checkInCode: item.checkInCode,
+  };
+}
 
 // ==========================================
 // 2. 共用 UI 元件 (Modal & Portal Dropdown)
@@ -303,6 +508,80 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
   // ==========================================
   // 3. 第三層：點名執行 (AttendanceRosterManager)
   // ==========================================
+
+  function AttendanceActivityPageHeader({
+    activityName,
+    courseName,
+    studentCount,
+    activityInfo,
+    onBack,
+    actions,
+  }: {
+    activityName: string;
+    courseName: string;
+    studentCount?: number;
+    activityInfo?: AttendanceActivity | null;
+    onBack: () => void;
+    actions?: React.ReactNode;
+  }) {
+    const subtitle =
+      studentCount === undefined
+        ? `${courseName} • 載入中`
+        : `${courseName} • 共 ${studentCount} 人`;
+
+    return (
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
+        <div className="border-l-4 border-indigo-500 pl-4">
+          <div className="flex items-start gap-2">
+            <button onClick={onBack} className="mr-1 p-2 rounded-full hover:bg-gray-100 text-gray-500 transition-colors mt-0.5">
+              <ArrowLeftIcon className="w-6 h-6" />
+            </button>
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+                <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+                  {activityName}
+                </h1>
+                {activityInfo && shouldDisplayCheckInCode(activityInfo) && (
+                  <div className="inline-flex">
+                    <span className="bg-indigo-100 text-indigo-700 px-2 py-1.5 rounded-lg text-sm font-bold flex items-center shadow-sm border border-indigo-200">
+                      <QrCodeIcon className="w-4 h-4 mr-1.5"/>
+                      簽到碼: <span className="text-lg ml-1 font-mono tracking-wider">{activityInfo.checkInCode}</span>
+                    </span>
+                  </div>
+                )}
+              </div>
+              <p className="text-gray-500 text-sm mt-1">{subtitle}</p>
+            </div>
+          </div>
+        </div>
+        {actions ? <div className="flex gap-2 self-end md:self-auto">{actions}</div> : null}
+      </div>
+    );
+  }
+
+  function AttendanceActivityRouteShell({
+    activityName,
+    courseName,
+    activityInfo,
+    onBack,
+  }: {
+    activityName: string;
+    courseName: string;
+    activityInfo?: AttendanceActivity | null;
+    onBack: () => void;
+  }) {
+    return (
+      <div className="page-shell w-full min-w-0 pb-20 flex flex-col h-full animate-fade-in">
+        <AttendanceActivityPageHeader
+          activityName={activityName}
+          courseName={courseName}
+          activityInfo={activityInfo}
+          onBack={onBack}
+        />
+        <PageLoadingArea />
+      </div>
+    );
+  }
   
   interface AttendanceRosterManagerProps {
     activityId: string;
@@ -312,9 +591,10 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
     onClose: () => void;
     initialActivityData?: AttendanceActivity | null;
     isArchived?: boolean;
+    studentsLoading?: boolean;
   }
   
-  function AttendanceRosterManager({ activityId, courseId, courseName, students = [], onClose, initialActivityData, isArchived = false }: AttendanceRosterManagerProps) {
+  function AttendanceRosterManager({ activityId, courseId, courseName, students = [], onClose, initialActivityData, isArchived = false, studentsLoading = false }: AttendanceRosterManagerProps) {
     const safeStudents = Array.isArray(students) ? students : [];
     
     const [records, setRecords] = useState<Record<string, { status: string; leaveType?: string }>>({});
@@ -322,6 +602,81 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [activityInfo, setActivityInfo] = useState<AttendanceActivity | null>(initialActivityData || null);
+    const [savedSnapshot, setSavedSnapshot] = useState('');
+    const baselineReadyRef = useRef(false);
+    const allowLeaveRef = useRef(false);
+
+    const currentSnapshot = useMemo(
+      () => serializeAttendanceState(safeStudents, records, notes),
+      [safeStudents, records, notes]
+    );
+
+    const isDirty = useMemo(() => {
+      if (loading || studentsLoading || isArchived || !savedSnapshot) {
+        return false;
+      }
+      return currentSnapshot !== savedSnapshot;
+    }, [loading, studentsLoading, isArchived, savedSnapshot, currentSnapshot]);
+
+    const confirmLeaveIfDirty = useCallback(async () => {
+      if (isArchived || !isDirty) return true;
+      return confirmDiscardAttendanceChanges();
+    }, [isArchived, isDirty]);
+
+    const handleRequestClose = useCallback(async () => {
+      if (await confirmLeaveIfDirty()) {
+        allowLeaveRef.current = true;
+        onClose();
+      }
+    }, [confirmLeaveIfDirty, onClose]);
+
+    useEffect(() => {
+      baselineReadyRef.current = false;
+      allowLeaveRef.current = false;
+      setSavedSnapshot('');
+    }, [activityId]);
+
+    useEffect(() => {
+      if (loading || studentsLoading) return;
+      if (!baselineReadyRef.current) {
+        setSavedSnapshot(currentSnapshot);
+        baselineReadyRef.current = true;
+      }
+    }, [loading, studentsLoading, currentSnapshot]);
+
+    useEffect(() => {
+      if (!isDirty || isArchived || loading || studentsLoading) return;
+
+      const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+        event.preventDefault();
+        event.returnValue = '';
+      };
+
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [isDirty, isArchived, loading, studentsLoading]);
+
+    useEffect(() => {
+      if (!isDirty || isArchived || loading || studentsLoading) return;
+
+      window.history.pushState({ attendanceUnsavedGuard: true }, '');
+
+      const handlePopState = () => {
+        if (allowLeaveRef.current) return;
+
+        window.history.pushState({ attendanceUnsavedGuard: true }, '');
+
+        void confirmLeaveIfDirty().then((shouldLeave) => {
+          if (shouldLeave) {
+            allowLeaveRef.current = true;
+            onClose();
+          }
+        });
+      };
+
+      window.addEventListener('popstate', handlePopState);
+      return () => window.removeEventListener('popstate', handlePopState);
+    }, [isDirty, isArchived, loading, studentsLoading, confirmLeaveIfDirty, onClose]);
   
     const fetchRecords = useCallback(async () => {
       setLoading(true);
@@ -344,7 +699,9 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
           }
           setRecords(recordMap);
           setNotes(noteMap);
-          if (data.activity) setActivityInfo(data.activity);
+          if (data.activity) {
+            setActivityInfo(mapActivityFromApi(data.activity as Parameters<typeof mapActivityFromApi>[0]));
+          }
         }
       } catch (error) {
         console.error(error);
@@ -395,6 +752,7 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
         });
   
         if (!res.ok) throw new Error('Save failed');
+        setSavedSnapshot(serializeAttendanceState(safeStudents, records, notes));
         Swal.fire({
           icon: 'success',
           title: '儲存成功',
@@ -476,45 +834,28 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
     }, [safeStudents, getRecordForStudent]);
   
     return (
-      <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pb-20 flex flex-col h-full animate-fade-in">
-        {/* Header Area */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
-          <div className="border-l-4 border-indigo-500 pl-4">
-            <div className="flex items-start gap-2">
-              <button onClick={onClose} className="mr-1 p-2 rounded-full hover:bg-gray-100 text-gray-500 transition-colors mt-0.5">
-                <ArrowLeftIcon className="w-6 h-6" />
-              </button>
-              <div className="flex flex-col gap-2">
-                <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
-                  <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-                    {activityInfo?.name || '點名活動'}
-                  </h1>
-                  {activityInfo?.mode === 'digital' && (
-                    <div className="inline-flex">
-                      <span className="bg-indigo-100 text-indigo-700 px-2 py-1.5 rounded-lg text-sm font-bold flex items-center shadow-sm border border-indigo-200">
-                        <QrCodeIcon className="w-4 h-4 mr-1.5"/>
-                        簽到碼: <span className="text-lg ml-1 font-mono tracking-wider">{activityInfo.checkInCode}</span>
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <p className="text-gray-500 text-sm mt-1">{courseName} • 共 {safeStudents.length} 人</p>
-              </div>
-            </div>
-          </div>
-          {!isArchived && (
-            <div className="flex gap-2 self-end md:self-auto">
-              <button onClick={markAllPresent} className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center">
-                <CheckCircleIcon className="w-4 h-4 mr-1" /> 一鍵全到
-              </button>
-              <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center transform active:scale-95">
-                {saving ? <LoadingSpinner size={16} color="white" /> : <><CloudArrowUpIcon className="w-5 h-5 mr-1" /> 儲存紀錄</>}
-              </button>
-            </div>
-          )}
-        </div>
+      <div className="page-shell w-full min-w-0 pb-20 flex flex-col h-full animate-fade-in">
+        <AttendanceActivityPageHeader
+          activityName={activityInfo?.name || '點名活動'}
+          courseName={courseName}
+          studentCount={safeStudents.length}
+          activityInfo={activityInfo}
+          onBack={handleRequestClose}
+          actions={
+            !isArchived ? (
+              <>
+                <button onClick={markAllPresent} className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center">
+                  <CheckCircleIcon className="w-4 h-4 mr-1" /> 一鍵全到
+                </button>
+                <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center transform active:scale-95">
+                  {saving ? <LoadingSpinner size={16} color="white" /> : <><CloudArrowUpIcon className="w-5 h-5 mr-1" /> 儲存紀錄</>}
+                </button>
+              </>
+            ) : undefined
+          }
+        />
   
-        {loading ? (
+        {loading || studentsLoading ? (
           <PageLoadingArea />
         ) : (
         <>
@@ -724,37 +1065,7 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
               checkInMethod?: string;
               type?: string;
               checkInCode?: string;
-            }) => {
-              const toISO = (d: unknown) => {
-                if (!d) return undefined;
-                if (typeof d === 'string') return d;
-                if (typeof d === 'object' && d !== null && '_seconds' in d && '_nanoseconds' in d) {
-                  return new Date((d as { _seconds: number })._seconds * 1000 + (d as { _nanoseconds: number })._nanoseconds / 1000000).toISOString();
-                }
-                try { return new Date(d as string | number).toISOString(); } catch { return String(d); }
-              };
-  
-              const dateISO = toISO(item.date);
-              const startTimeISO = toISO(item.startTime);
-  
-              const rawDate =
-                dateISO ||
-                startTimeISO ||
-                new Date().toISOString();
-  
-              const mode: 'manual' | 'digital' =
-                item.mode ||
-                (item.checkInMethod === 'numeric' ? 'digital' : 'manual');
-  
-              return {
-                id: item.id,
-                name: item.name || item.title || '未命名活動',
-                date: rawDate,
-                type: item.type || '一般課程',
-                mode,
-                checkInCode: item.checkInCode,
-              };
-            });
+            }) => mapActivityFromApi(item));
   
             const sorted = mappedData.sort(
               (a, b) =>
@@ -808,7 +1119,7 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
             type: a.type,
             name: a.name,
             mode: a.mode === 'digital' ? '數字點名' : '手動點名',
-            checkInCode: a.mode === 'digital' ? a.checkInCode || '' : '',
+            checkInCode: shouldDisplayCheckInCode(a) ? a.checkInCode || '' : '',
           });
         });
   
@@ -956,7 +1267,7 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
     };
   
     return (
-      <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pb-10 flex flex-col h-full animate-fade-in">
+      <div className="page-shell w-full min-w-0 pb-10 flex flex-col h-full animate-fade-in">
         {/* Header Area */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
           <div className="border-l-4 border-indigo-500 pl-4">
@@ -1038,8 +1349,8 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
                                   </td>
                                   <td className="px-6 py-4 font-bold text-gray-900">{activity.name}</td>
                                   <td className="px-6 py-4 font-mono text-gray-700 font-bold">
-                                      {activity.mode === 'digital' ? (
-                                          <span className="bg-gray-100 px-2 py-1 rounded text-indigo-600">{activity.checkInCode || '-'}</span>
+                                      {shouldDisplayCheckInCode(activity) ? (
+                                          <span className="bg-gray-100 px-2 py-1 rounded text-indigo-600">{activity.checkInCode}</span>
                                       ) : (
                                           <span className="text-xs text-gray-400"> - </span>
                                       )}
@@ -1072,7 +1383,7 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
                                      </span>
                                  </div>
                             </div>
-                            {activity.mode === 'digital' && (
+                            {shouldDisplayCheckInCode(activity) && (
                                 <div className="bg-gray-50 px-3 py-2 rounded text-indigo-700 text-sm font-bold flex items-center border border-gray-200">
                                     <QrCodeIcon className="w-4 h-4 mr-2"/> 代碼: {activity.checkInCode}
                                 </div>
@@ -1099,46 +1410,117 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
   interface AttendanceManagementComponentProps {
     courses?: Course[];
     userInfo?: { id: string; name?: string; role?: string | string[] } | null;
+    courseCodeFromUrl?: string;
+    attendanceCodeFromUrl?: string;
   }
   
-  export default function AttendanceManagementComponent({ courses: externalCourses, userInfo }: AttendanceManagementComponentProps = {}) {
-    const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
-    const [selectedActivity, setSelectedActivity] = useState<AttendanceActivity | null>(null);
+  export default function AttendanceManagementComponent({
+    courses: externalCourses,
+    userInfo,
+    courseCodeFromUrl = '',
+    attendanceCodeFromUrl = '',
+  }: AttendanceManagementComponentProps = {}) {
+    const router = useRouter();
     const [courses, setCourses] = useState<Course[]>([]);
     const [loading, setLoading] = useState(true);
     const [studentCounts, setStudentCounts] = useState<Record<string, number>>({});
     const [students, setStudents] = useState<Student[]>([]);
     const [loadingStudents, setLoadingStudents] = useState(false);
+    const [activityCache, setActivityCache] = useState<AttendanceActivity | null>(null);
+    const prevAttendanceCodeRef = useRef('');
   
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedGrade, setSelectedGrade] = useState('all');
     const [selectedSubject, setSelectedSubject] = useState('all');
     const [selectedNature, setSelectedNature] = useState('all');
     const [selectedStatus, setSelectedStatus] = useState('all');
+
+    const decodedCourseCode = useMemo(
+      () => (courseCodeFromUrl ? decodeURIComponent(courseCodeFromUrl) : ''),
+      [courseCodeFromUrl]
+    );
+
+    const routeLayer = useMemo(
+      () => getAttendanceRouteLayer(courseCodeFromUrl, attendanceCodeFromUrl),
+      [courseCodeFromUrl, attendanceCodeFromUrl]
+    );
+
+    const decodedAttendanceCode = useMemo(
+      () => (attendanceCodeFromUrl ? decodeURIComponent(attendanceCodeFromUrl) : ''),
+      [attendanceCodeFromUrl]
+    );
+
+    const filterCourses = useCallback(
+      (courseList: Course[]) => filterCoursesForUser(courseList, userInfo),
+      [userInfo?.id]
+    );
+
+    const effectiveCourses = useMemo(() => {
+      if (courses.length > 0) return courses;
+      if (externalCourses && externalCourses.length > 0) return filterCourses(externalCourses);
+      return [];
+    }, [courses, externalCourses, filterCourses]);
+
+    const selectedCourse = useMemo(() => {
+      if (!decodedCourseCode) return null;
+      const fromList = effectiveCourses.find((c) => c.code === decodedCourseCode);
+      if (fromList) return fromList;
+      return getPendingAttendanceCourse(decodedCourseCode);
+    }, [decodedCourseCode, effectiveCourses]);
+
+    const pendingActivity = useMemo(() => {
+      if (!decodedCourseCode || !decodedAttendanceCode) return null;
+      return getPendingAttendanceActivity(decodedCourseCode, decodedAttendanceCode);
+    }, [decodedCourseCode, decodedAttendanceCode]);
+
+    const resolvedActivity = activityCache ?? pendingActivity;
+
+    const resolvedCourseName =
+      selectedCourse?.name ||
+      getPendingAttendanceCourse(decodedCourseCode)?.name ||
+      decodedCourseCode ||
+      '載入中';
+
+    const selectCourse = useCallback(
+      (course: Course | null) => {
+        setActivityCache(null);
+        clearPendingAttendanceActivity();
+        if (course) {
+          setPendingAttendanceCourse(course);
+        } else {
+          clearPendingAttendanceCourse();
+        }
+        router.push(buildAttendanceUrl(course?.code));
+      },
+      [router]
+    );
+
+    const selectActivity = useCallback(
+      (activity: AttendanceActivity | null, course?: Course | null) => {
+        const targetCourse = course ?? selectedCourse;
+        if (activity && targetCourse?.code && activity.checkInCode) {
+          setPendingAttendanceCourse(targetCourse);
+          setPendingAttendanceActivity(targetCourse.code, activity.checkInCode, activity);
+          setActivityCache(activity);
+          router.push(buildAttendanceUrl(targetCourse.code, activity.checkInCode));
+          return;
+        }
+
+        setActivityCache(null);
+        clearPendingAttendanceActivity();
+        if (targetCourse?.code) {
+          router.push(buildAttendanceUrl(targetCourse.code));
+        } else {
+          clearPendingAttendanceCourse();
+          router.push(buildAttendanceUrl());
+        }
+      },
+      [router, selectedCourse]
+    );
   
     useEffect(() => {
-      const filterCoursesForUser = (courseList: Course[]) => {
-        // 優先使用傳入的 userInfo，否則從 session 取得
-        let currentUserId = userInfo?.id;
-        if (!currentUserId) {
-          const session = getSession() as { user?: { id?: string; userId?: string; uid?: string }; id?: string; userId?: string; uid?: string } | null;
-          if (!session) return [];
-          const user = session.user || session;
-          currentUserId = user.id || user.userId || user.uid;
-        }
-  
-        if (!currentUserId) return []; // 無識別 ID 時，不回傳任何課程
-  
-        return courseList.filter(c => {
-          if (!c.teachers || !Array.isArray(c.teachers)) return false;
-          
-          // 嚴格比對 teachers 陣列，不再給予管理員豁免，以確保與成績系統行為完全一致
-          return c.teachers.includes(currentUserId);
-        });
-      };
-  
       if (externalCourses && externalCourses.length > 0) {
-        setCourses(filterCoursesForUser(externalCourses));
+        setCourses(filterCourses(externalCourses));
         setLoading(false);
         return;
       }
@@ -1147,7 +1529,7 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
           const response = await fetch('/api/courses/list', { method: 'POST' });
           if (response.ok) {
             const coursesData: Course[] = await response.json();
-            setCourses(filterCoursesForUser(coursesData));
+            setCourses(filterCourses(coursesData));
             setLoading(false); // 提早解除載入狀態，優先顯示課程列表
             
             // 背景抓取學生名單以計算人數
@@ -1166,42 +1548,101 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
         } catch (error) { console.error(error); setLoading(false); }
       };
       fetchCourses();
-    }, [externalCourses, userInfo?.id]);
+    }, [externalCourses, filterCourses]);
+
+    // 僅在「離開活動 URL」時清除快取，避免 router.push 過渡期誤清快取造成標題跳動
+    useEffect(() => {
+      const prevCode = prevAttendanceCodeRef.current;
+      prevAttendanceCodeRef.current = decodedAttendanceCode;
+      if (prevCode && !decodedAttendanceCode) {
+        setActivityCache(null);
+        clearPendingAttendanceActivity();
+      }
+      if (!decodedCourseCode) {
+        clearPendingAttendanceCourse();
+        clearPendingAttendanceActivity();
+      }
+    }, [decodedAttendanceCode, decodedCourseCode]);
+
+    useEffect(() => {
+      if (!decodedAttendanceCode || !selectedCourse) return;
+
+      if (
+        activityCache?.checkInCode === decodedAttendanceCode &&
+        activityCache.id
+      ) {
+        return;
+      }
+
+      let cancelled = false;
+      const resolveActivity = async () => {
+        try {
+          const res = await fetch('/api/attendance/activities/list', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ courseId: selectedCourse.id }),
+          });
+          if (!res.ok || cancelled) return;
+
+          const data = await res.json();
+          if (!Array.isArray(data) || cancelled) return;
+
+          const activity = data
+            .map((item: Parameters<typeof mapActivityFromApi>[0]) => mapActivityFromApi(item))
+            .find((a: AttendanceActivity) => a.checkInCode === decodedAttendanceCode);
+
+          if (activity && !cancelled) {
+            setActivityCache(activity);
+          }
+        } catch {
+          // ignore URL resolve errors; user stays on activity list
+        }
+      };
+
+      void resolveActivity();
+      return () => {
+        cancelled = true;
+      };
+    }, [decodedAttendanceCode, selectedCourse?.id, activityCache?.checkInCode, activityCache?.id]);
   
     useEffect(() => {
-      if (selectedActivity && selectedCourse) {
-        const fetchStudents = async () => {
-          setLoadingStudents(true);
-          try {
-            const res = await fetch(`/api/course-student-list/list?courseId=${encodeURIComponent(selectedCourse.id)}`);
-            if (res.ok) {
-              const roster = await res.json();
-              const enrolledStudents: Student[] = (Array.isArray(roster) ? roster : []).map((s: { id?: string; studentId?: string; name?: string }) => ({
-                id: String(s.id || s.studentId || ''),
-                studentId: String(s.studentId || s.id || ''),
-                name: String(s.name || ''),
-              }));
-  
-              enrolledStudents.sort((a, b) => {
-                const idA = a.studentId;
-                const idB = b.studentId;
-                const aIsAlpha = /^[A-Za-z]/.test(idA);
-                const bIsAlpha = /^[A-Za-z]/.test(idB);
-                
-                if (aIsAlpha && !bIsAlpha) return 1;
-                if (!aIsAlpha && bIsAlpha) return -1;
-                
-                return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
-              });
-              setStudents(enrolledStudents);
-            } else {
-              setStudents([]);
-            }
-          } catch { setStudents([]); } finally { setLoadingStudents(false); }
-        };
-        fetchStudents();
+      if (!resolvedActivity?.id || !selectedCourse?.id) {
+        setStudents([]);
+        setLoadingStudents(false);
+        return;
       }
-    }, [selectedActivity, selectedCourse]);
+
+      const fetchStudents = async () => {
+        setLoadingStudents(true);
+        try {
+          const res = await fetch(`/api/course-student-list/list?courseId=${encodeURIComponent(selectedCourse.id)}`);
+          if (res.ok) {
+            const roster = await res.json();
+            const enrolledStudents: Student[] = (Array.isArray(roster) ? roster : []).map((s: { id?: string; studentId?: string; name?: string }) => ({
+              id: String(s.id || s.studentId || ''),
+              studentId: String(s.studentId || s.id || ''),
+              name: String(s.name || ''),
+            }));
+
+            enrolledStudents.sort((a, b) => {
+              const idA = a.studentId;
+              const idB = b.studentId;
+              const aIsAlpha = /^[A-Za-z]/.test(idA);
+              const bIsAlpha = /^[A-Za-z]/.test(idB);
+              
+              if (aIsAlpha && !bIsAlpha) return 1;
+              if (!aIsAlpha && bIsAlpha) return -1;
+              
+              return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
+            });
+            setStudents(enrolledStudents);
+          } else {
+            setStudents([]);
+          }
+        } catch { setStudents([]); } finally { setLoadingStudents(false); }
+      };
+      fetchStudents();
+    }, [resolvedActivity?.id, selectedCourse?.id]);
   
     const filteredCourses = useMemo(() => {
       return courses.filter((course: Course) => {
@@ -1238,39 +1679,81 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
       });
     }, [courses, searchTerm, selectedGrade, selectedSubject, selectedNature, selectedStatus]);
   
-    // Layer 3
-    if (selectedActivity && selectedCourse) {
-      if (loadingStudents) {
+    const canRenderActivityRoster = Boolean(
+      routeLayer === 'activity' &&
+      selectedCourse?.id &&
+      resolvedActivity?.id
+    );
+
+    // 依 URL 深度直接進入對應層，避免載入時依序閃過外層標題
+    if (routeLayer === 'activity') {
+      if (!canRenderActivityRoster) {
         return (
-          <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pb-10 flex flex-col h-full animate-fade-in">
+          <AttendanceActivityRouteShell
+            activityName={resolvedActivity?.name || '點名活動'}
+            courseName={resolvedCourseName}
+            activityInfo={resolvedActivity}
+            onBack={() => selectActivity(null)}
+          />
+        );
+      }
+
+      return (
+        <AttendanceRosterManager
+          activityId={resolvedActivity!.id}
+          courseId={selectedCourse!.id}
+          courseName={selectedCourse!.name}
+          students={students}
+          studentsLoading={loadingStudents}
+          onClose={() => selectActivity(null)}
+          initialActivityData={resolvedActivity}
+          isArchived={selectedCourse!.status === '已封存'}
+        />
+      );
+    }
+
+    if (routeLayer === 'course') {
+      if (!selectedCourse?.id) {
+        return (
+          <div className="page-shell w-full min-w-0 pb-10 flex flex-col h-full animate-fade-in">
             <PageHeader
-              title={selectedActivity.name || '點名活動'}
-              description={`${selectedCourse.name} • 載入學生名單`}
+              title={resolvedCourseName}
+              description="點名活動列表 • 載入中"
+              icon={<CalendarDaysIcon className="h-8 w-8 text-indigo-600" />}
             />
             <PageLoadingArea />
           </div>
         );
       }
-      return <AttendanceRosterManager activityId={selectedActivity.id} courseId={selectedCourse.id} courseName={selectedCourse.name} students={students} onClose={() => setSelectedActivity(null)} initialActivityData={selectedActivity} isArchived={selectedCourse.status === '已封存'} />;
-    }
-  
-    // Layer 2
-    if (selectedCourse) {
+
       return (
         <AttendanceActivityList 
           courseId={selectedCourse.id} 
           courseName={selectedCourse.name} 
-          courseCode={selectedCourse.code} // 傳遞課程代碼
-          onBack={() => setSelectedCourse(null)} 
+          courseCode={selectedCourse.code}
+          onBack={() => selectCourse(null)} 
           isArchived={selectedCourse.status === '已封存'}
-          onSelectActivity={(activity) => setSelectedActivity(activity)} 
+          onSelectActivity={(activity) => selectActivity(activity)} 
         />
       );
     }
-  
+
+    if (loading && effectiveCourses.length === 0) {
+      return (
+        <div className="page-shell w-full min-w-0 pb-10 flex flex-col h-full animate-fade-in">
+          <PageHeader
+            title="點名管理"
+            description="記錄學生的出缺席狀況，包含手動點名與數字簽到。"
+            icon={<CalendarDaysIcon className="h-8 w-8 text-indigo-600" />}
+          />
+          <PageLoadingArea />
+        </div>
+      );
+    }
+
     // Layer 1
     return (
-      <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pb-10 flex flex-col h-full animate-fade-in">
+      <div className="page-shell w-full min-w-0 pb-10 flex flex-col h-full animate-fade-in">
         <PageHeader
           title="點名管理"
           description="記錄學生的出缺席狀況，包含手動點名與數字簽到。"
@@ -1336,7 +1819,7 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
                                       </span>
                                   </td>
                                   <td className="px-6 py-4 text-right whitespace-nowrap">
-                                      <button onClick={() => setSelectedCourse(course)} className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">管理</button>
+                                      <button onClick={() => selectCourse(course)} className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">管理</button>
                                   </td>
                               </tr>
                               ))}
@@ -1345,13 +1828,13 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
                   </div>
                   <div className="md:hidden space-y-4">
                       {filteredCourses.map((course) => (
-                          <div key={course.id} className="bg-white border border-gray-100 rounded-xl shadow-sm p-5 flex flex-col gap-3 active:scale-[0.99] transition-transform" onClick={() => setSelectedCourse(course)}>
+                          <div key={course.id} className="bg-white border border-gray-100 rounded-xl shadow-sm p-5 flex flex-col gap-3 active:scale-[0.99] transition-transform" onClick={() => selectCourse(course)}>
                               <div className="flex justify-between items-start">
                                    <div><h3 className="font-bold text-gray-900 text-lg">{course.name}</h3><p className="text-xs font-mono text-gray-500">{course.code}</p></div>
                                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-600 shrink-0"><UserGroupIcon className="w-3 h-3 mr-1"/>{studentCounts[course.id] ?? '-'} 人</span>
                               </div>
                               <div className="border-t border-gray-100 pt-3 flex justify-end">
-                                   <button onClick={(e) => { e.stopPropagation(); setSelectedCourse(course); }} className="w-full flex items-center justify-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors">管理點名 <ChevronRightIcon className="w-4 h-4 ml-1" /></button>
+                                   <button onClick={(e) => { e.stopPropagation(); selectCourse(course); }} className="w-full flex items-center justify-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors">管理點名 <ChevronRightIcon className="w-4 h-4 ml-1" /></button>
                               </div>
                           </div>
                       ))}

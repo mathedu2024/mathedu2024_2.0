@@ -1,10 +1,11 @@
-'use client';
+﻿'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useStudentInfo } from '../StudentInfoContext';
 import PageLoadingArea from '@/components/ui/PageLoadingArea';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import StudentCourseSelector, { getCourseDisplayKey } from '@/components/StudentCourseSelector';
 import { BookOpenIcon, ClockIcon, MapPinIcon, UserIcon, VideoCameraIcon, MegaphoneIcon, LinkIcon, DocumentTextIcon, FolderIcon, ChatBubbleLeftRightIcon, XMarkIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import 'react-quill-new/dist/quill.snow.css';
@@ -14,9 +15,69 @@ interface ClassTime { day: string; startTime: string; endTime: string; }
 interface CustomLink { name: string; url: string; icon: string; }
 interface CourseAnnouncement { id: string; title: string; content: string; links: { name: string; url: string }[]; createdAt: string; }
 interface Course { id: string; name: string; code: string; status: string; archived?: boolean; gradeTags: string[]; subjectTag: string; startDate: string; endDate: string; teachers: string[]; teacherName?: string; description: string; teachingMethod: string; courseNature: string; location?: string; liveStreamURL?: string; coverImageURL?: string; classTimes?: ClassTime[]; customLinks?: CustomLink[]; announcements?: CourseAnnouncement[]; }
-interface Lesson { id: string; title: string; date: string; progress: string; attachments: Array<string | { url: string; name?: string; visibleToStudents?: boolean }>; videos: string[]; homework: string; onlineExam: string; examScope: string; notes: string; createdAt: string | number | { toDate: () => Date }; order?: number; }
+interface Lesson { id: string; title: string; date: string; progress: string; attachments: Array<string | { url: string; name?: string; visibleToStudents?: boolean }>; videos: string[]; homework: string; noHomework?: boolean; onlineExam: string; noOnlineExam?: boolean; examScope: string; noExamScope?: boolean; notes: string; noNotes?: boolean; createdAt: string | number | { toDate: () => Date }; order?: number; }
 
 const isCourseArchived = (course: Course): boolean => course.archived === true || String(course.archived) === 'true';
+
+const PENDING_COURSE_SELECTION_KEY = 'student-courses-pending-selection';
+const ACTIVE_COURSE_COUNT_KEY = 'student-courses-active-count';
+
+function getCachedActiveCourseCount(): number {
+  if (typeof window === 'undefined') return 0;
+  try {
+    const raw = sessionStorage.getItem(ACTIVE_COURSE_COUNT_KEY);
+    const parsed = raw ? parseInt(raw, 10) : 0;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function setCachedActiveCourseCount(count: number) {
+  if (typeof window === 'undefined') return;
+  try {
+    if (count > 0) {
+      sessionStorage.setItem(ACTIVE_COURSE_COUNT_KEY, String(count));
+    } else {
+      sessionStorage.removeItem(ACTIVE_COURSE_COUNT_KEY);
+    }
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function getPendingCourseSelection(courseCode: string): string {
+  if (typeof window === 'undefined' || !courseCode) return '';
+  try {
+    const raw = sessionStorage.getItem(PENDING_COURSE_SELECTION_KEY);
+    if (!raw) return '';
+    const parsed = JSON.parse(raw) as { code?: string; displayKey?: string };
+    return parsed.code === courseCode && parsed.displayKey ? parsed.displayKey : '';
+  } catch {
+    return '';
+  }
+}
+
+function setPendingCourseSelection(courseCode: string, displayKey: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem(
+      PENDING_COURSE_SELECTION_KEY,
+      JSON.stringify({ code: courseCode, displayKey })
+    );
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function clearPendingCourseSelection() {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.removeItem(PENDING_COURSE_SELECTION_KEY);
+  } catch {
+    // ignore storage errors
+  }
+}
 
 const quillDisplayStyles = `
   .ql-snow .ql-editor {
@@ -63,7 +124,7 @@ const quillDisplayStyles = `
   }
 `;
 
-function LessonDetail({ lesson, index, selectedCourse, router }: { lesson: Lesson; index: number; selectedCourse: Course | null; router: ReturnType<typeof useRouter> }) {
+function LessonDetail({ lesson, index, resolvedCourse, router }: { lesson: Lesson; index: number; resolvedCourse: Course | null; router: ReturnType<typeof useRouter> }) {
   return (
     <div className="bg-white border border-gray-100 rounded-xl p-5 hover:shadow-md hover:border-indigo-200 transition-all duration-300 group">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -86,10 +147,10 @@ function LessonDetail({ lesson, index, selectedCourse, router }: { lesson: Lesso
         </div>
         <button
           onClick={() => {
-            const lessonData = { ...lesson, courseName: selectedCourse?.name, courseCode: selectedCourse?.code, courseId: selectedCourse?.id, lessonIndex: index + 1 };
+            const lessonData = { ...lesson, courseName: resolvedCourse?.name, courseCode: resolvedCourse?.code, courseId: resolvedCourse?.id, lessonIndex: index + 1 };
             localStorage.setItem('currentLesson', JSON.stringify(lessonData));
-            const queryId = selectedCourse?.code || selectedCourse?.id;
-            const currentUrl = `${window.location.pathname}?courseId=${queryId}`;
+            const courseCode = resolvedCourse?.code || resolvedCourse?.id;
+            const currentUrl = courseCode ? `/student/courses/${encodeURIComponent(courseCode)}` : '/student/courses';
             router.push(`/student/lesson-detail?returnTo=${encodeURIComponent(currentUrl)}`);
           }}
           className="w-full sm:w-auto bg-white border-2 border-gray-100 text-gray-600 px-5 py-2 rounded-xl hover:bg-indigo-600 hover:text-white hover:border-indigo-600 text-sm font-bold transition-all shadow-sm active:scale-95 whitespace-nowrap"
@@ -124,14 +185,18 @@ const Pagination = ({ currentPage, totalPages, setCurrentPage }: { currentPage: 
   );
 };
 
-export default function StudentCoursesContent() {
+interface StudentCoursesContentProps {
+  courseCodeFromUrl?: string;
+}
+
+export default function StudentCoursesContent({ courseCodeFromUrl = '' }: StudentCoursesContentProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { studentInfo, loading: loadingStudentInfo } = useStudentInfo();
+  const { studentInfo } = useStudentInfo();
 
   const [courses, setCourses] = useState<Course[]>([]);
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
-  const [loadingCourses, setLoadingCourses] = useState<boolean>(false);
+  const [selectedCourseKey, setSelectedCourseKey] = useState<string>('');
+  const [loadingCourses, setLoadingCourses] = useState(true);
+  const hasLoadedCoursesRef = useRef(false);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loadingLessons, setLoadingLessons] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -144,7 +209,8 @@ export default function StudentCoursesContent() {
 
   const fetchCourses = useCallback(async (options?: { silent?: boolean }) => {
     if (!studentInfo) return;
-    if (!options?.silent) setLoadingCourses(true);
+    const isInitialLoad = !hasLoadedCoursesRef.current;
+    if (!options?.silent && isInitialLoad) setLoadingCourses(true);
 
     // 安全機制：設定 8 秒後強制停止 Loading，避免畫面卡死
     const safetyTimer = setTimeout(() => {
@@ -165,8 +231,11 @@ export default function StudentCoursesContent() {
         const activeCourses = (data.courses || [])
           .filter((c: Course) => c && c.status !== '已封存' && !isCourseArchived(c));
         setCourses(activeCourses);
+        hasLoadedCoursesRef.current = true;
+        setCachedActiveCourseCount(activeCourses.length);
       } else {
         setCourses([]);
+        setCachedActiveCourseCount(0);
       }
       clearTimeout(safetyTimer);
     } catch (error) {
@@ -186,26 +255,57 @@ export default function StudentCoursesContent() {
   }, [studentInfo, fetchCourses]);
 
   useEffect(() => {
-    const courseIdFromQuery = searchParams.get('courseId');
-    if (courseIdFromQuery && courses.length > 0) {
-      // 支援透過 ID 或 Code (課程代碼) 尋找課程
-      const courseToSelect = courses.find(c => c.id === courseIdFromQuery || c.code === courseIdFromQuery);
-      setSelectedCourse(courseToSelect ?? null);
+    if (!courseCodeFromUrl) {
+      setSelectedCourseKey('');
+      clearPendingCourseSelection();
+      return;
     }
-  }, [courses, searchParams]);
 
-  // 課程列表重新載入後，以最新 API 資料覆寫 selectedCourse（避免仍顯示舊快照）
-  useEffect(() => {
-    if (!selectedCourse?.id || courses.length === 0) return;
-    const fresh = courses.find((c) => c.id === selectedCourse.id);
-    if (fresh) setSelectedCourse(fresh);
-  }, [courses, selectedCourse?.id]);
+    const decoded = decodeURIComponent(courseCodeFromUrl);
+    const course = courses.find((c) => c.code === decoded || c.id === decoded);
+    if (course) {
+      const courseKey = getCourseDisplayKey(course);
+      setSelectedCourseKey(courseKey);
+      setPendingCourseSelection(courseCodeFromUrl, courseKey);
+    }
+  }, [courseCodeFromUrl, courses]);
+
+  const effectiveSelectedCourse = useMemo(() => {
+    if (selectedCourseKey) return selectedCourseKey;
+    if (!courseCodeFromUrl) return '';
+    const decoded = decodeURIComponent(courseCodeFromUrl);
+    const matched = courses.find((c) => c.code === decoded || c.id === decoded);
+    if (matched) return getCourseDisplayKey(matched);
+    return getPendingCourseSelection(courseCodeFromUrl);
+  }, [selectedCourseKey, courseCodeFromUrl, courses]);
+
+  const resolvedCourse = useMemo(() => {
+    if (!effectiveSelectedCourse) return null;
+    return courses.find((c) => getCourseDisplayKey(c) === effectiveSelectedCourse) ?? null;
+  }, [courses, effectiveSelectedCourse]);
+
+  const coursesForSelector = useMemo(() => {
+    const displayKey = effectiveSelectedCourse;
+    if (!displayKey) return courses;
+
+    const exists = courses.some((c) => getCourseDisplayKey(c) === displayKey);
+    if (exists) return courses;
+
+    const lastOpenIdx = displayKey.lastIndexOf('(');
+    const lastCloseIdx = displayKey.lastIndexOf(')');
+    if (lastOpenIdx !== -1 && lastCloseIdx > lastOpenIdx) {
+      const name = displayKey.substring(0, lastOpenIdx);
+      const code = displayKey.substring(lastOpenIdx + 1, lastCloseIdx);
+      return [{ id: '', name, code } as Course, ...courses];
+    }
+    return courses;
+  }, [courses, effectiveSelectedCourse]);
 
   useEffect(() => {
     let isCurrent = true;
 
     const fetchCourseDetails = async () => {
-      if (!selectedCourse) {
+      if (!resolvedCourse) {
         setCourseDetails({});
         return;
       }
@@ -216,7 +316,7 @@ export default function StudentCoursesContent() {
       setActiveCourseTab('info');
       
       try {
-        const res = await fetch(`/api/courses/classdata?courseId=${selectedCourse.id}`);
+        const res = await fetch(`/api/courses/classdata?courseId=${resolvedCourse.id}`);
         if (res.ok) {
           const data = await res.json();
           if (isCurrent) {
@@ -230,11 +330,11 @@ export default function StudentCoursesContent() {
     };
     fetchCourseDetails();
     return () => { isCurrent = false; };
-  }, [selectedCourse?.id]);
+  }, [resolvedCourse?.id]);
 
   useEffect(() => {
     const fetchLessons = async () => {
-      if (!selectedCourse) {
+      if (!resolvedCourse) {
         setLessons([]);
         return;
       }
@@ -243,7 +343,7 @@ export default function StudentCoursesContent() {
         const res = await fetch('/api/courses/lessons', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ courseId: selectedCourse.id }),
+          body: JSON.stringify({ courseId: resolvedCourse.id }),
         });
         const lessons = await res.json();
         const sortedLessons = Array.isArray(lessons)
@@ -269,7 +369,11 @@ export default function StudentCoursesContent() {
       }
     };
     fetchLessons();
-  }, [selectedCourse]);
+  }, [resolvedCourse]);
+
+  const showMainLoading =
+    (loadingCourses && courses.length === 0) ||
+    Boolean((effectiveSelectedCourse || courseCodeFromUrl) && resolvedCourse && loadingLessons);
 
   const indexOfLastLesson = currentPage * lessonsPerPage;
   const indexOfFirstLesson = indexOfLastLesson - lessonsPerPage;
@@ -287,8 +391,8 @@ export default function StudentCoursesContent() {
     }
   };
 
-  const activeLinks = (courseDetails.customLinks && courseDetails.customLinks.length > 0 ? courseDetails.customLinks : selectedCourse?.customLinks) || [];
-  const activeAnnouncements = (courseDetails.announcements && courseDetails.announcements.length > 0 ? courseDetails.announcements : selectedCourse?.announcements) || [];
+  const activeLinks = (courseDetails.customLinks && courseDetails.customLinks.length > 0 ? courseDetails.customLinks : resolvedCourse?.customLinks) || [];
+  const activeAnnouncements = (courseDetails.announcements && courseDetails.announcements.length > 0 ? courseDetails.announcements : resolvedCourse?.announcements) || [];
 
   const sortedAnnouncements = [...activeAnnouncements].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   const indexOfLastAnnouncement = announcementPage * announcementsPerPage;
@@ -296,8 +400,11 @@ export default function StudentCoursesContent() {
   const currentAnnouncements = sortedAnnouncements.slice(indexOfFirstAnnouncement, indexOfLastAnnouncement);
   const totalAnnouncementPages = Math.ceil(sortedAnnouncements.length / announcementsPerPage);
 
+  const displayCourseCount = courses.length > 0 ? courses.length : getCachedActiveCourseCount();
+  const showCourseCountBadge = displayCourseCount > 0;
+
   return (
-    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pt-6 md:pt-8 pb-10 flex flex-col min-h-full animate-fade-in">
+    <div className="page-shell w-full min-w-0 pt-4 sm:pt-6 md:pt-8 pb-10 flex flex-col min-h-full animate-fade-in">
       <style>{quillDisplayStyles}</style>
 
       {/* Header Area */}
@@ -309,39 +416,56 @@ export default function StudentCoursesContent() {
           </h1>
           <p className="text-gray-500 text-sm mt-1">查看並進入您所選修的課程與教材內容。</p>
         </div>
-        {courses.length > 0 && (
+        {showCourseCountBadge && (
           <span className="bg-indigo-50 text-indigo-700 px-4 py-2 rounded-full text-sm font-bold border border-indigo-100 shadow-sm self-start md:self-auto">
-            目前選修 {courses.length} 門有效課程
+            目前選修 {displayCourseCount} 門有效課程
           </span>
         )}
       </div>
-      {loadingCourses ? (
-        <PageLoadingArea minHeight="min-h-[16rem]" />
-      ) : courses.length === 0 ? (
-        <div className="text-center py-20 bg-gray-50 rounded-2xl border border-dashed border-gray-300">
-            <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 text-4xl text-gray-300 shadow-sm">📚</div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">尚無課程</h3>
-            <p className="text-gray-500">您目前還沒有選擇任何課程</p>
-        </div>
-      ) : (
-        <>
-          <StudentCourseSelector
-            courses={courses}
-            selectedCourse={selectedCourse ? getCourseDisplayKey(selectedCourse) : ''}
-            onChange={(value) => {
-              const course = courses.find((c) => getCourseDisplayKey(c) === value);
-              setSelectedCourse(course || null);
+      <StudentCourseSelector
+        courses={coursesForSelector}
+        selectedCourse={effectiveSelectedCourse}
+        loadingCourses={loadingCourses}
+        onChange={(value) => {
+          setSelectedCourseKey(value);
+          if (value) {
+            const course = courses.find((c) => getCourseDisplayKey(c) === value);
+            if (course) {
+              setPendingCourseSelection(course.code, value);
+              router.push(`/student/courses/${encodeURIComponent(course.code)}`);
+            }
+          } else {
+            clearPendingCourseSelection();
+            router.push('/student/courses');
+          }
+        }}
+      />
 
-              // 更新網址
-              if (course) {
-                const queryId = course.code || course.id;
-                router.push(`/student/courses?courseId=${queryId}`);
-              } else {
-                router.push('/student/courses');
-              }
-            }}
-          />
-          {selectedCourse && (
+      {showMainLoading && (
+        <div className="flex flex-col justify-center items-center py-20">
+          <LoadingSpinner size={40} />
+          <p className="text-gray-500 mt-4 font-medium">資料讀取中...</p>
+        </div>
+      )}
+
+      {!showMainLoading && !effectiveSelectedCourse && !loadingCourses && courses.length === 0 && (
+        <div className="text-center py-20 bg-gray-50 rounded-2xl border border-dashed border-gray-300">
+          <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 text-4xl text-gray-300 shadow-sm">📚</div>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">尚無課程</h3>
+          <p className="text-gray-500">您目前還沒有選擇任何課程</p>
+        </div>
+      )}
+
+      {!showMainLoading && !effectiveSelectedCourse && !loadingCourses && courses.length > 0 && !courseCodeFromUrl && (
+        <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-8 text-center shadow-sm">
+          <div className="w-16 h-16 bg-indigo-100 text-indigo-500 rounded-full flex items-center justify-center mx-auto mb-4">
+            <BookOpenIcon className="w-8 h-8" />
+          </div>
+          <p className="text-indigo-800 font-medium text-lg">請選擇一個課程來查看課程內容</p>
+        </div>
+      )}
+
+      {!showMainLoading && resolvedCourse && courseCodeFromUrl && (
             <div className="animate-fade-in space-y-8">
               {/* 課程資訊卡 */}
               <div className="bg-gradient-to-r from-indigo-600 to-blue-600 rounded-2xl shadow-xl p-8 text-white relative overflow-hidden">
@@ -350,12 +474,12 @@ export default function StudentCoursesContent() {
                 <div className="relative z-10">
                     <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h3 className="text-3xl font-bold mb-2 tracking-tight">{selectedCourse.name}</h3>
-                        <p className="text-indigo-100 font-mono text-lg opacity-80">{selectedCourse.code}</p>
+                        <h3 className="text-3xl font-bold mb-2 tracking-tight">{resolvedCourse.name}</h3>
+                        <p className="text-indigo-100 font-mono text-lg opacity-80">{resolvedCourse.code}</p>
                     </div>
                     <div>
                         <span className="px-4 py-1.5 rounded-full text-sm font-bold bg-white/20 backdrop-blur-md text-white border border-white/30 shadow-sm">
-                            {selectedCourse.status}
+                            {resolvedCourse.status}
                         </span>
                     </div>
                     </div>
@@ -381,30 +505,30 @@ export default function StudentCoursesContent() {
                         <ClockIcon className="w-5 h-5 mr-3 mt-0.5 opacity-70" />
                         <div>
                             <p className="text-xs uppercase tracking-wider opacity-70 mb-1">課程期間</p>
-                            <p className="font-medium">{selectedCourse.startDate || '未定'} ~ {selectedCourse.endDate || '未定'}</p>
+                            <p className="font-medium">{resolvedCourse.startDate || '未定'} ~ {resolvedCourse.endDate || '未定'}</p>
                         </div>
                     </div>
                     <div className="flex items-start">
                         <UserIcon className="w-5 h-5 mr-3 mt-0.5 opacity-70" />
                         <div>
                             <p className="text-xs uppercase tracking-wider opacity-70 mb-1">授課老師</p>
-                            <p className="font-medium">{selectedCourse.teacherName || '未指定教師'}</p>
+                            <p className="font-medium">{resolvedCourse.teacherName || '未指定教師'}</p>
                         </div>
                     </div>
                     <div className="flex items-start">
                         <MapPinIcon className="w-5 h-5 mr-3 mt-0.5 opacity-70" />
                         <div>
                             <p className="text-xs uppercase tracking-wider opacity-70 mb-1">上課地點</p>
-                            <p className="font-medium">{selectedCourse.location || '線上/未定'}</p>
+                            <p className="font-medium">{resolvedCourse.location || '線上/未定'}</p>
                         </div>
                     </div>
-                    {selectedCourse.classTimes?.length > 0 && (
+                    {resolvedCourse.classTimes?.length > 0 && (
                         <div className="flex items-start col-span-1 md:col-span-2 lg:col-span-3 bg-white/10 p-3 rounded-lg border border-white/10">
                             <ClockIcon className="w-5 h-5 mr-3 mt-0.5 opacity-70" />
                             <div>
                                 <p className="text-xs uppercase tracking-wider opacity-70 mb-1">上課時間</p>
                                 <div className="font-medium">
-                                    {selectedCourse.classTimes.map((time, idx, arr) => (
+                                    {resolvedCourse.classTimes.map((time, idx, arr) => (
                                         <React.Fragment key={idx}>
                                             <span className="block sm:inline">{`${time.day} ${time.startTime}-${time.endTime}`}</span>
                                             {idx < arr.length - 1 && <span className="hidden sm:inline">、</span>}
@@ -415,9 +539,9 @@ export default function StudentCoursesContent() {
                         </div>
                     )}
                     <div className="flex flex-wrap items-center col-span-1 md:col-span-2 lg:col-span-3 mt-3 gap-3">
-                        {selectedCourse.liveStreamURL && (
+                        {resolvedCourse.liveStreamURL && (
                              <a 
-                                href={selectedCourse.liveStreamURL} 
+                                href={resolvedCourse.liveStreamURL} 
                                 target="_blank" 
                                 rel="noopener noreferrer" 
                                 className="inline-flex items-center gap-2 min-w-[160px] px-5 py-2.5 bg-white text-indigo-600 rounded-xl font-bold text-sm hover:bg-indigo-50 transition-colors shadow-lg shadow-indigo-900/20"
@@ -491,14 +615,12 @@ export default function StudentCoursesContent() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-4">
-                    {currentLessons.map((lesson, index) => <LessonDetail key={lesson.id} lesson={lesson} index={indexOfFirstLesson + index} selectedCourse={selectedCourse} router={router} />)}
+                    {currentLessons.map((lesson, index) => <LessonDetail key={lesson.id} lesson={lesson} index={indexOfFirstLesson + index} resolvedCourse={resolvedCourse} router={router} />)}
                   </div>
                 )}
                 <Pagination currentPage={currentPage} totalPages={totalPages} setCurrentPage={setCurrentPage} />
               </div>
             </div>
-          )}
-        </>
       )}
 
       {selectedAnnouncement && createPortal(

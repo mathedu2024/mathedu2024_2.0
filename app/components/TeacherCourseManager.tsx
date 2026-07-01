@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
@@ -343,7 +343,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose, isArchived =
   const handleVideoChange = (idx: number, value: string) => setForm((f) => { const v = [...(f.videos || [])]; v[idx] = value; return { ...f, videos: v }; });
 
   return (
-    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pb-10 flex flex-col animate-fade-in">
+    <div className="page-shell w-full min-w-0 pb-10 flex flex-col animate-fade-in">
       {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
         <div className="border-l-4 border-indigo-500 pl-4">
@@ -559,6 +559,18 @@ function LessonManager({ courseId, courseName, courseCode, onClose, isArchived =
                               <input type="text" className={`border border-gray-300 rounded-lg px-3 py-2 w-full sm:w-1/3 text-sm focus:ring-indigo-500 ${isArchived ? 'bg-gray-100 text-gray-500' : ''}`} placeholder="檔案名稱" value={att.name} onChange={e => handleAttachmentChange(idx, 'name', e.target.value)} disabled={isArchived} />
                               <div className="flex gap-2 items-center w-full sm:w-auto sm:flex-1">
                                 <input type="url" className={`border border-gray-300 rounded-lg px-3 py-2 flex-1 text-sm focus:ring-indigo-500 ${isArchived ? 'bg-gray-100 text-gray-500' : ''}`} placeholder="檔案連結 (URL)" value={att.url} onChange={e => handleAttachmentChange(idx, 'url', e.target.value)} disabled={isArchived} />
+                                {att.url?.trim() ? (
+                                  <a
+                                    href={att.url.trim()}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-1.5 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-lg shrink-0 transition-colors flex items-center gap-1 text-xs font-medium"
+                                    title="查看附件"
+                                  >
+                                    <EyeIcon className="w-5 h-5" />
+                                    <span className="hidden sm:inline">查看</span>
+                                  </a>
+                                ) : null}
                                 <label className={`flex items-center text-xs text-gray-600 whitespace-nowrap px-2 ${isArchived ? 'opacity-60' : ''}`}>
                                   <input
                                     type="checkbox"
@@ -754,6 +766,36 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
     } catch {}
   }, []);
 
+  const hydrateCoursesMetadata = useCallback(async (allCourses: Course[]) => {
+    if (!allCourses.length) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const allTeacherIds = Array.from(new Set((allCourses.flatMap((c: Course) => (c.teachers || [])).filter((id: unknown): id is string => typeof id === 'string')) as string[]));
+      const teacherNameMap = await fetchTeacherNamesCallback(allTeacherIds);
+      const newTeacherNamesMap: { [courseId: string]: string[] } = {};
+      allCourses.forEach((course: Course) => { newTeacherNamesMap[course.id] = (course.teachers || []).map((id: string) => teacherNameMap[id]).filter(Boolean) as string[]; });
+      setTeacherNamesMap(newTeacherNamesMap);
+      setLoading(false);
+      _setError(null);
+
+      fetch('/api/student/list')
+        .then(res => res.ok ? res.json() : [])
+        .then(allStudents => {
+          const newSC: { [courseId: string]: number } = {};
+          allCourses.forEach((course: Course) => {
+            const courseKey = `${course.name}(${course.code})`;
+            newSC[course.id] = allStudents.filter((s: { enrolledCourses?: string[] }) => s.enrolledCourses && (s.enrolledCourses.includes(course.id) || s.enrolledCourses.includes(courseKey))).length;
+          });
+          setStudentCounts(newSC);
+        }).catch(() => {});
+    } catch {
+      setLoading(false);
+    }
+  }, [fetchTeacherNamesCallback]);
+
   const fetchCourses = useCallback(async () => {
     if (!userInfo?.id) { 
       setLoading(true); 
@@ -765,32 +807,27 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
       if (res.ok) {
         const allCourses = await res.json();
         setCourses(allCourses);
-        const allTeacherIds = Array.from(new Set((allCourses.flatMap((c: Course) => (c.teachers || [])).filter((id: unknown): id is string => typeof id === 'string')) as string[]));
-        const teacherNameMap = await fetchTeacherNamesCallback(allTeacherIds);
-        const newTeacherNamesMap: { [courseId: string]: string[] } = {};
-        allCourses.forEach((course: Course) => { newTeacherNamesMap[course.id] = (course.teachers || []).map((id: string) => teacherNameMap[id]).filter(Boolean) as string[]; });
-        setTeacherNamesMap(newTeacherNamesMap);
-
-        // 提早解除載入狀態，讓課程列表能先顯示
-        setLoading(false);
-        _setError(null);
-
-        // 在背景非同步獲取學生人數，不阻塞主畫面渲染
-        fetch('/api/student/list')
-          .then(res => res.ok ? res.json() : [])
-          .then(allStudents => {
-            const newSC: { [courseId: string]: number } = {};
-            allCourses.forEach((course: Course) => {
-              const courseKey = `${course.name}(${course.code})`;
-              newSC[course.id] = allStudents.filter((s: any) => s.enrolledCourses && (s.enrolledCourses.includes(course.id) || s.enrolledCourses.includes(courseKey))).length;
-            });
-            setStudentCounts(newSC);
-          }).catch(() => {});
-      } else { setCourses([]); }
+        await hydrateCoursesMetadata(allCourses);
+      } else { setCourses([]); setLoading(false); }
     } catch { setCourses([]); setLoading(false); }
-  }, [userInfo?.id, fetchTeacherNamesCallback]);
+  }, [userInfo?.id, hydrateCoursesMetadata]);
 
-  useEffect(() => { fetchCourses(); }, [userInfo?.id, fetchCourses]);
+  useEffect(() => {
+    if (propCourses !== undefined) {
+      if (!userInfo?.id) {
+        setLoading(true);
+        return;
+      }
+      if (propCourses.length > 0) {
+        void hydrateCoursesMetadata(propCourses);
+      } else {
+        setLoading(false);
+      }
+      return;
+    }
+    void fetchCourses();
+  }, [propCourses, userInfo?.id, fetchCourses, hydrateCoursesMetadata]);
+
   useEffect(() => { fetchTeachers(); }, [fetchTeachers]);
 
   const handleShowCourseDetail = async (course: Course) => {
@@ -880,7 +917,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
   }
 
   return (
-    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 flex flex-col h-full animate-fade-in">
+    <div className="page-shell w-full min-w-0 flex flex-col h-full animate-fade-in">
       {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
         <div className="border-l-4 border-indigo-500 pl-4">

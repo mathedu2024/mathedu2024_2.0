@@ -101,14 +101,34 @@ html, body {
 
 
 /* 響應式斷點系統 */
+/* 全站頁面容器：統一手機版邊距與防溢出 */
+@layer components {
+  .page-shell {
+    @apply w-full min-w-0 max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8;
+  }
+  .page-shell-padded {
+    @apply page-shell pt-4 sm:pt-6 md:pt-8 pb-10 sm:pb-12;
+  }
+  .mobile-scroll-tabs {
+    @apply flex overflow-x-auto gap-1 pb-1 -mx-1 px-1;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .mobile-scroll-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .mobile-scroll-tabs > button {
+    @apply flex-shrink-0;
+  }
+}
+
 /* 手機直向 (320px - 480px) */
 @media (max-width: 480px) {
   html, body {
     font-size: 14px;
   }
-  table {
+  .responsive-table table {
     font-size: 12px;
-    min-width: 300px;
   }
   button, input, select, textarea {
     font-size: 16px;
@@ -131,9 +151,8 @@ html, body {
   html, body {
     font-size: 15px;
   }
-  table {
+  .responsive-table table {
     font-size: 13px;
-    min-width: 400px;
   }
   button, input, select, textarea {
     font-size: 16px;
@@ -154,9 +173,8 @@ html, body {
   html, body {
     font-size: 16px;
   }
-  table {
+  .responsive-table table {
     font-size: 14px;
-    min-width: 500px;
   }
   .modal, .Dialog, .AlertDialog {
     width: 80vw !important;
@@ -816,9 +834,10 @@ html.swal2-shown {
   overflow: hidden !important;
 }
 
-/* Force overflow visible for html and body to ensure fixed elements work correctly */
-html, body {
-  overflow: visible !important;
+/* SweetAlert 開啟時才允許 body 滾動鎖定，避免覆寫全站 overflow-x: hidden */
+html.swal2-shown,
+body.swal2-shown {
+  overflow: hidden !important;
 }
 
 /* SweetAlert2 彈跳動畫 */

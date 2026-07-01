@@ -35,6 +35,15 @@ interface DropdownProps {
   style?: CSSProperties;
 }
 
+function resolveDropdownLabel(value: string, options: Option[], placeholder: string): string {
+  const matched = (options ?? []).find((o) => o.value === value);
+  if (matched) return matched.label;
+  if (!value) return placeholder;
+  const compositeMatch = value.match(/^(.+)\(([^()]+)\)$/);
+  if (compositeMatch) return `${compositeMatch[1]}（${compositeMatch[2]}）`;
+  return value;
+}
+
 export default function Dropdown({ value, onChange, options, placeholder = 'Select an option', className = '', buttonClassName = '', style }: DropdownProps) {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const optionsRef = useRef<HTMLDivElement>(null);
@@ -156,7 +165,7 @@ export default function Dropdown({ value, onChange, options, placeholder = 'Sele
               className={`${DROPDOWN_BUTTON_CLASS} ${buttonClassName}`}
             >
               <span className={`truncate ${!value ? 'text-gray-400' : 'text-gray-900'}`}>
-                {(options || []).find(o => o.value === value)?.label || placeholder}
+                {resolveDropdownLabel(value, options, placeholder)}
               </span>
               <ChevronUpDownIcon className="w-5 h-5 text-gray-400 absolute right-3 pointer-events-none" />
             </Listbox.Button>

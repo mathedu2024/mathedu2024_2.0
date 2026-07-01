@@ -15,7 +15,8 @@ type StudentGradeRow = {
   periodicScores: { [name in PeriodicScoreName]?: number };
   regWeighted: number;
   pAvg: number;
-  total: number;
+  originalTotal: number;
+  finalTotal: number;
 };
 
 interface Props {
@@ -27,6 +28,7 @@ interface Props {
   periodicColumnDetails?: Record<string, { name?: string; date?: string; type?: string }>;
   onUpdateRegularScore: (studentId: string, colIdx: number, value?: number) => void;
   _onUpdatePeriodicScore: (studentId: string, scoreName: string, value?: number) => void;
+  onUpdateFinalScore: (studentId: string, value: string) => void;
   isArchived?: boolean;
   onEditColumn?: (kind: 'regular' | 'periodic', id: number | string) => void;
 }
@@ -40,6 +42,7 @@ export default function GradeRegistrationMobile({
   periodicColumnDetails = {},
   onUpdateRegularScore,
   _onUpdatePeriodicScore,
+  onUpdateFinalScore,
   isArchived = false,
   onEditColumn,
 }: Props) {
@@ -218,13 +221,13 @@ export default function GradeRegistrationMobile({
                   <span className="text-sm text-gray-500 font-mono">{stu.studentId}</span>
                 </div>
                 <div className="text-right">
-                  <span className="text-xs text-gray-400 block uppercase font-bold">總成績</span>
-                  <span className={`text-2xl font-black ${stu.total < 60 ? 'text-red-600' : 'text-indigo-600'}`}>
-                    {stu.total}
+                  <span className="text-xs text-gray-400 block uppercase font-bold">最終成績</span>
+                  <span className={`text-2xl font-black ${stu.finalTotal < 60 ? 'text-red-600' : 'text-indigo-600'}`}>
+                    {stu.finalTotal}
                   </span>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="bg-gray-50 p-2 rounded-lg text-center border border-gray-100">
                   <span className="text-xs text-gray-500 block mb-1">平時加權</span>
                   <span className="text-base font-bold text-gray-700 font-mono">{stu.regWeighted.toFixed(1)}</span>
@@ -232,6 +235,10 @@ export default function GradeRegistrationMobile({
                 <div className="bg-gray-50 p-2 rounded-lg text-center border border-gray-100">
                   <span className="text-xs text-gray-500 block mb-1">定期平均</span>
                   <span className="text-base font-bold text-gray-700 font-mono">{stu.pAvg.toFixed(1)}</span>
+                </div>
+                <div className="bg-gray-50 p-2 rounded-lg text-center border border-gray-100">
+                  <span className="text-xs text-gray-500 block mb-1">原始成績</span>
+                  <span className="text-base font-bold text-gray-700 font-mono">{stu.originalTotal}</span>
                 </div>
               </div>
             </div>

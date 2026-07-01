@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -59,7 +59,7 @@ export default function WatchContent() {
   if (!videoId) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 md:py-8">
+        <div className="page-shell w-full min-w-0 py-6 md:py-8">
           <div className="max-w-3xl mx-auto bg-white border border-red-100 rounded-2xl p-6 md:p-8 shadow-sm">
           <div className="flex items-center gap-3 text-red-600 mb-4">
             <ExclamationTriangleIcon className="w-7 h-7" />
@@ -83,7 +83,7 @@ export default function WatchContent() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-4 md:py-6">
+      <div className="page-shell w-full min-w-0 py-4 md:py-6">
         <button
           onClick={backToResources}
           className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white text-gray-700 px-3.5 py-2 mb-4 text-sm md:text-base font-bold hover:bg-gray-100 transition-colors"

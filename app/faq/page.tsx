@@ -117,9 +117,9 @@ export default function FaqPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-[calc(100vh-64px)] bg-gray-50">
       <motion.div
-        className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 max-w-4xl"
+        className="page-shell max-w-4xl py-8 sm:py-12 min-w-0"
         variants={pageVariants}
         initial="hidden"
         animate="visible"

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useStudentInfo } from '../StudentInfoContext';
@@ -41,6 +41,7 @@ export default function StudentInformationContent() {
   const { studentInfo: rawStudentInfo, loading } = useStudentInfo();
   const [apiData, setApiData] = useState<Partial<ExtendedStudentInfo>>({});
   const [userCourses, setUserCourses] = useState<MinimalCourse[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
   
   // 合併 Context 資料與 API 直接抓取的完整資料 (API 資料優先)
   const studentInfo = { ...rawStudentInfo, ...apiData } as unknown as ExtendedStudentInfo;
@@ -67,56 +68,60 @@ export default function StudentInformationContent() {
   };
 
   useEffect(() => {
-    // 當取得學生 ID 後，直接向後端請求完整資料，繞過 Context 可能的過濾
-    const fetchFullProfile = async () => {
-      if (rawStudentInfo?.id) {
-        try {
-          const res = await fetch('/api/student/profile', {
+    if (loading) return;
+
+    if (!rawStudentInfo?.id) {
+      setDataLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadPageData = async () => {
+      setDataLoading(true);
+      try {
+        const [profileRes, coursesRes] = await Promise.all([
+          fetch('/api/student/profile', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: rawStudentInfo.id }),
-          });
-          if (res.ok) {
-            const data = await res.json();
-            setApiData(data);
-            // 同步更新編輯欄位
-            setEmail(data.email || '');
-            setAddress(data.address || '');
-            setPhone(data.phone || '');
-          }
-        } catch (error) {
-          console.error('無法載入完整個人資料', error);
+          }),
+          fetch('/api/student/dashboard-data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ studentId: rawStudentInfo.id }),
+          }),
+        ]);
+
+        if (cancelled) return;
+
+        if (profileRes.ok) {
+          const data = await profileRes.json();
+          setApiData(data);
+          setEmail(data.email || '');
+          setAddress(data.address || '');
+          setPhone(data.phone || '');
         }
-      }
-    };
 
-    const fetchUserCourses = async () => {
-      if (!rawStudentInfo?.id) return;
-      try {
-        // 改用 dashboard-data API，這通常包含完整的課程物件資訊，且能確保與首頁計數邏輯同步
-        const response = await fetch('/api/student/dashboard-data', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ studentId: rawStudentInfo.id }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          // 從回傳的 courses 屬性中提取並進行嚴格過濾
+        if (coursesRes.ok) {
+          const data = await coursesRes.json();
           const filtered = (data.courses || [])
             .filter((c: MinimalCourse) => c && c.status !== '已封存' && c.archived !== true && String(c.archived) !== 'true');
           setUserCourses(filtered);
         }
       } catch (error) {
-        console.error('無法獲取選修課程清單', error);
+        console.error('無法載入個人資料頁面資料', error);
+      } finally {
+        if (!cancelled) setDataLoading(false);
       }
     };
 
-    if (rawStudentInfo?.id) {
-      fetchFullProfile();
-      fetchUserCourses();
-    }
-  }, [rawStudentInfo?.id]);
+    loadPageData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [rawStudentInfo?.id, loading]);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -217,7 +222,7 @@ export default function StudentInformationContent() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto w-full px-4 md:px-6 pt-6 md:pt-8 pb-10 flex flex-col h-full animate-fade-in">
+    <div className="page-shell w-full min-w-0 pt-4 sm:pt-6 md:pt-8 pb-10 min-h-full flex flex-col animate-fade-in">
       {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div className="border-l-4 border-indigo-500 pl-4">
@@ -229,7 +234,7 @@ export default function StudentInformationContent() {
         </div>
       </div>
 
-      {loading || !studentInfo ? (
+      {loading || dataLoading || !studentInfo ? (
         <PageLoadingArea />
       ) : (
       <>
@@ -387,7 +392,7 @@ export default function StudentInformationContent() {
 
         {/* Right Column: Change Password */}
         <div className="lg:col-span-1">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden sticky top-8">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden md:sticky md:top-8">
                 <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center">
                     <KeyIcon className="w-5 h-5 text-gray-500 mr-2" />
                     <h3 className="text-lg font-bold text-gray-800">修改密碼</h3>

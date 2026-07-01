@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useHydrated } from '@/utils/useHydrated';
@@ -79,23 +79,23 @@ export default function StudentPanel() {
 
   if (!hydrated || (loading && !studentInfo)) {
     return (
-      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+      <div className="page-shell w-full min-w-0 py-4 sm:py-6 md:py-8">
         <PageLoadingArea minHeight="min-h-[50vh]" />
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+    <div className="page-shell w-full min-w-0 py-4 sm:py-6 md:py-8">
       {/* 歡迎橫幅 */}
-      <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl shadow-xl p-8 text-white mb-10 animate-fade-in relative overflow-hidden">
+      <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl shadow-xl p-5 sm:p-8 text-white mb-6 sm:mb-10 animate-fade-in relative overflow-hidden min-w-0">
         <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-white opacity-10 rounded-full blur-3xl"></div>
         <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-40 h-40 bg-white opacity-10 rounded-full blur-3xl"></div>
         
         <div className="relative flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
           <div className="flex-1">
-            <h1 className="text-3xl md:text-4xl font-bold mb-3 flex items-center">
-                歡迎回來，{studentInfo?.name}！ <span className="ml-2 text-2xl">👋</span>
+            <h1 className="text-xl sm:text-2xl md:text-4xl font-bold mb-3 flex flex-wrap items-center gap-1 sm:gap-2">
+                歡迎回來，{studentInfo?.name}！ <span className="text-xl sm:text-2xl">👋</span>
             </h1>
             <div className="flex flex-col sm:flex-row gap-4 text-indigo-100">
                 <p className="flex items-center"><span className="bg-indigo-500/30 px-2 py-1 rounded-md text-sm mr-2 border border-indigo-400/30">學號</span> {studentInfo?.studentId}</p>
@@ -174,7 +174,7 @@ export default function StudentPanel() {
             <span className="w-1.5 h-6 bg-indigo-600 rounded-full mr-3"></span>
             快速操作
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {studentQuickActions.map((action) => (
             <button
               key={action.id}

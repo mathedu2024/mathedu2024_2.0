@@ -36,6 +36,7 @@ const StudentContext = createContext<StudentContextType>({
 export const useStudentInfo = () => useContext(StudentContext);
 
 export const StudentInfoProvider = ({ children }: { children: React.ReactNode }) => {
+  const [mounted, setMounted] = useState(false);
   const [studentInfo, setStudentInfo] = useState<StudentInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -51,6 +52,8 @@ export const StudentInfoProvider = ({ children }: { children: React.ReactNode })
   }, []);
 
   useEffect(() => {
+    setMounted(true);
+
     // 安全機制：設定 3 秒超時，避免 loading 狀態卡死導致畫面全白
     const safetyTimer = setTimeout(() => {
       setLoading(prev => {
@@ -148,8 +151,11 @@ export const StudentInfoProvider = ({ children }: { children: React.ReactNode })
     };
   }, []);
 
+  // Keep loading true until after mount so SSR HTML matches the first client render.
+  const contextLoading = !mounted || loading;
+
   return (
-    <StudentContext.Provider value={{ studentInfo, loading, clearStudentInfo }}>
+    <StudentContext.Provider value={{ studentInfo, loading: contextLoading, clearStudentInfo }}>
       {children}
     </StudentContext.Provider>
   );
