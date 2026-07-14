@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { adminDb } from '@/services/firebase-admin';
 import { getSessionFromCookie } from '@/utils/session';
+import { publicCheckInCodeForActivity } from '@/services/attendanceCode';
+import { syncAttendanceLifecycle } from '@/services/attendanceLifecycle';
 
 function toDate(value: unknown): Date | null {
   if (!value) return null;
@@ -27,6 +30,8 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    await syncAttendanceLifecycle(courseId, activityId);
+
     const activityDoc = await adminDb.collection('courses').doc(courseId).collection('attendance').doc(activityId).get();
 
     if (!activityDoc.exists) {
@@ -40,19 +45,27 @@ export async function GET(req: NextRequest) {
     if (courseDoc.exists) {
       courseName = courseDoc.data()?.name || '未知課程';
     }
-    
+
     const responseData = {
       id: activityDoc.id,
       title: activityData?.title,
       courseName: courseName,
       checkInMethod: activityData?.checkInMethod,
-      checkInCode: activityData?.checkInCode ?? null,
+      status: activityData?.status || null,
+      checkInCode: publicCheckInCodeForActivity({
+        status: activityData?.status,
+        checkInMethod: activityData?.checkInMethod,
+        checkInCode: activityData?.checkInCode,
+      }),
       startTime: toDate(activityData?.startTime),
       endTime: toDate(activityData?.endTime),
     };
 
     return NextResponse.json(responseData);
   } catch (error) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     console.error('Error fetching activity details:', error);
     return NextResponse.json({ error: 'Failed to fetch activity details' }, { status: 500 });
   }

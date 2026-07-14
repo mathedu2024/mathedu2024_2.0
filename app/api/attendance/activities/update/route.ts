@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 // 移除可能不存在的 attendanceService，改為直接使用 firebase-admin 進行資料庫操作
 import { db } from '@/lib/firebase-admin'; 
 import { getSessionFromCookie } from '@/utils/session';
@@ -35,6 +36,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: 'Activity updated successfully' });
 
   } catch (error) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     console.error('Error in /api/attendance/activities/update: ', error);
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     return NextResponse.json({ error: errorMessage }, { status: 500 });

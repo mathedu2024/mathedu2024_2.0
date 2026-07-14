@@ -1,20 +1,21 @@
 ﻿'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { useHydrated } from '@/utils/useHydrated';
 import { 
   BookOpenIcon, 
-  ClipboardDocumentListIcon, 
-  CheckCircleIcon, 
-  PencilIcon, 
-  CalendarIcon, 
+  ChatBubbleLeftRightIcon,
   SparklesIcon,
   UserCircleIcon,
   CloudArrowDownIcon
 } from '@heroicons/react/24/outline';
 
-import PageLoadingArea from '@/components/ui/PageLoadingArea';
+import PageLoadingArea from '../components/ui/PageLoadingArea';
+import CourseActivityFeed from '../components/CourseActivityFeed';
+import LiveAttendanceBanner from '../components/LiveAttendanceBanner';
 import { useStudentInfo } from './StudentInfoContext';
+import { fetchStudentDashboardData } from '@/utils/studentClientApi';
+import { getDashboardColorClasses, type DashboardColor } from '@/utils/dashboardColors';
+import { useHydrated } from '@/utils/useHydrated';
 
 interface MinimalCourse {
   name: string;
@@ -40,44 +41,56 @@ export default function StudentPanel() {
     );
   }, []);
 
-  // 取得並計算非封存的課程數量
   useEffect(() => {
-    const fetchActiveCourses = async () => {
-      if (!studentInfo?.id) return;
-      try {
-        // 使用 dashboard-data API，這通常包含完整的課程物件資訊，比單純的 ID 列表更準確
-        const response = await fetch('/api/student/dashboard-data', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ studentId: studentInfo.id }),
-        });
+    const studentId = studentInfo?.id;
+    if (!studentId) return;
 
-        if (response.ok) {
-          const data = await response.json();
-          // 嚴格過濾邏輯：排除狀態為「已封存」或標記為 archived 的課程
-          const activeCourses = (data.courses || [])
-            .filter((c: MinimalCourse) => c && c.status !== '已封存' && c.archived !== true && String(c.archived) !== 'true');
-          setActiveCourseCount(activeCourses.length);
-        }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const data = await fetchStudentDashboardData(studentId, { coursesOnly: true });
+        if (cancelled) return;
+        const activeCourses = (data.courses || [])
+          .filter((c: MinimalCourse) => c && c.status !== '已封存' && c.archived !== true && String(c.archived) !== 'true');
+        setActiveCourseCount(activeCourses.length);
       } catch (error) {
         console.error('無法獲取有效課程數量:', error);
       }
-    };
+    })();
 
-    fetchActiveCourses();
+    return () => {
+      cancelled = true;
+    };
   }, [studentInfo?.id]);
 
-  const studentQuickActions = [
-    { id: 'courses', title: '我的課程', description: '查看課程內容與進度', icon: <BookOpenIcon className="h-6 w-6" />, onClick: () => router.push('/student/courses'), disabled: false },
-    { id: 'resources', title: '線上資源', description: '搜尋與下載教學資源', icon: <CloudArrowDownIcon className="h-6 w-6" />, onClick: () => router.push('/student/resources'), disabled: false },
-    { id: 'grades', title: '成績查詢', description: '查看各科成績與評量', icon: <ClipboardDocumentListIcon className="h-6 w-6" />, onClick: () => router.push('/student/grades'), disabled: false },
-    { id: 'attendance', title: '線上點名', description: '查看點名記錄與狀態', icon: <CheckCircleIcon className="h-6 w-6" />, onClick: () => router.push('/student/attendance'), disabled: false },
-    { id: 'counseling', title: '輔導預約', description: '預約老師或助教的輔導時段', icon: <CalendarIcon className="h-6 w-6" />, onClick: () => router.push('/student/counseling'), disabled: false },
-    { id: 'exam', title: '線上測驗', description: '功能暫時關閉', icon: <PencilIcon className="h-6 w-6" />, onClick: () => {}, disabled: true },
-    { id: 'information', title: '個人資料', description: '查看個人資料與修改密碼', icon: <UserCircleIcon className="h-6 w-6" />, onClick: () => router.push('/student/information'), disabled: false },
-  ];
+  const studentQuickActions = useMemo(() => {
+    const items: {
+      id: string;
+      title: string;
+      description: string;
+      icon: React.ReactElement;
+      color: DashboardColor;
+      onClick: () => void;
+      disabled: boolean;
+    }[] = [
+      { id: 'courses', title: '我的課程', description: '查看課程內容與進度', icon: <BookOpenIcon className="h-6 w-6" />, color: 'indigo', onClick: () => router.push('/student/courses'), disabled: false },
+      { id: 'resources', title: '線上資源', description: '搜尋與下載教學資源', icon: <CloudArrowDownIcon className="h-6 w-6" />, color: 'purple', onClick: () => router.push('/student/resources'), disabled: false },
+      { id: 'counseling', title: '輔導預約', description: '預約老師或助教的輔導時段', icon: <ChatBubbleLeftRightIcon className="h-6 w-6" />, color: 'amber', onClick: () => router.push('/student/counseling'), disabled: false },
+      { id: 'information', title: '個人資料', description: '查看個人資料與修改密碼', icon: <UserCircleIcon className="h-6 w-6" />, color: 'violet', onClick: () => router.push('/student/information'), disabled: false },
+    ];
 
-  if (!hydrated || (loading && !studentInfo)) {
+    return items.map(item => {
+      const style = getDashboardColorClasses(item.color);
+      const icon = React.isValidElement(item.icon)
+        ? React.cloneElement(item.icon as React.ReactElement<React.SVGProps<SVGSVGElement>>, {
+            className: 'h-6 w-6',
+          })
+        : item.icon;
+      return { ...item, ...style, icon };
+    });
+  }, [router]);
+
+  if (!hydrated || loading || !studentInfo) {
     return (
       <div className="page-shell w-full min-w-0 py-4 sm:py-6 md:py-8">
         <PageLoadingArea minHeight="min-h-[50vh]" />
@@ -95,7 +108,7 @@ export default function StudentPanel() {
         <div className="relative flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
           <div className="flex-1">
             <h1 className="text-xl sm:text-2xl md:text-4xl font-bold mb-3 flex flex-wrap items-center gap-1 sm:gap-2">
-                歡迎回來，{studentInfo?.name}！ <span className="text-xl sm:text-2xl">👋</span>
+                歡迎回來，{studentInfo?.name}！ <span className="text-xl sm:text-2xl"></span>
             </h1>
             <div className="flex flex-col sm:flex-row gap-4 text-indigo-100">
                 <p className="flex items-center"><span className="bg-indigo-500/30 px-2 py-1 rounded-md text-sm mr-2 border border-indigo-400/30">學號</span> {studentInfo?.studentId}</p>
@@ -114,54 +127,41 @@ export default function StudentPanel() {
           </div>
         </div>
       </div>
-      {/* 統計概覽 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10 animate-fade-in" style={{ animationDelay: '0.1s' }}>
-        <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow group">
-          <div className="flex items-center justify-between">
-            <div>
-                <p className="text-sm font-bold text-gray-500 mb-1">已選課程</p>
-                <p className="text-3xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">
-                  {/* 移除對 context 原始長度的依賴，未讀取完前顯示 ... 以免顯示錯誤數字 */}
+      {/* 統計概覽：固定 1×3，不隨視窗改列 */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-4 md:gap-6 mb-8 sm:mb-10 animate-fade-in" style={{ animationDelay: '0.1s' }}>
+        <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm p-3 sm:p-6 border border-gray-100 hover:shadow-md transition-shadow group min-w-0">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="min-w-0">
+                <p className="text-[10px] sm:text-sm font-bold text-gray-500 mb-0.5 sm:mb-1">已選課程</p>
+                <p className="text-xl sm:text-3xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors tabular-nums">
                   {activeCourseCount !== null ? activeCourseCount : '...'}
                 </p>
             </div>
-            <div className="p-4 rounded-xl bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+            <div className="hidden sm:block p-4 rounded-xl bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors shrink-0">
                 <BookOpenIcon className="h-6 w-6" />
             </div>
           </div>
         </div>
-        
-        <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow group">
-          <div className="flex items-center justify-between">
-            <div>
-                <p className="text-sm font-bold text-gray-500 mb-1">成績查詢</p>
-                <p className="text-3xl font-bold text-gray-900 group-hover:text-emerald-600 transition-colors">可查看</p>
+
+        <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm p-3 sm:p-6 border border-gray-100 hover:shadow-md transition-shadow group min-w-0">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="min-w-0">
+                <p className="text-[10px] sm:text-sm font-bold text-gray-500 mb-0.5 sm:mb-1">輔導預約</p>
+                <p className="text-xl sm:text-3xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">開放中</p>
             </div>
-            <div className="p-4 rounded-xl bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                <ClipboardDocumentListIcon className="h-6 w-6" />
+            <div className="hidden sm:block p-4 rounded-xl bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors shrink-0">
+                <ChatBubbleLeftRightIcon className="h-6 w-6" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow group">
-          <div className="flex items-center justify-between">
-            <div>
-                <p className="text-sm font-bold text-gray-500 mb-1">輔導預約</p>
-                <p className="text-3xl font-bold text-gray-900 group-hover:text-amber-500 transition-colors">開放中</p>
+        <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm p-3 sm:p-6 border border-gray-100 hover:shadow-md transition-shadow group min-w-0">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="min-w-0">
+                <p className="text-[10px] sm:text-sm font-bold text-gray-500 mb-0.5 sm:mb-1">個人資料</p>
+                <p className="text-xl sm:text-3xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">可檢視</p>
             </div>
-            <div className="p-4 rounded-xl bg-amber-50 text-amber-600 group-hover:bg-amber-500 group-hover:text-white transition-colors">
-                <CalendarIcon className="h-6 w-6" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow group">
-          <div className="flex items-center justify-between">
-            <div>
-                <p className="text-sm font-bold text-gray-500 mb-1">個人資料</p>
-                <p className="text-3xl font-bold text-gray-900 group-hover:text-violet-600 transition-colors">可檢視</p>
-            </div>
-            <div className="p-4 rounded-xl bg-violet-50 text-violet-600 group-hover:bg-violet-600 group-hover:text-white transition-colors">
+            <div className="hidden sm:block p-4 rounded-xl bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors shrink-0">
                 <UserCircleIcon className="h-6 w-6" />
             </div>
           </div>
@@ -170,10 +170,7 @@ export default function StudentPanel() {
 
       {/* 快速操作 Grid */}
       <div className="animate-fade-in" style={{ animationDelay: '0.2s' }}>
-        <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center">
-            <span className="w-1.5 h-6 bg-indigo-600 rounded-full mr-3"></span>
-            快速操作
-        </h2>
+        <h2 className="text-xl font-bold text-gray-800 border-l-4 border-indigo-500 pl-4 mb-6">快速操作</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {studentQuickActions.map((action) => (
             <button
@@ -183,21 +180,26 @@ export default function StudentPanel() {
               className={`text-left p-6 rounded-2xl border transition-all duration-300 flex items-center group ${
                 action.disabled
                   ? 'bg-gray-50 cursor-not-allowed opacity-60 border-gray-100'
-                  : 'bg-white border-gray-200 hover:border-indigo-300 hover:shadow-lg hover:-translate-y-1'
+                  : `bg-white border-gray-200 ${action.cardHover} hover:shadow-lg hover:-translate-y-1`
               }`}
             >
-              <div className={`p-4 rounded-xl mr-5 transition-colors ${
-                  action.disabled ? 'bg-gray-200 text-gray-400' : 'bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white'
+              <div className={`p-4 rounded-xl mr-5 flex-shrink-0 relative z-10 transition-colors [&_svg]:text-current ${
+                  action.disabled ? 'bg-gray-200 text-gray-400' : `${action.iconBg} ${action.iconText} ${action.iconHover}`
               }`}>
                 {action.icon}
               </div>
-              <div>
-                <h3 className={`text-lg font-bold ${action.disabled ? 'text-gray-500' : 'text-gray-900 group-hover:text-indigo-700'}`}>{action.title}</h3>
+              <div className="min-w-0">
+                <h3 className={`text-lg font-bold ${action.disabled ? 'text-gray-500' : `text-gray-900 ${action.titleHover}`}`}>{action.title}</h3>
                 <p className={`text-sm mt-1 ${action.disabled ? 'text-gray-400' : 'text-gray-500'}`}>{action.description}</p>
               </div>
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="mt-8 sm:mt-10">
+        <LiveAttendanceBanner audience="student" />
+        <CourseActivityFeed audience="student" />
       </div>
 
     </div>

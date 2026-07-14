@@ -5,6 +5,8 @@ import { createPortal } from 'react-dom';
 import MultiSelectDropdown from './MultiSelectDropdown';
 import LoadingSpinner from './LoadingSpinner';
 import PageLoadingArea from './ui/PageLoadingArea';
+import { btnStyles, btnWithIconStyle, btnIcon, btnIconGap, tableActionStyles, tableActionRow } from './ui';
+import { courseListTableStyles } from './studentCourseListShared';
 import Dropdown from './ui/Dropdown';
 import Swal from 'sweetalert2';
 import { 
@@ -25,8 +27,14 @@ import {
 } from '@heroicons/react/24/outline';
 import { isCourseArchived } from './StudentCourseSelector';
 import {
+  fetchAdminCoursesList,
+  fetchStudentList,
+  invalidateStudentList,
+} from '@/utils/teacherClientApi';
+import {
   removeCoursesFromEnrolledList,
   resolveCoursesFromCatalog,
+  enrolledKeyMatchesCourse,
 } from '@/services/courseId';
 
 interface Student {
@@ -92,9 +100,33 @@ export default function StudentManager() {
   
   const grades = ['國一', '國二', '國三', '高一', '高二', '高三', '職一', '職二', '職三', '大一', '進修'];
 
+  const isDisplayableCourse = useCallback((course: Course | null | undefined): course is Course => {
+    if (!course) return false;
+    const name = String(course.name ?? '').trim();
+    const code = String(course.code ?? '').trim();
+    if (!name || !code) return false;
+    const isPlaceholder = (value: string) => /^(undefined|null)$/i.test(value);
+    return !isPlaceholder(name) && !isPlaceholder(code);
+  }, []);
+
   const activeCourses = useMemo(
-    () => courses.filter((c) => !isCourseArchived(c)),
-    [courses]
+    () => courses.filter((c) => isDisplayableCourse(c) && !isCourseArchived(c)),
+    [courses, isDisplayableCourse]
+  );
+
+  const resolveCatalogCourse = useCallback(
+    (enrolledKey: string): Course | null => {
+      if (!enrolledKey?.trim()) return null;
+      const course = courses.find((c) => enrolledKeyMatchesCourse(enrolledKey, c)) ?? null;
+      return isDisplayableCourse(course) ? course : null;
+    },
+    [courses, isDisplayableCourse]
+  );
+
+  const countKnownCourses = useCallback(
+    (enrolledKeys: string[] = []) =>
+      enrolledKeys.filter((key) => !!resolveCatalogCourse(key)).length,
+    [resolveCatalogCourse]
   );
 
   const activeCourseSelectOptions = useMemo(
@@ -108,16 +140,12 @@ export default function StudentManager() {
     [activeCourses]
   );
 
-  const fetchStudents = useCallback(async () => {
+  const fetchStudents = useCallback(async (options?: { bypassCache?: boolean }) => {
+    if (options?.bypassCache) invalidateStudentList();
     setLoading(true);
     try {
-      const res = await fetch('/api/student/list');
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
-      const text = await res.text();
-      const fetchedStudents = text ? JSON.parse(text) : [];
-      setStudents(fetchedStudents);
+      const fetchedStudents = await fetchStudentList<Student>();
+      setStudents(Array.isArray(fetchedStudents) ? fetchedStudents : []);
     } catch (error) {
       console.error("從資料庫獲取學生資料失敗:", error);
       Swal.fire('錯誤', '讀取學生資料時發生錯誤！', 'error');
@@ -128,18 +156,18 @@ export default function StudentManager() {
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const res2 = await fetch('/api/courses/list', { method: 'POST' });
-        if (!res2.ok) {
-          console.error("從資料庫獲取課程失敗:", res2.status);
-          return;
-        }
-        const text = await res2.text();
-        const coursesRaw = text ? JSON.parse(text) : [];
-        const courses = coursesRaw
+        const coursesRaw = await fetchAdminCoursesList();
+        const courses = (Array.isArray(coursesRaw) ? coursesRaw : [])
           .map((c: any) => ({
             ...c,
             id: c.id || `${c.name}(${c.code})`
-          }));
+          }))
+          .filter((c: Course) => {
+            const name = String(c.name ?? '').trim();
+            const code = String(c.code ?? '').trim();
+            if (!name || !code) return false;
+            return !/^(undefined|null)$/i.test(name) && !/^(undefined|null)$/i.test(code);
+          });
         setCourses(courses);
       } catch (error) {
         console.error("從資料庫獲取課程失敗:", error);
@@ -209,7 +237,9 @@ export default function StudentManager() {
         phone: editingStudent.phone,
         address: editingStudent.address,
         remarks: editingStudent.remarks,
-        enrolledCourses: editingStudent.enrolledCourses,
+        enrolledCourses: (editingStudent.enrolledCourses || []).filter(
+          (key) => !!resolveCatalogCourse(key)
+        ),
       };
 
       if (!editingStudent.id) { // Only set password for new students
@@ -218,7 +248,9 @@ export default function StudentManager() {
 
       const originalStudent = students.find(s => s.id === docId);
       const oldCourses = originalStudent?.enrolledCourses || [];
-      const newCourses = editingStudent.enrolledCourses || [];
+      const newCourses = (editingStudent.enrolledCourses || []).filter(
+        (key) => !!resolveCatalogCourse(key)
+      );
 
       const syncedCourses = await updateStudentCourses(docId, oldCourses, newCourses, {
         id: editingStudent.studentId,
@@ -243,7 +275,7 @@ export default function StudentManager() {
       });
       setIsEditing(false);
       setEditingStudent(null);
-      fetchStudents(); // Re-fetch students to update the list
+      fetchStudents({ bypassCache: true }); // Re-fetch students to update the list
     } catch (error) {
       console.error("儲存學生資料失敗:", error);
       Swal.fire({
@@ -297,7 +329,7 @@ export default function StudentManager() {
             text: '學生資料已成功刪除。',
             confirmButtonColor: '#4f46e5'
         });
-        fetchStudents(); // Re-fetch
+        fetchStudents({ bypassCache: true }); // Re-fetch
       } catch (error) {
         console.error("刪除學生資料失敗:", error);
         Swal.fire({
@@ -464,7 +496,7 @@ export default function StudentManager() {
       setBatchGrade('不變更');
       setBatchCourses([]);
       setBatchRemoveCourses([]);
-      fetchStudents();
+      fetchStudents({ bypassCache: true });
     } catch (error) {
       console.error('批次修改失敗:', error);
       Swal.fire('錯誤', '批次修改失敗，請稍後再試。', 'error');
@@ -748,7 +780,7 @@ export default function StudentManager() {
         });
 
         setIsImportModalOpen(false);
-        fetchStudents();
+        fetchStudents({ bypassCache: true });
       } catch (error) {
         console.error("讀取 Excel 失敗:", error);
         Swal.fire('錯誤', '解析檔案時發生錯誤，請確認檔案格式是否正確。', 'error');
@@ -781,38 +813,65 @@ export default function StudentManager() {
 
   return (
     <div className="page-shell w-full min-w-0 flex flex-col h-full animate-fade-in">
-      {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
         <div className="border-l-4 border-indigo-500 pl-4">
           <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
             <UserGroupIcon className="h-8 w-8 text-indigo-600" />
             學生資料管理
           </h1>
-          <p className="text-gray-500 text-sm mt-1">管理學生基本資料、選修課程與帳號狀態。</p>
+          <p className="text-gray-500 text-sm mt-1">管理學生資訊與註冊狀態</p>
         </div>
-        {!isEditing && (
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={handleDownloadTemplate}
-              className="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 font-bold py-2.5 px-4 rounded-xl shadow-sm transition-all"
-            >
-              下載 Excel 模板
-            </button>
-            <button
-              onClick={() => setIsImportModalOpen(true)}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl shadow-sm transition-all"
-            >
-              匯入 Excel 批次新增
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".xlsx"
-              className="hidden"
-              onChange={handleFileSelect}
-            />
-            <button
-              onClick={() => {
+      </div>
+
+      {!isEditing && (
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm mb-6 flex-shrink-0 overflow-hidden">
+          <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 px-4 py-3 border-b border-gray-100">
+            <div className="flex flex-col sm:flex-row flex-1 min-w-0 gap-3 md:gap-4">
+              <div className="relative flex-1 min-w-0">
+                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="搜尋學生姓名或帳號..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm"
+                />
+              </div>
+              <div className="w-full sm:w-44 md:w-48 shrink-0">
+                <Dropdown
+                  value={selectedGrade}
+                  onChange={setSelectedGrade}
+                  options={[{ value: 'all', label: '全部年級' }, ...grades.map((g) => ({ value: g, label: g }))]}
+                  placeholder="全部年級"
+                  className="w-full"
+                />
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 md:gap-3 shrink-0 w-full md:w-auto">
+              <button
+                type="button"
+                onClick={handleDownloadTemplate}
+                className={btnStyles.secondary}
+              >
+                下載模板
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsImportModalOpen(true)}
+                className={btnStyles.secondary}
+              >
+                匯入 Excel
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx"
+                className="hidden"
+                onChange={handleFileSelect}
+              />
+              <button
+                type="button"
+                onClick={() => {
                 setEditingStudent({
                   id: '',
                   studentId: '',
@@ -828,109 +887,85 @@ export default function StudentManager() {
                 });
                 setIsEditing(true);
               }}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2"
-            >
-              <PlusIcon className="h-5 w-5" />
-              新增學生
-            </button>
-          </div>
-        )}
-      </div>
-
-      {!isEditing && (
-        <div className="bg-white border border-gray-200 p-4 rounded-xl shadow-sm mb-6 flex-shrink-0">
-          <div className="flex flex-col md:flex-row gap-4 items-center">
-            <div className="relative flex-1 w-full">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                    type="text"
-                    placeholder="搜尋學生姓名或帳號..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                />
-            </div>
-            
-            <div className="w-full md:w-48">
-              <Dropdown
-                  value={selectedGrade}
-                  onChange={setSelectedGrade}
-                  options={[{ value: 'all', label: '全部年級' }, ...grades.map(g => ({ value: g, label: g }))]}
-                  placeholder="全部年級"
-                  className="w-full"
-                />
-            </div>
-          </div>
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <button
-              type="button"
-              onClick={() => setMobileBatchPanelOpen((prev) => !prev)}
-              className="md:hidden w-full mb-3 flex items-center justify-between px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-700 font-medium"
-            >
-              <span>批次修改操作</span>
-              {mobileBatchPanelOpen ? <ChevronUpIcon className="w-5 h-5" /> : <ChevronDownIcon className="w-5 h-5" />}
-            </button>
-            <div className="flex flex-col lg:flex-row gap-3 lg:items-center">
-              <div className={`${mobileBatchPanelOpen ? 'flex' : 'hidden'} md:flex text-sm text-gray-600 font-medium`}>
-                已選取 <span className="text-indigo-600 font-bold">{selectedStudentIds.length}</span> 位學生
-              </div>
-              <div className={`${mobileBatchPanelOpen ? 'block' : 'hidden'} md:block w-full lg:w-44`}>
-                <Dropdown
-                  value={batchGrade}
-                  onChange={setBatchGrade}
-                  options={[{ value: '不變更', label: '年級不變更' }, ...grades.map((g) => ({ value: g, label: `改為 ${g}` }))]}
-                  placeholder="年級不變更"
-                  className="w-full"
-                />
-              </div>
-              <div className={`${mobileBatchPanelOpen ? 'block' : 'hidden'} md:block flex-1 min-w-0`}>
-                <MultiSelectDropdown
-                  options={activeCourseSelectOptions}
-                  selectedOptions={batchCourses}
-                  onChange={setBatchCourses}
-                  placeholder="選擇要加入的課程（可複選）"
-                />
-              </div>
-              <div className={`${mobileBatchPanelOpen ? 'block' : 'hidden'} md:block flex-1 min-w-0`}>
-                <MultiSelectDropdown
-                  options={activeCourseSelectOptions}
-                  selectedOptions={batchRemoveCourses}
-                  onChange={setBatchRemoveCourses}
-                  placeholder="選擇要移除的課程（可複選）"
-                />
-              </div>
-              <button
-                onClick={handleBatchUpdate}
-                disabled={loading || selectedStudentIds.length === 0 || (batchGrade === '不變更' && batchCourses.length === 0 && batchRemoveCourses.length === 0)}
-                className={`${mobileBatchPanelOpen ? 'flex' : 'hidden'} md:flex bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-2.5 px-5 rounded-xl shadow-sm transition-all items-center justify-center`}
+                className={btnWithIconStyle(btnStyles.primary)}
               >
-                批次修改
+                <PlusIcon className={`${btnIcon} ${btnIconGap}`} />
+                新增學生
               </button>
             </div>
+          </div>
+
+          <div className="flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-4 px-4 py-3">
+            <div className="text-sm text-gray-600 font-medium shrink-0 whitespace-nowrap">
+              已選取 <span className="text-indigo-600 font-bold">{selectedStudentIds.length}</span> 位學生
+            </div>
+            <div className="w-full lg:w-40 shrink-0">
+              <Dropdown
+                value={batchGrade}
+                onChange={setBatchGrade}
+                options={[{ value: '不變更', label: '年級不變更' }, ...grades.map((g) => ({ value: g, label: `改為 ${g}` }))]}
+                placeholder="年級變更"
+                className="w-full"
+              />
+            </div>
+            <div className="w-full lg:flex-1 min-w-0">
+              <MultiSelectDropdown
+                options={activeCourseSelectOptions}
+                selectedOptions={batchCourses}
+                onChange={setBatchCourses}
+                placeholder="加入課程..."
+                className="w-full"
+              />
+            </div>
+            <div className="w-full lg:flex-1 min-w-0">
+              <MultiSelectDropdown
+                options={activeCourseSelectOptions}
+                selectedOptions={batchRemoveCourses}
+                onChange={setBatchRemoveCourses}
+                placeholder="移除課程..."
+                className="w-full"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleBatchUpdate}
+              disabled={loading || selectedStudentIds.length === 0 || (batchGrade === '不變更' && batchCourses.length === 0 && batchRemoveCourses.length === 0)}
+              className={`${btnStyles.primary} w-full lg:w-auto shrink-0 disabled:opacity-50 disabled:cursor-not-allowed`}
+            >
+              批次修改
+            </button>
           </div>
         </div>
       )}
 
-      <div className="flex-1 min-h-0">
-        {isEditing && editingStudent && (
-          <div className="bg-white border border-gray-200 p-6 rounded-2xl shadow-sm mb-6 animate-fade-in">
-            <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
-                <h3 className="text-xl font-bold text-gray-800">
-                    {editingStudent.id ? '編輯學生資料' : '新增學生資料'}
-                </h3>
-                <button onClick={handleCancel} className="text-gray-400 hover:text-gray-600">
-                    <span className="sr-only">關閉</span>
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
+      {/* 新增／編輯學生彈出視窗 — ui-sample Modal Style */}
+      {isEditing && editingStudent && createPortal(
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden transform scale-100 flex flex-col">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white shrink-0">
+              <h3 className="font-bold flex items-center gap-2">
+                <UserIcon className="w-5 h-5" />
+                {editingStudent.id ? '編輯學生資料' : '新增學生資料'}
+              </h3>
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="text-white/80 hover:text-white"
+                aria-label="關閉"
+              >
+                <XMarkIcon className="w-6 h-6" />
+              </button>
             </div>
 
-            <form onSubmit={handleAddStudent} className="space-y-6">
+            {/* Content */}
+            <form
+              id="student-editor-form"
+              onSubmit={handleAddStudent}
+              className="p-6 overflow-y-auto flex-1 custom-scrollbar"
+            >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 <div>
+                <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2">學號 <span className="text-red-500">*</span></label>
                   <input
                     type="text"
@@ -957,17 +992,17 @@ export default function StudentManager() {
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2">姓名 <span className="text-red-500">*</span></label>
                   <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <UserIcon className="h-5 w-5 text-gray-400" />
-                      </div>
-                      <input
-                        type="text"
-                        value={editingStudent.name}
-                        onChange={(e) => setEditingStudent(prev => prev ? { ...prev, name: e.target.value } : null)}
-                        className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                        required
-                        placeholder="請輸入姓名"
-                      />
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <UserIcon className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="text"
+                      value={editingStudent.name}
+                      onChange={(e) => setEditingStudent(prev => prev ? { ...prev, name: e.target.value } : null)}
+                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      required
+                      placeholder="請輸入姓名"
+                    />
                   </div>
                 </div>
                 <div>
@@ -990,75 +1025,79 @@ export default function StudentManager() {
                     className="w-full"
                   />
                 </div>
-                 <div className="md:col-span-2">
-                   <label className="block text-sm font-bold text-gray-700 mb-2">選修課程</label>
-                   <MultiSelectDropdown
-                     options={activeCourseSelectOptions}
-                     selectedOptions={
-                       editingStudent.enrolledCourses
-                         ? editingStudent.enrolledCourses.filter((cId) =>
-                             activeCourses.some((c) => c.id === cId)
-                           )
-                         : []
-                     }
-                     onChange={(selected) => {
-                       const archivedEnrolled = (editingStudent.enrolledCourses || []).filter((cId) =>
-                         courses.some((c) => c.id === cId && isCourseArchived(c))
-                       );
-                       setEditingStudent((prev) =>
-                         prev ? { ...prev, enrolledCourses: [...archivedEnrolled, ...selected] } : null
-                       );
-                     }}
-                     placeholder="選擇學生選修的課程..."
-                   />
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-bold text-gray-700 mb-2">選修課程</label>
+                  <MultiSelectDropdown
+                    options={activeCourseSelectOptions}
+                    selectedOptions={
+                      editingStudent.enrolledCourses
+                        ? [...new Set(
+                            editingStudent.enrolledCourses
+                              .map((enrolledKey) => resolveCatalogCourse(enrolledKey))
+                              .filter((course): course is Course => !!course && !isCourseArchived(course))
+                              .map((course) => course.id)
+                          )]
+                        : []
+                    }
+                    onChange={(selected) => {
+                      const knownEnrolled = (editingStudent.enrolledCourses || []).filter((enrolledKey) => {
+                        const course = resolveCatalogCourse(enrolledKey);
+                        return !!course && isCourseArchived(course);
+                      });
+                      setEditingStudent((prev) =>
+                        prev ? { ...prev, enrolledCourses: [...knownEnrolled, ...selected] } : null
+                      );
+                    }}
+                    placeholder="選擇學生選修的課程..."
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2">電子郵件</label>
                   <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <EnvelopeIcon className="h-5 w-5 text-gray-400" />
-                      </div>
-                      <input
-                        type="email"
-                        value={editingStudent.email}
-                        onChange={handleEmailChange}
-                        className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                        placeholder="student@example.com"
-                      />
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <EnvelopeIcon className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="email"
+                      value={editingStudent.email}
+                      onChange={handleEmailChange}
+                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="student@example.com"
+                    />
                   </div>
                   {formErrors.email && <div className="text-red-500 text-xs mt-1">{formErrors.email}</div>}
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2">電話</label>
                   <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <PhoneIcon className="h-5 w-5 text-gray-400" />
-                      </div>
-                      <input
-                        type="tel"
-                        value={editingStudent.phone}
-                        onChange={(e) => setEditingStudent(prev => prev ? { ...prev, phone: e.target.value } : null)}
-                        className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                        placeholder="0912-345-678"
-                      />
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <PhoneIcon className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="tel"
+                      value={editingStudent.phone}
+                      onChange={(e) => setEditingStudent(prev => prev ? { ...prev, phone: e.target.value } : null)}
+                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="0912-345-678"
+                    />
                   </div>
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-bold text-gray-700 mb-2">地址</label>
                   <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <MapPinIcon className="h-5 w-5 text-gray-400" />
-                      </div>
-                      <input
-                        type="text"
-                        value={editingStudent.address}
-                        onChange={(e) => setEditingStudent(prev => prev ? { ...prev, address: e.target.value } : null)}
-                        className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                        placeholder="請輸入通訊地址"
-                      />
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <MapPinIcon className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="text"
+                      value={editingStudent.address}
+                      onChange={(e) => setEditingStudent(prev => prev ? { ...prev, address: e.target.value } : null)}
+                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="請輸入通訊地址"
+                    />
                   </div>
                 </div>
-                 <div className="md:col-span-2">
+                <div className="md:col-span-2">
                   <label className="block text-sm font-bold text-gray-700 mb-2">備註</label>
                   <textarea
                     value={editingStudent.remarks}
@@ -1066,44 +1105,50 @@ export default function StudentManager() {
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
                     rows={3}
                     placeholder="可選填相關備註..."
-                  ></textarea>
+                  />
                 </div>
               </div>
-              <div className="flex gap-3 justify-end pt-4 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  className="px-6 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 font-medium transition-colors"
-                >
-                  取消
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 shadow-sm font-medium transition-colors disabled:opacity-70 flex items-center"
-                  disabled={loading}
-                >
-                  {loading ? <LoadingSpinner size={16} color="white" className="mr-2" /> : null}
-                  {loading ? '儲存中...' : (editingStudent.id ? '更新資料' : '新增學生')}
-                </button>
-              </div>
             </form>
-          </div>
-        )}
 
-        {!isEditing && (
+            {/* Footer */}
+            <div className="p-4 bg-gray-50 border-t border-gray-100 flex gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="flex-1 bg-white border border-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50"
+                disabled={loading}
+              >
+                取消
+              </button>
+              <button
+                type="submit"
+                form="student-editor-form"
+                className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm flex items-center justify-center disabled:opacity-70"
+                disabled={loading}
+              >
+                {loading ? <LoadingSpinner size={16} color="white" className="mr-2" /> : null}
+                {loading ? '儲存中...' : (editingStudent.id ? '更新資料' : '新增學生')}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      <div className="flex-1 min-h-0">
           <div className="flex-1 overflow-hidden">
             {loading ? (
               <PageLoadingArea />
             ) : (
               <>
                 {/* Mobile View: Modular Cards */}
-                <div className="block md:hidden space-y-4 pb-20">
+                <div className={`${courseListTableStyles.mobile.wrapper} pb-20`}>
                   {filteredStudents.length > 0 ? (
                     filteredStudents.map(student => (
-                      <div key={student.id} className="bg-white border border-gray-200 rounded-xl shadow-sm p-5 relative overflow-hidden">
+                      <div key={student.id} className={courseListTableStyles.mobile.card}>
                         <div className="flex justify-between items-start mb-3">
                           <div>
-                              <label className="inline-flex items-center gap-2 mb-2 text-xs text-gray-600">
+                              <label className="inline-flex items-center gap-2 mb-2 text-sm text-gray-600">
                                 <input
                                   type="checkbox"
                                   checked={selectedStudentIds.includes(student.id)}
@@ -1112,10 +1157,10 @@ export default function StudentManager() {
                                 />
                                 選取此學生
                               </label>
-                              <h3 className="font-bold text-lg text-gray-900">{student.name}</h3>
-                              <p className="text-sm font-mono text-gray-500 bg-gray-100 px-2 py-0.5 rounded mt-1 inline-block">{student.studentId}</p>
+                              <div className={courseListTableStyles.mobile.courseName}>{student.name}</div>
+                              <p className={`${courseListTableStyles.mobile.courseCode} bg-gray-100 px-2 py-0.5 rounded inline-block`}>{student.studentId}</p>
                           </div>
-                          <span className={`px-2 py-1 rounded text-xs font-bold ${
+                          <span className={`${courseListTableStyles.mobile.statusBadge} ${
                               student.gender === 'male' ? 'bg-blue-50 text-blue-700' : 'bg-pink-50 text-pink-700'
                           }`}>
                               {student.gender === 'male' ? '男' : '女'}
@@ -1129,31 +1174,28 @@ export default function StudentManager() {
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-gray-500">課程數:</span>
-                                <span className="font-medium text-gray-800">{student.enrolledCourses ? student.enrolledCourses.length : 0} 堂</span>
+                                <span className="font-medium text-gray-800">{countKnownCourses(student.enrolledCourses)} 堂</span>
                             </div>
                         </div>
                         
-                        <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                        <div className={`${tableActionRow} pt-2 border-t border-gray-100`}>
                           <button 
                             onClick={() => handleResetPassword(student.id)} 
-                            className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
-                            title="重設密碼"
+                            className={tableActionStyles.warning}
                           >
-                            <KeyIcon className="w-5 h-5" />
+                            重設密碼
                           </button>
                           <button 
                             onClick={() => handleEdit(student)} 
-                            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                            title="編輯"
+                            className={tableActionStyles.primary}
                           >
-                            <PencilIcon className="w-5 h-5" />
+                            編輯
                           </button>
                           <button 
                             onClick={() => handleDelete(student)} 
-                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                            title="刪除"
+                            className={tableActionStyles.danger}
                           >
-                            <TrashIcon className="w-5 h-5" />
+                            刪除
                           </button>
                         </div>
                       </div>
@@ -1166,11 +1208,11 @@ export default function StudentManager() {
                 </div>
 
                 {/* Desktop View: Table */}
-                <div className="hidden md:block bg-white border border-gray-200 rounded-xl shadow-sm overflow-x-auto">
-                  <table className="w-full text-sm text-left text-gray-500">
-                    <thead className="text-xs text-gray-700 uppercase bg-gray-50 border-b border-gray-200">
+                <div className={courseListTableStyles.desktop.wrapper}>
+                  <table className={courseListTableStyles.desktop.table}>
+                    <thead className={courseListTableStyles.desktop.thead}>
                       <tr>
-                        <th scope="col" className="px-4 py-4 font-bold w-10">
+                        <th scope="col" className={`${courseListTableStyles.desktop.th} w-10 !px-4`}>
                           <input
                             type="checkbox"
                             checked={isAllFilteredSelected}
@@ -1179,18 +1221,17 @@ export default function StudentManager() {
                             title="全選目前篩選結果"
                           />
                         </th>
-                        <th scope="col" className="px-6 py-4 font-bold">姓名</th>
-                        <th scope="col" className="px-6 py-4 font-bold">學號</th>
-                        <th scope="col" className="px-6 py-4 font-bold">帳號</th>
-                        <th scope="col" className="px-6 py-4 font-bold">年級</th>
-                        <th scope="col" className="px-6 py-4 font-bold">性別</th>
-                        <th scope="col" className="px-6 py-4 font-bold">課程數</th>
-                        <th scope="col" className="px-6 py-4 font-bold text-right w-48">操作</th>
+                        <th scope="col" className={courseListTableStyles.desktop.th}>姓名</th>
+                        <th scope="col" className={courseListTableStyles.desktop.th}>學號</th>
+                        <th scope="col" className={courseListTableStyles.desktop.th}>年級</th>
+                        <th scope="col" className={courseListTableStyles.desktop.th}>性別</th>
+                        <th scope="col" className={courseListTableStyles.desktop.th}>課程數</th>
+                        <th scope="col" className={`${courseListTableStyles.desktop.th} text-right min-w-[180px]`}>操作</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
                       {filteredStudents.length > 0 ? filteredStudents.map(student => (
-                        <tr key={student.id} className="bg-white hover:bg-indigo-50/30 transition-colors group">
+                        <tr key={student.id} className={courseListTableStyles.desktop.row}>
                           <td className="px-4 py-4">
                             <input
                               type="checkbox"
@@ -1199,53 +1240,53 @@ export default function StudentManager() {
                               className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 accent-indigo-600 cursor-pointer"
                             />
                           </td>
-                          <td className="px-6 py-4 font-bold text-gray-900">{student.name}</td>
-                          <td className="px-6 py-4 font-mono text-gray-600">{student.studentId}</td>
-                          <td className="px-6 py-4 font-mono text-gray-600">{student.account}</td>
                           <td className="px-6 py-4">
-                              <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-medium">
+                            <div className={courseListTableStyles.desktop.courseName}>{student.name}</div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-sm font-mono text-gray-600">{student.studentId}</span>
+                          </td>
+                          <td className="px-6 py-4">
+                              <span className={courseListTableStyles.desktop.studentCount}>
                                   {student.grade}
                               </span>
                           </td>
                           <td className="px-6 py-4">
-                              <span className={`px-2 py-1 rounded text-xs font-medium ${
-                                  student.gender === 'male' ? 'bg-blue-50 text-blue-700' : 'bg-pink-50 text-pink-700'
+                              <span className={`${courseListTableStyles.desktop.statusBadge} ${
+                                  student.gender === 'male' ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'bg-pink-50 text-pink-700 border border-pink-200'
                               }`}>
                                   {student.gender === 'male' ? '男' : '女'}
                               </span>
                           </td>
-                          <td className="px-6 py-4">
-                            {student.enrolledCourses ? student.enrolledCourses.length : 0}
+                          <td className="px-6 py-4 text-sm text-gray-600">
+                            {countKnownCourses(student.enrolledCourses)}
                           </td>
-                          <td className="px-6 py-4 text-right">
-                            <div className="flex justify-end gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                          <td className="px-6 py-4 text-right whitespace-nowrap">
+                            <div className={courseListTableStyles.desktop.actionRow}>
                               <button 
                                 onClick={() => handleResetPassword(student.id)} 
-                                className="p-1.5 text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors border border-transparent hover:border-yellow-200"
-                                title="重設密碼"
+                                className={courseListTableStyles.desktop.actionWarning}
                               >
-                                <KeyIcon className="w-4 h-4" />
+                                重設密碼
                               </button>
                               <button 
                                 onClick={() => handleEdit(student)} 
-                                className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-transparent hover:border-indigo-200"
-                                title="編輯"
+                                className={courseListTableStyles.desktop.actionPrimary}
                               >
-                                <PencilIcon className="w-4 h-4" />
+                                編輯
                               </button>
                               <button 
                                 onClick={() => handleDelete(student)} 
-                                className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-200"
-                                title="刪除"
+                                className={courseListTableStyles.desktop.actionDanger}
                               >
-                                <TrashIcon className="w-4 h-4" />
+                                刪除
                               </button>
                             </div>
                           </td>
                         </tr>
                       )) : (
                         <tr>
-                          <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                          <td colSpan={7} className="px-6 py-12 text-center text-gray-500 text-sm">
                             沒有找到符合條件的學生資料
                           </td>
                         </tr>
@@ -1256,12 +1297,12 @@ export default function StudentManager() {
               </>
             )}
           </div>
-        )}
       </div>
 
       {/* Import Excel Modal */}
+
       {isImportModalOpen && createPortal(
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 p-4 animate-fade-in">
           <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md max-h-full sm:max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in">
             <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
               <h3 className="text-xl font-bold flex items-center">

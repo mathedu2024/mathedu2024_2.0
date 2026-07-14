@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { getSession } from '@/utils/session';
 import { getActiveActivityForCourse } from '@/services/attendanceService';
 
@@ -21,6 +22,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(activeActivity, { status: 200 });
 
   } catch (error) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     const errorMessage = error instanceof Error ? error.message : '查詢活動時發生未知錯誤。';
     console.error(`[API/active-activity] Error for course ${courseId}:`, errorMessage);
     return NextResponse.json({ error: '伺服器內部錯誤，無法查詢進行中的活動。' }, { status: 500 });

@@ -12,8 +12,32 @@ export function parseCourseCompositeId(compositeId: string): { name: string; cod
 }
 
 /**
+ * Parse course display id "課程名稱（代碼）" or "課程名稱(代碼)".
+ * Code is always the LAST bracketed segment (supports names with internal parentheses).
+ */
+export function parseCourseDisplayName(display: string): { name: string; code: string } | null {
+  const trimmed = display.trim();
+  const fullwidthEnd = trimmed.match(/^(.+)[（]([^（）]+)[）]$/);
+  if (fullwidthEnd) {
+    return { name: fullwidthEnd[1].trim(), code: fullwidthEnd[2].trim() };
+  }
+  return parseCourseCompositeId(trimmed);
+}
+
+/** Firestore `in` / `__name__ in` 上限為 30 */
+const FIRESTORE_IN_LIMIT = 30;
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
+
+/**
  * Resolve enrolled course keys to Firestore course documents.
- * Tries document id first, then name+code, then unique code-only match.
+ * Tries document id first (chunked `in` queries), then name+code, then unique code-only match.
  */
 export async function resolveCourseDocsByEnrolledIds(
   db: Firestore,
@@ -24,13 +48,25 @@ export async function resolveCourseDocsByEnrolledIds(
 
   if (uniqueIds.length === 0) return resolved;
 
-  const directSnap = await db.collection('courses').where('__name__', 'in', uniqueIds).get();
-  directSnap.docs.forEach((doc) => resolved.set(doc.id, doc));
+  const idChunks = chunkArray(uniqueIds, FIRESTORE_IN_LIMIT);
+  const directSnaps = await Promise.all(
+    idChunks.map((chunk) => db.collection('courses').where('__name__', 'in', chunk).get())
+  );
+  for (const snap of directSnaps) {
+    snap.docs.forEach((doc) => resolved.set(doc.id, doc));
+  }
 
   const missingIds = uniqueIds.filter((id) => !resolved.has(id));
-  for (const enrolledId of missingIds) {
-    const doc = await resolveSingleCourseDoc(db, enrolledId);
-    if (doc) resolved.set(enrolledId, doc);
+  if (missingIds.length === 0) return resolved;
+
+  const fallbackDocs = await Promise.all(
+    missingIds.map(async (enrolledId) => {
+      const doc = await resolveSingleCourseDoc(db, enrolledId);
+      return doc ? ([enrolledId, doc] as const) : null;
+    })
+  );
+  for (const entry of fallbackDocs) {
+    if (entry) resolved.set(entry[0], entry[1]);
   }
 
   return resolved;
@@ -47,11 +83,11 @@ export function enrolledKeyMatchesCourse(enrolledKey: string, course: CourseRefT
   if (enrolledKey === course.id) return true;
   const composite = getCourseCompositeKey(course.name, course.code);
   if (enrolledKey === composite) return true;
-  const parsedEnrolled = parseCourseCompositeId(enrolledKey);
+  const parsedEnrolled = parseCourseDisplayName(enrolledKey);
   if (parsedEnrolled && parsedEnrolled.name === course.name && parsedEnrolled.code === course.code) {
     return true;
   }
-  const parsedTarget = parseCourseCompositeId(course.id);
+  const parsedTarget = parseCourseDisplayName(course.id) ?? parseCourseCompositeId(course.id);
   if (
     parsedEnrolled &&
     parsedTarget &&

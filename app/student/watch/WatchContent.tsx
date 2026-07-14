@@ -2,7 +2,8 @@
 
 import React from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeftIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import BackButton from '@/components/ui/BackButton';
 import BlockedYoutubePlayer from '../../../components/BlockedYoutubePlayer';
 
 function normalizeYouTubeId(input: string | null): string | null {
@@ -68,13 +69,7 @@ export default function WatchContent() {
           <p className="text-gray-600 mb-6">
             影片連結可能無效或缺少參數，請回到線上資源頁面重新選擇影片。
           </p>
-          <button
-            onClick={backToResources}
-            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 text-white px-4 py-2.5 text-sm md:text-base font-bold hover:bg-indigo-700 transition-colors"
-          >
-            <ArrowLeftIcon className="w-5 h-5" />
-            回到線上資源
-          </button>
+          <BackButton label="返回資源頁" onClick={backToResources} variant="primary" withSpacing={false} />
         </div>
         </div>
       </div>
@@ -84,14 +79,6 @@ export default function WatchContent() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="page-shell w-full min-w-0 py-4 md:py-6">
-        <button
-          onClick={backToResources}
-          className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white text-gray-700 px-3.5 py-2 mb-4 text-sm md:text-base font-bold hover:bg-gray-100 transition-colors"
-        >
-          <ArrowLeftIcon className="w-5 h-5" />
-          返回資源頁
-        </button>
-
         <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
           <BlockedYoutubePlayer videoId={videoId} title={title} />
           <div className="px-5 py-4 md:px-6 md:py-5">
@@ -104,6 +91,7 @@ export default function WatchContent() {
                 </span>
               </p>
             )}
+            <BackButton label="返回資源頁" onClick={backToResources} withSpacing={false} className="mt-4" />
           </div>
         </div>
       </div>

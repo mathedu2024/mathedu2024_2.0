@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { adminDb } from '@/services/firebase-admin';
 import { cookies } from 'next/headers';
 
@@ -52,6 +53,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     const message = error instanceof Error ? error.message : '更新失敗';
     return NextResponse.json({ error: message }, { status: 500 });
   }

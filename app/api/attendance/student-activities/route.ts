@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { adminDb } from '@/services/firebase-admin';
 import { getSessionFromCookie } from '@/utils/session';
 
@@ -73,7 +74,10 @@ export async function GET(req: NextRequest) {
           title?: string;
           startTime?: FirestoreTimestamp;
           endTime?: FirestoreTimestamp;
+          visibleToStudents?: boolean;
         };
+
+        if (data.visibleToStudents === false) return;
 
         const start = data.startTime?.toDate();
         const end = data.endTime?.toDate();
@@ -106,6 +110,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(payload);
   } catch (error) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     console.error('Error fetching active student attendance activities:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     return NextResponse.json({ error: 'Failed to fetch active attendance activities.', details: errorMessage }, { status: 500 });

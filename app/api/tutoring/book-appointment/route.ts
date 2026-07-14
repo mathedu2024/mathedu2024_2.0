@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { tutoringService } from '@/services/tutoringService'; // Import tutoringService instance
 import { Appointment } from '@/services/interfaces'; // Import Appointment interface
 
@@ -17,6 +18,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ message: 'Appointment booked successfully', appointmentId }, { status: 201 });
   } catch (error) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     console.error('Error booking appointment:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to book appointment';
     return NextResponse.json({ error: errorMessage }, { status: 500 });

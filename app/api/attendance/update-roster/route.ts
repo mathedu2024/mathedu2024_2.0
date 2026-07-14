@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { db } from '../../../../lib/db';
 
 export async function POST(request: Request) {
@@ -36,6 +37,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     console.error('[UPDATE_ROSTER_POST]', error);
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
   }

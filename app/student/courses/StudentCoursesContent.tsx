@@ -1,13 +1,36 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { fetchStudentDashboardData, fetchCourseClassData, fetchCourseLessons, fetchStudentExamList, fetchStudentSurveyList, fetchStudentAttendanceActivities, prefetchCourseDetail, StudentApiError, type StudentExamListItem, type StudentSurveyListItem } from '@/utils/studentClientApi';
 import { createPortal } from 'react-dom';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useStudentInfo } from '../StudentInfoContext';
+import RichHtmlContent from '@/components/RichHtmlContent';
 import PageLoadingArea from '@/components/ui/PageLoadingArea';
-import LoadingSpinner from '@/components/LoadingSpinner';
-import StudentCourseSelector, { getCourseDisplayKey } from '@/components/StudentCourseSelector';
-import { BookOpenIcon, ClockIcon, MapPinIcon, UserIcon, VideoCameraIcon, MegaphoneIcon, LinkIcon, DocumentTextIcon, FolderIcon, ChatBubbleLeftRightIcon, XMarkIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import { getCourseDisplayKey } from '@/components/StudentCourseSelector';
+import { isCourseArchived } from '@/services/courseArchive';
+import { mergeCoursesFromEnrolledKeys } from '@/components/studentCourseListShared';
+import StudentCourseTable from '@/components/StudentCourseTable';
+import StudentExamStartModal from '@/components/student-exam/StudentExamStartModal';
+import StudentExamAttemptPickerModal from '@/components/student-exam/StudentExamAttemptPickerModal';
+import StudentSurveyStartModal from '@/components/student-survey/StudentSurveyStartModal';
+import StudentGradeViewer from '@/components/StudentGradeViewer';
+import { sortQuizzesByOrder } from '@/services/quizTypes';
+import { sortSurveysByOrder } from '@/services/surveyTypes';
+import { canStartExamTake } from '@/utils/examDraftStorage';
+import { openStudentExamReviewInNewTab } from '@/utils/examAttemptLabel';
+import { openStudentSurveyReviewInNewTab } from '@/utils/surveyAttemptLabel';
+import { showExamTakeBlockedAlert } from '@/utils/examTakeAlerts';
+import { fetchQuizByCode, fetchSurveyByCode } from '@/utils/teacherClientApi';
+import { openBlankPreviewTab, openTeacherExamPreviewInNewTab } from '@/utils/teacherExamPreview';
+import { openTeacherSurveyPreviewInNewTab } from '@/utils/teacherSurveyPreview';
+import Swal from '@/utils/swalTheme';
+import { BookOpenIcon, ClockIcon, MapPinIcon, UserIcon, VideoCameraIcon, MegaphoneIcon, LinkIcon, DocumentTextIcon, FolderIcon, ChatBubbleLeftRightIcon, XMarkIcon, ChevronLeftIcon, ChevronRightIcon, ClipboardDocumentCheckIcon, ClipboardDocumentListIcon } from '@heroicons/react/24/outline';
+import BackButton from '@/components/ui/BackButton';
+import CourseHubTabNav, {
+  STUDENT_COURSE_HUB_TAB_IDS,
+  CourseHubFeatureIcon,
+} from '@/components/CourseHubTabNav';
 import 'react-quill-new/dist/quill.snow.css';
 
 // Interfaces
@@ -15,9 +38,51 @@ interface ClassTime { day: string; startTime: string; endTime: string; }
 interface CustomLink { name: string; url: string; icon: string; }
 interface CourseAnnouncement { id: string; title: string; content: string; links: { name: string; url: string }[]; createdAt: string; }
 interface Course { id: string; name: string; code: string; status: string; archived?: boolean; gradeTags: string[]; subjectTag: string; startDate: string; endDate: string; teachers: string[]; teacherName?: string; description: string; teachingMethod: string; courseNature: string; location?: string; liveStreamURL?: string; coverImageURL?: string; classTimes?: ClassTime[]; customLinks?: CustomLink[]; announcements?: CourseAnnouncement[]; }
-interface Lesson { id: string; title: string; date: string; progress: string; attachments: Array<string | { url: string; name?: string; visibleToStudents?: boolean }>; videos: string[]; homework: string; noHomework?: boolean; onlineExam: string; noOnlineExam?: boolean; examScope: string; noExamScope?: boolean; notes: string; noNotes?: boolean; createdAt: string | number | { toDate: () => Date }; order?: number; }
+interface Lesson { id: string; title: string; date: string; progress: string; attachments: Array<string | { url: string; name?: string; visibleToStudents?: boolean }>; videos: string[]; homework: string; noHomework?: boolean; onlineExam: string; assignedQuizzes?: { quizCode: string; requireBeforeVideo?: boolean }[]; assignedQuizCodes?: string[]; requireQuizBeforeVideo?: boolean; noOnlineExam?: boolean; examScope: string; noExamScope?: boolean; notes: string; noNotes?: boolean; createdAt: string | number | { toDate: () => Date }; order?: number; }
+interface CourseAttendanceActivity {
+  id: string;
+  courseId: string;
+  firestoreCourseId: string;
+  title: string;
+  courseName: string;
+  startTime: string;
+  endTime: string;
+  status: 'upcoming' | 'active' | 'past';
+  studentStatus?: string;
+  studentLeaveType?: string;
+}
 
-const isCourseArchived = (course: Course): boolean => course.archived === true || String(course.archived) === 'true';
+const COURSE_TABS = STUDENT_COURSE_HUB_TAB_IDS;
+type CourseTab = (typeof COURSE_TABS)[number];
+
+function parseCourseTab(value: string | null | undefined): CourseTab {
+  if (value && (COURSE_TABS as readonly string[]).includes(value)) {
+    return value as CourseTab;
+  }
+  return 'info';
+}
+
+function buildCourseTabUrl(
+  courseCode: string,
+  tab: CourseTab,
+  previewMode = false,
+  extras?: Record<string, string | undefined>
+): string {
+  const params = new URLSearchParams();
+  if (tab !== 'info') params.set('tab', tab);
+  if (extras) {
+    for (const [key, value] of Object.entries(extras)) {
+      if (value) params.set(key, value);
+    }
+  }
+  const qs = params.toString();
+  if (previewMode) {
+    const base = `/back-panel/teacher-courses/preview?code=${encodeURIComponent(courseCode)}`;
+    return qs ? `${base}&${qs}` : base;
+  }
+  const base = `/student/courses/${encodeURIComponent(courseCode)}`;
+  return qs ? `${base}?${qs}` : base;
+}
 
 const PENDING_COURSE_SELECTION_KEY = 'student-courses-pending-selection';
 const ACTIVE_COURSE_COUNT_KEY = 'student-courses-active-count';
@@ -124,41 +189,127 @@ const quillDisplayStyles = `
   }
 `;
 
-function LessonDetail({ lesson, index, resolvedCourse, router }: { lesson: Lesson; index: number; resolvedCourse: Course | null; router: ReturnType<typeof useRouter> }) {
+function FeatureListCard({
+  icon,
+  mobileIcon,
+  title,
+  meta,
+  actions,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  mobileIcon?: React.ReactNode;
+  title: string;
+  meta?: React.ReactNode;
+  actions?: React.ReactNode;
+  onClick?: () => void;
+}) {
   return (
-    <div className="bg-white border border-gray-100 rounded-xl p-5 hover:shadow-md hover:border-indigo-200 transition-all duration-300 group">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
-           <div className="hidden sm:flex flex-shrink-0 w-10 h-10 bg-indigo-50 rounded-full items-center justify-center text-indigo-600 font-bold">
-              {index + 1}
-           </div>
-           <div className="sm:hidden inline-block w-fit bg-indigo-50 text-indigo-600 font-bold text-xs px-2.5 py-1 rounded-md mb-1">
-              第 {index + 1} 堂
-           </div>
-           <div>
-              <h4 className="text-lg font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">
-              {lesson.title}
-              </h4>
-              <p className="text-sm text-gray-500 mt-1 flex items-center">
-                  <ClockIcon className="w-4 h-4 mr-1" />
-                  {lesson.date}
-              </p>
-           </div>
+    <div
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
+      className={`w-full text-left bg-white border border-gray-100 rounded-xl p-4 sm:p-5 hover:shadow-md hover:border-indigo-200 transition-all duration-300 group ${onClick ? 'cursor-pointer' : ''}`}
+    >
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 min-h-[2.5rem]">
+        <div className="min-w-0 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+          <div className="hidden sm:flex flex-shrink-0 w-10 h-10 bg-indigo-50 rounded-full items-center justify-center text-indigo-600 font-bold">
+            {icon}
+          </div>
+          {mobileIcon && (
+            <div className="sm:hidden inline-block w-fit bg-indigo-50 text-indigo-600 font-bold text-xs px-2.5 py-1 rounded-md mb-1">
+              {mobileIcon}
+            </div>
+          )}
+          {!mobileIcon && (
+            <div className="sm:hidden inline-flex w-fit bg-indigo-50 text-indigo-600 items-center justify-center rounded-md p-1.5 mb-1">
+              {icon}
+            </div>
+          )}
+          <div className="min-w-0">
+            <h4 className="text-base sm:text-lg font-bold text-gray-900 group-hover:text-indigo-600 transition-colors line-clamp-2 sm:line-clamp-1 leading-7">
+              {title}
+            </h4>
+            <div className="text-sm text-gray-500 mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 min-h-[1.25rem]">
+              {meta}
+            </div>
+          </div>
         </div>
+        {actions && (
+          <div
+            className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 shrink-0 w-full sm:w-auto min-h-[2.5rem] [&_button]:w-full sm:[&_button]:w-auto [&_span]:w-full sm:[&_span]:w-auto [&_span]:justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {actions}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const featurePrimaryBtn =
+  'inline-flex items-center justify-center bg-white border-2 border-gray-100 text-gray-600 px-5 py-2.5 sm:py-2 rounded-xl hover:bg-indigo-600 hover:text-white hover:border-indigo-600 text-sm font-bold transition-all shadow-sm active:scale-95 whitespace-nowrap';
+const featureSecondaryBtn =
+  'inline-flex items-center justify-center bg-white border-2 border-gray-100 text-gray-600 px-5 py-2.5 sm:py-2 rounded-xl hover:bg-gray-50 hover:border-gray-200 text-sm font-bold transition-all shadow-sm whitespace-nowrap';
+const featureDisabledBtn =
+  'inline-flex items-center justify-center bg-gray-50 border-2 border-gray-100 text-gray-300 px-5 py-2.5 sm:py-2 rounded-xl text-sm font-bold cursor-not-allowed whitespace-nowrap';
+const featureEmptyState =
+  'text-center min-h-[220px] sm:min-h-[280px] flex flex-col items-center justify-center bg-gray-50 rounded-xl border border-dashed border-gray-200 px-4';
+
+function LessonDetail({
+  lesson,
+  index,
+  resolvedCourse,
+  router,
+  previewMode = false,
+}: {
+  lesson: Lesson;
+  index: number;
+  resolvedCourse: Course | null;
+  router: ReturnType<typeof useRouter>;
+  previewMode?: boolean;
+}) {
+  return (
+    <FeatureListCard
+      icon={<CourseHubFeatureIcon id="lessons" />}
+      mobileIcon={
+        <span className="inline-flex items-center gap-1">
+          <CourseHubFeatureIcon id="lessons" className="w-3.5 h-3.5" />
+          第 {index + 1} 堂
+        </span>
+      }
+      title={lesson.title}
+      meta={
+        <span className="inline-flex items-center">
+          <ClockIcon className="w-4 h-4 mr-1 shrink-0" />
+          {lesson.date || '日期未定'}
+        </span>
+      }
+      actions={
         <button
+          type="button"
           onClick={() => {
             const lessonData = { ...lesson, courseName: resolvedCourse?.name, courseCode: resolvedCourse?.code, courseId: resolvedCourse?.id, lessonIndex: index + 1 };
             localStorage.setItem('currentLesson', JSON.stringify(lessonData));
             const courseCode = resolvedCourse?.code || resolvedCourse?.id;
-            const currentUrl = courseCode ? `/student/courses/${encodeURIComponent(courseCode)}` : '/student/courses';
-            router.push(`/student/lesson-detail?returnTo=${encodeURIComponent(currentUrl)}`);
+            const currentUrl = courseCode
+              ? buildCourseTabUrl(courseCode, 'lessons', previewMode)
+              : previewMode
+                ? '/back-panel/teacher-courses'
+                : '/student/courses';
+            const detailPath = previewMode
+              ? `/back-panel/teacher-courses/preview/lesson?returnTo=${encodeURIComponent(currentUrl)}`
+              : `/student/lesson-detail?returnTo=${encodeURIComponent(currentUrl)}`;
+            router.push(detailPath);
           }}
-          className="w-full sm:w-auto bg-white border-2 border-gray-100 text-gray-600 px-5 py-2 rounded-xl hover:bg-indigo-600 hover:text-white hover:border-indigo-600 text-sm font-bold transition-all shadow-sm active:scale-95 whitespace-nowrap"
+          className={featurePrimaryBtn}
         >
           查看內容
         </button>
-      </div>
-    </div>
+      }
+    />
   );
 }
 
@@ -175,39 +326,95 @@ const Pagination = ({ currentPage, totalPages, setCurrentPage }: { currentPage: 
     pageNumbers.push(i);
   }
   return (
-    <div className="flex items-center justify-center space-x-2 mt-8">
+    <div className="flex items-center justify-center gap-1.5 sm:gap-2 mt-6 sm:mt-8 flex-wrap">
       <button onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} disabled={currentPage === 1} className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm ${currentPage === 1 ? 'bg-gray-50 text-gray-300 border border-gray-200 cursor-not-allowed shadow-none' : 'bg-white text-gray-600 hover:bg-indigo-50 border border-gray-200 hover:text-indigo-600'}`}><ChevronLeftIcon className="w-5 h-5 stroke-2" /></button>
-      {startPage > 1 && (<><button onClick={() => setCurrentPage(1)} className="w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 border border-gray-200">1</button>{startPage > 2 && <span className="px-2 text-gray-400">...</span>}</>)}
+      {startPage > 1 && (<><button onClick={() => setCurrentPage(1)} className="w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 border border-gray-200">1</button>{startPage > 2 && <span className="px-1 sm:px-2 text-gray-400">...</span>}</>)}
       {pageNumbers.map(number => (<button key={number} onClick={() => setCurrentPage(number)} className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm ${currentPage === number ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 border border-indigo-600' : 'bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 border border-gray-200'}`}>{number}</button>))}
-      {endPage < totalPages && (<>{endPage < totalPages - 1 && <span className="px-2 text-gray-400">...</span>}<button onClick={() => setCurrentPage(totalPages)} className="w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 border border-gray-200">{totalPages}</button></>)}
+      {endPage < totalPages && (<>{endPage < totalPages - 1 && <span className="px-1 sm:px-2 text-gray-400">...</span>}<button onClick={() => setCurrentPage(totalPages)} className="w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 border border-gray-200">{totalPages}</button></>)}
       <button onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))} disabled={currentPage === totalPages} className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm ${currentPage === totalPages ? 'bg-gray-50 text-gray-300 border border-gray-200 cursor-not-allowed shadow-none' : 'bg-white text-gray-600 hover:bg-indigo-50 border border-gray-200 hover:text-indigo-600'}`}><ChevronRightIcon className="w-5 h-5 stroke-2" /></button>
     </div>
   );
 };
 
+export type StudentCoursePreviewData = {
+  course: Course;
+  exams: StudentExamListItem[];
+  surveys: StudentSurveyListItem[];
+  attendance: CourseAttendanceActivity[];
+};
+
 interface StudentCoursesContentProps {
   courseCodeFromUrl?: string;
+  /** 老師端學生畫面預覽（不依賴學生 session） */
+  previewMode?: boolean;
+  previewData?: StudentCoursePreviewData | null;
+  onExitPreview?: () => void;
 }
 
-export default function StudentCoursesContent({ courseCodeFromUrl = '' }: StudentCoursesContentProps) {
+export default function StudentCoursesContent({
+  courseCodeFromUrl = '',
+  previewMode = false,
+  previewData = null,
+  onExitPreview,
+}: StudentCoursesContentProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { studentInfo } = useStudentInfo();
 
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedCourseKey, setSelectedCourseKey] = useState<string>('');
-  const [loadingCourses, setLoadingCourses] = useState(true);
+  const [loadingCourses, setLoadingCourses] = useState(!previewMode);
   const hasLoadedCoursesRef = useRef(false);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loadingLessons, setLoadingLessons] = useState<boolean>(false);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [announcementPage, setAnnouncementPage] = useState<number>(1);
-  const [activeCourseTab, setActiveCourseTab] = useState<'info' | 'announcements'>('info');
+  const [examPage, setExamPage] = useState<number>(1);
+  const [attendancePage, setAttendancePage] = useState<number>(1);
+  const [activeCourseTab, setActiveCourseTab] = useState<CourseTab>(() => parseCourseTab(searchParams.get('tab')));
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<CourseAnnouncement | null>(null);
   const [courseDetails, setCourseDetails] = useState<{ customLinks?: CustomLink[], announcements?: CourseAnnouncement[] }>({});
-  const lessonsPerPage = 5;
-  const announcementsPerPage = 3;
+  const [loadingCourseDetails, setLoadingCourseDetails] = useState(false);
+  const [courseExams, setCourseExams] = useState<StudentExamListItem[]>([]);
+  const [loadingExams, setLoadingExams] = useState(false);
+  const [courseSurveys, setCourseSurveys] = useState<StudentSurveyListItem[]>([]);
+  const [loadingSurveys, setLoadingSurveys] = useState(false);
+  const [courseAttendance, setCourseAttendance] = useState<CourseAttendanceActivity[]>([]);
+  const [loadingAttendance, setLoadingAttendance] = useState(false);
+  const [startModal, setStartModal] = useState<{ exam: StudentExamListItem; mode: 'start' | 'retake' } | null>(null);
+  const [surveyStartModal, setSurveyStartModal] = useState<{
+    survey: StudentSurveyListItem;
+    mode: 'start' | 'retake';
+  } | null>(null);
+  const [historyModal, setHistoryModal] = useState<StudentExamListItem | null>(null);
+  const examsPerPage = 5;
+  const attendancePerPage = 5;
+
+  const tabFromUrl = parseCourseTab(searchParams.get('tab'));
+
+  useEffect(() => {
+    setActiveCourseTab(tabFromUrl);
+  }, [tabFromUrl]);
+
+  // 老師預覽：直接注入課程與列表資料
+  useEffect(() => {
+    if (!previewMode || !previewData?.course) return;
+    setCourses([previewData.course]);
+    setCourseExams(sortQuizzesByOrder(previewData.exams ?? []));
+    setCourseSurveys(sortSurveysByOrder(previewData.surveys ?? []));
+    const attendance = [...(previewData.attendance ?? [])].sort((a, b) => {
+      const order = { active: 0, upcoming: 1, past: 2 };
+      const statusDiff = order[a.status] - order[b.status];
+      if (statusDiff !== 0) return statusDiff;
+      return new Date(b.startTime).getTime() - new Date(a.startTime).getTime();
+    });
+    setCourseAttendance(attendance);
+    setLoadingCourses(false);
+    hasLoadedCoursesRef.current = true;
+    const key = getCourseDisplayKey(previewData.course);
+    setSelectedCourseKey(key);
+  }, [previewMode, previewData]);
 
   const fetchCourses = useCallback(async (options?: { silent?: boolean }) => {
+    if (previewMode) return;
     if (!studentInfo) return;
     const isInitialLoad = !hasLoadedCoursesRef.current;
     if (!options?.silent && isInitialLoad) setLoadingCourses(true);
@@ -219,40 +426,51 @@ export default function StudentCoursesContent({ courseCodeFromUrl = '' }: Studen
     }, 8000);
 
     try {
-      const res = await fetch('/api/student/dashboard-data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        cache: 'no-store',
-        body: JSON.stringify({ studentId: studentInfo.studentId || studentInfo.account || studentInfo.id }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        // 過濾已封存課程，確保後續 logic (如 URL 自動選課) 不會選到舊課
-        const activeCourses = (data.courses || [])
-          .filter((c: Course) => c && c.status !== '已封存' && !isCourseArchived(c));
-        setCourses(activeCourses);
-        hasLoadedCoursesRef.current = true;
-        setCachedActiveCourseCount(activeCourses.length);
-      } else {
-        setCourses([]);
-        setCachedActiveCourseCount(0);
-      }
+      const studentId = studentInfo.id;
+      const data = await fetchStudentDashboardData(studentId, { coursesOnly: true });
+      const mergedCourses = mergeCoursesFromEnrolledKeys(
+        (data.courses ?? []).filter((c) => c) as Course[],
+        studentInfo.enrolledCourses ?? []
+      );
+      setCourses(mergedCourses);
+      hasLoadedCoursesRef.current = true;
+      setCachedActiveCourseCount(
+        mergedCourses.filter((c) => !isCourseArchived(c)).length
+      );
       clearTimeout(safetyTimer);
     } catch (error) {
-      console.warn('載入課程時發生網路連線錯誤 (Failed to fetch)，伺服器可能正在重啟或無回應:', error instanceof Error ? error.message : error);
+      if (error instanceof StudentApiError) {
+        // session 已清除，layout 會導向登入頁
+      } else {
+        console.warn('載入課程時發生錯誤:', error instanceof Error ? error.message : error);
+      }
       setCourses([]);
+      setCachedActiveCourseCount(0);
       clearTimeout(safetyTimer);
     } finally {
       clearTimeout(safetyTimer);
       setLoadingCourses(false);
     }
-  }, [studentInfo]);
+  }, [studentInfo, previewMode]);
 
   useEffect(() => {
+    if (previewMode) return;
     if (studentInfo) {
       fetchCourses();
     }
-  }, [studentInfo, fetchCourses]);
+  }, [studentInfo, fetchCourses, previewMode]);
+
+  // profile 載入 enrolledCourses 後，補齊 API 可能遺漏的封存課程
+  useEffect(() => {
+    if (previewMode) return;
+    if (!studentInfo || loadingCourses) return;
+    const enrolled = studentInfo.enrolledCourses ?? [];
+    if (enrolled.length === 0) return;
+    setCourses((prev) => {
+      const merged = mergeCoursesFromEnrolledKeys(prev, enrolled);
+      return merged.length === prev.length ? prev : merged;
+    });
+  }, [studentInfo?.enrolledCourses, loadingCourses, previewMode]);
 
   useEffect(() => {
     if (!courseCodeFromUrl) {
@@ -284,101 +502,372 @@ export default function StudentCoursesContent({ courseCodeFromUrl = '' }: Studen
     return courses.find((c) => getCourseDisplayKey(c) === effectiveSelectedCourse) ?? null;
   }, [courses, effectiveSelectedCourse]);
 
-  const coursesForSelector = useMemo(() => {
-    const displayKey = effectiveSelectedCourse;
-    if (!displayKey) return courses;
+  const handleSelectCourse = useCallback(
+    (course: Course) => {
+      if (isCourseArchived(course)) return;
+      const courseKey = getCourseDisplayKey(course);
+      setSelectedCourseKey(courseKey);
+      setPendingCourseSelection(course.code, courseKey);
+      router.push(`/student/courses/${encodeURIComponent(course.code)}`);
+    },
+    [router]
+  );
 
-    const exists = courses.some((c) => getCourseDisplayKey(c) === displayKey);
-    if (exists) return courses;
+  const isResolvedCourseArchived = resolvedCourse ? isCourseArchived(resolvedCourse) : false;
 
-    const lastOpenIdx = displayKey.lastIndexOf('(');
-    const lastCloseIdx = displayKey.lastIndexOf(')');
-    if (lastOpenIdx !== -1 && lastCloseIdx > lastOpenIdx) {
-      const name = displayKey.substring(0, lastOpenIdx);
-      const code = displayKey.substring(lastOpenIdx + 1, lastCloseIdx);
-      return [{ id: '', name, code } as Course, ...courses];
+  // 切換課程時清空分頁狀態，避免殘留（須在各 tab fetch 之前）
+  useEffect(() => {
+    setExamPage(1);
+    setAttendancePage(1);
+    setLessons([]);
+    setCourseDetails({});
+    setLoadingCourseDetails(false);
+    setStartModal(null);
+    setSurveyStartModal(null);
+    setHistoryModal(null);
+    if (!previewMode) {
+      setCourseExams([]);
+      setCourseAttendance([]);
+      setCourseSurveys([]);
     }
-    return courses;
-  }, [courses, effectiveSelectedCourse]);
+  }, [resolvedCourse?.id, previewMode]);
 
+  // 列表頁 idle 時預熱第一門課，進入詳情更快
+  useEffect(() => {
+    if (courseCodeFromUrl || loadingCourses || courses.length === 0) return;
+    const first = courses.find((c) => !isCourseArchived(c));
+    if (!first?.id) return;
+    let cancelled = false;
+    const run = () => {
+      if (!cancelled) prefetchCourseDetail(first.id);
+    };
+    let idleId: number | undefined;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      idleId = window.requestIdleCallback(run, { timeout: 2000 });
+    } else {
+      timeoutId = setTimeout(run, 600);
+    }
+    return () => {
+      cancelled = true;
+      if (idleId !== undefined && 'cancelIdleCallback' in window) {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [courseCodeFromUrl, loadingCourses, courses]);
+
+  // 課程資訊／公告：才載入 classdata
   useEffect(() => {
     let isCurrent = true;
 
     const fetchCourseDetails = async () => {
-      if (!resolvedCourse) {
+      if (!resolvedCourse || isResolvedCourseArchived) {
         setCourseDetails({});
         return;
       }
-      
-      // 切換課程時，先清空舊的詳細資料，避免畫面短暫殘留
-      setCourseDetails({});
-      setAnnouncementPage(1);
-      setActiveCourseTab('info');
-      
-      try {
-        const res = await fetch(`/api/courses/classdata?courseId=${resolvedCourse.id}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (isCurrent) {
-            setCourseDetails({
-              customLinks: data.customLinks || [],
-              announcements: data.announcements || []
-            });
-          }
-        }
-      } catch (e) {}
-    };
-    fetchCourseDetails();
-    return () => { isCurrent = false; };
-  }, [resolvedCourse?.id]);
+      if (activeCourseTab !== 'info' && activeCourseTab !== 'announcements') {
+        return;
+      }
 
+      setLoadingCourseDetails(true);
+      try {
+        const data = await fetchCourseClassData(resolvedCourse.id);
+        if (isCurrent) {
+          setCourseDetails({
+            customLinks: data.customLinks || [],
+            announcements: data.announcements || [],
+          });
+        }
+      } catch {
+        // 保留 resolvedCourse 上已有的欄位作為 fallback
+      } finally {
+        if (isCurrent) setLoadingCourseDetails(false);
+      }
+    };
+    void fetchCourseDetails();
+    return () => { isCurrent = false; };
+  }, [resolvedCourse?.id, isResolvedCourseArchived, activeCourseTab]);
+
+  // 課程清單 tab：才載入課堂
   useEffect(() => {
+    let cancelled = false;
     const fetchLessons = async () => {
-      if (!resolvedCourse) {
-        setLessons([]);
+      if (!resolvedCourse || isResolvedCourseArchived || activeCourseTab !== 'lessons') {
         return;
       }
       setLoadingLessons(true);
       try {
-        const res = await fetch('/api/courses/lessons', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ courseId: resolvedCourse.id }),
+        const list = await fetchCourseLessons(resolvedCourse.id);
+        let filtered = list as Lesson[];
+        if (previewMode) {
+          // 老師 session 會拿到全部課堂；預覽時比照學生僅顯示開放項
+          filtered = filtered
+            .filter((lesson) => (lesson as { visibleToStudents?: boolean }).visibleToStudents !== false)
+            .map((lesson) => {
+              const attachments = Array.isArray(lesson.attachments)
+                ? lesson.attachments.filter((att) => {
+                    if (typeof att === 'string') return att.trim() !== '';
+                    if (att && typeof att === 'object' && 'url' in att) {
+                      const typed = att as { url?: string; visibleToStudents?: boolean };
+                      return !!typed.url && typed.visibleToStudents !== false;
+                    }
+                    return false;
+                  })
+                : [];
+              return { ...lesson, attachments };
+            });
+        }
+        const sortedLessons = [...filtered].sort((a, b) => {
+          const aOrder = typeof a.order === 'number' ? a.order : 9999;
+          const bOrder = typeof b.order === 'number' ? b.order : 9999;
+          if (aOrder === 9999 && bOrder === 9999) {
+            const aDate = a.date ? new Date(a.date).getTime() : 0;
+            const bDate = b.date ? new Date(b.date).getTime() : 0;
+            return aDate - bDate;
+          }
+          return aOrder - bOrder;
         });
-        const lessons = await res.json();
-        const sortedLessons = Array.isArray(lessons)
-          ? [...lessons].sort((a, b) => {
-              const aOrder = typeof a.order === 'number' ? a.order : 9999;
-              const bOrder = typeof b.order === 'number' ? b.order : 9999;
-              if (aOrder === 9999 && bOrder === 9999) {
-                const aDate = a.date ? new Date(a.date).getTime() : 0;
-                const bDate = b.date ? new Date(b.date).getTime() : 0;
-                return aDate - bDate;
-              }
-              return aOrder - bOrder;
-            })
-          : [];
-        setLessons(sortedLessons);
-        setCurrentPage(1);
+        if (!cancelled) setLessons(sortedLessons);
       } catch (error) {
         console.warn('載入單元內容時發生網路連線錯誤:', error instanceof Error ? error.message : error);
-        setLessons([]);
-        setCurrentPage(1);
+        if (!cancelled) setLessons([]);
       } finally {
-        setLoadingLessons(false);
+        if (!cancelled) setLoadingLessons(false);
       }
     };
-    fetchLessons();
-  }, [resolvedCourse]);
+    void fetchLessons();
+    return () => { cancelled = true; };
+  }, [resolvedCourse?.id, isResolvedCourseArchived, activeCourseTab, previewMode]);
 
-  const showMainLoading =
-    (loadingCourses && courses.length === 0) ||
-    Boolean((effectiveSelectedCourse || courseCodeFromUrl) && resolvedCourse && loadingLessons);
+  // 線上測驗：切到 exams tab 才載入
+  useEffect(() => {
+    let cancelled = false;
+    const fetchExams = async () => {
+      if (previewMode) return;
+      if (!resolvedCourse || isResolvedCourseArchived || !studentInfo?.id || !courseCodeFromUrl) {
+        return;
+      }
+      if (activeCourseTab !== 'exams') return;
+      setLoadingExams(true);
+      try {
+        const exams = await fetchStudentExamList(studentInfo.id, {
+          courseId: resolvedCourse.id,
+          courseName: resolvedCourse.name,
+          courseCode: resolvedCourse.code,
+        });
+        if (cancelled) return;
+        setCourseExams(sortQuizzesByOrder(exams));
+        setExamPage(1);
+      } catch {
+        if (!cancelled) setCourseExams([]);
+      } finally {
+        if (!cancelled) setLoadingExams(false);
+      }
+    };
+    void fetchExams();
+    return () => { cancelled = true; };
+  }, [resolvedCourse?.id, resolvedCourse?.name, resolvedCourse?.code, isResolvedCourseArchived, studentInfo?.id, courseCodeFromUrl, activeCourseTab, previewMode]);
 
-  const indexOfLastLesson = currentPage * lessonsPerPage;
-  const indexOfFirstLesson = indexOfLastLesson - lessonsPerPage;
-  const currentLessons = lessons.slice(indexOfFirstLesson, indexOfLastLesson);
-  const totalPages = Math.ceil(lessons.length / lessonsPerPage);
+  // 課程問卷：切到 surveys tab 才載入
+  useEffect(() => {
+    let cancelled = false;
+    const fetchSurveys = async () => {
+      if (previewMode) return;
+      if (!resolvedCourse || isResolvedCourseArchived || !studentInfo?.id || !courseCodeFromUrl) {
+        return;
+      }
+      if (activeCourseTab !== 'surveys') return;
+      setLoadingSurveys(true);
+      try {
+        const surveys = await fetchStudentSurveyList(studentInfo.id, {
+          courseId: resolvedCourse.id,
+          courseName: resolvedCourse.name,
+          courseCode: resolvedCourse.code,
+        });
+        if (cancelled) return;
+        setCourseSurveys(sortSurveysByOrder(surveys));
+      } catch {
+        if (!cancelled) setCourseSurveys([]);
+      } finally {
+        if (!cancelled) setLoadingSurveys(false);
+      }
+    };
+    void fetchSurveys();
+    return () => { cancelled = true; };
+  }, [resolvedCourse?.id, resolvedCourse?.name, resolvedCourse?.code, isResolvedCourseArchived, studentInfo?.id, courseCodeFromUrl, activeCourseTab, previewMode]);
+
+  // 線上點名：切到 attendance tab 才載入
+  useEffect(() => {
+    let cancelled = false;
+    const fetchAttendance = async () => {
+      if (previewMode) return;
+      if (!resolvedCourse || isResolvedCourseArchived || !courseCodeFromUrl) {
+        return;
+      }
+      if (activeCourseTab !== 'attendance') return;
+      setLoadingAttendance(true);
+      try {
+        const list = await fetchStudentAttendanceActivities({ courseId: resolvedCourse.id });
+        if (cancelled) return;
+        const filtered = [...list].sort((a, b) => {
+          const order = { active: 0, upcoming: 1, past: 2 };
+          const statusDiff = order[a.status] - order[b.status];
+          if (statusDiff !== 0) return statusDiff;
+          return new Date(b.startTime).getTime() - new Date(a.startTime).getTime();
+        });
+        setCourseAttendance(filtered);
+        setAttendancePage(1);
+      } catch {
+        if (!cancelled) setCourseAttendance([]);
+      } finally {
+        if (!cancelled) setLoadingAttendance(false);
+      }
+    };
+    void fetchAttendance();
+    return () => { cancelled = true; };
+  }, [resolvedCourse?.id, isResolvedCourseArchived, courseCodeFromUrl, activeCourseTab, previewMode]);
+
+  // 進入詳情後，idle 預熱其他常用 tab（含 exams/surveys/attendance）
+  useEffect(() => {
+    if (previewMode) return;
+    if (!resolvedCourse || isResolvedCourseArchived || !courseCodeFromUrl) return;
+    let cancelled = false;
+    const run = () => {
+      if (cancelled || !studentInfo?.id) return;
+      if (activeCourseTab !== 'lessons') void fetchCourseLessons(resolvedCourse.id).catch(() => {});
+      if (activeCourseTab !== 'info' && activeCourseTab !== 'announcements') {
+        void fetchCourseClassData(resolvedCourse.id).catch(() => {});
+      }
+      if (activeCourseTab !== 'exams') {
+        void fetchStudentExamList(studentInfo.id, {
+          courseId: resolvedCourse.id,
+          courseName: resolvedCourse.name,
+          courseCode: resolvedCourse.code,
+        }).catch(() => {});
+      }
+      if (activeCourseTab !== 'surveys') {
+        void fetchStudentSurveyList(studentInfo.id, {
+          courseId: resolvedCourse.id,
+          courseName: resolvedCourse.name,
+          courseCode: resolvedCourse.code,
+        }).catch(() => {});
+      }
+      if (activeCourseTab !== 'attendance') {
+        void fetchStudentAttendanceActivities({ courseId: resolvedCourse.id }).catch(() => {});
+      }
+    };
+    let idleId: number | undefined;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      idleId = window.requestIdleCallback(run, { timeout: 2500 });
+    } else {
+      timeoutId = setTimeout(run, 800);
+    }
+    return () => {
+      cancelled = true;
+      if (idleId !== undefined && 'cancelIdleCallback' in window) {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [resolvedCourse?.id, isResolvedCourseArchived, courseCodeFromUrl, studentInfo?.id, activeCourseTab, previewMode]);
+
+  const setCourseTab = useCallback((tab: CourseTab) => {
+    setActiveCourseTab(tab);
+    const code = resolvedCourse?.code || courseCodeFromUrl;
+    if (!code) return;
+    router.replace(buildCourseTabUrl(code, tab, previewMode), { scroll: false });
+  }, [resolvedCourse?.code, courseCodeFromUrl, router, previewMode]);
+
+  const resolveExamTitle = useCallback(
+    (quizCode: string) => courseExams.find((e) => e.quizCode === quizCode)?.title,
+    [courseExams]
+  );
+
+  const openStartModal = useCallback(
+    async (exam: StudentExamListItem, mode: 'start' | 'retake') => {
+      if (previewMode) {
+        const blank = openBlankPreviewTab();
+        try {
+          const quiz = await fetchQuizByCode(exam.quizCode);
+          openTeacherExamPreviewInNewTab(quiz, { targetWindow: blank });
+        } catch (e) {
+          blank?.close();
+          await Swal.fire({
+            icon: 'error',
+            title: '無法開啟預覽',
+            text: e instanceof Error ? e.message : '請稍後再試',
+          });
+        }
+        return;
+      }
+      if (!studentInfo?.id) return;
+      const check = canStartExamTake(studentInfo.id, exam.quizCode);
+      if (!check.allowed) {
+        const alertResult = await showExamTakeBlockedAlert(check, {
+          blockingTitle: check.blockingQuizCode
+            ? resolveExamTitle(check.blockingQuizCode)
+            : undefined,
+          studentId: studentInfo.id,
+          targetQuizCode: exam.quizCode,
+        });
+        if (alertResult !== 'retry-allowed') return;
+      }
+      setStartModal({ exam, mode });
+    },
+    [studentInfo?.id, resolveExamTitle, previewMode]
+  );
+
+  const openSurveyStart = useCallback(
+    async (survey: StudentSurveyListItem, mode: 'start' | 'retake') => {
+      if (previewMode) {
+        const blank = openBlankPreviewTab();
+        try {
+          const full = await fetchSurveyByCode(survey.surveyCode);
+          openTeacherSurveyPreviewInNewTab(full, { targetWindow: blank });
+        } catch (e) {
+          blank?.close();
+          await Swal.fire({
+            icon: 'error',
+            title: '無法開啟預覽',
+            text: e instanceof Error ? e.message : '請稍後再試',
+          });
+        }
+        return;
+      }
+      setSurveyStartModal({ survey, mode });
+    },
+    [previewMode]
+  );
+
+  const openHistory = useCallback((exam: StudentExamListItem) => {
+    if (previewMode) {
+      void Swal.fire({
+        icon: 'info',
+        title: '預覽模式',
+        text: '學生端預覽沒有作答紀錄可查看。',
+      });
+      return;
+    }
+    if (exam.attempts && exam.attempts.length > 0) {
+      setHistoryModal(exam);
+      return;
+    }
+    if (exam.latestSubmissionId) {
+      openStudentExamReviewInNewTab(exam.quizCode, { submissionId: exam.latestSubmissionId });
+      return;
+    }
+    openStudentExamReviewInNewTab(exam.quizCode, { review: true });
+  }, [previewMode]);
+
+  const deepLinkHandledRef = useRef('');
+  const annIdFromUrl = searchParams.get('ann');
+  const examIdFromUrl = searchParams.get('exam');
+  const surveyIdFromUrl = searchParams.get('survey');
+  const reviewFromUrl = searchParams.get('review') === '1';
+
+  const showMainLoading = Boolean(courseCodeFromUrl && loadingCourses && !resolvedCourse);
 
   const renderIcon = (iconName: string, className: string) => {
     switch (iconName) {
@@ -392,90 +881,228 @@ export default function StudentCoursesContent({ courseCodeFromUrl = '' }: Studen
   };
 
   const activeLinks = (courseDetails.customLinks && courseDetails.customLinks.length > 0 ? courseDetails.customLinks : resolvedCourse?.customLinks) || [];
-  const activeAnnouncements = (courseDetails.announcements && courseDetails.announcements.length > 0 ? courseDetails.announcements : resolvedCourse?.announcements) || [];
-
+  const activeAnnouncements = ((courseDetails.announcements && courseDetails.announcements.length > 0 ? courseDetails.announcements : resolvedCourse?.announcements) || []).filter(
+    (ann) => (ann as { visibleToStudents?: boolean }).visibleToStudents !== false
+  );
   const sortedAnnouncements = [...activeAnnouncements].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  const indexOfLastAnnouncement = announcementPage * announcementsPerPage;
-  const indexOfFirstAnnouncement = indexOfLastAnnouncement - announcementsPerPage;
-  const currentAnnouncements = sortedAnnouncements.slice(indexOfFirstAnnouncement, indexOfLastAnnouncement);
-  const totalAnnouncementPages = Math.ceil(sortedAnnouncements.length / announcementsPerPage);
 
-  const displayCourseCount = courses.length > 0 ? courses.length : getCachedActiveCourseCount();
-  const showCourseCountBadge = displayCourseCount > 0;
+  useEffect(() => {
+    if (previewMode || !resolvedCourse?.code || !studentInfo?.id) return;
+    const handleKey = [
+      resolvedCourse.code,
+      activeCourseTab,
+      annIdFromUrl || '',
+      examIdFromUrl || '',
+      surveyIdFromUrl || '',
+      reviewFromUrl ? '1' : '',
+    ].join('|');
+    if (!annIdFromUrl && !examIdFromUrl && !surveyIdFromUrl) return;
+    if (deepLinkHandledRef.current === handleKey) return;
+
+    if (activeCourseTab === 'announcements' && annIdFromUrl && !loadingCourseDetails) {
+      const target = activeAnnouncements.find((a) => a.id === annIdFromUrl);
+      if (target) {
+        deepLinkHandledRef.current = handleKey;
+        setSelectedAnnouncement(target);
+        router.replace(buildCourseTabUrl(resolvedCourse.code, 'announcements', previewMode), { scroll: false });
+      } else if (!loadingCourseDetails) {
+        deepLinkHandledRef.current = handleKey;
+        router.replace(buildCourseTabUrl(resolvedCourse.code, 'announcements', previewMode), { scroll: false });
+      }
+      return;
+    }
+
+    if (activeCourseTab === 'exams' && examIdFromUrl && !loadingExams) {
+      const target = courseExams.find((e) => e.id === examIdFromUrl);
+      if (target) {
+        deepLinkHandledRef.current = handleKey;
+        if (reviewFromUrl && target.submitted) {
+          openHistory(target);
+        } else {
+          const isRetake = target.submitted && target.canRetake;
+          void openStartModal(target, isRetake ? 'retake' : 'start');
+        }
+        router.replace(buildCourseTabUrl(resolvedCourse.code, 'exams', previewMode), { scroll: false });
+      } else if (!loadingExams) {
+        deepLinkHandledRef.current = handleKey;
+        router.replace(buildCourseTabUrl(resolvedCourse.code, 'exams', previewMode), { scroll: false });
+      }
+      return;
+    }
+
+    if (activeCourseTab === 'surveys' && surveyIdFromUrl && !loadingSurveys) {
+      const target = courseSurveys.find((s) => s.id === surveyIdFromUrl);
+      if (target) {
+        deepLinkHandledRef.current = handleKey;
+        const isRetake = target.submitted && target.canRetake;
+        void openSurveyStart(target, isRetake ? 'retake' : 'start');
+        router.replace(buildCourseTabUrl(resolvedCourse.code, 'surveys', previewMode), { scroll: false });
+      } else if (!loadingSurveys) {
+        deepLinkHandledRef.current = handleKey;
+        router.replace(buildCourseTabUrl(resolvedCourse.code, 'surveys', previewMode), { scroll: false });
+      }
+    }
+  }, [
+    previewMode,
+    resolvedCourse?.code,
+    studentInfo?.id,
+    activeCourseTab,
+    annIdFromUrl,
+    examIdFromUrl,
+    surveyIdFromUrl,
+    reviewFromUrl,
+    loadingCourseDetails,
+    loadingExams,
+    loadingSurveys,
+    activeAnnouncements,
+    courseExams,
+    courseSurveys,
+    openHistory,
+    openStartModal,
+    openSurveyStart,
+    router,
+  ]);
+
+  const indexOfLastExam = examPage * examsPerPage;
+  const indexOfFirstExam = indexOfLastExam - examsPerPage;
+  const currentExams = courseExams.slice(indexOfFirstExam, indexOfLastExam);
+  const totalExamPages = Math.ceil(courseExams.length / examsPerPage);
+
+  const indexOfLastAttendance = attendancePage * attendancePerPage;
+  const indexOfFirstAttendance = indexOfLastAttendance - attendancePerPage;
+  const currentAttendance = courseAttendance.slice(indexOfFirstAttendance, indexOfLastAttendance);
+  const totalAttendancePages = Math.ceil(courseAttendance.length / attendancePerPage);
+
+  const openAttendanceCheckIn = useCallback((activity: CourseAttendanceActivity) => {
+    if (previewMode) {
+      void Swal.fire({
+        icon: 'info',
+        title: '預覽模式',
+        text: '學生端預覽不會真正執行點名。',
+      });
+      return;
+    }
+    if (!resolvedCourse) return;
+    const returnTo = buildCourseTabUrl(resolvedCourse.code, 'attendance', previewMode);
+    router.push(
+      `/student/attendance?courseId=${encodeURIComponent(activity.firestoreCourseId)}&activity=${encodeURIComponent(activity.id)}&returnTo=${encodeURIComponent(returnTo)}`
+    );
+  }, [resolvedCourse, router, previewMode]);
+
+  const getAttendanceStatusPill = (status: string | undefined, leaveType?: string) => {
+    if (!status) {
+      return (
+        <span className="inline-flex items-center justify-center px-5 py-2 text-sm font-bold text-gray-400">
+          未記錄
+        </span>
+      );
+    }
+    const statusMap: Record<string, { text: string; styles: string }> = {
+      present: { text: '出席', styles: 'text-green-700 bg-green-50 border-green-100' },
+      late: { text: '遲到', styles: 'text-yellow-700 bg-yellow-50 border-yellow-100' },
+      absent: { text: '曠課', styles: 'text-red-700 bg-red-50 border-red-100' },
+      leave: { text: '請假', styles: 'text-purple-700 bg-purple-50 border-purple-100' },
+    };
+    const config = statusMap[status] || { text: status, styles: 'text-gray-700 bg-gray-50 border-gray-100' };
+    const displayText = status === 'leave' && leaveType ? leaveType : config.text;
+    return (
+      <span className={`inline-flex items-center justify-center px-5 py-2 text-sm font-bold border-2 rounded-xl ${config.styles}`}>
+        {displayText}
+      </span>
+    );
+  };
 
   return (
     <div className="page-shell w-full min-w-0 pt-4 sm:pt-6 md:pt-8 pb-10 flex flex-col min-h-full animate-fade-in">
       <style>{quillDisplayStyles}</style>
 
       {/* Header Area */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+      <div className={`flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 ${courseCodeFromUrl ? 'mb-0' : 'mb-8'}`}>
         <div className="border-l-4 border-indigo-500 pl-4">
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-            <BookOpenIcon className="h-8 w-8 text-indigo-600" />
-            我的課程
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-800 flex items-center gap-2 sm:gap-3 min-w-0">
+            <BookOpenIcon className="h-7 w-7 sm:h-8 sm:w-8 text-indigo-600 shrink-0" />
+            <span className="truncate">
+              {courseCodeFromUrl && resolvedCourse ? resolvedCourse.name : '我的課程'}
+            </span>
           </h1>
-          <p className="text-gray-500 text-sm mt-1">查看並進入您所選修的課程與教材內容。</p>
+          <p className="text-gray-500 text-sm mt-1 break-all">
+            {courseCodeFromUrl && resolvedCourse
+              ? resolvedCourse.code
+              : '查看課程內容與進度'}
+          </p>
         </div>
-        {showCourseCountBadge && (
-          <span className="bg-indigo-50 text-indigo-700 px-4 py-2 rounded-full text-sm font-bold border border-indigo-100 shadow-sm self-start md:self-auto">
-            目前選修 {displayCourseCount} 門有效課程
-          </span>
-        )}
       </div>
-      <StudentCourseSelector
-        courses={coursesForSelector}
-        selectedCourse={effectiveSelectedCourse}
-        loadingCourses={loadingCourses}
-        onChange={(value) => {
-          setSelectedCourseKey(value);
-          if (value) {
-            const course = courses.find((c) => getCourseDisplayKey(c) === value);
-            if (course) {
-              setPendingCourseSelection(course.code, value);
-              router.push(`/student/courses/${encodeURIComponent(course.code)}`);
+
+      {courseCodeFromUrl && (
+        <BackButton
+          label={previewMode ? '關閉預覽' : '返回課程列表'}
+          onClick={() => {
+            if (previewMode) {
+              onExitPreview?.();
+              return;
             }
-          } else {
+            setSelectedCourseKey('');
             clearPendingCourseSelection();
             router.push('/student/courses');
-          }
-        }}
-      />
+          }}
+        />
+      )}
 
-      {showMainLoading && (
-        <div className="flex flex-col justify-center items-center py-20">
-          <LoadingSpinner size={40} />
-          <p className="text-gray-500 mt-4 font-medium">資料讀取中...</p>
+      {!courseCodeFromUrl && loadingCourses && courses.length === 0 && <PageLoadingArea />}
+
+      {!courseCodeFromUrl && !loadingCourses && courses.length === 0 && (
+        <div className="text-center py-16 px-6 bg-white rounded-2xl border border-dashed border-gray-300">
+          <h3 className="mt-2 text-xl font-bold text-gray-900">尚無課程</h3>
+          <p className="text-gray-500 mt-2">您目前還沒有選擇任何課程</p>
         </div>
       )}
 
-      {!showMainLoading && !effectiveSelectedCourse && !loadingCourses && courses.length === 0 && (
-        <div className="text-center py-20 bg-gray-50 rounded-2xl border border-dashed border-gray-300">
-          <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 text-4xl text-gray-300 shadow-sm">📚</div>
-          <h3 className="text-xl font-bold text-gray-900 mb-2">尚無課程</h3>
-          <p className="text-gray-500">您目前還沒有選擇任何課程</p>
+      {!courseCodeFromUrl && courses.length > 0 && (
+        <StudentCourseTable
+          courses={courses}
+          showFilter
+          blockArchivedEntry
+          onSelectCourse={handleSelectCourse}
+        />
+      )}
+
+      {showMainLoading && <PageLoadingArea />}
+
+      {!showMainLoading && !effectiveSelectedCourse && !loadingCourses && courses.length === 0 && courseCodeFromUrl && (
+        <div className="text-center py-16 px-6 bg-white rounded-2xl border border-dashed border-gray-300">
+          <h3 className="mt-2 text-xl font-bold text-gray-900">尚無課程</h3>
+          <p className="text-gray-500 mt-2">您目前還沒有選擇任何課程</p>
         </div>
       )}
 
-      {!showMainLoading && !effectiveSelectedCourse && !loadingCourses && courses.length > 0 && !courseCodeFromUrl && (
-        <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-8 text-center shadow-sm">
-          <div className="w-16 h-16 bg-indigo-100 text-indigo-500 rounded-full flex items-center justify-center mx-auto mb-4">
-            <BookOpenIcon className="w-8 h-8" />
-          </div>
-          <p className="text-indigo-800 font-medium text-lg">請選擇一個課程來查看課程內容</p>
+      {!showMainLoading && isResolvedCourseArchived && courseCodeFromUrl && (
+        <div className="text-center py-16 px-6 bg-white rounded-2xl border border-dashed border-gray-300">
+          <h3 className="mt-2 text-xl font-bold text-gray-900">此課程已封存</h3>
+          <p className="text-gray-500 mt-2">您可以在課程清單中查看此課程，但無法進入課程內容。</p>
         </div>
       )}
 
-      {!showMainLoading && resolvedCourse && courseCodeFromUrl && (
-            <div className="animate-fade-in space-y-8">
-              {/* 課程資訊卡 */}
-              <div className="bg-gradient-to-r from-indigo-600 to-blue-600 rounded-2xl shadow-xl p-8 text-white relative overflow-hidden">
+      {!showMainLoading && resolvedCourse && courseCodeFromUrl && !isResolvedCourseArchived && (
+            <div className="animate-fade-in space-y-6">
+              {/* 分頁列（獨立） */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 px-3 sm:px-6">
+                <CourseHubTabNav
+                  tabs={STUDENT_COURSE_HUB_TAB_IDS}
+                  active={activeCourseTab}
+                  audience="student"
+                  onChange={(tab) => setCourseTab(tab as CourseTab)}
+                />
+              </div>
+
+              {activeCourseTab === 'info' && (
+              <div className="bg-gradient-to-r from-indigo-600 to-blue-600 rounded-2xl shadow-xl p-4 sm:p-6 md:p-8 text-white relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -mt-20 -mr-20"></div>
                 
                 <div className="relative z-10">
-                    <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                        <h3 className="text-3xl font-bold mb-2 tracking-tight">{resolvedCourse.name}</h3>
-                        <p className="text-indigo-100 font-mono text-lg opacity-80">{resolvedCourse.code}</p>
+                    <div className="mb-4 sm:mb-6 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
+                    <div className="min-w-0">
+                        <h3 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2 tracking-tight break-words">{resolvedCourse.name}</h3>
+                        <p className="text-indigo-100 font-mono text-sm sm:text-lg opacity-80 break-all">{resolvedCourse.code}</p>
                     </div>
                     <div>
                         <span className="px-4 py-1.5 rounded-full text-sm font-bold bg-white/20 backdrop-blur-md text-white border border-white/30 shadow-sm">
@@ -484,23 +1111,7 @@ export default function StudentCoursesContent({ courseCodeFromUrl = '' }: Studen
                     </div>
                     </div>
 
-                    <div className="flex gap-6 border-b border-white/20 mb-6">
-                      <button
-                        onClick={() => setActiveCourseTab('info')}
-                        className={`pb-3 font-bold text-lg transition-all border-b-2 ${activeCourseTab === 'info' ? 'border-white text-white' : 'border-transparent text-white/60 hover:text-white/90'}`}
-                      >
-                        課程資訊
-                      </button>
-                      <button
-                        onClick={() => setActiveCourseTab('announcements')}
-                        className={`pb-3 font-bold text-lg transition-all border-b-2 ${activeCourseTab === 'announcements' ? 'border-white text-white' : 'border-transparent text-white/60 hover:text-white/90'}`}
-                      >
-                        課程公告
-                      </button>
-                    </div>
-
-                    {activeCourseTab === 'info' && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-indigo-50">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 text-indigo-50">
                     <div className="flex items-start">
                         <ClockIcon className="w-5 h-5 mr-3 mt-0.5 opacity-70" />
                         <div>
@@ -522,7 +1133,7 @@ export default function StudentCoursesContent({ courseCodeFromUrl = '' }: Studen
                             <p className="font-medium">{resolvedCourse.location || '線上/未定'}</p>
                         </div>
                     </div>
-                    {resolvedCourse.classTimes?.length > 0 && (
+                    {resolvedCourse.classTimes && resolvedCourse.classTimes.length > 0 && (
                         <div className="flex items-start col-span-1 md:col-span-2 lg:col-span-3 bg-white/10 p-3 rounded-lg border border-white/10">
                             <ClockIcon className="w-5 h-5 mr-3 mt-0.5 opacity-70" />
                             <div>
@@ -538,13 +1149,13 @@ export default function StudentCoursesContent({ courseCodeFromUrl = '' }: Studen
                             </div>
                         </div>
                     )}
-                    <div className="flex flex-wrap items-center col-span-1 md:col-span-2 lg:col-span-3 mt-3 gap-3">
+                    <div className="flex flex-wrap items-center col-span-1 md:col-span-2 lg:col-span-3 mt-3 gap-2 sm:gap-3">
                         {resolvedCourse.liveStreamURL && (
                              <a 
                                 href={resolvedCourse.liveStreamURL} 
                                 target="_blank" 
                                 rel="noopener noreferrer" 
-                                className="inline-flex items-center gap-2 min-w-[160px] px-5 py-2.5 bg-white text-indigo-600 rounded-xl font-bold text-sm hover:bg-indigo-50 transition-colors shadow-lg shadow-indigo-900/20"
+                                className="inline-flex items-center gap-2 w-full sm:w-auto sm:min-w-[160px] px-5 py-2.5 bg-white text-indigo-600 rounded-xl font-bold text-sm hover:bg-indigo-50 transition-colors shadow-lg shadow-indigo-900/20"
                              >
                                 <VideoCameraIcon className="w-5 h-5 shrink-0" />
                                 <span className="flex-1 text-center">進入線上會議</span>
@@ -556,7 +1167,7 @@ export default function StudentCoursesContent({ courseCodeFromUrl = '' }: Studen
                                 href={link.url} 
                                 target="_blank" 
                                 rel="noopener noreferrer" 
-                                className="inline-flex items-center gap-2 min-w-[160px] px-5 py-2.5 bg-white text-indigo-600 rounded-xl font-bold text-sm hover:bg-indigo-50 transition-colors shadow-lg shadow-indigo-900/20"
+                                className="inline-flex items-center gap-2 w-full sm:w-auto sm:min-w-[160px] px-5 py-2.5 bg-white text-indigo-600 rounded-xl font-bold text-sm hover:bg-indigo-50 transition-colors shadow-lg shadow-indigo-900/20"
                              >
                                 {renderIcon(link.icon, "w-5 h-5 shrink-0")}
                                 <span className="flex-1 text-center">{link.name}</span>
@@ -564,68 +1175,369 @@ export default function StudentCoursesContent({ courseCodeFromUrl = '' }: Studen
                         ))}
                     </div>
                     </div>
-                    )}
+                </div>
+              </div>
+              )}
 
-                    {activeCourseTab === 'announcements' && (
-                      <div className="animate-fade-in">
-                        {activeAnnouncements.length > 0 ? (
-                          <>
-                            <div className="space-y-3">
-                              {currentAnnouncements.map(ann => (
-                                <div key={ann.id} onClick={() => setSelectedAnnouncement(ann)} className="cursor-pointer bg-white/10 hover:bg-white/20 backdrop-blur-sm p-4 rounded-xl border border-white/10 transition-colors flex justify-between items-center group shadow-sm">
-                                   <div className="flex items-center gap-3">
-                                     <div className="w-8 h-8 rounded-full bg-white/20 text-white flex items-center justify-center shrink-0">
-                                       <MegaphoneIcon className="w-4 h-4" />
-                                     </div>
-                                     <h4 className="font-bold text-white group-hover:text-indigo-50 transition-colors line-clamp-1">{ann.title}</h4>
-                                   </div>
-                                   <span className="text-xs text-indigo-100 font-mono ml-4 shrink-0 hidden sm:block opacity-80">{new Date(ann.createdAt).toLocaleDateString()}</span>
-                                </div>
-                              ))}
-                            </div>
-                            <Pagination currentPage={announcementPage} totalPages={totalAnnouncementPages} setCurrentPage={setAnnouncementPage} />
-                          </>
-                        ) : (
-                          <div className="text-center py-10 bg-white/10 rounded-xl border border-white/20 text-white/80 backdrop-blur-sm shadow-sm">
-                            <MegaphoneIcon className="w-12 h-12 mx-auto mb-3 opacity-60" />
-                            目前沒有課程公告
-                          </div>
-                        )}
+              {activeCourseTab !== 'info' && activeCourseTab !== 'grades' && (
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6 md:p-8 mb-4">
+                {activeCourseTab === 'lessons' && (
+                  <>
+                    {loadingLessons ? (
+                      <div className="min-h-[220px] sm:min-h-[280px] flex items-center justify-center">
+                        <PageLoadingArea />
+                      </div>
+                    ) : lessons.length === 0 ? (
+                      <div className={featureEmptyState}>
+                        <BookOpenIcon className="w-12 h-12 mb-3 text-gray-300" />
+                        <p className="text-gray-500 font-medium">此課程尚未發布任何內容</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-4">
+                        {lessons.map((lesson, index) => (
+                          <LessonDetail
+                            key={lesson.id}
+                            lesson={lesson}
+                            index={index}
+                            resolvedCourse={resolvedCourse}
+                            router={router}
+                            previewMode={previewMode}
+                          />
+                        ))}
                       </div>
                     )}
-                </div>
-              </div>
+                  </>
+                )}
 
-              {/* 課程列表區塊 */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8 mb-4">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
-                  <h3 className="text-xl font-bold text-gray-900 flex items-center">
-                    <span className="w-1.5 h-6 bg-indigo-500 rounded-full mr-3"></span>
-                    課程清單
-                  </h3>
-                  {lessons.length > 0 && <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium">共 {lessons.length} 堂</span>}
-                </div>
-                
-                {loadingLessons ? (
-                  <PageLoadingArea />
-                ) : lessons.length === 0 ? (
-                  <div className="text-center py-20 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                      <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 text-4xl text-gray-300 shadow-sm">📝</div>
-                      <p className="text-gray-500 font-medium">此課程尚未發布任何內容</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 gap-4">
-                    {currentLessons.map((lesson, index) => <LessonDetail key={lesson.id} lesson={lesson} index={indexOfFirstLesson + index} resolvedCourse={resolvedCourse} router={router} />)}
+                {activeCourseTab === 'announcements' && (
+                  <div className="animate-fade-in">
+                    {loadingCourseDetails ? (
+                      <div className="min-h-[220px] sm:min-h-[280px] flex items-center justify-center">
+                        <PageLoadingArea />
+                      </div>
+                    ) : activeAnnouncements.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-4">
+                          {sortedAnnouncements.map(ann => (
+                            <FeatureListCard
+                              key={ann.id}
+                              icon={<CourseHubFeatureIcon id="announcements" />}
+                              title={ann.title}
+                              meta={
+                                <span className="inline-flex items-center">
+                                  <ClockIcon className="w-4 h-4 mr-1" />
+                                  {new Date(ann.createdAt).toLocaleDateString()}
+                                </span>
+                              }
+                              actions={
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedAnnouncement(ann)}
+                                  className={featurePrimaryBtn}
+                                >
+                                  查看公告
+                                </button>
+                              }
+                            />
+                          ))}
+                      </div>
+                    ) : (
+                      <div className={featureEmptyState}>
+                        <MegaphoneIcon className="w-12 h-12 mb-3 text-gray-300" />
+                        <p className="text-gray-500 font-medium">目前沒有課程公告</p>
+                      </div>
+                    )}
                   </div>
                 )}
-                <Pagination currentPage={currentPage} totalPages={totalPages} setCurrentPage={setCurrentPage} />
+
+                {activeCourseTab === 'exams' && (
+                  <div className="animate-fade-in">
+                    {loadingExams ? (
+                      <div className="min-h-[220px] sm:min-h-[280px] flex items-center justify-center">
+                        <PageLoadingArea />
+                      </div>
+                    ) : courseExams.length === 0 ? (
+                      <div className={featureEmptyState}>
+                        <ClipboardDocumentCheckIcon className="w-12 h-12 mb-3 text-gray-300" />
+                        <p className="text-gray-500 font-medium">目前沒有線上測驗</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-1 gap-4">
+                          {currentExams.map((exam) => {
+                            const canStart = exam.accessible && (!exam.submitted || exam.canRetake);
+                            const isRetake = exam.submitted && exam.canRetake;
+                            const windowEnded = !!exam.windowEnded || exam.windowPhase === 'ended';
+                            const windowUpcoming = exam.windowPhase === 'upcoming';
+                            const statusText = exam.submitted
+                              ? exam.resultsPublished
+                                ? `已完成 · 得分 ${exam.submissionScore ?? '—'} 分`
+                                : '已完成 · 成績尚未公布'
+                              : windowEnded
+                                ? '作答期間已截止'
+                                : windowUpcoming
+                                  ? '作答期間尚未開始'
+                                  : exam.accessible
+                                    ? '尚未完成'
+                                    : (exam.inaccessibleReason || '測驗尚未開放');
+                            return (
+                              <FeatureListCard
+                                key={exam.id}
+                                icon={<CourseHubFeatureIcon id="exams" />}
+                                title={exam.title}
+                                meta={
+                                  <>
+                                    <span>作答期間 {exam.answerWindowLabel}</span>
+                                    <span className={exam.submitted ? 'text-emerald-600 font-medium' : exam.accessible && !windowEnded ? 'text-amber-600 font-medium' : ''}>
+                                      {statusText}
+                                    </span>
+                                  </>
+                                }
+                                actions={
+                                  <>
+                                    {exam.submitted && (
+                                      <button type="button" onClick={() => openHistory(exam)} className={featureSecondaryBtn}>
+                                        作答紀錄
+                                      </button>
+                                    )}
+                                    {canStart && !windowEnded ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => void openStartModal(exam, isRetake ? 'retake' : 'start')}
+                                        className={featurePrimaryBtn}
+                                      >
+                                        {isRetake ? '再次作答' : '開始作答'}
+                                      </button>
+                                    ) : windowUpcoming && !exam.submitted ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => void openStartModal(exam, 'start')}
+                                        className={featurePrimaryBtn}
+                                      >
+                                        查看詳情
+                                      </button>
+                                    ) : !exam.submitted ? (
+                                      <button type="button" disabled className={featureDisabledBtn}>
+                                        {windowEnded ? '已截止' : '無法作答'}
+                                      </button>
+                                    ) : null}
+                                  </>
+                                }
+                              />
+                            );
+                          })}
+                        </div>
+                        <Pagination currentPage={examPage} totalPages={totalExamPages} setCurrentPage={setExamPage} />
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {activeCourseTab === 'surveys' && (
+                  <div className="animate-fade-in">
+                    {loadingSurveys ? (
+                      <div className="min-h-[220px] sm:min-h-[280px] flex items-center justify-center">
+                        <PageLoadingArea />
+                      </div>
+                    ) : courseSurveys.length === 0 ? (
+                      <div className={featureEmptyState}>
+                        <ClipboardDocumentListIcon className="w-12 h-12 mb-3 text-gray-300" />
+                        <p className="text-gray-500 font-medium">目前沒有課程問卷</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-4">
+                        {courseSurveys.map((survey) => {
+                          const canFill = survey.accessible && (!survey.submitted || survey.canRetake);
+                          const windowEnded = !!survey.windowEnded || survey.windowPhase === 'ended';
+                          const windowUpcoming = survey.windowPhase === 'upcoming';
+                          const isRetake = survey.submitted && survey.canRetake;
+                          const statusText = survey.submitted
+                            ? '已完成填寫'
+                            : windowEnded
+                              ? '填答期間已截止'
+                              : windowUpcoming
+                                ? '填答期間尚未開始'
+                                : survey.accessible
+                                  ? '尚未填寫'
+                                  : (survey.inaccessibleReason || '問卷尚未開放');
+                          return (
+                            <FeatureListCard
+                              key={survey.id}
+                              icon={<CourseHubFeatureIcon id="surveys" />}
+                              title={survey.title}
+                              meta={
+                                <>
+                                  <span>{survey.responseModeLabel}</span>
+                                  <span>填答期間 {survey.answerWindowLabel}</span>
+                                  <span className={survey.submitted ? 'text-emerald-600 font-medium' : survey.accessible && !windowEnded ? 'text-amber-600 font-medium' : ''}>
+                                    {statusText}
+                                  </span>
+                                </>
+                              }
+                              actions={
+                                <>
+                                  {survey.canViewResponse && (
+                                    <button
+                                      type="button"
+                                      onClick={() => openStudentSurveyReviewInNewTab(survey.surveyCode)}
+                                      className={featureSecondaryBtn}
+                                    >
+                                      查看填寫
+                                    </button>
+                                  )}
+                                  {canFill && !windowEnded ? (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        void openSurveyStart(survey, isRetake ? 'retake' : 'start')
+                                      }
+                                      className={featurePrimaryBtn}
+                                    >
+                                      {isRetake ? '再次填寫' : '開始填寫'}
+                                    </button>
+                                  ) : windowUpcoming && !survey.submitted ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => void openSurveyStart(survey, 'start')}
+                                      className={featurePrimaryBtn}
+                                    >
+                                      查看詳情
+                                    </button>
+                                  ) : !survey.submitted ? (
+                                    <button type="button" disabled className={featureDisabledBtn}>
+                                      {windowEnded ? '已截止' : '無法填寫'}
+                                    </button>
+                                  ) : !survey.canViewResponse ? (
+                                    <button type="button" disabled className={featureDisabledBtn}>
+                                      已完成
+                                    </button>
+                                  ) : null}
+                                </>
+                              }
+                            />
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeCourseTab === 'attendance' && (
+                  <div className="animate-fade-in">
+                    {loadingAttendance ? (
+                      <div className="min-h-[220px] sm:min-h-[280px] flex items-center justify-center">
+                        <PageLoadingArea />
+                      </div>
+                    ) : courseAttendance.length === 0 ? (
+                      <div className={featureEmptyState}>
+                        <ClockIcon className="w-12 h-12 mb-3 text-gray-300" />
+                        <p className="text-gray-500 font-medium">目前沒有點名紀錄</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-1 gap-4">
+                          {currentAttendance.map((activity) => {
+                            const hasCheckedIn = activity.studentStatus === 'present' || activity.studentStatus === 'late';
+                            const phaseText =
+                              activity.status === 'active'
+                                ? '進行中'
+                                : activity.status === 'upcoming'
+                                  ? '即將開始'
+                                  : '已結束';
+                            return (
+                              <FeatureListCard
+                                key={activity.id}
+                                icon={<CourseHubFeatureIcon id="attendance" />}
+                                title={activity.title}
+                                meta={
+                                  <>
+                                    <span className="inline-flex items-center">
+                                      <ClockIcon className="w-4 h-4 mr-1 shrink-0" />
+                                      {new Date(activity.startTime).toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                      {' ~ '}
+                                      {new Date(activity.endTime).toLocaleString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                    <span className={
+                                      activity.status === 'active'
+                                        ? 'text-green-700 font-medium'
+                                        : activity.status === 'upcoming'
+                                          ? 'text-blue-700 font-medium'
+                                          : 'text-gray-500 font-medium'
+                                    }>
+                                      {phaseText}
+                                    </span>
+                                  </>
+                                }
+                                actions={
+                                  activity.status === 'past' ? (
+                                    getAttendanceStatusPill(activity.studentStatus, activity.studentLeaveType)
+                                  ) : hasCheckedIn ? (
+                                    <span className="inline-flex items-center justify-center px-5 py-2 text-sm font-bold border-2 rounded-xl text-emerald-700 bg-emerald-50 border-emerald-100">
+                                      已簽到
+                                    </span>
+                                  ) : activity.status === 'active' ? (
+                                    <button type="button" onClick={() => openAttendanceCheckIn(activity)} className={featurePrimaryBtn}>
+                                      簽到
+                                    </button>
+                                  ) : (
+                                    <span className="inline-flex items-center justify-center px-5 py-2 text-sm font-bold text-gray-400">
+                                      尚未開始
+                                    </span>
+                                  )
+                                }
+                              />
+                            );
+                          })}
+                        </div>
+                        <Pagination currentPage={attendancePage} totalPages={totalAttendancePages} setCurrentPage={setAttendancePage} />
+                      </>
+                    )}
+                  </div>
+                )}
+
               </div>
+              )}
+
+              {/* 課程成績：進入課程即掛載預載，非成績 tab 時隱藏 */}
+              {previewMode ? (
+                activeCourseTab === 'grades' ? (
+                  <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6 md:p-8 mb-4">
+                    <div className={featureEmptyState}>
+                      <ClipboardDocumentListIcon className="w-12 h-12 mb-3 text-gray-300" />
+                      <p className="text-gray-500 font-medium">預覽模式不顯示個人成績</p>
+                      <p className="text-sm text-gray-400 mt-1">成績需以實際學生帳號登入後查看</p>
+                    </div>
+                  </div>
+                ) : null
+              ) : studentInfo ? (
+                <div
+                  className={
+                    activeCourseTab === 'grades'
+                      ? 'bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6 md:p-8 mb-4 animate-fade-in min-h-[280px]'
+                      : 'hidden'
+                  }
+                  aria-hidden={activeCourseTab !== 'grades'}
+                >
+                  <StudentGradeViewer
+                    studentInfo={studentInfo}
+                    courseCodeFromUrl={resolvedCourse.code}
+                    embedded
+                    active={activeCourseTab === 'grades'}
+                  />
+                </div>
+              ) : activeCourseTab === 'grades' ? (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6 md:p-8 mb-4">
+                  <div className={featureEmptyState}>
+                    <ClipboardDocumentListIcon className="w-12 h-12 mb-3 text-gray-300" />
+                    <p className="text-gray-500 font-medium">找不到學生資料，請重新登入</p>
+                  </div>
+                </div>
+              ) : null}
             </div>
       )}
 
       {selectedAnnouncement && createPortal(
         <div className="fixed inset-0 z-[99999] flex justify-center items-center p-4 animate-fade-in">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedAnnouncement(null)}></div>
+          <div className="absolute inset-0 bg-black/60" onClick={() => setSelectedAnnouncement(null)}></div>
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in">
             <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
               <h3 className="text-xl font-bold flex items-center pr-8 line-clamp-1">
@@ -639,9 +1551,9 @@ export default function StudentCoursesContent({ courseCodeFromUrl = '' }: Studen
               <div className="text-xs text-gray-500 mb-4 font-mono pb-4 border-b border-gray-100">發布日期：{new Date(selectedAnnouncement.createdAt).toLocaleDateString()}</div>
               {/<[a-z][\s\S]*>/i.test(selectedAnnouncement.content) ? (
                 <div className="ql-snow">
-                  <div
+                  <RichHtmlContent
+                    html={selectedAnnouncement.content}
                     className="ql-editor text-gray-700 mb-6"
-                    dangerouslySetInnerHTML={{ __html: selectedAnnouncement.content }}
                   />
                 </div>
               ) : (
@@ -662,6 +1574,37 @@ export default function StudentCoursesContent({ courseCodeFromUrl = '' }: Studen
           </div>
         </div>,
         document.body
+      )}
+
+      {startModal && studentInfo?.id && (
+        <StudentExamStartModal
+          open
+          onClose={() => setStartModal(null)}
+          exam={startModal.exam}
+          studentId={studentInfo.id}
+          mode={startModal.mode}
+          resolveExamTitle={resolveExamTitle}
+        />
+      )}
+
+      {surveyStartModal && (
+        <StudentSurveyStartModal
+          open
+          onClose={() => setSurveyStartModal(null)}
+          survey={surveyStartModal.survey}
+          mode={surveyStartModal.mode}
+        />
+      )}
+
+      {historyModal && (
+        <StudentExamAttemptPickerModal
+          open
+          onClose={() => setHistoryModal(null)}
+          quizCode={historyModal.quizCode}
+          examTitle={historyModal.title}
+          attempts={historyModal.attempts ?? []}
+          resultsPublished={historyModal.resultsPublished}
+        />
       )}
     </div>
   );

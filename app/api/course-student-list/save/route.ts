@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { syncStudentCourseEnrollments } from '@/services/courseEnrollmentSync';
 
 export async function POST(req: NextRequest) {
@@ -11,6 +12,9 @@ export async function POST(req: NextRequest) {
     const result = await syncStudentCourseEnrollments(studentId, oldCourses, newCourses, studentInfo);
     return NextResponse.json({ success: true, ...result });
   } catch (error) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     console.error('Error updating student courses:', error);
     const message = error instanceof Error ? error.message : 'An unknown error occurred.';
     return NextResponse.json({ error: 'Failed to update course enrollments.', details: message }, { status: 500 });

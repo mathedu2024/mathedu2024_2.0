@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { adminDb } from '../../../../services/firebase-admin';
 import { removeCoursesFromEnrolledList } from '@/services/courseId';
 import { syncStudentCourseEnrollments } from '@/services/courseEnrollmentSync';
@@ -24,6 +25,9 @@ export async function POST(req: NextRequest) {
     await syncStudentCourseEnrollments(studentId, oldCourses, newCourses, studentData);
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     const message = error instanceof Error ? error.message : '移除失敗';
     return NextResponse.json({ error: message }, { status: 500 });
   }

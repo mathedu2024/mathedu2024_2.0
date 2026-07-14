@@ -1,38 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { adminDb } from '../../../../services/firebase-admin';
+import { requireAuthFromRequest, authGuard } from '@/services/apiAuth';
 
 export async function POST(req: NextRequest) {
+  const denied = authGuard(requireAuthFromRequest(req, 'admin'));
+  if (denied) return denied;
+
   try {
     const { id, password } = await req.json();
-    
+
     if (!id || !password) {
       return NextResponse.json({ error: 'Missing user account or password' }, { status: 400 });
     }
 
-    console.log(`API - Attempting to update password for user account: ${id}`);
-    
     const snapshot = await adminDb.collection('users').where('account', '==', id).get();
 
     if (snapshot.empty) {
-      console.log(`API - User with account '${id}' not found in 'users' collection.`);
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     const userDoc = snapshot.docs[0];
-    await userDoc.ref.update({ password: password });
-
-    console.log(`API - Plain text password updated successfully for user account: ${id} (Doc ID: ${userDoc.id})`);
+    await userDoc.ref.update({ password });
 
     return NextResponse.json({
       success: true,
-      message: '密碼更新成功'
+      message: '??????',
     });
-
   } catch (error) {
-    console.error('API - Password update error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

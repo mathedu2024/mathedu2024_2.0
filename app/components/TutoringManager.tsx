@@ -12,6 +12,7 @@ import Swal from 'sweetalert2';
 import { isCourseArchived } from './StudentCourseSelector';
 import LoadingSpinner from './LoadingSpinner';
 import PageLoadingArea from './ui/PageLoadingArea';
+import { tableActionStyles, tableActionRow } from './ui';
 import Dropdown from './ui/Dropdown';
 import MultiSelectDropdown from './MultiSelectDropdown';
 
@@ -452,7 +453,7 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
               <CalendarIcon className="h-8 w-8 text-indigo-600" />
               課程輔導
             </h1>
-            <p className="text-gray-500 text-sm mt-1">安排您的輔導時段並查看學生的預約名單。</p>
+            <p className="text-gray-500 text-sm mt-1">管理老師與學生的輔導排程</p>
           </div>
         </div>
 
@@ -531,12 +532,12 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
                         名單 ({slot.bookedStudents?.length || 0})
                     </button>
                     {canEditSlot(slot.date) && (
-                        <div className="flex space-x-1">
-                            <button onClick={() => openEditModal(slot)} className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-gray-100 rounded-lg transition-colors">
-                                <PencilIcon className="w-5 h-5" />
+                        <div className={tableActionRow}>
+                            <button onClick={() => openEditModal(slot)} className={tableActionStyles.primary}>
+                                編輯
                             </button>
-                            <button onClick={() => handleDelete(slot)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                                <TrashIcon className="w-5 h-5" />
+                            <button onClick={() => handleDelete(slot)} className={tableActionStyles.danger}>
+                                刪除
                             </button>
                         </div>
                     )}
@@ -550,7 +551,7 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
         )}
 
       {showBookingsModal && createPortal(
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-[9999] p-4 animate-fade-in">
+        <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-[9999] p-4 animate-fade-in">
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-full sm:max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in transform scale-100">
             <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
               <h2 className="text-xl font-bold flex items-center">{currentSlotTitle} - 預約名單</h2>
@@ -612,7 +613,7 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
       )}
 
       {isModalOpen && createPortal(
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-[9999] p-4 animate-fade-in">
+        <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-[9999] p-4 animate-fade-in">
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-full sm:max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in transform scale-100">
             <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
               <h2 className="text-xl font-bold flex items-center">

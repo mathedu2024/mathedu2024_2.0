@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import fs from 'fs';
 import path from 'path';
 
@@ -11,6 +12,9 @@ export async function GET() {
     const images = files.map(f => `/課程介紹圖片/${encodeURIComponent(f)}`);
     return NextResponse.json({ images });
   } catch (error: unknown) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     let message = '上傳失敗';
     if (error instanceof Error) message = error.message;
     return NextResponse.json({ error: message }, { status: 500 });

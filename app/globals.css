@@ -1,6 +1,16 @@
+@import "katex/dist/katex.min.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* 單選／複選框全站統一主題紫色（indigo-600） */
+@layer base {
+  input[type='radio'],
+  input[type='checkbox'] {
+    accent-color: #4f46e5;
+  }
+}
 
 /* 文字層次與排版 */
 .text-main {
@@ -119,6 +129,15 @@ html, body {
   }
   .mobile-scroll-tabs > button {
     @apply flex-shrink-0;
+  }
+  /* 課程詳情分頁：手機略縮小字級與觸控間距 */
+  .course-hub-tabs {
+    @apply flex min-w-0 overflow-x-auto gap-3 sm:gap-5 md:gap-6;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .course-hub-tabs::-webkit-scrollbar {
+    display: none;
   }
 }
 
@@ -623,11 +642,9 @@ html, body {
   @keyframes contentEnter {
     from {
       opacity: 0.98;
-      transform: translateY(4px);
     }
     to {
       opacity: 1;
-      transform: translateY(0);
     }
   }
 
@@ -873,4 +890,267 @@ body.swal2-shown {
 
 .animate-fade-out {
   animation: fadeOut 0.3s ease-out forwards;
+}
+
+/* Rich Text Editor（Quill）— 與網站表單風格一致 */
+.rich-text-editor {
+  --editor-min-height: 120px;
+  position: relative;
+  z-index: 1;
+  overflow: visible !important;
+}
+
+/* 下拉展開時抬高整塊編輯器，避免被後續區塊蓋住（含手機） */
+.rich-text-editor.picker-open,
+.rich-text-editor:has(.ql-picker.ql-expanded) {
+  z-index: 200 !important;
+}
+
+.rich-text-editor .ql-toolbar {
+  position: relative !important;
+  z-index: 100 !important;
+  background-color: #f9fafb !important;
+  border: none !important;
+  border-bottom: 1px solid #e5e7eb !important;
+  border-top-left-radius: 0.75rem !important;
+  border-top-right-radius: 0.75rem !important;
+  padding: 6px 8px !important;
+  font-family: inherit;
+  overflow: visible !important;
+}
+
+.rich-text-editor .ql-container {
+  position: relative !important;
+  z-index: 1 !important;
+  border: none !important;
+  border-bottom-left-radius: 0.75rem !important;
+  border-bottom-right-radius: 0.75rem !important;
+  font-size: 0.9375rem;
+  font-family: inherit;
+}
+
+.rich-text-editor .ql-editor {
+  min-height: var(--editor-min-height, 120px);
+  line-height: 1.7;
+  color: #111827;
+  padding: 0.75rem 1rem !important;
+}
+
+.rich-text-editor .ql-editor.ql-blank::before {
+  color: #9ca3af !important;
+  font-style: normal !important;
+  left: 1rem !important;
+  right: 1rem !important;
+}
+
+.rich-text-editor .ql-editor:focus::before {
+  display: none !important;
+}
+
+.rich-text-editor .ql-editor li::before {
+  line-height: inherit !important;
+}
+
+.rich-text-editor .ql-toolbar,
+.rich-text-editor .ql-container,
+.rich-text-editor .ql-editor {
+  overflow: visible !important;
+}
+
+.rich-text-editor .ql-toolbar .ql-picker,
+.rich-text-editor .ql-toolbar .ql-picker .ql-picker-label,
+.rich-text-editor .ql-toolbar .ql-picker .ql-picker-options,
+.rich-text-editor .ql-toolbar .ql-picker:not(.ql-color-picker) .ql-picker-item,
+.rich-text-editor .ql-toolbar .ql-picker:not(.ql-color-picker) .ql-picker-item:hover,
+.rich-text-editor .ql-toolbar .ql-picker:not(.ql-color-picker) .ql-picker-item.ql-selected {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+}
+
+.rich-text-editor .ql-toolbar .ql-picker {
+  border-color: #d1d5db !important;
+}
+
+.rich-text-editor .ql-toolbar button {
+  background-color: transparent !important;
+  border-radius: 0.375rem !important;
+}
+
+.rich-text-editor .ql-toolbar button:hover,
+.rich-text-editor .ql-toolbar button.ql-active {
+  background-color: #eef2ff !important;
+  color: #4f46e5 !important;
+}
+
+.rich-text-editor .ql-toolbar .ql-stroke {
+  stroke: #4b5563 !important;
+}
+
+.rich-text-editor .ql-toolbar .ql-fill {
+  fill: #4b5563 !important;
+}
+
+.rich-text-editor .ql-toolbar button:hover .ql-stroke,
+.rich-text-editor .ql-toolbar button.ql-active .ql-stroke {
+  stroke: #4f46e5 !important;
+}
+
+.rich-text-editor .ql-toolbar button:hover .ql-fill,
+.rich-text-editor .ql-toolbar button.ql-active .ql-fill {
+  fill: #4f46e5 !important;
+}
+
+.rich-text-editor .ql-toolbar .ql-formats {
+  position: relative;
+  z-index: 1;
+  margin-right: 8px !important;
+}
+
+.rich-text-editor .ql-toolbar .ql-formats:has(.ql-picker.ql-expanded) {
+  z-index: 300 !important;
+}
+
+.rich-text-editor .ql-toolbar .ql-picker {
+  position: relative;
+  z-index: 1;
+}
+
+.rich-text-editor .ql-toolbar .ql-picker.ql-expanded {
+  z-index: 300 !important;
+}
+
+.rich-text-editor .ql-toolbar .ql-picker.ql-expanded .ql-picker-label {
+  background-color: #ffffff !important;
+  z-index: 301 !important;
+}
+
+.rich-text-editor .ql-toolbar .ql-picker.ql-expanded .ql-picker-options {
+  z-index: 302 !important;
+  position: absolute !important;
+  top: 100% !important;
+  left: 0 !important;
+  background-color: #ffffff !important;
+  opacity: 1 !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14) !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 0.5rem !important;
+  overflow: auto !important;
+  max-height: min(240px, 50vh) !important;
+}
+
+.rich-text-editor .ql-toolbar .ql-picker:not(.ql-color-picker).ql-expanded .ql-picker-item,
+.rich-text-editor .ql-toolbar .ql-picker:not(.ql-color-picker) .ql-picker-item {
+  background-color: #ffffff !important;
+  opacity: 1 !important;
+  color: #111827 !important;
+}
+
+.rich-text-editor .ql-toolbar select.ql-size,
+.rich-text-editor .ql-toolbar select.ql-list,
+.rich-text-editor .ql-toolbar select.ql-color,
+.rich-text-editor .ql-toolbar select.ql-background {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+
+.rich-text-editor .ql-snow .ql-size-small { font-size: 0.85em; }
+.rich-text-editor .ql-snow .ql-size-large { font-size: 1.5em; }
+.rich-text-editor .ql-snow .ql-size-huge { font-size: 2.5em; }
+
+.rich-text-editor .ql-toolbar button.ql-latex {
+  width: 28px;
+  height: 24px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rich-text-editor .ql-toolbar button.ql-latex .ql-latex-icon {
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  color: #4b5563;
+  pointer-events: none;
+  user-select: none;
+}
+
+.rich-text-editor .ql-toolbar button.ql-latex:hover .ql-latex-icon,
+.rich-text-editor .ql-toolbar button.ql-latex.ql-active .ql-latex-icon {
+  color: #4f46e5;
+}
+
+.rich-text-editor .ql-toolbar button.ql-latex svg {
+  display: none !important;
+}
+
+.rich-text-editor .ql-formula,
+.rich-text-editor .ql-formula-block {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  margin: 0 2px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.rich-text-editor .ql-formula-block {
+  display: flex;
+  justify-content: center;
+  text-align: center;
+  padding: 4px 0;
+  margin: 8px 0;
+}
+
+.rich-text-editor .ql-formula .katex,
+.rich-text-editor .ql-formula-block .katex {
+  pointer-events: none;
+  vertical-align: middle !important;
+  line-height: 1;
+}
+
+.rich-text-editor .ql-editor p,
+.rich-text-editor .ql-editor li {
+  line-height: 1.7;
+}
+
+.rich-text-editor .ql-editor .ql-formula {
+  /* 與同行一般文字的視覺中線對齊 */
+  vertical-align: middle;
+}
+
+.rich-text-editor .fill-in-blank-embed,
+.rich-text-editor .fill-in-blank-katex {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  margin: 0 1px;
+  cursor: default;
+}
+
+.rich-text-editor .fill-in-blank-embed .katex,
+.rich-text-editor .fill-in-blank-katex .katex {
+  pointer-events: none;
+  vertical-align: middle !important;
+}
+
+.rich-text-editor.compact .ql-editor {
+  min-height: var(--editor-min-height, 72px);
+}
+
+.rich-text-editor.compact .ql-toolbar {
+  padding: 4px 6px !important;
+}
+
+@media (max-width: 640px) {
+  .rich-text-editor .ql-toolbar {
+    gap: 0.2rem;
+  }
+  .rich-text-editor .ql-toolbar .ql-formats button,
+  .rich-text-editor .ql-toolbar .ql-formats .ql-picker {
+    min-width: 1.9rem;
+    min-height: 1.9rem;
+  }
 }

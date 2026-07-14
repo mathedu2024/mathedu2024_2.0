@@ -2,9 +2,9 @@ import { adminDb as db } from './firebase-admin';
 import * as admin from 'firebase-admin';
 import {
   assignUniqueCheckInCode,
-  generateUniqueDigitalCheckInCode,
-  getUsedCheckInCodes,
+  publicCheckInCodeForActivity,
 } from './attendanceCode';
+import { verifyStoredQrToken } from './attendanceQrToken';
 
 // Base student data structure
 interface Student {
@@ -315,7 +315,7 @@ interface AttendanceActivityData {
   courseId: string;
   teacherId: string;
   title: string;
-  checkInMethod: 'manual' | 'numeric';
+  checkInMethod: 'manual' | 'numeric' | 'qr';
   startTime: Date;
   endTime: Date;
   gracePeriodMinutes: number;
@@ -327,7 +327,8 @@ interface CheckInData {
     courseId: string; // Added courseId
     activityId: string;
     studentId: string;
-    checkInCode: string;
+    checkInCode?: string;
+    qrToken?: string;
 }
 
 export async function createAttendanceActivity(data: AttendanceActivityData): Promise<{ activityId: string; checkInCode: string | null; }> {
@@ -341,8 +342,10 @@ export async function createAttendanceActivity(data: AttendanceActivityData): Pr
 
     const checkInCode = await assignUniqueCheckInCode(db, courseId, data.checkInMethod);
 
-    const activityPayload = {
-      ...activityData,
+    const { creationMode: _creationMode, ...restActivityData } = activityData;
+
+    const activityPayload: Record<string, unknown> = {
+      ...restActivityData,
       courseId, // Keep courseId in the activity doc for collection group queries
       startTime: admin.firestore.Timestamp.fromDate(new Date(data.startTime)),
       endTime: admin.firestore.Timestamp.fromDate(new Date(data.endTime)),
@@ -350,8 +353,6 @@ export async function createAttendanceActivity(data: AttendanceActivityData): Pr
       checkInCode,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
-
-    delete activityPayload.creationMode;
 
     const courseAttendanceRef = db.collection('courses').doc(courseId).collection('attendance');
     const docRef = await courseAttendanceRef.add(activityPayload);
@@ -401,13 +402,13 @@ export async function startAttendanceActivity(courseId: string, activityId: stri
         }
 
         const existingCode = activityDoc.data()?.checkInCode;
+        const method = activityDoc.data()?.checkInMethod || 'numeric';
         let checkInCode = typeof existingCode === 'string' && existingCode.length > 0
           ? existingCode
           : null;
 
         if (!checkInCode) {
-          const used = await getUsedCheckInCodes(db, courseId, activityId);
-          checkInCode = generateUniqueDigitalCheckInCode(used);
+          checkInCode = await assignUniqueCheckInCode(db, courseId, method, activityId);
         }
 
         await activityRef.update({
@@ -430,7 +431,7 @@ export async function startAttendanceActivity(courseId: string, activityId: stri
  * @returns A string indicating the result, e.g., 'present' or 'late'.
  */
 export async function submitCheckIn(data: CheckInData): Promise<string> {
-    const { courseId, activityId, studentId, checkInCode } = data;
+    const { courseId, activityId, studentId, checkInCode, qrToken } = data;
 
     try {
         const status = await db.runTransaction(async (transaction) => {
@@ -442,6 +443,8 @@ export async function submitCheckIn(data: CheckInData): Promise<string> {
             const activityDoc = await transaction.get(activityRef);
             const studentAttendanceDoc = await transaction.get(studentAttendanceRef);
             const studentDoc = await transaction.get(studentProfileRef);
+            const rosterStudentRef = activityRef.collection('roster').doc(studentId);
+            const rosterStudentDoc = await transaction.get(rosterStudentRef);
 
             // 2. All checks must come after reads
             if (!activityDoc.exists) {
@@ -458,33 +461,68 @@ export async function submitCheckIn(data: CheckInData): Promise<string> {
             const activityData = activityDoc.data() as any;
             const studentData = studentDoc.data();
             const studentName = studentData?.name || '未知學生';
-            const studentActualId = studentData?.studentId || studentId; // Use actual studentId from doc if available
-
-            const rosterStudentRef = activityRef.collection('roster').doc(studentId);
-
-            // 5. Business logic checks
-            if (activityData.status !== 'active') {
-                throw new Error('點名活動尚未開始或已結束。');
-            }
-
-            if (activityData.checkInCode !== checkInCode) {
-                throw new Error('簽到碼錯誤。');
-            }
+            const studentActualId = studentData?.studentId || studentId;
 
             const now = new Date();
             const startTime = (activityData.startTime as admin.firestore.Timestamp).toDate();
+            const endTime = (activityData.endTime as admin.firestore.Timestamp | undefined)?.toDate?.()
+              ?? (activityData.endTime ? new Date(activityData.endTime) : null);
+
+            if (endTime && !Number.isNaN(endTime.getTime()) && now > endTime) {
+                throw new Error('點名活動尚未開始或已結束。');
+            }
+
+            // 預約點名：開始時間未到不可簽到；時間到了於交易內改為 active
+            if (activityData.status === 'scheduled') {
+                if (now < startTime) {
+                    throw new Error('點名活動尚未開始或已結束。');
+                }
+            } else if (activityData.status !== 'active') {
+                throw new Error('點名活動尚未開始或已結束。');
+            }
+
+            const method = activityData.checkInMethod || 'numeric';
+            if (method === 'qr') {
+                if (!qrToken || !verifyStoredQrToken(activityData as Record<string, unknown>, qrToken)) {
+                    throw new Error('簽到 QR 已過期或無效，請重新掃描。');
+                }
+            } else if (method === 'numeric') {
+                if (!checkInCode || activityData.checkInCode !== checkInCode) {
+                    throw new Error('簽到碼錯誤。');
+                }
+            } else {
+                throw new Error('此點名活動不支援學生自行簽到。');
+            }
+
             const gracePeriodEnd = new Date(startTime.getTime() + (activityData.gracePeriodMinutes || 0) * 60000);
 
+            // 預先請假後若有簽到 → 改出席，並在備註寫明
+            const priorRoster = rosterStudentDoc.exists ? rosterStudentDoc.data() : null;
+            const wasLeave = priorRoster?.status === 'leave';
             let attendanceStatus = 'present';
-            if (now > gracePeriodEnd) {
+            if (!wasLeave && now > gracePeriodEnd) {
                 attendanceStatus = 'late';
             }
 
-            // 6. All writes must come last
-            transaction.update(activityRef, {
+            const leaveType = wasLeave ? String(priorRoster?.leaveType || '其他') : '';
+            const leaveRemark = wasLeave ? `請假有點名(假別：${leaveType})` : '';
+            const existingRemarks = typeof priorRoster?.remarks === 'string' ? priorRoster.remarks.trim() : '';
+            const mergedRemarks = leaveRemark
+              ? (existingRemarks && !existingRemarks.includes('請假有點名')
+                  ? `${existingRemarks}；${leaveRemark}`
+                  : existingRemarks || leaveRemark)
+              : existingRemarks;
+
+            // 6. All writes must come last（同一文件只 update 一次）
+            const activityUpdate: Record<string, unknown> = {
                 presentStudentIds: admin.firestore.FieldValue.arrayUnion(studentId),
-                presentCount: admin.firestore.FieldValue.increment(1)
-            });
+                presentCount: admin.firestore.FieldValue.increment(1),
+            };
+            if (activityData.status === 'scheduled') {
+                activityUpdate.status = 'active';
+                activityUpdate.startedAt = admin.firestore.FieldValue.serverTimestamp();
+            }
+            transaction.update(activityRef, activityUpdate);
 
             transaction.set(studentAttendanceRef, {
                 studentId,
@@ -492,11 +530,17 @@ export async function submitCheckIn(data: CheckInData): Promise<string> {
                 status: attendanceStatus,
             });
 
-            transaction.set(rosterStudentRef, {
+            const rosterPayload: Record<string, unknown> = {
                 studentId: studentActualId,
                 name: studentName,
                 status: attendanceStatus,
-            }, { merge: true });
+                remarks: mergedRemarks || '',
+            };
+            if (wasLeave) {
+              rosterPayload.leaveType = admin.firestore.FieldValue.delete();
+            }
+
+            transaction.set(rosterStudentRef, rosterPayload, { merge: true });
 
             return attendanceStatus;
         });
@@ -545,7 +589,7 @@ export interface AttendanceActivity {
     startTime: string;
     endTime: string;
     status: 'scheduled' | 'active' | 'completed';
-    checkInMethod: 'manual' | 'numeric';
+    checkInMethod: 'manual' | 'numeric' | 'qr';
     checkInCode?: string | null;
     expected: number;
     present: number;
@@ -621,7 +665,7 @@ export async function getActivitiesForCourse(courseId: string): Promise<Attendan
                 endTime: (data.endTime instanceof admin.firestore.Timestamp) ? data.endTime.toDate().toISOString() : new Date(data.endTime).toISOString(),
                 status: data.status,
                 checkInMethod: data.checkInMethod,
-                checkInCode: data.checkInCode || null,
+                checkInCode: publicCheckInCodeForActivity(data),
                 expected: expectedCount,
                 present: presentCount,
                 absent: absentCount,

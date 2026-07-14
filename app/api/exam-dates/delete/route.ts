@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { adminDb } from '@/services/firebase-admin';
 
 export async function DELETE(req: NextRequest) {
@@ -19,6 +20,9 @@ export async function DELETE(req: NextRequest) {
 
     return NextResponse.json({ message: 'Exam date deleted successfully' });
   } catch (error) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     console.error('Error deleting exam date:', error);
     return NextResponse.json({ message: 'Error deleting exam date' }, { status: 500 });
   }

@@ -42,6 +42,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { getSession } from '@/utils/session';
 import PageLoadingArea from '@/components/ui/PageLoadingArea';
+import { tableActionStyles, tableActionRow } from '../app/components/ui';
 import Dropdown from '../app/components/Dropdown';
 import Swal from 'sweetalert2';
 
@@ -512,7 +513,7 @@ export default function ResourceManagement() {
             <CloudArrowDownIcon className="h-8 w-8 text-indigo-600" />
             線上資源管理
           </h1>
-          <p className="text-gray-500 text-sm mt-1">建立供學生搜尋的教學資源夾與下載連結</p>
+          <p className="text-gray-500 text-sm mt-1">管理教學影片連結、PDF 教材與外部網頁</p>
         </div>
         {!loading && (
         <button 
@@ -659,34 +660,33 @@ export default function ResourceManagement() {
                           {folder.status === 'public' ? '公開' : '私有'}
                         </button>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right space-x-2">
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <div className={tableActionRow}>
                       <button 
                         onClick={() => openPreviewModal(folder)}
-                        className="p-2 text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-all"
-                        title="預覽"
+                        className={tableActionStyles.success}
                       >
-                        <EyeIcon className="h-5 w-5" />
+                        預覽
                       </button>
                         {canEdit ? (
                           <>
                             <button 
                               onClick={() => openModal(folder)}
-                              className="p-2 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                              title="編輯"
+                              className={tableActionStyles.primary}
                             >
-                              <PencilSquareIcon className="h-5 w-5" />
+                              編輯
                             </button>
                             <button 
                               onClick={() => handleDelete(folder.id)}
-                              className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                              title="刪除"
+                              className={tableActionStyles.danger}
                             >
-                              <TrashIcon className="h-5 w-5" />
+                              刪除
                             </button>
                           </>
                         ) : (
                           <span className="text-xs text-gray-400 italic">無編輯權限</span>
                         )}
+                      </div>
                       </td>
                     </tr>
                   );
@@ -741,17 +741,17 @@ export default function ResourceManagement() {
                      {folder.status === 'public' ? <GlobeAsiaAustraliaIcon className="h-3 w-3 flex-shrink-0" /> : <LockClosedIcon className="h-3 w-3 flex-shrink-0" />}
                      {folder.status === 'public' ? '公開' : '私有'}
                    </button>
-                   <div className="flex gap-2">
-                     <button onClick={(e) => { e.stopPropagation(); openPreviewModal(folder); }} className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-all flex-shrink-0" title="預覽">
-                       <EyeIcon className="w-5 h-5" />
+                   <div className={tableActionRow}>
+                     <button onClick={(e) => { e.stopPropagation(); openPreviewModal(folder); }} className={tableActionStyles.success}>
+                       預覽
                      </button>
                      {canEdit && (
                        <>
-                       <button onClick={(e) => { e.stopPropagation(); openModal(folder); }} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all flex-shrink-0">
-                         <PencilSquareIcon className="w-5 h-5" />
+                       <button onClick={(e) => { e.stopPropagation(); openModal(folder); }} className={tableActionStyles.primary}>
+                         編輯
                        </button>
-                       <button onClick={(e) => { e.stopPropagation(); handleDelete(folder.id); }} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all flex-shrink-0">
-                         <TrashIcon className="w-5 h-5" />
+                       <button onClick={(e) => { e.stopPropagation(); handleDelete(folder.id); }} className={tableActionStyles.danger}>
+                         刪除
                        </button>
                        </>
                      )}
@@ -771,7 +771,7 @@ export default function ResourceManagement() {
 
       {/* Edit/Create Modal (Tailwind Implementation) */}
       {isModalOpen && mounted && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-gray-900/60 animate-fade-in">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-pop-in">
             {/* Modal Header */}
             <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 p-6 flex justify-between items-center text-white">
@@ -936,7 +936,7 @@ export default function ResourceManagement() {
 
       {/* Preview Modal */}
       {isPreviewModalOpen && previewFolder && mounted && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-gray-900/80 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-gray-900/80 animate-fade-in">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] animate-pop-in">
             {/* Header */}
             <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 p-6 flex justify-between items-center text-white shrink-0">

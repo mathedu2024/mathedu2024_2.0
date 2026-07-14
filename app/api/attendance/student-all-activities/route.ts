@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { adminDb } from '@/services/firebase-admin';
 import { resolveCourseDocsByEnrolledIds } from '@/services/courseId';
 import { getSessionFromCookie } from '@/utils/session';
@@ -11,7 +12,8 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const studentId = session.id; 
+    const studentId = session.id;
+    const filterCourseId = req.nextUrl.searchParams.get('courseId')?.trim() || '';
 
     const studentProfileDoc = await adminDb.collection('student_data').doc(studentId).get();
 
@@ -30,41 +32,78 @@ export async function GET(req: NextRequest) {
 
     const resolvedMap = await resolveCourseDocsByEnrolledIds(adminDb, enrolledCourses);
     const seenDocIds = new Set<string>();
-    const allActivities = [];
+    const courseTargets: { courseId: string; courseName: string }[] = [];
 
     for (const enrolledId of enrolledCourses) {
       const courseDoc = resolvedMap.get(enrolledId);
       if (!courseDoc || seenDocIds.has(courseDoc.id)) continue;
+      if (filterCourseId && courseDoc.id !== filterCourseId) continue;
       seenDocIds.add(courseDoc.id);
-
-      const courseId = courseDoc.id;
-      const courseName = courseDoc.data().name || '未知課程';
-
-      const activitiesSnapshot = await adminDb.collection('courses').doc(courseId).collection('attendance').get();
-      if (activitiesSnapshot.empty) continue;
-
-      for (const activityDoc of activitiesSnapshot.docs) {
-        const activityData = activityDoc.data();
-        let studentStatus = '';
-
-        const rosterDoc = await adminDb.collection('courses').doc(courseId).collection('attendance').doc(activityDoc.id).collection('roster').doc(studentId).get();
-        if (rosterDoc.exists) {
-          studentStatus = rosterDoc.data()?.status || '';
-        }
-
-        allActivities.push({
-          id: activityDoc.id,
-          courseId: courseId,
-          firestoreCourseId: courseId,
-          title: activityData.title,
-          courseName: courseName,
-          startTime: activityData.startTime.toDate(),
-          endTime: activityData.endTime.toDate(),
-          status: activityData.startTime.toDate() > new Date() ? 'upcoming' : (activityData.endTime.toDate() < new Date() ? 'past' : 'active'),
-          studentStatus: studentStatus,
-        });
-      }
+      courseTargets.push({
+        courseId: courseDoc.id,
+        courseName: courseDoc.data().name || '未知課程',
+      });
+      if (filterCourseId) break;
     }
+
+    const courseActivityBatches = await Promise.all(
+      courseTargets.map(async ({ courseId, courseName }) => {
+        const activitiesSnapshot = await adminDb
+          .collection('courses')
+          .doc(courseId)
+          .collection('attendance')
+          .get();
+        if (activitiesSnapshot.empty) return [];
+
+        const visibleDocs = activitiesSnapshot.docs.filter(
+          (doc) => doc.data().visibleToStudents !== false
+        );
+
+        return Promise.all(
+          visibleDocs.map(async (activityDoc) => {
+            const activityData = activityDoc.data();
+            let studentStatus = '';
+            let studentLeaveType: string | undefined;
+
+            const rosterDoc = await adminDb
+              .collection('courses')
+              .doc(courseId)
+              .collection('attendance')
+              .doc(activityDoc.id)
+              .collection('roster')
+              .doc(studentId)
+              .get();
+            if (rosterDoc.exists) {
+              const rosterData = rosterDoc.data();
+              studentStatus = rosterData?.status || '';
+              if (studentStatus === 'leave' && rosterData?.leaveType) {
+                studentLeaveType = String(rosterData.leaveType);
+              }
+            }
+
+            return {
+              id: activityDoc.id,
+              courseId,
+              firestoreCourseId: courseId,
+              title: activityData.title,
+              courseName,
+              startTime: activityData.startTime.toDate(),
+              endTime: activityData.endTime.toDate(),
+              status:
+                activityData.startTime.toDate() > new Date()
+                  ? 'upcoming'
+                  : activityData.endTime.toDate() < new Date()
+                    ? 'past'
+                    : 'active',
+              studentStatus,
+              studentLeaveType,
+            };
+          })
+        );
+      })
+    );
+
+    const allActivities = courseActivityBatches.flat();
 
     allActivities.sort((a, b) => {
       if (a.status === 'upcoming' && b.status !== 'upcoming') return -1;
@@ -76,6 +115,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(allActivities);
   } catch (error) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     console.error('Error fetching all student activities:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     return NextResponse.json({ error: 'Failed to fetch all attendance activities.', details: errorMessage }, { status: 500 });

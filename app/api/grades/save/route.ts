@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { adminDb } from '@/services/firebase-admin';
 import { settingsToTotalSetting } from '@/services/gradeShape';
+import { requireAuthFromRequest, authGuard } from '@/services/apiAuth';
 
 /**
- * 寫入 `courses/{課程DocId}/grades/data`
- * 支援舊版 body：{ courseName, courseCode, gradeData }
- * 與老師端 GradeManager：{ courseId, students, columnDetails, regularColumns, settings }
+ * ?? `courses/{??DocId}/grades/data`
  */
 export async function POST(req: NextRequest) {
+  const denied = authGuard(requireAuthFromRequest(req, 'admin', 'teacher'));
+  if (denied) return denied;
+
   try {
     const body = await req.json();
     const courseDocId =
@@ -30,7 +33,7 @@ export async function POST(req: NextRequest) {
 
     if (!courseDocId || !gradeData) {
       return NextResponse.json(
-        { error: '缺少必要參數（courseId 或 courseName／courseCode、成績資料）' },
+        { error: '???????courseId ? courseName?courseCode??????' },
         { status: 400 }
       );
     }
@@ -64,8 +67,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
-    let message = '儲存失敗';
-    if (error instanceof Error) message = error.message;
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
+    const message = error instanceof Error ? error.message : '????';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

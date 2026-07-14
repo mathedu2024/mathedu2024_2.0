@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { adminDb } from '@/services/firebase-admin';
 import { FieldPath } from 'firebase-admin/firestore';
 
@@ -24,6 +25,9 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json(teachers);
   } catch (e) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(e, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
 } 

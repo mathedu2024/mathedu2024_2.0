@@ -1,17 +1,18 @@
 ﻿'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
 import "react-datepicker/dist/react-datepicker.css";
-import Swal from 'sweetalert2';
-import { LoadingSpinner, PageLoadingArea } from './ui'; 
+import Swal from '@/utils/swalTheme';
+import { LoadingSpinner, PageLoadingArea, BackButton, btnStyles, btnWithIconStyle, btnIcon, btnIconGap, tableActionStyles, tableActionRowWrap, TabNav } from './ui';
 import { DragDropContext, Droppable, Draggable, DropResult, DroppableProvided, DraggableProvided } from '@hello-pangea/dnd';
+import { fixDraggableStyle } from '@/utils/dndStyle';
 import { 
   PlusIcon, 
-  PencilIcon, 
   TrashIcon, 
   BookOpenIcon,
-  ArrowLeftIcon,
   CloudArrowUpIcon,
   Bars3Icon,
   XMarkIcon,
@@ -24,12 +25,70 @@ import {
   MegaphoneIcon,
   DocumentTextIcon,
   FolderIcon,
-  ChatBubbleLeftRightIcon
+  ChatBubbleLeftRightIcon,
+  ClipboardDocumentCheckIcon,
+  ClipboardDocumentListIcon,
+  DocumentDuplicateIcon,
+  CalendarDaysIcon,
+  ChartBarIcon,
+  PencilSquareIcon,
+  InformationCircleIcon,
+  BoltIcon,
 } from '@heroicons/react/24/outline';
 import CourseFilter from './CourseFilter';
 import Dropdown from './ui/Dropdown';
+import { getCourseStatusColor, courseListTableStyles, filterAndSortCoursesForList } from './studentCourseListShared';
 import { formatCourseDateForDisplay } from '@/services/courseDate';
+import { filterQuizzesForCourse } from '@/services/gradeQuizImport';
+import { normalizeLessonAssignedQuizzes, getOrphanedLessonQuizzes, filterLessonAssignedQuizzes, type LessonAssignedQuiz } from '@/services/lessonQuiz';
+import type { Quiz } from '@/services/quizTypes';
+import { normalizeAssignedCourses, validateQuizForPublish } from '@/services/quizTypes';
 import RichTextEditor from '../../components/RichTextEditor';
+import { examDetailPath, examCreatePath } from '@/utils/examRoutes';
+import { surveyDetailPath, surveyCreatePath } from '@/utils/surveyRoutes';
+import { teacherCourseHubPath } from '@/utils/teacherCourseHub';
+import { openTeacherCoursePreviewInNewTab } from '@/utils/teacherCoursePreview';
+import { openTeacherCourseInteractInNewTab } from '@/utils/teacherCourseInteract';
+import {
+  invalidateTeacherQuizzes,
+  invalidateQuizByCode,
+  fetchTeacherQuizzes,
+  fetchTeacherSurveys,
+  invalidateTeacherSurveys,
+  invalidateSurveyByCode,
+  fetchCoursesByTeacherId,
+  fetchTeacherCourseLessons,
+  invalidateTeacherCourseLessons,
+} from '@/utils/teacherClientApi';
+import type { Survey } from '@/services/surveyTypes';
+import {
+  filterSurveysForCourse,
+  formatSurveyResponseMode,
+  validateSurveyForPublish,
+  normalizeAssignedCourses as normalizeSurveyAssignedCourses,
+} from '@/services/surveyTypes';
+import CourseHubTabNav, {
+  TEACHER_COURSE_HUB_TAB_IDS,
+  CourseHubFeatureIcon,
+} from './CourseHubTabNav';
+import StudentVisibilityToggle, { isStudentVisible } from './StudentVisibilityToggle';
+
+const GradeManager = dynamic(() => import('./GradeManager'), { ssr: false });
+const AttendanceManagementComponent = dynamic(() => import('./AttendanceManagementComponent'), { ssr: false });
+
+const TEACHER_COURSE_TABS = TEACHER_COURSE_HUB_TAB_IDS;
+type TeacherCourseTab = (typeof TEACHER_COURSE_TABS)[number];
+
+function parseTeacherCourseTab(value: string | null | undefined): TeacherCourseTab {
+  if (value && (TEACHER_COURSE_TABS as readonly string[]).includes(value)) {
+    return value as TeacherCourseTab;
+  }
+  return 'lessons';
+}
+
+function buildTeacherCourseTabUrl(courseCode: string, tab: TeacherCourseTab): string {
+  return teacherCourseHubPath(courseCode, tab);
+}
 
 const customLinkIconOptions = [
   { value: 'LinkIcon', label: '預設連結' },
@@ -54,7 +113,7 @@ const Modal = ({ open, onClose, title, size = 'md', children }: { open: boolean;
    
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex justify-center items-center p-4 animate-fade-in">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
+      <div className="absolute inset-0 bg-black/60" onClick={onClose}></div>
       <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${maxWidthClass} max-h-full sm:max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in border border-gray-100`}>
         <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
           <h3 className="text-xl font-bold flex items-center">{title}</h3>
@@ -102,6 +161,10 @@ interface CourseAnnouncement {
   content: string;
   links: { name: string; url: string }[];
   createdAt: string;
+  /** 開放＝學生可見；隱藏＝學生端不顯示（未設視為開放，相容舊資料） */
+  visibleToStudents?: boolean;
+  /** 最近一次對學生開放的時間 */
+  visiblePublishedAt?: string;
 }
 
 export interface Course {
@@ -131,6 +194,8 @@ export interface Course {
 interface TeacherCourseManagerProps {
   userInfo: UserInfo | null;
   courses?: Course[];
+  courseCodeFromUrl?: string;
+  tabFromUrl?: string;
 }
 
 interface LessonData {
@@ -138,6 +203,8 @@ interface LessonData {
   title: string;
   date: string;
   visibleToStudents?: boolean;
+  /** 最近一次對學生開放的時間 */
+  visiblePublishedAt?: string;
   progress: string;
   attachments?: LessonAttachment[];
   noAttachment?: boolean;
@@ -145,6 +212,11 @@ interface LessonData {
   homework?: string;
   noHomework?: boolean;
   onlineExam?: string;
+  assignedQuizzes?: LessonAssignedQuiz[];
+  /** @deprecated 儲存時仍寫入以相容舊資料 */
+  assignedQuizCodes?: string[];
+  /** @deprecated 儲存時仍寫入以相容舊資料 */
+  requireQuizBeforeVideo?: boolean;
   noOnlineExam?: boolean;
   examScope?: string;
   noExamScope?: boolean;
@@ -169,40 +241,60 @@ interface ClassTime {
 }
 
 // 課堂管理元件
-function LessonManager({ courseId, courseName, courseCode, onClose, isArchived = false }: { courseId: string, courseName: string, courseCode: string, onClose: () => void, isArchived?: boolean }) {
+const emptyLessonForm = (): Omit<LessonData, 'id' | 'order' | 'createdAt' | 'updatedAt'> => ({
+  title: '',
+  date: '',
+  visibleToStudents: true,
+  progress: '',
+  attachments: [{ name: '', url: '', visibleToStudents: true }],
+  noAttachment: false,
+  videos: [''],
+  homework: '',
+  noHomework: false,
+  onlineExam: '',
+  assignedQuizzes: [],
+  noOnlineExam: false,
+  examScope: '',
+  noExamScope: false,
+  notes: '',
+  noNotes: false,
+});
+
+function LessonManager({
+  courseId,
+  courseName,
+  courseCode,
+  teacherId,
+  onClose,
+  isArchived = false,
+  embedded = false,
+}: {
+  courseId: string;
+  courseName: string;
+  courseCode: string;
+  teacherId: string;
+  onClose: () => void;
+  isArchived?: boolean;
+  embedded?: boolean;
+}) {
   const [lessons, setLessons] = useState<LessonData[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLesson, setEditingLesson] = useState<LessonData | null>(null);
+  const [courseQuizzes, setCourseQuizzes] = useState<Quiz[]>([]);
+  const [quizzesLoading, setQuizzesLoading] = useState(false);
 
-  const [form, setForm] = useState<Omit<LessonData, 'id' | 'order' | 'createdAt' | 'updatedAt'>>({
-    title: '', date: '', visibleToStudents: true, progress: '', attachments: [{ name: '', url: '', visibleToStudents: true }], noAttachment: false, videos: [''], homework: '', noHomework: false, onlineExam: '', noOnlineExam: false, examScope: '', noExamScope: false, notes: '', noNotes: false,
-  });
+  const [form, setForm] = useState<Omit<LessonData, 'id' | 'order' | 'createdAt' | 'updatedAt'>>(emptyLessonForm());
 
   const [isOrderDirty, setIsOrderDirty] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isDesktop, setIsDesktop] = useState(() =>
-    typeof window !== 'undefined' ? window.matchMedia('(min-width: 768px)').matches : true
-  );
-
-  useEffect(() => {
-    const mq = window.matchMedia('(min-width: 768px)');
-    const update = () => setIsDesktop(mq.matches);
-    mq.addEventListener('change', update);
-    return () => mq.removeEventListener('change', update);
-  }, []);
 
   const fetchLessons = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/lessons/list', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ courseId })
-      });
-      const lessons = await res.json();
+      const lessons = await fetchTeacherCourseLessons(courseId);
       const sortedLessons = Array.isArray(lessons)
-        ? lessons.sort((a, b) => {
+        ? (lessons as LessonData[]).sort((a, b) => {
             const aOrder = typeof a.order === 'number' ? a.order : 9999;
             const bOrder = typeof b.order === 'number' ? b.order : 9999;
             if (aOrder === 9999 && bOrder === 9999) return (a.date ? new Date(a.date).getTime() : 0) - (b.date ? new Date(b.date).getTime() : 0);
@@ -220,6 +312,64 @@ function LessonManager({ courseId, courseName, courseCode, onClose, isArchived =
   useEffect(() => {
     if (courseId) fetchLessons();
   }, [courseId, fetchLessons]);
+
+  useEffect(() => {
+    if (!isModalOpen || !teacherId || !courseId) return;
+
+    let cancelled = false;
+    setQuizzesLoading(true);
+    fetchTeacherQuizzes(teacherId)
+      .then((quizzes) => {
+        if (!cancelled) {
+          setCourseQuizzes(filterQuizzesForCourse(quizzes, courseId, { publishedOnly: false }));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setCourseQuizzes([]);
+      })
+      .finally(() => {
+        if (!cancelled) setQuizzesLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isModalOpen, teacherId, courseId]);
+
+  const validCourseQuizCodes = useMemo(
+    () => new Set(courseQuizzes.map((q) => q.quizCode)),
+    [courseQuizzes]
+  );
+
+  const orphanedAssignedQuizzes = useMemo(
+    () => getOrphanedLessonQuizzes(form.assignedQuizzes ?? [], validCourseQuizCodes),
+    [form.assignedQuizzes, validCourseQuizCodes]
+  );
+
+  const toggleAssignedQuiz = (quizCode: string, checked: boolean) => {
+    setForm((f) => {
+      const current = f.assignedQuizzes ?? [];
+      const next = checked
+        ? current.some((q) => q.quizCode === quizCode)
+          ? current
+          : [...current, { quizCode, requireBeforeVideo: false }]
+        : current.filter((q) => q.quizCode !== quizCode);
+      return {
+        ...f,
+        assignedQuizzes: next,
+        noOnlineExam: next.length === 0 && !f.onlineExam?.trim(),
+      };
+    });
+  };
+
+  const toggleQuizRequireBeforeVideo = (quizCode: string, checked: boolean) => {
+    setForm((f) => ({
+      ...f,
+      assignedQuizzes: (f.assignedQuizzes ?? []).map((q) =>
+        q.quizCode === quizCode ? { ...q, requireBeforeVideo: checked } : q
+      ),
+    }));
+  };
 
   const onDragEnd = (result: DropResult) => {
     const { source, destination } = result;
@@ -243,6 +393,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose, isArchived =
       }
       Swal.fire('成功', '變更已儲存', 'success');
       setIsOrderDirty(false);
+      invalidateTeacherCourseLessons(courseId);
     } catch {
       Swal.fire('錯誤', '儲存變更失敗', 'error');
     } finally {
@@ -253,7 +404,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose, isArchived =
 
   const openAddModal = () => {
     setEditingLesson(null);
-    setForm({ title: '', date: '', visibleToStudents: true, progress: '', attachments: [{ name: '', url: '', visibleToStudents: true }], noAttachment: false, videos: [''], homework: '', noHomework: false, onlineExam: '', noOnlineExam: false, examScope: '', noExamScope: false, notes: '', noNotes: false });
+    setForm(emptyLessonForm());
     setIsModalOpen(true);
   };
 
@@ -268,9 +419,25 @@ function LessonManager({ courseId, courseName, courseCode, onClose, isArchived =
         visibleToStudents: att?.visibleToStudents !== false,
       };
     });
+    const assignedQuizzes = normalizeLessonAssignedQuizzes(lesson);
     setEditingLesson(lesson);
     setForm({
-      title: lesson.title, date: lesson.date, visibleToStudents: lesson.visibleToStudents !== false, progress: lesson.progress, attachments: normalizedAttachments, noAttachment: lesson.noAttachment || false, videos: lesson.videos || [''], homework: lesson.homework || '', noHomework: lesson.noHomework || false, onlineExam: lesson.onlineExam || '', noOnlineExam: lesson.noOnlineExam || false, examScope: lesson.examScope || '', noExamScope: lesson.noExamScope || false, notes: lesson.notes || '', noNotes: lesson.noNotes || false,
+      title: lesson.title,
+      date: lesson.date,
+      visibleToStudents: lesson.visibleToStudents !== false,
+      progress: lesson.progress,
+      attachments: normalizedAttachments,
+      noAttachment: lesson.noAttachment || false,
+      videos: lesson.videos || [''],
+      homework: lesson.homework || '',
+      noHomework: lesson.noHomework || false,
+      onlineExam: lesson.onlineExam || '',
+      assignedQuizzes,
+      noOnlineExam: lesson.noOnlineExam || (assignedQuizzes.length === 0 && !lesson.onlineExam?.trim()),
+      examScope: lesson.examScope || '',
+      noExamScope: lesson.noExamScope || false,
+      notes: lesson.notes || '',
+      noNotes: lesson.noNotes || false,
     });
     setIsModalOpen(true);
   };
@@ -278,6 +445,13 @@ function LessonManager({ courseId, courseName, courseCode, onClose, isArchived =
   const handleFormSubmit = async () => {
     setIsSubmitting(true);
     try {
+      const assignedQuizzes = form.noOnlineExam
+        ? []
+        : filterLessonAssignedQuizzes(
+            (form.assignedQuizzes ?? []).filter((q) => q.quizCode?.trim()),
+            validCourseQuizCodes
+          );
+      const assignedQuizCodes = assignedQuizzes.map((q) => q.quizCode);
       const lessonData = {
         ...form,
         attachments: (form.attachments || [])
@@ -287,7 +461,22 @@ function LessonManager({ courseId, courseName, courseCode, onClose, isArchived =
             url: a.url.trim(),
             visibleToStudents: a.visibleToStudents !== false,
           })),
+        assignedQuizzes,
+        assignedQuizCodes,
+        requireQuizBeforeVideo: assignedQuizzes.some((q) => q.requireBeforeVideo),
+        onlineExam: assignedQuizzes.length > 0 ? '' : form.onlineExam?.trim() ?? '',
+        noOnlineExam:
+          form.noOnlineExam ||
+          (assignedQuizzes.length === 0 && !form.onlineExam?.trim()),
         updatedAt: new Date().toISOString(),
+        ...(form.visibleToStudents !== false
+          ? {
+              visiblePublishedAt:
+                editingLesson && isStudentVisible(editingLesson.visibleToStudents)
+                  ? editingLesson.visiblePublishedAt || new Date().toISOString()
+                  : new Date().toISOString(),
+            }
+          : { visiblePublishedAt: null }),
       };
 
       if (editingLesson) {
@@ -295,6 +484,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose, isArchived =
       } else {
         await fetch('/api/lessons/create', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ courseId, ...lessonData, createdAt: new Date().toISOString() }) });
       }
+      invalidateTeacherCourseLessons(courseId);
       setIsModalOpen(false); setEditingLesson(null); await fetchLessons();
       Swal.fire('成功', editingLesson ? '課堂已更新' : '課堂已新增', 'success');
     } catch { Swal.fire('錯誤', '操作失敗', 'error'); } finally { setIsSubmitting(false); }
@@ -305,6 +495,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose, isArchived =
     if (!result.isConfirmed) return;
     try {
       await fetch('/api/lessons/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ courseId, lessonId }) });
+      invalidateTeacherCourseLessons(courseId);
       setLessons(lessons.filter(l => l.id !== lessonId));
       Swal.fire('已刪除', '課堂已移除', 'success');
     } catch { Swal.fire('錯誤', '刪除失敗', 'error'); }
@@ -321,10 +512,26 @@ function LessonManager({ courseId, courseName, courseCode, onClose, isArchived =
           courseId,
           lessonId: lesson.id,
           visibleToStudents: nextVisible,
+          ...(nextVisible
+            ? { visiblePublishedAt: new Date().toISOString() }
+            : { visiblePublishedAt: null }),
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setLessons((prev) => prev.map((l) => (l.id === lesson.id ? { ...l, visibleToStudents: nextVisible } : l)));
+      invalidateTeacherCourseLessons(courseId);
+      setLessons((prev) =>
+        prev.map((l) =>
+          l.id === lesson.id
+            ? {
+                ...l,
+                visibleToStudents: nextVisible,
+                ...(nextVisible
+                  ? { visiblePublishedAt: new Date().toISOString() }
+                  : { visiblePublishedAt: undefined }),
+              }
+            : l
+        )
+      );
       Swal.fire('成功', `已${nextVisible ? '開放' : '隱藏'}此課堂給學生查看。`, 'success');
     } catch (error) {
       console.error('更新課堂可見性失敗:', error);
@@ -343,9 +550,10 @@ function LessonManager({ courseId, courseName, courseCode, onClose, isArchived =
   const handleVideoChange = (idx: number, value: string) => setForm((f) => { const v = [...(f.videos || [])]; v[idx] = value; return { ...f, videos: v }; });
 
   return (
-    <div className="page-shell w-full min-w-0 pb-10 flex flex-col animate-fade-in">
-      {/* Header Area */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
+    <div className={embedded ? 'w-full min-w-0 flex flex-col animate-fade-in' : 'page-shell w-full min-w-0 pb-10 flex flex-col animate-fade-in'}>
+      {!embedded && (
+      <>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-0">
         <div className="border-l-4 border-indigo-500 pl-4">
           <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
             <BookOpenIcon className="h-8 w-8 text-indigo-600" />
@@ -353,200 +561,187 @@ function LessonManager({ courseId, courseName, courseCode, onClose, isArchived =
           </h1>
           <p className="text-gray-500 text-sm mt-1">{courseCode}</p>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <button className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors shadow-sm font-medium flex items-center" onClick={onClose}>
-            <ArrowLeftIcon className="w-4 h-4 mr-2" /> 返回列表
-          </button>
-          {!isArchived && (
-            <button className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center" onClick={openAddModal}>
-              <PlusIcon className="w-4 h-4 mr-2" /> 新增課堂
-            </button>
-          )}
-          {!isArchived && isOrderDirty && (
-            <button className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center ml-auto" onClick={handleSaveChanges} disabled={isSubmitting}>
-              {isSubmitting ? <LoadingSpinner size={16} color="white" /> : <><CloudArrowUpIcon className="w-4 h-4 mr-2" /> 儲存排序</>}
-            </button>
-          )}
-        </div>
       </div>
-
       {isArchived && (
-        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl flex items-center shadow-sm mb-6">
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl flex items-center shadow-sm mb-4">
           <span className="font-bold mr-2">提示：</span>
           此課程已封存，您只能查看課堂資料，無法新增或修改。
         </div>
+      )}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4 mb-6">
+        <BackButton label="返回列表" onClick={onClose} withSpacing={false} />
+        {!isArchived && (
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <button className={btnWithIconStyle(btnStyles.primary)} onClick={openAddModal}>
+              <PlusIcon className="w-4 h-4 mr-2" /> 新增課堂
+            </button>
+            {isOrderDirty && (
+              <button className={btnWithIconStyle(btnStyles.primary)} onClick={handleSaveChanges} disabled={isSubmitting}>
+                {isSubmitting ? <LoadingSpinner size={16} color="white" /> : <><CloudArrowUpIcon className="w-4 h-4 mr-2" /> 儲存排序</>}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+      </>
+      )}
+      {embedded && (
+      <>
+      {isArchived && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl flex items-center shadow-sm mb-4">
+          <span className="font-bold mr-2">提示：</span>
+          此課程已封存，您只能查看課堂資料，無法新增或修改。
+        </div>
+      )}
+      {!isArchived && (
+      <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3 mb-6">
+        <button className={btnWithIconStyle(btnStyles.primary)} onClick={openAddModal}>
+          <PlusIcon className="w-4 h-4 mr-2" /> 新增課堂
+        </button>
+        {isOrderDirty && (
+          <button className={btnWithIconStyle(btnStyles.primary)} onClick={handleSaveChanges} disabled={isSubmitting}>
+            {isSubmitting ? <LoadingSpinner size={16} color="white" /> : <><CloudArrowUpIcon className="w-4 h-4 mr-2" /> 儲存排序</>}
+          </button>
+        )}
+      </div>
+      )}
+      </>
       )}
 
       {isLoading ? (
         <PageLoadingArea />
       ) : (
       <DragDropContext onDragEnd={onDragEnd}>
-        {isDesktop ? (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden text-sm text-left text-gray-500">
-             <div className="grid grid-cols-[3rem_5rem_minmax(0,1fr)_7rem_7rem_8rem] bg-gray-50 text-xs text-gray-700 uppercase border-b border-gray-100">
-                <div className="px-4 py-4" />
-                <div className="px-6 py-4 font-bold">堂數</div>
-                <div className="px-6 py-4 font-bold">課堂標題</div>
-                <div className="px-6 py-4 font-bold">日期</div>
-                <div className="px-6 py-4 font-bold text-center">學生可見</div>
-                <div className="px-6 py-4 font-bold text-right">{isArchived ? '詳情' : '操作'}</div>
-             </div>
-                <Droppable droppableId="lesson-list">
-                    {(provided: DroppableProvided) => (
-                        <div className="divide-y divide-gray-100" ref={provided.innerRef} {...provided.droppableProps}>
-                            {lessons.length === 0 ? (
-                                <div className="text-center py-8 text-gray-400">目前沒有課堂資料</div>
-                            ) : (
-                                lessons.map((lesson, idx) => (
-                                    <Draggable key={lesson.id} draggableId={lesson.id} index={idx} isDragDisabled={isArchived}>
-                                        {(provided: DraggableProvided) => (
-                                            <div ref={provided.innerRef} {...provided.draggableProps} className="grid grid-cols-[3rem_5rem_minmax(0,1fr)_7rem_7rem_8rem] items-center hover:bg-indigo-50/30 transition-colors group bg-white">
-                                                <div className="px-4 py-4 cursor-move text-gray-400 hover:text-gray-600" {...provided.dragHandleProps}>
-                                                    {!isArchived && <Bars3Icon className="w-5 h-5" />}
-                                                </div>
-                                                <div className="px-6 py-4 font-medium text-indigo-600 whitespace-nowrap">
-                                                    第 {idx + 1} 堂
-                                                </div>
-                                                <div className="px-6 py-4 font-medium text-gray-900">
-                                                    <div className="line-clamp-2">{lesson.title}</div>
-                                                </div>
-                                                <div className="px-6 py-4 font-mono whitespace-nowrap">
-                                                    {lesson.date}
-                                                </div>
-                                                <div className="px-6 py-4 text-center whitespace-nowrap">
-                                                    <button
-                                                      onClick={() => !isArchived && handleToggleLessonVisibility(lesson)}
-                                                      className={`px-2.5 py-1 rounded-full text-xs font-bold border inline-flex items-center gap-1 ${
-                                                        lesson.visibleToStudents !== false
-                                                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                                          : 'bg-gray-100 text-gray-600 border-gray-200'
-                                                      } ${isArchived ? 'cursor-default opacity-80' : ''}`}
-                                                      disabled={isArchived}
-                                                    >
-                                                      {lesson.visibleToStudents !== false ? <EyeIcon className="w-3.5 h-3.5" /> : <EyeSlashIcon className="w-3.5 h-3.5" />}
-                                                      {lesson.visibleToStudents !== false ? '開放' : '隱藏'}
-                                                    </button>
-                                                </div>
-                                                <div className="px-6 py-4 text-right whitespace-nowrap">
-                                                    <div className="flex justify-end gap-2">
-                                                        <button onClick={() => handleEditClick(lesson)} className="text-indigo-600 hover:text-indigo-800 p-1 rounded-md hover:bg-indigo-50" title={isArchived ? "查看" : "編輯"}>
-                                                            {isArchived ? <EyeIcon className="w-4 h-4" /> : <PencilIcon className="w-4 h-4" />}
-                                                        </button>
-                                                        {!isArchived && (
-                                                          <button onClick={() => handleDeleteLesson(lesson.id)} className="text-red-500 hover:text-red-700 p-1 rounded-md hover:bg-red-50" title="刪除">
-                                                              <TrashIcon className="w-4 h-4" />
-                                                          </button>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </Draggable>
-                                ))
+        <Droppable droppableId="lesson-list">
+          {(provided: DroppableProvided) => (
+            <div className="grid grid-cols-1 gap-4" ref={provided.innerRef} {...provided.droppableProps}>
+              {lessons.length === 0 ? (
+                <div className="text-center min-h-[280px] flex flex-col items-center justify-center bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                  <BookOpenIcon className="w-12 h-12 mb-3 text-gray-300" />
+                  <p className="text-gray-500 font-medium">目前沒有課堂資料</p>
+                </div>
+              ) : (
+                lessons.map((lesson, idx) => (
+                  <Draggable key={lesson.id} draggableId={lesson.id} index={idx} isDragDisabled={isArchived}>
+                    {(provided: DraggableProvided, snapshot) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.draggableProps}
+                        style={fixDraggableStyle(provided.draggableProps.style)}
+                        className={`bg-white border border-gray-100 rounded-xl p-5 hover:shadow-md hover:border-indigo-200 transition-shadow duration-200 ${
+                          snapshot.isDragging ? 'shadow-lg border-indigo-200' : ''
+                        }`}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="min-w-0 flex items-start sm:items-center gap-3">
+                            {!isArchived && (
+                              <div
+                                className="cursor-move text-gray-300 hover:text-gray-500 shrink-0 mt-1 sm:mt-0"
+                                {...provided.dragHandleProps}
+                                title="拖曳排序"
+                              >
+                                <Bars3Icon className="w-5 h-5" />
+                              </div>
                             )}
-                            {provided.placeholder}
+                            <div className="hidden sm:flex flex-shrink-0 w-10 h-10 bg-indigo-50 rounded-full items-center justify-center text-indigo-600">
+                              <CourseHubFeatureIcon id="lessons" />
+                            </div>
+                            <div className="min-w-0">
+                              <span className="sm:hidden inline-flex items-center gap-1 text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md mb-1">
+                                <CourseHubFeatureIcon id="lessons" className="w-3.5 h-3.5" />
+                                第 {idx + 1} 堂
+                              </span>
+                              <h4 className="text-lg font-bold text-gray-900 line-clamp-2 leading-7">{lesson.title}</h4>
+                              <div className="text-sm text-gray-500 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                                <span className="inline-flex items-center">
+                                  <ClockIcon className="w-4 h-4 mr-1 shrink-0" />
+                                  {lesson.date || '日期未定'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
+                            <StudentVisibilityToggle
+                              open={isStudentVisible(lesson.visibleToStudents)}
+                              disabled={isArchived}
+                              onToggle={() => void handleToggleLessonVisibility(lesson)}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleEditClick(lesson)}
+                              className={isArchived ? courseListTableStyles.desktop.actionSecondary : courseListTableStyles.desktop.actionPrimary}
+                            >
+                              {isArchived ? '查看' : '編輯'}
+                            </button>
+                            {!isArchived && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteLesson(lesson.id)}
+                                className={courseListTableStyles.desktop.actionDanger}
+                              >
+                                刪除
+                              </button>
+                            )}
+                          </div>
                         </div>
+                      </div>
                     )}
-                </Droppable>
-        </div>
-        ) : (
-        /* Mobile View */
-        <div className="space-y-3">
-             <Droppable droppableId="lesson-list-mobile">
-                {(provided: DroppableProvided) => (
-                    <div ref={provided.innerRef} {...provided.droppableProps}>
-                        {lessons.map((lesson, idx) => (
-                            <Draggable key={lesson.id} draggableId={lesson.id} index={idx} isDragDisabled={isArchived}>
-                                {(provided: DraggableProvided) => (
-                                    <div ref={provided.innerRef} {...provided.draggableProps} className="bg-white border border-gray-200 rounded-xl p-4 mb-3 shadow-sm flex flex-col gap-3">
-                                        <div className="flex items-start gap-2">
-                                             <div className={`cursor-move text-gray-300 mt-0.5 ${isArchived ? 'hidden' : ''}`} {...provided.dragHandleProps}>
-                                                <Bars3Icon className="w-6 h-6" />
-                                             </div>
-                                             <div className="flex-1">
-                                                 <span className="text-xs font-bold text-indigo-600 block mb-0.5">第 {idx + 1} 堂</span>
-                                                 <h4 className="font-bold text-gray-800 mb-1.5">{lesson.title}</h4>
-                                                 <span className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-600 font-mono inline-block">{lesson.date}</span>
-                                             </div>
-                                        </div>
-                                        <div className="flex justify-between items-center pt-1 border-t border-gray-100 mt-1">
-                                            <div>
-                                              <button
-                                                onClick={() => !isArchived && handleToggleLessonVisibility(lesson)}
-                                                className={`px-2.5 py-1 rounded-full text-xs font-bold border inline-flex items-center gap-1 ${
-                                                  lesson.visibleToStudents !== false
-                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                                    : 'bg-gray-100 text-gray-600 border-gray-200'
-                                                } ${isArchived ? 'cursor-default opacity-80' : ''}`}
-                                                disabled={isArchived}
-                                              >
-                                                {lesson.visibleToStudents !== false ? <EyeIcon className="w-3.5 h-3.5" /> : <EyeSlashIcon className="w-3.5 h-3.5" />}
-                                                學生端{lesson.visibleToStudents !== false ? '開放' : '隱藏'}
-                                              </button>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <button onClick={() => handleEditClick(lesson)} className="flex items-center text-sm text-indigo-600 font-medium">
-                                                    {isArchived ? <EyeIcon className="w-4 h-4 mr-1" /> : <PencilIcon className="w-4 h-4 mr-1" />} {isArchived ? '查看' : '編輯'}
-                                                </button>
-                                                {!isArchived && (
-                                                  <button onClick={() => handleDeleteLesson(lesson.id)} className="flex items-center text-sm text-red-500 font-medium">
-                                                      <TrashIcon className="w-4 h-4 mr-1" /> 刪除
-                                                  </button>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </Draggable>
-                        ))}
-                        {provided.placeholder}
-                    </div>
-                )}
-             </Droppable>
-        </div>
-        )}
+                  </Draggable>
+                ))
+              )}
+              {provided.placeholder}
+            </div>
+          )}
+        </Droppable>
       </DragDropContext>
       )}
 
       <Modal open={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingLesson ? (isArchived ? '查看課堂' : '編輯課堂') : '新增課堂'} size="lg">
-         <div className="space-y-6">
+         <div className="space-y-0">
             {isArchived && (
-              <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl flex items-center shadow-sm">
+              <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl flex items-center shadow-sm mb-4">
                 <span className="font-bold mr-2">提示：</span>
                 此為封存課程，僅供檢視。
               </div>
             )}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 <div className="md:col-span-2">
-                    <label className="block text-sm font-bold text-gray-700 mb-1.5">課堂標題 <span className="text-red-500">*</span></label>
-                    <input type="text" className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all outline-none ${isArchived ? 'bg-gray-100 text-gray-500' : ''}`} value={form.title} onChange={e => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="例如：第一章 數列與級數" disabled={isArchived} />
-                 </div>
-                 <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1.5">課程日期 <span className="text-red-500">*</span></label>
-                    <input type="date" className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all outline-none ${isArchived ? 'bg-gray-100 text-gray-500' : ''}`} value={form.date} onChange={e => setForm((f) => ({ ...f, date: e.target.value }))} disabled={isArchived} />
-                 </div>
-                 <div className="flex items-end">
-                    <label className={`inline-flex items-center text-sm font-medium text-gray-700 ${isArchived ? 'opacity-60 cursor-default' : ''}`}>
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 text-indigo-600 rounded mr-2 accent-indigo-600 cursor-pointer disabled:opacity-50"
-                        checked={form.visibleToStudents !== false}
-                        onChange={(e) => setForm((f) => ({ ...f, visibleToStudents: e.target.checked }))}
-                        disabled={isArchived}
-                      />
-                      此課堂開放學生查看
-                    </label>
-                 </div>
-                 <div className="md:col-span-2">
-                    <label className="block text-sm font-bold text-gray-700 mb-1.5">課程進度</label>
-                    <textarea className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all outline-none resize-none ${isArchived ? 'bg-gray-100 text-gray-500' : ''}`} value={form.progress} onChange={e => setForm((f) => ({ ...f, progress: e.target.value }))} rows={3} placeholder="本堂課的教學重點..." disabled={isArchived} />
-                 </div>
+            <div className="border-t border-gray-100 pt-4">
+              <label className="flex items-center text-sm font-bold text-gray-700 mb-2">
+                <BookOpenIcon className="w-4 h-4 mr-1.5" />
+                課堂標題 <span className="text-red-500">*</span>
+              </label>
+              <input type="text" className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all outline-none ${isArchived ? 'bg-gray-100 text-gray-500' : ''}`} value={form.title} onChange={e => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="例如：第一章 數列與級數" disabled={isArchived} />
+            </div>
+
+            <div className="border-t border-gray-100 pt-4">
+              <label className="flex items-center text-sm font-bold text-gray-700 mb-2">
+                <CalendarDaysIcon className="w-4 h-4 mr-1.5" />
+                課程日期 <span className="text-red-500">*</span>
+              </label>
+              <input type="date" className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all outline-none ${isArchived ? 'bg-gray-100 text-gray-500' : ''}`} value={form.date} onChange={e => setForm((f) => ({ ...f, date: e.target.value }))} disabled={isArchived} />
+              <label className={`inline-flex items-center mt-3 text-sm font-medium text-gray-700 ${isArchived ? 'opacity-60 cursor-default' : ''}`}>
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 text-indigo-600 rounded mr-2 accent-indigo-600 cursor-pointer disabled:opacity-50"
+                  checked={form.visibleToStudents !== false}
+                  onChange={(e) => setForm((f) => ({ ...f, visibleToStudents: e.target.checked }))}
+                  disabled={isArchived}
+                />
+                此課堂開放學生查看
+              </label>
+            </div>
+
+            <div className="border-t border-gray-100 pt-4">
+              <label className="flex items-center text-sm font-bold text-gray-700 mb-2">
+                <ChartBarIcon className="w-4 h-4 mr-1.5" />
+                課程進度
+              </label>
+              <textarea className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 transition-all outline-none resize-none ${isArchived ? 'bg-gray-100 text-gray-500' : ''}`} value={form.progress} onChange={e => setForm((f) => ({ ...f, progress: e.target.value }))} rows={3} placeholder="本堂課的教學重點..." disabled={isArchived} />
             </div>
             
-            {/* Attachments & Videos ... (簡化，保持功能) */}
+            {/* Attachments & Videos */}
             <div className="border-t border-gray-100 pt-4">
                  <label className="flex items-center justify-between text-sm font-bold text-gray-700 mb-3">
-                    <span className="flex items-center"><PaperClipIcon className="w-4 h-4 mr-1"/> 附件資源</span>
+                    <span className="flex items-center"><PaperClipIcon className="w-4 h-4 mr-1.5"/> 附件資源</span>
                     <div className={`flex items-center font-normal ${isArchived ? 'opacity-60' : ''}`}>
                        <input type="checkbox" id="noAttachment" className="w-4 h-4 text-indigo-600 rounded mr-2 accent-indigo-600 cursor-pointer disabled:opacity-50" checked={form.noAttachment} onChange={e => setForm((f) => ({ ...f, noAttachment: e.target.checked }))} disabled={isArchived} />
                        <label htmlFor="noAttachment" className="text-gray-500 text-xs">無附件</label>
@@ -599,7 +794,7 @@ function LessonManager({ courseId, courseName, courseCode, onClose, isArchived =
             </div>
 
             <div className="border-t border-gray-100 pt-4">
-                 <label className="text-sm font-bold text-gray-700 mb-3 flex items-center"><VideoCameraIcon className="w-4 h-4 mr-1"/> 影片連結</label>
+                 <label className="text-sm font-bold text-gray-700 mb-3 flex items-center"><VideoCameraIcon className="w-4 h-4 mr-1.5"/> 影片連結</label>
                  <div className="space-y-3 bg-gray-50 p-4 rounded-xl border border-gray-100">
                     {(form.videos || []).map((video, idx) => (
                         <div key={idx} className="flex gap-2 items-center">
@@ -620,35 +815,198 @@ function LessonManager({ courseId, courseName, courseCode, onClose, isArchived =
                  </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-gray-100 pt-4">
-                <div>
-                    <div className="flex justify-between mb-1">
-                        <label className="text-sm font-bold text-gray-700">作業說明</label>
-                        <div className={`flex items-center ${isArchived ? 'opacity-60' : ''}`}><input type="checkbox" className="w-4 h-4 text-indigo-600 rounded mr-1.5 accent-indigo-600 cursor-pointer disabled:opacity-50" checked={form.noHomework} onChange={e => setForm(f => ({...f, noHomework: e.target.checked}))} disabled={isArchived} /><span className="text-xs text-gray-500">無作業</span></div>
-                    </div>
-                    {!form.noHomework && <textarea className={`w-full border rounded-lg p-2 text-sm focus:ring-indigo-500 resize-none ${isArchived ? 'bg-gray-100 text-gray-500' : ''}`} rows={2} value={form.homework} onChange={e => setForm(f => ({...f, homework: e.target.value}))} disabled={isArchived} />}
+            <div className="border-t border-gray-100 pt-4">
+              <label className="flex items-center justify-between text-sm font-bold text-gray-700 mb-3">
+                <span className="flex items-center">
+                  <ClipboardDocumentCheckIcon className="w-4 h-4 mr-1.5" />
+                  綁定線上測驗
+                </span>
+                <div className={`flex items-center font-normal ${isArchived ? 'opacity-60' : ''}`}>
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 text-indigo-600 rounded mr-1.5 accent-indigo-600 cursor-pointer disabled:opacity-50"
+                    checked={form.noOnlineExam}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        noOnlineExam: e.target.checked,
+                        assignedQuizzes: e.target.checked ? [] : f.assignedQuizzes,
+                        onlineExam: e.target.checked ? '' : f.onlineExam,
+                      }))
+                    }
+                    disabled={isArchived}
+                  />
+                  <span className="text-gray-500 text-xs">無測驗</span>
                 </div>
-                <div>
-                     <div className="flex justify-between mb-1">
-                        <label className="text-sm font-bold text-gray-700">線上測驗</label>
-                        <div className={`flex items-center ${isArchived ? 'opacity-60' : ''}`}><input type="checkbox" className="w-4 h-4 text-indigo-600 rounded mr-1.5 accent-indigo-600 cursor-pointer disabled:opacity-50" checked={form.noOnlineExam} onChange={e => setForm(f => ({...f, noOnlineExam: e.target.checked}))} disabled={isArchived} /><span className="text-xs text-gray-500">無測驗</span></div>
+              </label>
+              {!form.noOnlineExam && (
+                <div className="space-y-3 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                  <p className="text-xs text-gray-500">
+                    勾選要指派給本課堂的測驗（可複選）。學生可在課程頁／課堂內容中看到已綁定的測驗。
+                  </p>
+                  {quizzesLoading ? (
+                    <PageLoadingArea minHeight="min-h-[4rem]" />
+                  ) : courseQuizzes.length === 0 ? (
+                    <p className="text-sm text-gray-500">
+                      此課程尚無已開放的線上測驗。請先至「線上測驗」分頁建立並開放測驗。
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {orphanedAssignedQuizzes.length > 0 && (
+                        <div className="space-y-2 mb-3">
+                          {orphanedAssignedQuizzes.map((orphan) => (
+                            <div
+                              key={orphan.quizCode}
+                              className="flex items-start justify-between gap-3 p-3 rounded-lg border border-amber-200 bg-amber-50"
+                            >
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-amber-900">測驗已刪除或不再適用</p>
+                                <p className="text-xs text-amber-700 mt-0.5">
+                                  此課堂仍保留已失效的測驗指派，儲存後將自動移除。
+                                </p>
+                              </div>
+                              {!isArchived && (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleAssignedQuiz(orphan.quizCode, false)}
+                                  className="text-xs font-medium text-amber-800 hover:text-amber-950 shrink-0"
+                                >
+                                  移除
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex items-center justify-between text-xs text-gray-500 px-0.5">
+                        <span>請選擇要綁定的測驗</span>
+                        <span>
+                          已選 {(form.assignedQuizzes ?? []).filter((q) =>
+                            courseQuizzes.some((cq) => cq.quizCode === q.quizCode)
+                          ).length} / {courseQuizzes.length}
+                        </span>
+                      </div>
+                      {courseQuizzes.map((quiz) => {
+                        const assignment = (form.assignedQuizzes ?? []).find(
+                          (q) => q.quizCode === quiz.quizCode
+                        );
+                        const checked = !!assignment;
+                        return (
+                          <div
+                            key={quiz.id}
+                            className={`rounded-lg border transition-colors ${
+                              checked
+                                ? 'bg-indigo-50 border-indigo-200'
+                                : 'bg-white border-gray-200 hover:border-indigo-200'
+                            }`}
+                          >
+                            <label
+                              className={`flex items-start gap-3 p-3 ${
+                                isArchived ? 'opacity-60 cursor-default' : 'cursor-pointer'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                className="w-4 h-4 mt-1 text-indigo-600 rounded accent-indigo-600 cursor-pointer disabled:opacity-50"
+                                checked={checked}
+                                onChange={(e) => toggleAssignedQuiz(quiz.quizCode, e.target.checked)}
+                                disabled={isArchived}
+                              />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="text-sm font-bold text-gray-900">
+                                    {quiz.title}
+                                  </p>
+                                  {checked && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-indigo-600 text-white">
+                                      已綁定
+                                    </span>
+                                  )}
+                                  {quiz.teacherId !== teacherId && (
+                                    <span className="text-xs font-normal text-indigo-600">
+                                      （其他老師）
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  滿分 {quiz.totalPoints} 分
+                                  {!checked && ' · 勾選以指派給本課堂'}
+                                </p>
+                              </div>
+                            </label>
+                            {checked && (
+                              <label
+                                className={`flex items-center text-xs text-gray-700 px-3 pb-3 pl-10 ${
+                                  isArchived ? 'opacity-60 cursor-default' : 'cursor-pointer'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="w-4 h-4 text-indigo-600 rounded mr-2 accent-indigo-600 cursor-pointer disabled:opacity-50"
+                                  checked={!!assignment?.requireBeforeVideo}
+                                  onChange={(e) =>
+                                    toggleQuizRequireBeforeVideo(quiz.quizCode, e.target.checked)
+                                  }
+                                  disabled={isArchived}
+                                />
+                                需完成此測驗後才可觀看影片
+                              </label>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
-                    {!form.noOnlineExam && <textarea className={`w-full border rounded-lg p-2 text-sm focus:ring-indigo-500 resize-none ${isArchived ? 'bg-gray-100 text-gray-500' : ''}`} rows={2} value={form.onlineExam} onChange={e => setForm(f => ({...f, onlineExam: e.target.value}))} disabled={isArchived} />}
+                  )}
                 </div>
-                <div>
-                     <div className="flex justify-between mb-1">
-                        <label className="text-sm font-bold text-gray-700">考試範圍</label>
-                        <div className={`flex items-center ${isArchived ? 'opacity-60' : ''}`}><input type="checkbox" className="w-4 h-4 text-indigo-600 rounded mr-1.5 accent-indigo-600 cursor-pointer disabled:opacity-50" checked={form.noExamScope} onChange={e => setForm(f => ({...f, noExamScope: e.target.checked}))} disabled={isArchived} /><span className="text-xs text-gray-500">無範圍</span></div>
-                    </div>
-                    {!form.noExamScope && <textarea className={`w-full border rounded-lg p-2 text-sm focus:ring-indigo-500 resize-none ${isArchived ? 'bg-gray-100 text-gray-500' : ''}`} rows={2} value={form.examScope} onChange={e => setForm(f => ({...f, examScope: e.target.value}))} disabled={isArchived} />}
+              )}
+            </div>
+
+            <div className="border-t border-gray-100 pt-4">
+              <label className="flex items-center justify-between text-sm font-bold text-gray-700 mb-3">
+                <span className="flex items-center">
+                  <PencilSquareIcon className="w-4 h-4 mr-1.5" />
+                  作業說明
+                </span>
+                <div className={`flex items-center font-normal ${isArchived ? 'opacity-60' : ''}`}>
+                  <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded mr-1.5 accent-indigo-600 cursor-pointer disabled:opacity-50" checked={form.noHomework} onChange={e => setForm(f => ({...f, noHomework: e.target.checked}))} disabled={isArchived} />
+                  <span className="text-gray-500 text-xs">無作業</span>
                 </div>
-                 <div>
-                     <div className="flex justify-between mb-1">
-                        <label className="text-sm font-bold text-gray-700">注意事項</label>
-                        <div className={`flex items-center ${isArchived ? 'opacity-60' : ''}`}><input type="checkbox" className="w-4 h-4 text-indigo-600 rounded mr-1.5 accent-indigo-600 cursor-pointer disabled:opacity-50" checked={form.noNotes} onChange={e => setForm(f => ({...f, noNotes: e.target.checked}))} disabled={isArchived} /><span className="text-xs text-gray-500">無事項</span></div>
-                    </div>
-                    {!form.noNotes && <textarea className={`w-full border rounded-lg p-2 text-sm focus:ring-indigo-500 resize-none ${isArchived ? 'bg-gray-100 text-gray-500' : ''}`} rows={2} value={form.notes} onChange={e => setForm(f => ({...f, notes: e.target.value}))} disabled={isArchived} />}
+              </label>
+              {!form.noHomework && (
+                <textarea className={`w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-indigo-500 resize-none bg-gray-50 ${isArchived ? 'text-gray-500' : ''}`} rows={2} value={form.homework} onChange={e => setForm(f => ({...f, homework: e.target.value}))} disabled={isArchived} placeholder="請輸入作業說明..." />
+              )}
+            </div>
+
+            <div className="border-t border-gray-100 pt-4">
+              <label className="flex items-center justify-between text-sm font-bold text-gray-700 mb-3">
+                <span className="flex items-center">
+                  <DocumentTextIcon className="w-4 h-4 mr-1.5" />
+                  考試範圍
+                </span>
+                <div className={`flex items-center font-normal ${isArchived ? 'opacity-60' : ''}`}>
+                  <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded mr-1.5 accent-indigo-600 cursor-pointer disabled:opacity-50" checked={form.noExamScope} onChange={e => setForm(f => ({...f, noExamScope: e.target.checked}))} disabled={isArchived} />
+                  <span className="text-gray-500 text-xs">無範圍</span>
                 </div>
+              </label>
+              {!form.noExamScope && (
+                <textarea className={`w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-indigo-500 resize-none bg-gray-50 ${isArchived ? 'text-gray-500' : ''}`} rows={2} value={form.examScope} onChange={e => setForm(f => ({...f, examScope: e.target.value}))} disabled={isArchived} placeholder="請輸入考試範圍..." />
+              )}
+            </div>
+
+            <div className="border-t border-gray-100 pt-4">
+              <label className="flex items-center justify-between text-sm font-bold text-gray-700 mb-3">
+                <span className="flex items-center">
+                  <InformationCircleIcon className="w-4 h-4 mr-1.5" />
+                  注意事項
+                </span>
+                <div className={`flex items-center font-normal ${isArchived ? 'opacity-60' : ''}`}>
+                  <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded mr-1.5 accent-indigo-600 cursor-pointer disabled:opacity-50" checked={form.noNotes} onChange={e => setForm(f => ({...f, noNotes: e.target.checked}))} disabled={isArchived} />
+                  <span className="text-gray-500 text-xs">無事項</span>
+                </div>
+              </label>
+              {!form.noNotes && (
+                <textarea className={`w-full border border-gray-300 rounded-xl p-3 text-sm focus:ring-indigo-500 resize-none bg-gray-50 ${isArchived ? 'text-gray-500' : ''}`} rows={2} value={form.notes} onChange={e => setForm(f => ({...f, notes: e.target.value}))} disabled={isArchived} placeholder="請輸入注意事項..." />
+              )}
             </div>
 
             <div className="flex justify-end pt-4 gap-3 border-t border-gray-100">
@@ -665,7 +1023,13 @@ function LessonManager({ courseId, courseName, courseCode, onClose, isArchived =
   );
 }
 
-export default function TeacherCourseManager({ userInfo, courses: propCourses }: TeacherCourseManagerProps) {
+export default function TeacherCourseManager({
+  userInfo,
+  courses: propCourses,
+  courseCodeFromUrl = '',
+  tabFromUrl = '',
+}: TeacherCourseManagerProps) {
+  const router = useRouter();
   const [coursesState, setCourses] = useState<Course[]>([]);
   const courses = propCourses ?? coursesState;
   const [loading, setLoading] = useState(true);
@@ -673,9 +1037,27 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
   const [showCourseDetail, setShowCourseDetail] = useState<Course | null>(null);
   const [showLessonManager, setShowLessonManager] = useState<Course | null>(null);
   const [teacherNamesMap, setTeacherNamesMap] = useState<{ [courseId: string]: string[] }>({});
-  const [studentCounts, setStudentCounts] = useState<{ [courseId: string]: number }>({});
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [mounted, setMounted] = useState(false);
+  const [courseQuizzes, setCourseQuizzes] = useState<Quiz[]>([]);
+  const [allTeacherQuizzes, setAllTeacherQuizzes] = useState<Quiz[]>([]);
+  const [courseQuizzesLoading, setCourseQuizzesLoading] = useState(false);
+  const [examOrderSaving, setExamOrderSaving] = useState(false);
+  const [courseSurveys, setCourseSurveys] = useState<Survey[]>([]);
+  const [allTeacherSurveys, setAllTeacherSurveys] = useState<Survey[]>([]);
+  const [courseSurveysLoading, setCourseSurveysLoading] = useState(false);
+  const [surveyOrderSaving, setSurveyOrderSaving] = useState(false);
+  const [pullModalOpen, setPullModalOpen] = useState(false);
+  const [pullStep, setPullStep] = useState<'course' | 'quiz'>('course');
+  const [pullSourceKey, setPullSourceKey] = useState('');
+  const [pullQuizCode, setPullQuizCode] = useState('');
+  const [pullSubmitting, setPullSubmitting] = useState(false);
+  const [pullSurveyModalOpen, setPullSurveyModalOpen] = useState(false);
+  const [pullSurveyStep, setPullSurveyStep] = useState<'course' | 'survey'>('course');
+  const [pullSurveySourceKey, setPullSurveySourceKey] = useState('');
+  const [pullSurveyCode, setPullSurveyCode] = useState('');
+  const [pullSurveySubmitting, setPullSurveySubmitting] = useState(false);
+  const activeCourseTab = parseTeacherCourseTab(tabFromUrl);
 
   useEffect(() => { setMounted(true); }, []);
   const [searchTerm, setSearchTerm] = useState('');
@@ -687,6 +1069,634 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
   const [showAnnouncementManager, setShowAnnouncementManager] = useState<Course | null>(null);
   const [editingAnnouncement, setEditingAnnouncement] = useState<CourseAnnouncement | null>(null);
   const [annIsSubmitting, setAnnIsSubmitting] = useState(false);
+
+  const resolvedCourseFromUrl = useMemo(() => {
+    if (!courseCodeFromUrl) return null;
+    const decoded = decodeURIComponent(courseCodeFromUrl);
+    return courses.find((c) => c.code === decoded || c.id === decoded) ?? null;
+  }, [courseCodeFromUrl, courses]);
+
+  const setCourseTab = useCallback((tab: TeacherCourseTab) => {
+    const code = resolvedCourseFromUrl?.code || courseCodeFromUrl;
+    if (!code) return;
+    router.replace(buildTeacherCourseTabUrl(code, tab), { scroll: false });
+  }, [resolvedCourseFromUrl?.code, courseCodeFromUrl, router]);
+
+  const openCourseDetail = useCallback((course: Course, tab: TeacherCourseTab = 'lessons') => {
+    router.push(buildTeacherCourseTabUrl(course.code, tab));
+  }, [router]);
+
+  const pullQuizGroups = useMemo(() => {
+    if (!resolvedCourseFromUrl) {
+      return { courseOptions: [] as { value: string; label: string }[], quizzesByCourse: new Map<string, Quiz[]>() };
+    }
+    const currentId = resolvedCourseFromUrl.id;
+    const sourceQuizzes = allTeacherQuizzes.filter((q) => {
+      const assigned = normalizeAssignedCourses(q);
+      if (assigned.length === 0) return true;
+      return !assigned.some((c) => c.courseId === currentId);
+    });
+
+    const courseLabel = (courseId: string) => {
+      const c = courses.find((x) => x.id === courseId);
+      return c ? `${c.name}（${c.code}）` : '未指定班級';
+    };
+
+    const courseOptions: { value: string; label: string }[] = [];
+    const quizzesByCourse = new Map<string, Quiz[]>();
+    for (const quiz of sourceQuizzes) {
+      const courseId = normalizeAssignedCourses(quiz)[0]?.courseId ?? '';
+      const key = courseId || '__unassigned__';
+      if (!quizzesByCourse.has(key)) {
+        quizzesByCourse.set(key, []);
+        courseOptions.push({
+          value: key,
+          label: courseId ? courseLabel(courseId) : '未指定班級',
+        });
+      }
+      quizzesByCourse.get(key)!.push(quiz);
+    }
+    courseOptions.sort((a, b) => a.label.localeCompare(b.label, 'zh-Hant'));
+    return { courseOptions, quizzesByCourse };
+  }, [allTeacherQuizzes, courses, resolvedCourseFromUrl]);
+
+  const pullQuizzesInSource = useMemo(() => {
+    if (!pullSourceKey) return [] as Quiz[];
+    return pullQuizGroups.quizzesByCourse.get(pullSourceKey) ?? [];
+  }, [pullQuizGroups.quizzesByCourse, pullSourceKey]);
+
+  const openPullQuizModal = useCallback(() => {
+    if (!resolvedCourseFromUrl || resolvedCourseFromUrl.status === '已封存') return;
+    if (pullQuizGroups.courseOptions.length === 0) {
+      void Swal.fire({
+        icon: 'info',
+        title: '沒有可複製的測驗',
+        text: '其他班級目前沒有可供複製的測驗。',
+        confirmButtonColor: '#4f46e5',
+        customClass: { popup: 'rounded-2xl' },
+      });
+      return;
+    }
+    const firstKey = pullQuizGroups.courseOptions[0]?.value ?? '';
+    setPullSourceKey(firstKey);
+    setPullQuizCode('');
+    setPullStep('course');
+    setPullModalOpen(true);
+  }, [resolvedCourseFromUrl, pullQuizGroups.courseOptions]);
+
+  const closePullQuizModal = useCallback(() => {
+    if (pullSubmitting) return;
+    setPullModalOpen(false);
+    setPullStep('course');
+    setPullSourceKey('');
+    setPullQuizCode('');
+  }, [pullSubmitting]);
+
+  const pullSurveyGroups = useMemo(() => {
+    if (!resolvedCourseFromUrl) {
+      return { courseOptions: [] as { value: string; label: string }[], surveysByCourse: new Map<string, Survey[]>() };
+    }
+    const currentId = resolvedCourseFromUrl.id;
+    const sourceSurveys = allTeacherSurveys.filter((s) => {
+      const assigned = normalizeSurveyAssignedCourses(s);
+      if (assigned.length === 0) return true;
+      return !assigned.some((c) => c.courseId === currentId);
+    });
+
+    const courseLabel = (courseId: string) => {
+      const c = courses.find((x) => x.id === courseId);
+      return c ? `${c.name}（${c.code}）` : '未指定班級';
+    };
+
+    const courseOptions: { value: string; label: string }[] = [];
+    const surveysByCourse = new Map<string, Survey[]>();
+    for (const survey of sourceSurveys) {
+      const courseId = normalizeSurveyAssignedCourses(survey)[0]?.courseId ?? '';
+      const key = courseId || '__unassigned__';
+      if (!surveysByCourse.has(key)) {
+        surveysByCourse.set(key, []);
+        courseOptions.push({
+          value: key,
+          label: courseId ? courseLabel(courseId) : '未指定班級',
+        });
+      }
+      surveysByCourse.get(key)!.push(survey);
+    }
+    courseOptions.sort((a, b) => a.label.localeCompare(b.label, 'zh-Hant'));
+    return { courseOptions, surveysByCourse };
+  }, [allTeacherSurveys, courses, resolvedCourseFromUrl]);
+
+  const pullSurveysInSource = useMemo(() => {
+    if (!pullSurveySourceKey) return [] as Survey[];
+    return pullSurveyGroups.surveysByCourse.get(pullSurveySourceKey) ?? [];
+  }, [pullSurveyGroups.surveysByCourse, pullSurveySourceKey]);
+
+  const openPullSurveyModal = useCallback(() => {
+    if (!resolvedCourseFromUrl || resolvedCourseFromUrl.status === '已封存') return;
+    if (pullSurveyGroups.courseOptions.length === 0) {
+      void Swal.fire({
+        icon: 'info',
+        title: '沒有可複製的問卷',
+        text: '其他班級目前沒有可供複製的問卷。',
+        confirmButtonColor: '#4f46e5',
+        customClass: { popup: 'rounded-2xl' },
+      });
+      return;
+    }
+    const firstKey = pullSurveyGroups.courseOptions[0]?.value ?? '';
+    setPullSurveySourceKey(firstKey);
+    setPullSurveyCode('');
+    setPullSurveyStep('course');
+    setPullSurveyModalOpen(true);
+  }, [resolvedCourseFromUrl, pullSurveyGroups.courseOptions]);
+
+  const closePullSurveyModal = useCallback(() => {
+    if (pullSurveySubmitting) return;
+    setPullSurveyModalOpen(false);
+    setPullSurveyStep('course');
+    setPullSurveySourceKey('');
+    setPullSurveyCode('');
+  }, [pullSurveySubmitting]);
+
+  const confirmPullSurvey = useCallback(async () => {
+    if (!userInfo?.id || !resolvedCourseFromUrl || !pullSurveyCode) return;
+
+    setPullSurveySubmitting(true);
+    try {
+      Swal.fire({
+        title: '複製中…',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading(),
+      });
+
+      const res = await fetch('/api/surveys/duplicate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teacherId: userInfo.id,
+          sourceSurveyCode: pullSurveyCode,
+          courseId: resolvedCourseFromUrl.id,
+          courseName: `${resolvedCourseFromUrl.name}（${resolvedCourseFromUrl.code}）`,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || '複製失敗');
+
+      invalidateTeacherSurveys(userInfo.id);
+
+      const surveys = await fetchTeacherSurveys(userInfo.id);
+      setAllTeacherSurveys(surveys);
+      setCourseSurveys(filterSurveysForCourse(surveys, resolvedCourseFromUrl.id, { publishedOnly: false }));
+
+      setPullSurveyModalOpen(false);
+      setPullSurveyStep('course');
+      setPullSurveySourceKey('');
+      setPullSurveyCode('');
+
+      const openEdit = await Swal.fire({
+        icon: 'success',
+        title: '已複製到本班',
+        text: '已建立獨立草稿，可立即編輯或稍後再調整。',
+        showCancelButton: true,
+        confirmButtonColor: '#4f46e5',
+        cancelButtonColor: '#9ca3af',
+        confirmButtonText: '立即編輯',
+        cancelButtonText: '稍後',
+        customClass: { popup: 'rounded-2xl' },
+      });
+
+      if (openEdit.isConfirmed && data.surveyCode) {
+        router.push(
+          surveyDetailPath(
+            data.surveyCode,
+            undefined,
+            teacherCourseHubPath(resolvedCourseFromUrl.code, 'surveys')
+          )
+        );
+      }
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: '複製失敗',
+        text: error instanceof Error ? error.message : '請稍後再試',
+        confirmButtonColor: '#4f46e5',
+      });
+    } finally {
+      setPullSurveySubmitting(false);
+    }
+  }, [userInfo?.id, resolvedCourseFromUrl, pullSurveyCode, router]);
+
+  const confirmPullQuiz = useCallback(async () => {
+    if (!userInfo?.id || !resolvedCourseFromUrl || !pullQuizCode) return;
+
+    setPullSubmitting(true);
+    try {
+      Swal.fire({
+        title: '複製中…',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading(),
+      });
+
+      const res = await fetch('/api/quizzes/duplicate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teacherId: userInfo.id,
+          sourceQuizCode: pullQuizCode,
+          courseId: resolvedCourseFromUrl.id,
+          courseName: `${resolvedCourseFromUrl.name}（${resolvedCourseFromUrl.code}）`,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || '複製失敗');
+
+      invalidateTeacherQuizzes(userInfo.id);
+
+      const quizzes = await fetchTeacherQuizzes(userInfo.id);
+      setAllTeacherQuizzes(quizzes);
+      setCourseQuizzes(filterQuizzesForCourse(quizzes, resolvedCourseFromUrl.id, { publishedOnly: false }));
+
+      setPullModalOpen(false);
+      setPullStep('course');
+      setPullSourceKey('');
+      setPullQuizCode('');
+
+      const openEdit = await Swal.fire({
+        icon: 'success',
+        title: '已複製到本班',
+        text: '已建立獨立草稿，可立即編輯或稍後再調整。',
+        showCancelButton: true,
+        confirmButtonColor: '#4f46e5',
+        cancelButtonColor: '#9ca3af',
+        confirmButtonText: '立即編輯',
+        cancelButtonText: '稍後',
+        customClass: { popup: 'rounded-2xl' },
+      });
+
+      if (openEdit.isConfirmed && data.quizCode) {
+        router.push(
+          examDetailPath(
+            data.quizCode,
+            undefined,
+            teacherCourseHubPath(resolvedCourseFromUrl.code, 'exams')
+          )
+        );
+      }
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: '複製失敗',
+        text: error instanceof Error ? error.message : '請稍後再試',
+        confirmButtonColor: '#4f46e5',
+      });
+    } finally {
+      setPullSubmitting(false);
+    }
+  }, [userInfo?.id, resolvedCourseFromUrl, pullQuizCode, router]);
+
+  const handleDeleteCourseQuiz = useCallback(async (quiz: Quiz) => {
+    if (!userInfo?.id) return;
+    if (quiz.teacherId !== userInfo.id) {
+      await Swal.fire({
+        icon: 'info',
+        title: '無法刪除',
+        text: '僅建立者可刪除測驗。',
+        confirmButtonColor: '#4f46e5',
+        customClass: { popup: 'rounded-2xl' },
+      });
+      return;
+    }
+
+    const result = await Swal.fire({
+      title: '確定要刪除此測驗？',
+      text: '刪除後無法復原，請確認。',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#9ca3af',
+      confirmButtonText: '是的，刪除',
+      cancelButtonText: '取消',
+      customClass: { popup: 'rounded-2xl' },
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const res = await fetch('/api/quizzes/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quizId: quiz.id, teacherId: userInfo.id }),
+      });
+      if (!res.ok) throw new Error('刪除失敗');
+      invalidateTeacherQuizzes(userInfo.id);
+      invalidateQuizByCode(quiz.quizCode);
+      setCourseQuizzes((prev) => prev.filter((q) => q.id !== quiz.id));
+      setAllTeacherQuizzes((prev) => prev.filter((q) => q.id !== quiz.id));
+      Swal.fire({ icon: 'success', title: '已刪除', confirmButtonColor: '#4f46e5' });
+    } catch {
+      Swal.fire({ icon: 'error', title: '刪除失敗', confirmButtonColor: '#4f46e5' });
+    }
+  }, [userInfo?.id]);
+
+  useEffect(() => {
+    if (!resolvedCourseFromUrl || activeCourseTab !== 'exams' || !userInfo?.id) {
+      setCourseQuizzes([]);
+      setAllTeacherQuizzes([]);
+      return;
+    }
+    let cancelled = false;
+    setCourseQuizzesLoading(true);
+    fetchTeacherQuizzes(userInfo.id)
+      .then((quizzes) => {
+        if (!cancelled) {
+          setAllTeacherQuizzes(quizzes);
+          setCourseQuizzes(filterQuizzesForCourse(quizzes, resolvedCourseFromUrl.id, { publishedOnly: false }));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCourseQuizzes([]);
+          setAllTeacherQuizzes([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setCourseQuizzesLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [resolvedCourseFromUrl?.id, activeCourseTab, userInfo?.id]);
+
+  useEffect(() => {
+    if (!resolvedCourseFromUrl || activeCourseTab !== 'surveys' || !userInfo?.id) {
+      setCourseSurveys([]);
+      setAllTeacherSurveys([]);
+      return;
+    }
+    let cancelled = false;
+    setCourseSurveysLoading(true);
+    fetchTeacherSurveys(userInfo.id)
+      .then((surveys) => {
+        if (!cancelled) {
+          setAllTeacherSurveys(surveys);
+          setCourseSurveys(filterSurveysForCourse(surveys, resolvedCourseFromUrl.id, { publishedOnly: false }));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCourseSurveys([]);
+          setAllTeacherSurveys([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setCourseSurveysLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [resolvedCourseFromUrl?.id, activeCourseTab, userInfo?.id]);
+
+  const handleDeleteCourseSurvey = useCallback(async (survey: Survey) => {
+    if (!userInfo?.id) return;
+    const result = await Swal.fire({
+      title: '確定要刪除此問卷？',
+      text: '刪除後無法復原，相關回應也會一併刪除。',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#9ca3af',
+      confirmButtonText: '是的，刪除',
+      cancelButtonText: '取消',
+      customClass: { popup: 'rounded-2xl' },
+    });
+    if (!result.isConfirmed) return;
+    try {
+      const res = await fetch('/api/surveys/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ surveyId: survey.id, teacherId: userInfo.id }),
+      });
+      if (!res.ok) throw new Error('刪除失敗');
+      invalidateTeacherSurveys(userInfo.id);
+      invalidateSurveyByCode(survey.surveyCode);
+      setCourseSurveys((prev) => prev.filter((s) => s.id !== survey.id));
+      setAllTeacherSurveys((prev) => prev.filter((s) => s.id !== survey.id));
+      Swal.fire({ icon: 'success', title: '已刪除', confirmButtonColor: '#4f46e5' });
+    } catch {
+      Swal.fire({ icon: 'error', title: '刪除失敗', confirmButtonColor: '#4f46e5' });
+    }
+  }, [userInfo?.id]);
+
+  const handleToggleCourseQuizVisibility = useCallback(async (quiz: Quiz) => {
+    if (!userInfo?.id || resolvedCourseFromUrl?.status === '已封存') return;
+    const nextStatus = quiz.status === 'published' ? 'draft' : 'published';
+    if (nextStatus === 'published') {
+      const err = validateQuizForPublish(quiz);
+      if (err) {
+        await Swal.fire({
+          icon: 'warning',
+          title: '尚無法開放',
+          text: err,
+          confirmButtonColor: '#4f46e5',
+        });
+        return;
+      }
+    }
+    try {
+      const res = await fetch('/api/quizzes/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          quizId: quiz.id,
+          teacherId: userInfo.id,
+          status: nextStatus,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || '更新失敗');
+      invalidateTeacherQuizzes(userInfo.id);
+      invalidateQuizByCode(quiz.quizCode);
+      setCourseQuizzes((prev) =>
+        prev.map((q) => (q.id === quiz.id ? { ...q, status: nextStatus } : q))
+      );
+      Swal.fire({
+        icon: 'success',
+        title: nextStatus === 'published' ? '已開放' : '已隱藏',
+        text:
+          nextStatus === 'published'
+            ? '學生端現在可以看到此測驗。'
+            : '學生端將無法看到此測驗。',
+        confirmButtonColor: '#4f46e5',
+      });
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: error instanceof Error ? error.message : '更新失敗',
+        confirmButtonColor: '#4f46e5',
+      });
+    }
+  }, [userInfo?.id, resolvedCourseFromUrl?.status]);
+
+  const handleToggleCourseSurveyVisibility = useCallback(async (survey: Survey) => {
+    if (!userInfo?.id || resolvedCourseFromUrl?.status === '已封存') return;
+    const nextStatus = survey.status === 'published' ? 'draft' : 'published';
+    if (nextStatus === 'published') {
+      const err = validateSurveyForPublish(survey);
+      if (err) {
+        await Swal.fire({
+          icon: 'warning',
+          title: '尚無法開放',
+          text: err,
+          confirmButtonColor: '#4f46e5',
+        });
+        return;
+      }
+    }
+    try {
+      const res = await fetch('/api/surveys/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          surveyId: survey.id,
+          teacherId: userInfo.id,
+          status: nextStatus,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || '更新失敗');
+      invalidateTeacherSurveys(userInfo.id);
+      invalidateSurveyByCode(survey.surveyCode);
+      setCourseSurveys((prev) =>
+        prev.map((s) => (s.id === survey.id ? { ...s, status: nextStatus } : s))
+      );
+      Swal.fire({
+        icon: 'success',
+        title: nextStatus === 'published' ? '已開放' : '已隱藏',
+        text:
+          nextStatus === 'published'
+            ? '學生端現在可以看到此問卷。'
+            : '學生端將無法看到此問卷。',
+        confirmButtonColor: '#4f46e5',
+      });
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: error instanceof Error ? error.message : '更新失敗',
+        confirmButtonColor: '#4f46e5',
+      });
+    }
+  }, [userInfo?.id, resolvedCourseFromUrl?.status]);
+
+  const handleToggleAnnouncementVisibility = useCallback(async (ann: CourseAnnouncement) => {
+    if (!showAnnouncementManager || showAnnouncementManager.status === '已封存') return;
+    const nextVisible = !isStudentVisible(ann.visibleToStudents);
+    const newAnns = (showAnnouncementManager.announcements || []).map((a) =>
+      a.id === ann.id
+        ? {
+            ...a,
+            visibleToStudents: nextVisible,
+            ...(nextVisible
+              ? { visiblePublishedAt: new Date().toISOString() }
+              : { visiblePublishedAt: undefined }),
+          }
+        : a
+    );
+    try {
+      const res = await fetch('/api/courses/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: showAnnouncementManager.id, announcements: newAnns }),
+      });
+      if (!res.ok) throw new Error('更新失敗');
+      const updatedCourse = { ...showAnnouncementManager, announcements: newAnns };
+      setShowAnnouncementManager(updatedCourse);
+      setCourses((prev) => prev.map((c) => (c.id === updatedCourse.id ? updatedCourse : c)));
+      Swal.fire({
+        icon: 'success',
+        title: nextVisible ? '已開放' : '已隱藏',
+        text: nextVisible ? '學生端現在可以看到此公告。' : '學生端將無法看到此公告。',
+        confirmButtonColor: '#4f46e5',
+      });
+    } catch {
+      Swal.fire({ icon: 'error', title: '更新失敗', confirmButtonColor: '#4f46e5' });
+    }
+  }, [showAnnouncementManager]);
+
+  const handleCourseSurveyDragEnd = useCallback(async (result: DropResult) => {
+    const { source, destination } = result;
+    if (!destination || source.index === destination.index) return;
+    if (!userInfo?.id || !resolvedCourseFromUrl || resolvedCourseFromUrl.status === '已封存') return;
+
+    const items = Array.from(courseSurveys);
+    const [moved] = items.splice(source.index, 1);
+    items.splice(destination.index, 0, moved);
+    const next = items.map((item, index) => ({ ...item, order: index }));
+    setCourseSurveys(next);
+    setSurveyOrderSaving(true);
+    try {
+      const res = await fetch('/api/surveys/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teacherId: userInfo.id,
+          courseId: resolvedCourseFromUrl.id,
+          order: next.map((s) => s.id),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || '儲存順序失敗');
+      invalidateTeacherSurveys(userInfo.id);
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: error instanceof Error ? error.message : '儲存順序失敗',
+        confirmButtonColor: '#4f46e5',
+      });
+    } finally {
+      setSurveyOrderSaving(false);
+    }
+  }, [courseSurveys, userInfo?.id, resolvedCourseFromUrl]);
+
+  const handleCourseExamDragEnd = useCallback(async (result: DropResult) => {
+    const { source, destination } = result;
+    if (!destination || source.index === destination.index) return;
+    if (!userInfo?.id || !resolvedCourseFromUrl || resolvedCourseFromUrl.status === '已封存') return;
+
+    const items = Array.from(courseQuizzes);
+    const [moved] = items.splice(source.index, 1);
+    items.splice(destination.index, 0, moved);
+    const next = items.map((item, index) => ({ ...item, order: index }));
+    setCourseQuizzes(next);
+    setExamOrderSaving(true);
+    try {
+      const res = await fetch('/api/quizzes/reorder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          teacherId: userInfo.id,
+          courseId: resolvedCourseFromUrl.id,
+          order: next.map((q) => q.id),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || '儲存順序失敗');
+      invalidateTeacherQuizzes(userInfo.id);
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: '儲存順序失敗',
+        text: error instanceof Error ? error.message : '請稍後再試',
+        confirmButtonColor: '#4f46e5',
+      });
+      setCourseQuizzesLoading(true);
+      try {
+        const quizzes = await fetchTeacherQuizzes(userInfo.id);
+        setCourseQuizzes(filterQuizzesForCourse(quizzes, resolvedCourseFromUrl.id, { publishedOnly: false }));
+      } catch {
+        /* ignore */
+      } finally {
+        setCourseQuizzesLoading(false);
+      }
+    } finally {
+      setExamOrderSaving(false);
+    }
+  }, [courseQuizzes, userInfo?.id, resolvedCourseFromUrl]);
 
   const handleShowAnnouncementManager = async (course: Course) => {
       // 先立刻開啟視窗 (使用目前已有的資料)
@@ -705,6 +1715,16 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
           }
       } catch (e) {}
   };
+
+  useEffect(() => {
+    if (activeCourseTab === 'announcements' && resolvedCourseFromUrl) {
+      void handleShowAnnouncementManager(resolvedCourseFromUrl);
+    } else {
+      setShowAnnouncementManager(null);
+      setEditingAnnouncement(null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- open announcement panel when tab selected
+  }, [activeCourseTab, resolvedCourseFromUrl?.id]);
 
   const handleUpdateCourseDescription = async () => {
     if (!showCourseDetail) return;
@@ -780,17 +1800,6 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
       setTeacherNamesMap(newTeacherNamesMap);
       setLoading(false);
       _setError(null);
-
-      fetch('/api/student/list')
-        .then(res => res.ok ? res.json() : [])
-        .then(allStudents => {
-          const newSC: { [courseId: string]: number } = {};
-          allCourses.forEach((course: Course) => {
-            const courseKey = `${course.name}(${course.code})`;
-            newSC[course.id] = allStudents.filter((s: { enrolledCourses?: string[] }) => s.enrolledCourses && (s.enrolledCourses.includes(course.id) || s.enrolledCourses.includes(courseKey))).length;
-          });
-          setStudentCounts(newSC);
-        }).catch(() => {});
     } catch {
       setLoading(false);
     }
@@ -803,12 +1812,9 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
     }
     setLoading(true);
     try {
-      const res = await fetch('/api/courses/list', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ teacherId: userInfo.id }) });
-      if (res.ok) {
-        const allCourses = await res.json();
-        setCourses(allCourses);
-        await hydrateCoursesMetadata(allCourses);
-      } else { setCourses([]); setLoading(false); }
+      const allCourses = await fetchCoursesByTeacherId<Course>(userInfo.id);
+      setCourses(allCourses);
+      await hydrateCoursesMetadata(allCourses);
     } catch { setCourses([]); setLoading(false); }
   }, [userInfo?.id, hydrateCoursesMetadata]);
 
@@ -866,54 +1872,930 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
     return gradeTags.join(', ');
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case '報名中': return 'bg-emerald-100 text-emerald-800 border border-emerald-200';
-      case '開課中': return 'bg-indigo-100 text-indigo-800 border border-indigo-200';
-      case '已額滿': return 'bg-rose-100 text-rose-800 border border-rose-200';
-      case '未開課': return 'bg-amber-100 text-amber-800 border border-amber-200';
-      case '已結束': return 'bg-gray-100 text-gray-600 border border-gray-200';
-      case '已封存': return 'bg-red-50 text-red-700 border border-red-200';
-      default: return 'bg-gray-50 text-gray-600 border border-gray-200';
+  const filteredCourses = filterAndSortCoursesForList(courses, {
+    searchTerm,
+    selectedGrade,
+    selectedSubject,
+    selectedNature,
+    selectedStatus,
+  });
+
+  const saveEditingAnnouncement = async () => {
+    if (!showAnnouncementManager || !editingAnnouncement) return;
+    if (!editingAnnouncement.title || !editingAnnouncement.content) {
+      Swal.fire('警告', '標題與內容為必填', 'warning');
+      return;
+    }
+    setAnnIsSubmitting(true);
+    try {
+      const nowIso = new Date().toISOString();
+      const withPublishStamp: CourseAnnouncement =
+        isStudentVisible(editingAnnouncement.visibleToStudents)
+          ? {
+              ...editingAnnouncement,
+              visiblePublishedAt:
+                editingAnnouncement.visiblePublishedAt ||
+                (editingAnnouncement.id === 'new' ? nowIso : editingAnnouncement.createdAt) ||
+                nowIso,
+            }
+          : { ...editingAnnouncement, visiblePublishedAt: undefined };
+      const currentAnns = showAnnouncementManager.announcements || [];
+      const newAnns =
+        withPublishStamp.id === 'new'
+          ? [{ ...withPublishStamp, id: Date.now().toString(), createdAt: nowIso }, ...currentAnns]
+          : currentAnns.map((a) => (a.id === withPublishStamp.id ? withPublishStamp : a));
+      const res = await fetch('/api/courses/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: showAnnouncementManager.id, announcements: newAnns })
+      });
+      if (res.ok) {
+        const updatedCourse = { ...showAnnouncementManager, announcements: newAnns };
+        setShowAnnouncementManager(updatedCourse);
+        setCourses(prev => prev.map(c => c.id === updatedCourse.id ? updatedCourse : c));
+        setEditingAnnouncement(null);
+        Swal.fire({icon: 'success', title: '儲存成功', customClass: { popup: 'rounded-2xl' }});
+      } else {
+        throw new Error('Update failed');
+      }
+    } catch (e) {
+      Swal.fire('錯誤', '儲存失敗', 'error');
+    } finally {
+      setAnnIsSubmitting(false);
     }
   };
 
-  const filteredCourses = courses.filter(course => {
-    const statusMatch = selectedStatus === 'all' ? !(course.status && course.status.includes('已封存')) && !(course.name && course.name.includes('已封存')) : course.status === selectedStatus;
-    const natureMatch = selectedNature === 'all' || course.courseNature === selectedNature;
+  const announcementEditorModal = editingAnnouncement && showAnnouncementManager ? (
+    <Modal
+      open={true}
+      onClose={() => setEditingAnnouncement(null)}
+      title={editingAnnouncement.id === 'new' ? '新增公告' : '編輯公告'}
+      size="lg"
+    >
+      <div className="flex flex-col">
+        <div className="mb-4">
+          <label className="block text-sm font-bold text-gray-700 mb-1">公告標題 <span className="text-red-500">*</span></label>
+          <input type="text" value={editingAnnouncement.title} onChange={e => setEditingAnnouncement(prev => ({...prev!, title: e.target.value}))} className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="輸入標題..." />
+        </div>
+        <div className="mb-4">
+          <label className="block text-sm font-bold text-gray-700 mb-1.5">公告內容 <span className="text-red-500">*</span></label>
+          <RichTextEditor
+            instanceKey={editingAnnouncement.id}
+            value={editingAnnouncement.content}
+            onChange={content => setEditingAnnouncement(prev => ({...prev!, content}))}
+            placeholder="輸入內容..."
+          />
+        </div>
+        <div className="mb-4">
+          <label className="inline-flex items-center text-sm font-medium text-gray-700">
+            <input
+              type="checkbox"
+              className="w-4 h-4 text-indigo-600 rounded mr-2 accent-indigo-600"
+              checked={isStudentVisible(editingAnnouncement.visibleToStudents)}
+              onChange={(e) =>
+                setEditingAnnouncement((prev) =>
+                  prev ? { ...prev, visibleToStudents: e.target.checked } : prev
+                )
+              }
+            />
+            開放學生查看
+          </label>
+        </div>
+        <div className="mb-6 bg-gray-50 p-4 rounded-xl border border-gray-200">
+          <div className="flex justify-between items-center mb-3">
+            <label className="block text-sm font-bold text-gray-700">相關連結</label>
+            <button type="button" onClick={() => setEditingAnnouncement(prev => ({...prev!, links: [...(prev!.links || []), {name:'', url:''}]}))} className="text-indigo-600 text-xs font-bold hover:text-indigo-800 flex items-center"><PlusIcon className="w-4 h-4 mr-1"/>新增連結</button>
+          </div>
+          <div className="space-y-2">
+            {(editingAnnouncement.links || []).map((link, idx) => (
+              <div key={idx} className="flex gap-2 items-center">
+                <input type="text" placeholder="連結名稱" value={link.name} onChange={e => {
+                  const newLinks = [...editingAnnouncement.links];
+                  newLinks[idx].name = e.target.value;
+                  setEditingAnnouncement(prev => ({...prev!, links: newLinks}));
+                }} className="w-1/3 border border-gray-300 rounded-lg px-3 py-2 h-10 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+                <input type="url" placeholder="網址 (URL)" value={link.url} onChange={e => {
+                  const newLinks = [...editingAnnouncement.links];
+                  newLinks[idx].url = e.target.value;
+                  setEditingAnnouncement(prev => ({...prev!, links: newLinks}));
+                }} className="flex-1 border border-gray-300 rounded-lg px-3 py-2 h-10 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+                <button type="button" onClick={() => {
+                  const newLinks = editingAnnouncement.links.filter((_, i) => i !== idx);
+                  setEditingAnnouncement(prev => ({...prev!, links: newLinks}));
+                }} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg" title="移除連結"><TrashIcon className="w-4 h-4" /></button>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 border-t border-gray-100 pt-4">
+          <button type="button" onClick={() => setEditingAnnouncement(null)} className="px-5 py-2 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50">取消</button>
+          <button type="button" onClick={() => void saveEditingAnnouncement()} disabled={annIsSubmitting} className="px-5 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 flex items-center shadow-sm">
+            {annIsSubmitting ? <LoadingSpinner size={16} color="white" className="mr-2" /> : null}儲存
+          </button>
+        </div>
+      </div>
+    </Modal>
+  ) : null;
 
-    return (course.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           course.code.toLowerCase().includes(searchTerm.toLowerCase())) && 
-           (selectedGrade === 'all' || (course.gradeTags && course.gradeTags.includes(selectedGrade))) && 
-           (selectedSubject === 'all' || course.subjectTag === selectedSubject) &&
-           natureMatch &&
-           statusMatch;
-  }).sort((a, b) => {
-      const statuses = ['報名中', '開課中', '未開課', '已額滿', '已結束', '已封存', '資料建置中...'];
-      const statusA = statuses.indexOf(a.status);
-      const statusB = statuses.indexOf(b.status);
-      const priorityA = statusA !== -1 ? statusA : 999;
-      const priorityB = statusB !== -1 ? statusB : 999;
+  const announcementPanel = showAnnouncementManager ? (
+      <div className="animate-fade-in flex flex-col">
+        {showAnnouncementManager.status === '已封存' && (
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl flex items-center shadow-sm mb-4">
+            <span className="font-bold mr-2">提示：</span>
+            此課程已封存，您只能查看公告，無法新增或修改。
+          </div>
+        )}
+        {showAnnouncementManager.status !== '已封存' && (
+          <div className="flex justify-end mb-4">
+            <button
+              type="button"
+              onClick={() => setEditingAnnouncement({ id: 'new', title: '', content: '', links: [], createdAt: '', visibleToStudents: false })}
+              className={btnWithIconStyle(btnStyles.primary)}
+            >
+              <PlusIcon className="w-4 h-4 mr-2" /> 新增公告
+            </button>
+          </div>
+        )}
+        {(showAnnouncementManager.announcements || []).length === 0 ? (
+          <div className="text-center min-h-[280px] flex flex-col items-center justify-center bg-gray-50 rounded-xl border border-dashed border-gray-200">
+            <MegaphoneIcon className="w-12 h-12 mb-3 text-gray-300" />
+            <p className="text-gray-500 font-medium">目前沒有課程公告</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4">
+            {(showAnnouncementManager.announcements || [])
+              .slice()
+              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+              .map(ann => (
+                <div
+                  key={ann.id}
+                  className="w-full text-left bg-white border border-gray-100 rounded-xl p-5 hover:shadow-md hover:border-indigo-200 transition-all duration-300 group"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 min-h-[2.5rem]">
+                    <div className="min-w-0 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+                      <div className="hidden sm:flex flex-shrink-0 w-10 h-10 bg-indigo-50 rounded-full items-center justify-center text-indigo-600">
+                        <CourseHubFeatureIcon id="announcements" />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="text-lg font-bold text-gray-900 group-hover:text-indigo-600 transition-colors line-clamp-1 leading-7">
+                          {ann.title}
+                        </h4>
+                        <div className="text-sm text-gray-500 mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                          <span className="inline-flex items-center">
+                            <ClockIcon className="w-4 h-4 mr-1 shrink-0" />
+                            {new Date(ann.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className={tableActionRowWrap}>
+                      <StudentVisibilityToggle
+                        open={isStudentVisible(ann.visibleToStudents)}
+                        disabled={showAnnouncementManager.status === '已封存'}
+                        onToggle={() => void handleToggleAnnouncementVisibility(ann)}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setEditingAnnouncement(ann)}
+                        className={tableActionStyles.primary}
+                      >
+                        編輯
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const result = await Swal.fire({ title: '確定刪除？', text: '刪除後無法復原', icon: 'warning', showCancelButton: true, confirmButtonText: '確定', cancelButtonText: '取消', confirmButtonColor: '#ef4444' });
+                          if (result.isConfirmed) {
+                            const newAnns = showAnnouncementManager.announcements!.filter(a => a.id !== ann.id);
+                            const res = await fetch('/api/courses/update', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ id: showAnnouncementManager.id, announcements: newAnns })
+                            });
+                            if (res.ok) {
+                              const updatedCourse = { ...showAnnouncementManager, announcements: newAnns };
+                              setShowAnnouncementManager(updatedCourse);
+                              setCourses(prev => prev.map(c => c.id === updatedCourse.id ? updatedCourse : c));
+                            }
+                          }
+                        }}
+                        className={tableActionStyles.danger}
+                      >
+                        刪除
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+          </div>
+        )}
+        {announcementEditorModal}
+      </div>
+  ) : (
+    <div className="min-h-[280px] flex items-center justify-center">
+      <PageLoadingArea />
+    </div>
+  );
 
-      if (priorityA !== priorityB) {
-          return priorityA - priorityB;
-      }
+  if (courseCodeFromUrl) {
+    if (loading && !resolvedCourseFromUrl) {
+      return (
+        <div className="page-shell w-full min-w-0 flex flex-col h-full animate-fade-in">
+          <PageLoadingArea />
+        </div>
+      );
+    }
 
-      const codeA = a.code || '';
-      const codeB = b.code || '';
-      
+    if (!resolvedCourseFromUrl) {
+      return (
+        <div className="page-shell w-full min-w-0 flex flex-col h-full animate-fade-in">
+          <div className="flex flex-col gap-4">
+            <BackButton label="返回授課清單" onClick={() => router.push('/back-panel/teacher-courses')} withSpacing={false} />
+            <div className="text-center py-16 px-6 bg-white rounded-2xl border border-dashed border-gray-300">
+              <h3 className="text-xl font-bold text-gray-900">找不到此課程</h3>
+              <p className="text-gray-500 text-sm mt-2">請確認課程代碼是否正確，或返回清單重新選擇。</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
 
-      const codeCompare = codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
-      
-      if (codeCompare !== 0) return codeCompare;
-      
-      const nameA = a.name || '';
-      const nameB = b.name || '';
-      return nameA.localeCompare(nameB, undefined, { numeric: true, sensitivity: 'base' });
-  });
+    const course = resolvedCourseFromUrl;
+    const featureEmptyState =
+      'text-center min-h-[280px] flex flex-col items-center justify-center bg-gray-50 rounded-xl border border-dashed border-gray-200';
+
+    return (
+      <>
+      <div className="page-shell w-full min-w-0 flex flex-col h-full animate-fade-in">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-0">
+          <div className="border-l-4 border-indigo-500 pl-4 min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-800 flex items-center gap-2 sm:gap-3">
+              <BookOpenIcon className="h-7 w-7 sm:h-8 sm:w-8 text-indigo-600 shrink-0" />
+              <span className="break-words">{course.name}</span>
+            </h1>
+            <p className="text-gray-500 text-sm mt-1 break-all">{course.code}</p>
+          </div>
+        </div>
+        <div className="mt-4 mb-6 flex flex-wrap items-center justify-between gap-3">
+          <BackButton label="返回授課清單" onClick={() => router.push('/back-panel/teacher-courses')} withSpacing={false} />
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  openTeacherCoursePreviewInNewTab(course.code);
+                } catch (e) {
+                  void Swal.fire({
+                    icon: 'error',
+                    title: '無法開啟預覽',
+                    text: e instanceof Error ? e.message : '請允許此網站開啟彈出式視窗',
+                  });
+                }
+              }}
+              className="inline-flex items-center px-4 py-2 bg-white border border-violet-200 text-violet-700 rounded-lg hover:bg-violet-50 transition-colors shadow-sm font-medium text-sm"
+            >
+              <EyeIcon className="w-4 h-4 mr-1.5" />
+              學生端預覽
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  openTeacherCourseInteractInNewTab(course.code);
+                } catch (e) {
+                  void Swal.fire({
+                    icon: 'error',
+                    title: '無法開啟課程互動',
+                    text: e instanceof Error ? e.message : '請允許此網站開啟彈出式視窗',
+                  });
+                }
+              }}
+              className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm font-medium text-sm"
+            >
+              <BoltIcon className="w-4 h-4 mr-1.5" />
+              課程互動
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-4 mb-4">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 px-3 sm:px-6">
+            <CourseHubTabNav
+              tabs={TEACHER_COURSE_HUB_TAB_IDS}
+              active={activeCourseTab}
+              audience="teacher"
+              onChange={(tab) => setCourseTab(tab as TeacherCourseTab)}
+            />
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6 md:p-8">
+          {activeCourseTab === 'lessons' && (
+            <LessonManager
+              courseId={course.id}
+              courseName={course.name}
+              courseCode={course.code}
+              teacherId={userInfo?.id ?? ''}
+              isArchived={course.status === '已封存'}
+              embedded
+              onClose={() => router.push('/back-panel/teacher-courses')}
+            />
+          )}
+
+          {activeCourseTab === 'announcements' && announcementPanel}
+
+          {activeCourseTab === 'exams' && (
+            <div className="animate-fade-in">
+              {course.status === '已封存' ? (
+                <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl flex items-center shadow-sm mb-4">
+                  <span className="font-bold mr-2">提示：</span>
+                  此課程已封存，您只能查看測驗，無法新增或修改。
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center justify-end gap-2 mb-4">
+                  {examOrderSaving ? (
+                    <p className="text-sm text-gray-500 mr-auto">正在儲存順序…</p>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => openPullQuizModal()}
+                    className={btnWithIconStyle(btnStyles.secondary)}
+                    disabled={examOrderSaving || courseQuizzesLoading}
+                  >
+                    <DocumentDuplicateIcon className="w-4 h-4 mr-2" /> 從其他班複製
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => router.push(examCreatePath(course.id, teacherCourseHubPath(course.code, 'exams')))}
+                    className={btnWithIconStyle(btnStyles.primary)}
+                    disabled={examOrderSaving}
+                  >
+                    <PlusIcon className="w-4 h-4 mr-2" /> 新增測驗
+                  </button>
+                </div>
+              )}
+              {courseQuizzesLoading ? (
+                <div className="min-h-[280px] flex items-center justify-center">
+                  <PageLoadingArea />
+                </div>
+              ) : courseQuizzes.length === 0 ? (
+                <div className={featureEmptyState}>
+                  <ClipboardDocumentCheckIcon className="w-12 h-12 mb-3 text-gray-300" />
+                  <p className="text-gray-500 font-medium">此課程尚無關聯的線上測驗</p>
+                  <p className="text-sm text-gray-400 mt-1">新增後預設隱藏，點「開放」後學生才能看到並作答</p>
+                </div>
+              ) : (
+                <DragDropContext onDragEnd={(result) => { void handleCourseExamDragEnd(result); }}>
+                  <Droppable droppableId="course-exam-list">
+                    {(provided: DroppableProvided) => (
+                      <div className="grid grid-cols-1 gap-4" ref={provided.innerRef} {...provided.droppableProps}>
+                        {courseQuizzes.map((quiz, idx) => {
+                          const isPublished = quiz.status === 'published';
+                          const canDrag = course.status !== '已封存' && !examOrderSaving;
+                          const examsReturnTo = teacherCourseHubPath(course.code, 'exams');
+                          return (
+                            <Draggable key={quiz.id} draggableId={quiz.id} index={idx} isDragDisabled={!canDrag}>
+                              {(dragProvided: DraggableProvided, snapshot) => (
+                                <div
+                                  ref={dragProvided.innerRef}
+                                  {...dragProvided.draggableProps}
+                                  style={fixDraggableStyle(dragProvided.draggableProps.style)}
+                                  className={`w-full text-left bg-white border rounded-xl p-5 hover:shadow-md transition-shadow duration-200 group ${
+                                    snapshot.isDragging ? 'shadow-lg' : ''
+                                  } ${
+                                    isPublished
+                                      ? 'border-gray-100 hover:border-indigo-200'
+                                      : 'border-amber-100 hover:border-amber-200'
+                                  }`}
+                                >
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 min-h-[2.5rem]">
+                                    <div className="min-w-0 flex items-start sm:items-center gap-3">
+                                      {canDrag ? (
+                                        <div
+                                          className="cursor-move text-gray-300 hover:text-gray-500 shrink-0 mt-1 sm:mt-0"
+                                          {...dragProvided.dragHandleProps}
+                                          title="拖曳排序"
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          <Bars3Icon className="w-5 h-5" />
+                                        </div>
+                                      ) : (
+                                        <div className="hidden" {...dragProvided.dragHandleProps} />
+                                      )}
+                                      <div
+                                        className={`hidden sm:flex flex-shrink-0 w-10 h-10 rounded-full items-center justify-center ${
+                                          isPublished ? 'bg-indigo-50 text-indigo-600' : 'bg-amber-50 text-amber-600'
+                                        }`}
+                                      >
+                                        <CourseHubFeatureIcon id="exams" />
+                                      </div>
+                                      <div className="min-w-0">
+                                        <h4 className="text-lg font-bold text-gray-900 group-hover:text-indigo-600 transition-colors line-clamp-1 leading-7">
+                                          {quiz.title}
+                                        </h4>
+                                        <div className="text-sm text-gray-500 mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                                          <span>滿分 {quiz.totalPoints} 分</span>
+                                          {!isPublished && (
+                                            <span className="text-amber-600">學生端不可見</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className={tableActionRowWrap}>
+                                      <StudentVisibilityToggle
+                                        open={isPublished}
+                                        disabled={course.status === '已封存' || examOrderSaving}
+                                        onToggle={() => void handleToggleCourseQuizVisibility(quiz)}
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => router.push(examDetailPath(quiz.quizCode, undefined, examsReturnTo))}
+                                        className={tableActionStyles.primary}
+                                        disabled={examOrderSaving}
+                                      >
+                                        編輯
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => router.push(examDetailPath(quiz.quizCode, 'grading', examsReturnTo))}
+                                        className={tableActionStyles.success}
+                                        disabled={examOrderSaving}
+                                      >
+                                        批改
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => router.push(examDetailPath(quiz.quizCode, 'analytics', examsReturnTo))}
+                                        className={tableActionStyles.secondary}
+                                        disabled={examOrderSaving}
+                                      >
+                                        分析
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => void handleDeleteCourseQuiz(quiz)}
+                                        className={tableActionStyles.danger}
+                                        disabled={examOrderSaving || quiz.teacherId !== userInfo?.id}
+                                        title={quiz.teacherId !== userInfo?.id ? '僅建立者可刪除測驗' : '刪除測驗'}
+                                      >
+                                        刪除
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </Draggable>
+                          );
+                        })}
+                        {provided.placeholder}
+                      </div>
+                    )}
+                  </Droppable>
+                </DragDropContext>
+              )}
+            </div>
+          )}
+
+          {activeCourseTab === 'surveys' && (
+            <div className="animate-fade-in">
+              {course.status === '已封存' ? (
+                <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl flex items-center shadow-sm mb-4">
+                  <span className="font-bold mr-2">提示：</span>
+                  此課程已封存，您只能查看問卷，無法新增或修改。
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center justify-end gap-2 mb-4">
+                  {surveyOrderSaving ? (
+                    <p className="text-sm text-gray-500 mr-auto">正在儲存順序…</p>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => openPullSurveyModal()}
+                    className={btnWithIconStyle(btnStyles.secondary)}
+                    disabled={surveyOrderSaving || courseSurveysLoading}
+                  >
+                    <DocumentDuplicateIcon className="w-4 h-4 mr-2" /> 從其他班複製
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => router.push(surveyCreatePath(course.id, teacherCourseHubPath(course.code, 'surveys')))}
+                    className={btnWithIconStyle(btnStyles.primary)}
+                    disabled={surveyOrderSaving}
+                  >
+                    <PlusIcon className="w-4 h-4 mr-2" /> 新增問卷
+                  </button>
+                </div>
+              )}
+              {courseSurveysLoading ? (
+                <div className="min-h-[280px] flex items-center justify-center">
+                  <PageLoadingArea />
+                </div>
+              ) : courseSurveys.length === 0 ? (
+                <div className={featureEmptyState}>
+                  <ClipboardDocumentListIcon className="w-12 h-12 mb-3 text-gray-300" />
+                  <p className="text-gray-500 font-medium">此課程尚無關聯的課程問卷</p>
+                  <p className="text-sm text-gray-400 mt-1">新增後預設隱藏，點「開放」後學生才能填寫</p>
+                </div>
+              ) : (
+                <DragDropContext onDragEnd={(result) => { void handleCourseSurveyDragEnd(result); }}>
+                  <Droppable droppableId="course-survey-list">
+                    {(provided: DroppableProvided) => (
+                      <div className="grid grid-cols-1 gap-4" ref={provided.innerRef} {...provided.droppableProps}>
+                        {courseSurveys.map((survey, idx) => {
+                          const isPublished = survey.status === 'published';
+                          const canDrag = course.status !== '已封存' && !surveyOrderSaving;
+                          const surveysReturnTo = teacherCourseHubPath(course.code, 'surveys');
+                          return (
+                            <Draggable key={survey.id} draggableId={survey.id} index={idx} isDragDisabled={!canDrag}>
+                              {(dragProvided: DraggableProvided, snapshot) => (
+                                <div
+                                  ref={dragProvided.innerRef}
+                                  {...dragProvided.draggableProps}
+                                  style={fixDraggableStyle(dragProvided.draggableProps.style)}
+                                  className={`w-full text-left bg-white border rounded-xl p-5 hover:shadow-md transition-shadow duration-200 group ${
+                                    snapshot.isDragging ? 'shadow-lg' : ''
+                                  } ${
+                                    isPublished
+                                      ? 'border-gray-100 hover:border-indigo-200'
+                                      : 'border-amber-100 hover:border-amber-200'
+                                  }`}
+                                >
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 min-h-[2.5rem]">
+                                    <div className="min-w-0 flex items-start sm:items-center gap-3">
+                                      {canDrag ? (
+                                        <div
+                                          className="cursor-move text-gray-300 hover:text-gray-500 shrink-0 mt-1 sm:mt-0"
+                                          {...dragProvided.dragHandleProps}
+                                          title="拖曳排序"
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          <Bars3Icon className="w-5 h-5" />
+                                        </div>
+                                      ) : (
+                                        <div className="hidden" {...dragProvided.dragHandleProps} />
+                                      )}
+                                      <div
+                                        className={`hidden sm:flex flex-shrink-0 w-10 h-10 rounded-full items-center justify-center ${
+                                          isPublished ? 'bg-indigo-50 text-indigo-600' : 'bg-amber-50 text-amber-600'
+                                        }`}
+                                      >
+                                        <CourseHubFeatureIcon id="surveys" />
+                                      </div>
+                                      <button
+                                        type="button"
+                                        className="min-w-0 text-left"
+                                        onClick={() => router.push(surveyDetailPath(survey.surveyCode, undefined, surveysReturnTo))}
+                                      >
+                                        <div className="flex flex-wrap items-center gap-2">
+                                          <h4 className="text-lg font-bold text-gray-900 group-hover:text-indigo-600 transition-colors line-clamp-1 leading-7">
+                                            {survey.title}
+                                          </h4>
+                                          <span className="inline-flex text-xs font-semibold px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                                            {formatSurveyResponseMode(survey.responseMode)}
+                                          </span>
+                                        </div>
+                                        <div className="text-sm text-gray-500 mt-1">
+                                          {!isPublished ? (
+                                            <span className="text-amber-600">學生端不可見</span>
+                                          ) : (
+                                            <span>學生端可見</span>
+                                          )}
+                                        </div>
+                                      </button>
+                                    </div>
+                                    <div className={tableActionRowWrap}>
+                                      <StudentVisibilityToggle
+                                        open={isPublished}
+                                        disabled={course.status === '已封存' || surveyOrderSaving}
+                                        onToggle={() => void handleToggleCourseSurveyVisibility(survey)}
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => router.push(surveyDetailPath(survey.surveyCode, undefined, surveysReturnTo))}
+                                        className={tableActionStyles.primary}
+                                        disabled={surveyOrderSaving}
+                                      >
+                                        編輯
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => router.push(surveyDetailPath(survey.surveyCode, 'analytics', surveysReturnTo))}
+                                        className={tableActionStyles.secondary}
+                                        disabled={surveyOrderSaving}
+                                      >
+                                        分析
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => void handleDeleteCourseSurvey(survey)}
+                                        className={tableActionStyles.danger}
+                                        disabled={surveyOrderSaving || survey.teacherId !== userInfo?.id}
+                                        title={survey.teacherId !== userInfo?.id ? '僅建立者可刪除問卷' : '刪除問卷'}
+                                      >
+                                        刪除
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </Draggable>
+                          );
+                        })}
+                        {provided.placeholder}
+                      </div>
+                    )}
+                  </Droppable>
+                </DragDropContext>
+              )}
+            </div>
+          )}
+
+          {activeCourseTab === 'attendance' && (
+            <AttendanceManagementComponent
+              courses={courses}
+              userInfo={userInfo}
+              courseCodeFromUrl={course.code}
+              embedded
+              returnTo={teacherCourseHubPath(course.code, 'attendance')}
+            />
+          )}
+
+          {activeCourseTab === 'grades' && (
+            <GradeManager
+              userInfo={userInfo}
+              courseCodeFromUrl={course.code}
+              embedded
+            />
+          )}
+          </div>
+        </div>
+      </div>
+
+      <Modal open={pullModalOpen} onClose={closePullQuizModal} title="從其他班複製測驗" size="lg">
+        <div className="space-y-5">
+          <p className="text-sm text-gray-500">
+            選擇來源班級與測驗後，會複製成<strong>本班獨立草稿</strong>，作答紀錄不會帶入。
+          </p>
+          <TabNav
+            variant="segmented"
+            size="compact"
+            withMargin={false}
+            activeId={pullStep}
+            onChange={(id) => {
+              if (pullSubmitting) return;
+              setPullStep(id as 'course' | 'quiz');
+              if (id === 'course') setPullQuizCode('');
+            }}
+            items={[
+              { id: 'course', label: '1. 來源班級' },
+              { id: 'quiz', label: '2. 選擇測驗' },
+            ]}
+          />
+
+          {pullStep === 'course' ? (
+            <div className="space-y-3">
+              <label className="text-sm font-bold text-gray-700 block">來源班級</label>
+              <Dropdown
+                options={pullQuizGroups.courseOptions}
+                value={pullSourceKey}
+                onChange={(value) => {
+                  setPullSourceKey(value);
+                  setPullQuizCode('');
+                }}
+                placeholder="選擇來源班級"
+                className="w-full"
+              />
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={closePullQuizModal} className={btnStyles.ghost} disabled={pullSubmitting}>
+                  取消
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!pullSourceKey) return;
+                    setPullStep('quiz');
+                  }}
+                  className={btnStyles.primary}
+                  disabled={!pullSourceKey || pullSubmitting}
+                >
+                  下一步
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-bold text-gray-700">選擇測驗</label>
+                <button
+                  type="button"
+                  className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+                  onClick={() => {
+                    setPullStep('course');
+                    setPullQuizCode('');
+                  }}
+                  disabled={pullSubmitting}
+                >
+                  返回上一步
+                </button>
+              </div>
+              {pullQuizzesInSource.length === 0 ? (
+                <div className="text-center py-10 text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                  此班級沒有可複製的測驗
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[360px] overflow-y-auto custom-scrollbar pr-1">
+                  {pullQuizzesInSource.map((quiz) => {
+                    const selected = pullQuizCode === quiz.quizCode;
+                    const isPublished = quiz.status === 'published';
+                    return (
+                      <button
+                        key={quiz.id}
+                        type="button"
+                        onClick={() => setPullQuizCode(quiz.quizCode)}
+                        disabled={pullSubmitting}
+                        className={`w-full text-left rounded-xl border p-4 transition-colors ${
+                          selected
+                            ? 'border-indigo-400 bg-indigo-50'
+                            : 'border-gray-100 bg-white hover:border-indigo-200 hover:bg-indigo-50/40'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="font-bold text-gray-900 line-clamp-1">{quiz.title}</p>
+                            <p className="text-sm text-gray-500 mt-1">滿分 {quiz.totalPoints} 分</p>
+                          </div>
+                          <span
+                            className={`shrink-0 inline-flex text-xs font-semibold px-2.5 py-0.5 rounded-full ${
+                              isPublished
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-amber-100 text-amber-800'
+                            }`}
+                          >
+                            {isPublished ? '開放' : '隱藏'}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={closePullQuizModal} className={btnStyles.ghost} disabled={pullSubmitting}>
+                  取消
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void confirmPullQuiz()}
+                  className={btnStyles.primary}
+                  disabled={!pullQuizCode || pullSubmitting}
+                >
+                  {pullSubmitting ? '複製中…' : '複製到本班'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      <Modal open={pullSurveyModalOpen} onClose={closePullSurveyModal} title="從其他班複製問卷" size="lg">
+        <div className="space-y-5">
+          <p className="text-sm text-gray-500">
+            選擇來源班級與問卷後，會複製成<strong>本班獨立草稿</strong>，填答紀錄不會帶入。
+          </p>
+          <TabNav
+            variant="segmented"
+            size="compact"
+            withMargin={false}
+            activeId={pullSurveyStep}
+            onChange={(id) => {
+              if (pullSurveySubmitting) return;
+              setPullSurveyStep(id as 'course' | 'survey');
+              if (id === 'course') setPullSurveyCode('');
+            }}
+            items={[
+              { id: 'course', label: '1. 來源班級' },
+              { id: 'survey', label: '2. 選擇問卷' },
+            ]}
+          />
+
+          {pullSurveyStep === 'course' ? (
+            <div className="space-y-3">
+              <label className="text-sm font-bold text-gray-700 block">來源班級</label>
+              <Dropdown
+                options={pullSurveyGroups.courseOptions}
+                value={pullSurveySourceKey}
+                onChange={(value) => {
+                  setPullSurveySourceKey(value);
+                  setPullSurveyCode('');
+                }}
+                placeholder="選擇來源班級"
+                className="w-full"
+              />
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={closePullSurveyModal} className={btnStyles.ghost} disabled={pullSurveySubmitting}>
+                  取消
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!pullSurveySourceKey) return;
+                    setPullSurveyStep('survey');
+                  }}
+                  className={btnStyles.primary}
+                  disabled={!pullSurveySourceKey || pullSurveySubmitting}
+                >
+                  下一步
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-bold text-gray-700">選擇問卷</label>
+                <button
+                  type="button"
+                  className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+                  onClick={() => {
+                    setPullSurveyStep('course');
+                    setPullSurveyCode('');
+                  }}
+                  disabled={pullSurveySubmitting}
+                >
+                  返回上一步
+                </button>
+              </div>
+              {pullSurveysInSource.length === 0 ? (
+                <div className="text-center py-10 text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                  此班級沒有可複製的問卷
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[360px] overflow-y-auto custom-scrollbar pr-1">
+                  {pullSurveysInSource.map((survey) => {
+                    const selected = pullSurveyCode === survey.surveyCode;
+                    const isPublished = survey.status === 'published';
+                    return (
+                      <button
+                        key={survey.id}
+                        type="button"
+                        onClick={() => setPullSurveyCode(survey.surveyCode)}
+                        disabled={pullSurveySubmitting}
+                        className={`w-full text-left rounded-xl border p-4 transition-colors ${
+                          selected
+                            ? 'border-indigo-400 bg-indigo-50'
+                            : 'border-gray-100 bg-white hover:border-indigo-200 hover:bg-indigo-50/40'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="font-bold text-gray-900 line-clamp-1">{survey.title}</p>
+                            <p className="text-sm text-gray-500 mt-1">{formatSurveyResponseMode(survey.responseMode)}</p>
+                          </div>
+                          <span
+                            className={`shrink-0 inline-flex text-xs font-semibold px-2.5 py-0.5 rounded-full ${
+                              isPublished
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-amber-100 text-amber-800'
+                            }`}
+                          >
+                            {isPublished ? '開放' : '隱藏'}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={closePullSurveyModal} className={btnStyles.ghost} disabled={pullSurveySubmitting}>
+                  取消
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void confirmPullSurvey()}
+                  className={btnStyles.primary}
+                  disabled={!pullSurveyCode || pullSurveySubmitting}
+                >
+                  {pullSurveySubmitting ? '複製中…' : '複製到本班'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </Modal>
+      </>
+    );
+  }
 
   if (showLessonManager) {
-    return <LessonManager courseId={showLessonManager.id} courseName={showLessonManager.name} courseCode={showLessonManager.code} isArchived={showLessonManager.status === '已封存'} onClose={() => setShowLessonManager(null)} />;
+    return (
+      <LessonManager
+        courseId={showLessonManager.id}
+        courseName={showLessonManager.name}
+        courseCode={showLessonManager.code}
+        teacherId={userInfo?.id ?? ''}
+        isArchived={showLessonManager.status === '已封存'}
+        onClose={() => setShowLessonManager(null)}
+      />
+    );
   }
 
   return (
@@ -925,7 +2807,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
             <BookOpenIcon className="h-8 w-8 text-indigo-600" />
             授課管理
           </h1>
-          <p className="text-gray-500 text-sm mt-1">查看您的授課清單並管理各課堂教學進度。</p>
+          <p className="text-gray-500 text-sm mt-1">管理您的授課課程、學生與內容</p>
         </div>
       </div>
 
@@ -960,57 +2842,44 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
            </div>
        ) : (
            <>
-             <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-x-auto hidden md:block">
-              <table className="w-full text-sm text-left text-gray-500">
-                  <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+             <div className={courseListTableStyles.desktop.wrapper}>
+              <table className={courseListTableStyles.desktop.table}>
+                  <thead className={courseListTableStyles.desktop.thead}>
                       <tr>
-                          <th className="px-6 py-4 font-bold min-w-[200px]">課程名稱</th>
-                          <th className="px-6 py-4 font-bold min-w-[150px]">授課老師</th>
-                          <th className="px-6 py-4 font-bold text-center whitespace-nowrap">學生數</th>
-                          <th className="px-6 py-4 font-bold min-w-[180px]">上課時間</th>
-                          <th className="px-6 py-4 font-bold text-center whitespace-nowrap">會議室</th>
-                          <th className="px-6 py-4 font-bold text-center whitespace-nowrap">狀態</th>
-                          <th className="px-6 py-4 font-bold text-right min-w-[180px]">操作</th>
+                          <th className={`${courseListTableStyles.desktop.th} min-w-[200px]`}>課程名稱</th>
+                          <th className={`${courseListTableStyles.desktop.th} min-w-[150px]`}>授課老師</th>
+                          <th className={`${courseListTableStyles.desktop.th} min-w-[180px]`}>上課時間</th>
+                          <th className={`${courseListTableStyles.desktop.th} text-center whitespace-nowrap`}>狀態</th>
+                          <th className={`${courseListTableStyles.desktop.th} text-right min-w-[180px]`}>操作</th>
                       </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                       {filteredCourses.map(course => (
-                          <tr key={course.id} className="hover:bg-indigo-50/30 transition-colors">
+                          <tr key={course.id} className={courseListTableStyles.desktop.row}>
                               <td className="px-6 py-4">
-                                  <div className="font-bold text-gray-900 text-base whitespace-nowrap overflow-hidden text-ellipsis">{course.name}</div>
-                                  <div className="text-sm font-mono text-gray-500 mt-1">{course.code}</div>
+                                  <div className={`${courseListTableStyles.desktop.courseName} whitespace-nowrap overflow-hidden text-ellipsis`}>{course.name}</div>
+                                  <div className={courseListTableStyles.desktop.courseCode}>{course.code}</div>
                               </td>
                               <td className="px-6 py-4 max-w-[200px]">
                                   <div className="flex items-center w-full">
-                                      <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mr-3 text-sm font-bold shrink-0">{teacherNamesMap[course.id]?.[0]?.[0] || '師'}</div>
-                                      <div className="truncate min-w-0 flex-1 text-sm" title={teacherNamesMap[course.id] ? (teacherNamesMap[course.id].length > 0 ? teacherNamesMap[course.id].join('、') : '未指定') : '載入中...'}>
+                                      <div className={courseListTableStyles.desktop.teacherAvatar}>{teacherNamesMap[course.id]?.[0]?.[0] || '師'}</div>
+                                      <div className={courseListTableStyles.desktop.teacherName} title={teacherNamesMap[course.id] ? (teacherNamesMap[course.id].length > 0 ? teacherNamesMap[course.id].join('、') : '未指定') : '載入中...'}>
                                           {teacherNamesMap[course.id] ? (teacherNamesMap[course.id].length > 0 ? teacherNamesMap[course.id].join('、') : '未指定') : '載入中...'}
                                       </div>
                                   </div>
                               </td>
-                              <td className="px-6 py-4 text-center whitespace-nowrap">
-                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-gray-100 text-gray-800">{studentCounts[course.id] ?? 0} 人</span>
-                              </td>
-                              <td className="px-6 py-4 text-gray-600">
-                                  <div className="line-clamp-2 text-sm leading-relaxed">
+                              <td className={courseListTableStyles.desktop.classTimesCell}>
+                                  <div className={courseListTableStyles.desktop.classTimes}>
                                       {(course.classTimes || []).map((ct, i) => <div key={i}>{`${(ct as unknown as ClassTime).day} ${(ct as unknown as ClassTime).startTime}-${(ct as unknown as ClassTime).endTime}`}</div>)}
                                   </div>
                               </td>
                               <td className="px-6 py-4 text-center whitespace-nowrap">
-                                  {course.liveStreamURL ? (
-                                      <a href={course.liveStreamURL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center text-indigo-600 hover:text-indigo-800 transition-colors bg-indigo-50 hover:bg-indigo-100 p-2 rounded-lg text-sm font-bold" title="進入會議室">
-                                          <VideoCameraIcon className="w-5 h-5" />
-                                      </a>
-                                  ) : <span className="text-gray-400 text-sm">無</span>}
-                              </td>
-                              <td className="px-6 py-4 text-center whitespace-nowrap">
-                                  <span className={`px-3 py-1 rounded-full text-sm font-bold ${getStatusColor(course.status)}`}>{course.status}</span>
+                                  <span className={`${courseListTableStyles.desktop.statusBadge} ${getCourseStatusColor(course.status)}`}>{course.status}</span>
                               </td>
                               <td className="px-6 py-4 text-right whitespace-nowrap">
-                                  <div className="flex justify-end gap-2">
-                                      <button className="px-3 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm" onClick={() => setShowLessonManager(course)}>管理</button>
-                                      <button className="px-3 py-1.5 bg-emerald-500 text-white text-sm font-medium rounded-lg hover:bg-emerald-600 transition-colors shadow-sm flex justify-center items-center" onClick={() => handleShowAnnouncementManager(course)}>公告</button>
-                                      <button className="px-3 py-1.5 bg-white text-indigo-600 border border-indigo-200 text-sm font-medium rounded-lg hover:bg-indigo-50 transition-colors shadow-sm" onClick={() => handleShowCourseDetail(course)}>詳情</button>
+                                  <div className={courseListTableStyles.desktop.actionRow}>
+                                      <button className={courseListTableStyles.desktop.actionPrimary} onClick={() => openCourseDetail(course, 'lessons')}>管理</button>
+                                      <button className={courseListTableStyles.desktop.actionSecondary} onClick={() => handleShowCourseDetail(course)}>詳情</button>
                                   </div>
                               </td>
                           </tr>
@@ -1019,28 +2888,19 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
               </table>
              </div>
              
-             <div className="md:hidden space-y-4">
+             <div className={courseListTableStyles.mobile.wrapper}>
                 {filteredCourses.map(course => (
-                    <div key={course.id} className="bg-white border border-gray-100 rounded-xl shadow-sm p-5">
+                    <div key={course.id} className={courseListTableStyles.mobile.card}>
                         <div className="mb-2">
-                            <div className="font-bold text-gray-900 text-lg">{course.name}</div>
+                            <div className={courseListTableStyles.mobile.courseName}>{course.name}</div>
                         </div>
-                        <div className="text-sm font-mono text-gray-500 mb-2">{course.code}</div>
+                        <div className={courseListTableStyles.mobile.courseCode}>{course.code}</div>
                         <div className="mb-4">
-                            <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(course.status)}`}>{course.status}</span>
+                            <span className={`${courseListTableStyles.mobile.statusBadge} ${getCourseStatusColor(course.status)}`}>{course.status}</span>
                         </div>
-                        {course.liveStreamURL && (
-                            <div className="mb-4">
-                                <a href={course.liveStreamURL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center justify-center w-full py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-sm font-bold transition-colors">
-                                    <VideoCameraIcon className="w-5 h-5 mr-2" />
-                                    進入線上會議室
-                                </a>
-                            </div>
-                        )}
                         <div className="flex justify-end gap-2 mt-2">
-                            <button className="flex-1 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm" onClick={() => setShowLessonManager(course)}>管理</button>
-                            <button className="flex-1 py-2 bg-emerald-500 text-white text-sm font-medium rounded-lg hover:bg-emerald-600 transition-colors shadow-sm flex justify-center items-center" onClick={() => handleShowAnnouncementManager(course)}>公告</button>
-                            <button className="flex-1 py-2 bg-white text-indigo-600 border border-indigo-200 text-sm font-medium rounded-lg hover:bg-indigo-50 transition-colors shadow-sm" onClick={() => handleShowCourseDetail(course)}>詳情</button>
+                            <button className={courseListTableStyles.mobile.actionPrimary} onClick={() => openCourseDetail(course, 'lessons')}>管理</button>
+                            <button className={courseListTableStyles.mobile.actionSecondary} onClick={() => handleShowCourseDetail(course)}>詳情</button>
                         </div>
                     </div>
                 ))}
@@ -1050,7 +2910,7 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
 
        {showCourseDetail && mounted && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowCourseDetail(null)}></div>
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowCourseDetail(null)}></div>
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-full sm:max-h-[90vh] overflow-hidden flex flex-col animate-bounce-in">
             {/* Modal Header */}
             <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
@@ -1259,139 +3119,6 @@ export default function TeacherCourseManager({ userInfo, courses: propCourses }:
             </div>
           </div>
         </div>, document.body
-       )}
-
-       {/* Announcement Manager Modal */}
-       {showAnnouncementManager && (
-        <Modal open={true} onClose={() => { setShowAnnouncementManager(null); setEditingAnnouncement(null); }} title={`「${showAnnouncementManager.name}」公告管理`} size="lg">
-          {editingAnnouncement ? (
-            <div className="p-6 flex flex-col h-full bg-white">
-               <div className="mb-4">
-                 <label className="block text-sm font-bold text-gray-700 mb-1">公告標題 <span className="text-red-500">*</span></label>
-                 <input type="text" value={editingAnnouncement.title} onChange={e => setEditingAnnouncement(prev => ({...prev!, title: e.target.value}))} className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="輸入標題..." />
-               </div>
-               <div className="mb-4">
-                 <label className="block text-sm font-bold text-gray-700 mb-1.5">公告內容 <span className="text-red-500">*</span></label>
-                 <RichTextEditor
-                    value={editingAnnouncement.content}
-                    onChange={content => setEditingAnnouncement(prev => ({...prev!, content}))}
-                    placeholder="輸入內容..."
-                 />
-               </div>
-               <div className="mb-6 bg-gray-50 p-4 rounded-xl border border-gray-200">
-                 <div className="flex justify-between items-center mb-3">
-                    <label className="block text-sm font-bold text-gray-700">相關連結</label>
-                    <button type="button" onClick={() => setEditingAnnouncement(prev => ({...prev!, links: [...(prev!.links || []), {name:'', url:''}]}))} className="text-indigo-600 text-xs font-bold hover:text-indigo-800 flex items-center"><PlusIcon className="w-4 h-4 mr-1"/>新增連結</button>
-                 </div>
-                 <div className="space-y-2">
-                   {(editingAnnouncement.links || []).map((link, idx) => (
-                     <div key={idx} className="flex gap-2 items-center">
-                       <input type="text" placeholder="連結名稱" value={link.name} onChange={e => {
-                         const newLinks = [...editingAnnouncement.links];
-                         newLinks[idx].name = e.target.value;
-                         setEditingAnnouncement(prev => ({...prev!, links: newLinks}));
-                             }} className="w-1/3 border border-gray-300 rounded-lg px-3 py-2 h-10 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
-                       <input type="url" placeholder="網址 (URL)" value={link.url} onChange={e => {
-                         const newLinks = [...editingAnnouncement.links];
-                         newLinks[idx].url = e.target.value;
-                         setEditingAnnouncement(prev => ({...prev!, links: newLinks}));
-                             }} className="flex-1 border border-gray-300 rounded-lg px-3 py-2 h-10 text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
-                       <button type="button" onClick={() => {
-                         const newLinks = editingAnnouncement.links.filter((_, i) => i !== idx);
-                         setEditingAnnouncement(prev => ({...prev!, links: newLinks}));
-                             }} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg" title="移除連結"><TrashIcon className="w-4 h-4" /></button>
-                     </div>
-                   ))}
-                 </div>
-               </div>
-               <div className="flex justify-end gap-2 border-t border-gray-100 pt-4 mt-auto">
-                  <button type="button" onClick={() => setEditingAnnouncement(null)} className="px-5 py-2 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50">取消</button>
-                  <button type="button" onClick={async () => {
-                    if (!editingAnnouncement.title || !editingAnnouncement.content) {
-                      Swal.fire('警告', '標題與內容為必填', 'warning');
-                      return;
-                    }
-                    setAnnIsSubmitting(true);
-                    try {
-                      const currentAnns = showAnnouncementManager.announcements || [];
-                      let newAnns;
-                      if (editingAnnouncement.id === 'new') {
-                        newAnns = [{ ...editingAnnouncement, id: Date.now().toString(), createdAt: new Date().toISOString() }, ...currentAnns];
-                      } else {
-                        newAnns = currentAnns.map(a => a.id === editingAnnouncement.id ? editingAnnouncement : a);
-                      }
-                      const res = await fetch('/api/courses/update', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id: showAnnouncementManager.id, announcements: newAnns })
-                      });
-                      if (res.ok) {
-                        const updatedCourse = { ...showAnnouncementManager, announcements: newAnns };
-                        setShowAnnouncementManager(updatedCourse);
-                        setCourses(prev => prev.map(c => c.id === updatedCourse.id ? updatedCourse : c));
-                        setEditingAnnouncement(null);
-                        Swal.fire({icon: 'success', title: '儲存成功', customClass: { popup: 'rounded-2xl' }});
-                      } else {
-                        throw new Error('Update failed');
-                      }
-                    } catch (e) {
-                      Swal.fire('錯誤', '儲存失敗', 'error');
-                    } finally {
-                      setAnnIsSubmitting(false);
-                    }
-                  }} disabled={annIsSubmitting} className="px-5 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 flex items-center shadow-sm">
-                    {annIsSubmitting ? <LoadingSpinner size={16} color="white" className="mr-2" /> : null}儲存
-                  </button>
-               </div>
-            </div>
-          ) : (
-            <div className="p-6 flex flex-col h-full bg-white">
-               <div className="flex justify-between items-center mb-4">
-                  <h4 className="font-bold text-gray-800">公告列表</h4>
-                  <button onClick={() => setEditingAnnouncement({ id: 'new', title: '', content: '', links: [], createdAt: '' })} className="text-sm bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-lg font-bold hover:bg-indigo-100 flex items-center shadow-sm"><PlusIcon className="w-4 h-4 mr-1"/>新增公告</button>
-               </div>
-               <div className="space-y-3 overflow-y-auto custom-scrollbar flex-1 mb-4 min-h-[200px] border border-gray-100 p-3 rounded-xl bg-gray-50/50">
-                 {(showAnnouncementManager.announcements || []).length === 0 ? (
-                   <div className="text-center text-gray-400 py-10 flex flex-col items-center">
-                       <MegaphoneIcon className="w-10 h-10 mb-2 opacity-50"/>
-                       尚無公告
-                   </div>
-                 ) : (
-                   (showAnnouncementManager.announcements || []).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(ann => (
-                     <div key={ann.id} className="bg-white border border-gray-200 rounded-xl p-4 flex justify-between items-center hover:border-indigo-200 transition-colors shadow-sm">
-                       <div>
-                         <h5 className="font-bold text-gray-900">{ann.title}</h5>
-                         <div className="text-xs text-gray-500 mt-1">{new Date(ann.createdAt).toLocaleDateString()}</div>
-                       </div>
-                       <div className="flex gap-2">
-                         <button onClick={() => setEditingAnnouncement(ann)} className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg"><PencilIcon className="w-5 h-5"/></button>
-                         <button onClick={async () => {
-                           const result = await Swal.fire({ title: '確定刪除？', text: '刪除後無法復原', icon: 'warning', showCancelButton: true, confirmButtonText: '確定', cancelButtonText: '取消', confirmButtonColor: '#ef4444' });
-                           if (result.isConfirmed) {
-                             const newAnns = showAnnouncementManager.announcements!.filter(a => a.id !== ann.id);
-                             const res = await fetch('/api/courses/update', {
-                               method: 'POST',
-                               headers: { 'Content-Type': 'application/json' },
-                               body: JSON.stringify({ id: showAnnouncementManager.id, announcements: newAnns })
-                             });
-                             if (res.ok) {
-                               const updatedCourse = { ...showAnnouncementManager, announcements: newAnns };
-                               setShowAnnouncementManager(updatedCourse);
-                               setCourses(prev => prev.map(c => c.id === updatedCourse.id ? updatedCourse : c));
-                             }
-                           }
-                         }} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"><TrashIcon className="w-5 h-5"/></button>
-                       </div>
-                     </div>
-                   ))
-                 )}
-               </div>
-               <div className="flex justify-end border-t border-gray-100 pt-4">
-                 <button onClick={() => setShowAnnouncementManager(null)} className="px-5 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 font-medium">關閉</button>
-               </div>
-            </div>
-          )}
-        </Modal>
        )}
     </div>
   );

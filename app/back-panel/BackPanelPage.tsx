@@ -1,34 +1,47 @@
 ﻿'use client';
 
-import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 
 // UI Icons & Components
 import Sidebar from '@/components/Sidebar';
 import PageLoadingArea from '@/components/ui/PageLoadingArea';
-import { 
-  CalendarIcon, 
-  AcademicCapIcon, 
-  UserGroupIcon, 
-  ChartBarIcon, 
+import {
+  CalendarIcon,
+  CalendarDaysIcon,
+  AcademicCapIcon,
+  UserGroupIcon,
+  ChartBarIcon,
   ClockIcon,
-  BeakerIcon,
   Cog6ToothIcon,
   UserCircleIcon,
   CloudArrowDownIcon,
+  MegaphoneIcon,
+  ShieldCheckIcon,
+  BookOpenIcon,
 } from '@heroicons/react/24/outline';
 
 // Utils & Types
-import { getSession } from '@/utils/session';
+import { getSession, refreshSessionCookie } from '@/utils/session';
 import {
   buildBackPanelUserFromSession,
   getBackPanelRole,
 } from '@/utils/backPanelSession';
 import { logoutClient } from '@/utils/logoutClient';
 import { useCompactNav } from '@/utils/useCompactNav';
+import { getDashboardColorClasses } from '@/utils/dashboardColors';
+import { shouldSkipIdleLogout } from '@/utils/interactKeepalive';
 import type { Course } from '@/components/TeacherCourseManager';
+import {
+  fetchTeacherProfile,
+  fetchAdminStats as fetchAdminStatsApi,
+  fetchAdminCoursesList,
+  fetchCoursesByTeacherId,
+} from '@/utils/teacherClientApi';
+import CourseActivityFeed from '@/components/CourseActivityFeed';
+import LiveAttendanceBanner from '@/components/LiveAttendanceBanner';
 
 function BackPanelModulePlaceholder() {
   return (
@@ -53,14 +66,18 @@ const CourseManager = dynamic(() => import('@/components/CourseManager'), { ssr:
 const TeacherAdminManager = dynamic(() => import('@/components/TeacherAdminManager'), { ssr: false, ...loadingFallback });
 const PasswordManager = dynamic(() => import('@/components/PasswordManager'), { ssr: false, ...loadingFallback });
 const TeacherCourseManager = dynamic(() => import('@/components/TeacherCourseManager'), { ssr: false, ...loadingFallback });
-const GradeManager = dynamic(() => import('@/components/GradeManager'), { ssr: false, ...loadingFallback });
 const ResourceManagement = dynamic(() => import('@/components/ResourceManagement'), { ssr: false, ...loadingFallback });
 const TutoringManager = dynamic(() => import('@/components/TutoringManager'), { ssr: false, ...loadingFallback });
+const TeacherExamManager = dynamic(() => import('@/components/TeacherExamManager'), { ssr: false, ...loadingFallback });
+const TeacherSurveyManager = dynamic(() => import('@/components/TeacherSurveyManager'), { ssr: false, ...loadingFallback });
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const AttendanceManagementComponent = dynamic<{
   courses: Course[];
   courseCodeFromUrl?: string;
   attendanceCodeFromUrl?: string;
+  embedded?: boolean;
+  returnTo?: string;
+  userInfo?: { id: string; name?: string; role?: string | string[] } | null;
 }>(() => import('@/components/AttendanceManagementComponent') as any, { ssr: false, ...loadingFallback });
 
 // ============================================================================
@@ -68,7 +85,9 @@ const AttendanceManagementComponent = dynamic<{
 // ============================================================================
 
 type AdminTab = 'announcements' | 'exam-dates' | 'students' | 'courses' | 'admin-teachers' | 'resources';
-type TeacherTab = 'teacher-courses' | 'teacher-grades' | 'teacher-exams' | 'tutoring' | 'teacher-attendance' | 'resources';
+type TeacherTab = 'teacher-courses' | 'teacher-exams' | 'teacher-surveys' | 'tutoring' | 'teacher-attendance' | 'resources';
+type ExamSubView = '' | 'new' | 'builder' | 'grading' | 'analytics';
+type SurveySubView = '' | 'new' | 'builder' | 'analytics';
 type CommonTab = 'password';
 type Tab = AdminTab | TeacherTab | CommonTab | null;
 type UserRole = '管理員' | '老師' | '學生';
@@ -97,53 +116,22 @@ interface MenuConfigItem {
 // 內部元件
 // ============================================================================
 
-// UI 優化：預設空白元件 (空狀態卡片風格)
-function TeacherExamManager() {
-  return (
-    <div className="flex flex-col items-center justify-center h-[60vh] animate-fade-in">
-      <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 text-center max-w-md">
-        <div className="w-16 h-16 bg-gray-50 text-gray-400 rounded-full flex items-center justify-center mx-auto mb-4">
-           <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
-        </div>
-        <h3 className="text-xl font-bold text-gray-800 mb-2">功能開發中</h3>
-        <p className="text-gray-500">「測驗管理」模組即將上線，敬請期待更強大的功能！</p>
-      </div>
-    </div>
-  );
-}
-
-// UI 設計系統配色對照 (搬移至元件外作為純函式)
-const getColorClasses = (color: string) => {
-  switch (color) {
-    case 'indigo': return { border: 'border-indigo-100', iconBg: 'bg-indigo-50', iconText: 'text-indigo-600', ring: 'ring-indigo-200' };
-    case 'emerald': return { border: 'border-emerald-100', iconBg: 'bg-emerald-50', iconText: 'text-emerald-600', ring: 'ring-emerald-200' };
-    case 'orange': return { border: 'border-orange-100', iconBg: 'bg-orange-50', iconText: 'text-orange-500', ring: 'ring-orange-200' };
-    case 'amber': return { border: 'border-amber-100', iconBg: 'bg-amber-50', iconText: 'text-amber-500', ring: 'ring-amber-200' };
-    case 'purple': return { border: 'border-purple-100', iconBg: 'bg-purple-50', iconText: 'text-purple-600', ring: 'ring-purple-200' };
-    case 'rose': return { border: 'border-rose-100', iconBg: 'bg-rose-50', iconText: 'text-rose-600', ring: 'ring-rose-200' };
-    default: return { border: 'border-gray-100', iconBg: 'bg-gray-50', iconText: 'text-gray-600', ring: 'ring-gray-200' };
-  }
-};
-
 // 標準化選單配置
 const ADMIN_MENU_CONFIG: MenuConfigItem[] = [
-  { id: 'announcements', title: '公告管理', description: '發布與管理最新公告', icon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.354a1.76 1.76 0 013.417-.592z" /></svg>, color: 'indigo', href: '/back-panel/announcements' },
-  { id: 'exam-dates', title: '考試日期管理', description: '管理考試時程與重要日期', icon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>, color: 'emerald', href: '/back-panel/exam-dates' },
-  { id: 'students', title: '學生管理', description: '管理學生資訊與註冊狀態', icon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>, color: 'amber', href: '/back-panel/students' },
-  { id: 'courses', title: '課程管理', description: '新增、編輯、管理所有課程', icon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v11.494m-9-5.747h18" /></svg>, color: 'purple', href: '/back-panel/courses' },
-  { id: 'resources', title: '線上資源管理', description: '管理教學影片連結、PDF 教材與外部網頁', icon: <CloudArrowDownIcon />, color: 'indigo', href: '/back-panel/resources' },
-  { id: 'admin-teachers', title: '老師/管理員管理', description: '管理教師與管理員帳號', icon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>, color: 'orange', href: '/back-panel/admin-teachers' },
-  { id: 'password', title: '個人資料', description: '檢視與修改個人資料與密碼', icon: <UserCircleIcon />, color: 'rose', href: '/back-panel/password' },
+  { id: 'announcements', title: '公告管理', description: '發布與管理最新公告', icon: <MegaphoneIcon className="h-6 w-6" />, color: 'indigo', href: '/back-panel/announcements' },
+  { id: 'courses', title: '課程管理', description: '新增、編輯、管理所有課程', icon: <UserGroupIcon className="h-6 w-6" />, color: 'purple', href: '/back-panel/courses' },
+  { id: 'students', title: '學生管理', description: '管理學生資訊與註冊狀態', icon: <UserGroupIcon className="h-6 w-6" />, color: 'amber', href: '/back-panel/students' },
+  { id: 'exam-dates', title: '考試日期管理', description: '管理考試時程與重要日期', icon: <CalendarDaysIcon className="h-6 w-6" />, color: 'emerald', href: '/back-panel/exam-dates' },
+  { id: 'resources', title: '線上資源管理', description: '管理教學影片連結、PDF 教材與外部網頁', icon: <CloudArrowDownIcon className="h-6 w-6" />, color: 'indigo', href: '/back-panel/resources' },
+  { id: 'admin-teachers', title: '老師/管理員管理', description: '管理教師與管理員帳號', icon: <ShieldCheckIcon className="h-6 w-6" />, color: 'orange', href: '/back-panel/admin-teachers' },
+  { id: 'password', title: '個人資料', description: '檢視與修改個人資料與密碼', icon: <UserCircleIcon className="h-6 w-6" />, color: 'rose', href: '/back-panel/password' },
 ];
 
 const TEACHER_MENU_CONFIG: MenuConfigItem[] = [
-  { id: 'teacher-courses', title: '授課管理', description: '管理您的授課課程、學生與內容', icon: <AcademicCapIcon />, color: 'indigo', href: '/back-panel/teacher-courses' },
-  { id: 'teacher-grades', title: '成績管理', description: '上傳、查詢、與分析學生成績', icon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>, color: 'emerald', href: '/back-panel/teacher-grades' },
-  { id: 'teacher-attendance', title: '點名管理', description: '管理課堂點名紀錄', icon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>, color: 'orange', href: '/back-panel/teacher-attendance' },
-  { id: 'resources', title: '線上資源管理', description: '管理教學影片連結、PDF 教材與外部網頁', icon: <CloudArrowDownIcon />, color: 'indigo', href: '/back-panel/resources' },
-  { id: 'teacher-exams', title: '測驗管理', description: '建立、管理與查詢課堂測驗', icon: <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>, color: 'amber', disabled: true, href: '/back-panel/teacher-exams' },
-  { id: 'tutoring', title: '課程輔導', description: '管理老師與學生的輔導排程', icon: <CalendarIcon />, color: 'purple', href: '/back-panel/tutoring' },
-  { id: 'password', title: '個人資料', description: '檢視與修改個人資料與密碼', icon: <UserCircleIcon />, color: 'rose', href: '/back-panel/password' },
+  { id: 'teacher-courses', title: '授課管理', description: '管理您的授課課程、學生與內容', icon: <BookOpenIcon className="h-6 w-6" />, color: 'indigo', href: '/back-panel/teacher-courses' },
+  { id: 'resources', title: '線上資源管理', description: '管理教學影片連結、PDF 教材與外部網頁', icon: <CloudArrowDownIcon className="h-6 w-6" />, color: 'indigo', href: '/back-panel/resources' },
+  { id: 'tutoring', title: '課程輔導', description: '管理老師與學生的輔導排程', icon: <CalendarIcon className="h-6 w-6" />, color: 'purple', href: '/back-panel/tutoring' },
+  { id: 'password', title: '個人資料', description: '檢視與修改個人資料與密碼', icon: <UserCircleIcon className="h-6 w-6" />, color: 'rose', href: '/back-panel/password' },
 ];
 
 function getBackPanelSegments(pathname: string): string[] {
@@ -153,12 +141,14 @@ function getBackPanelSegments(pathname: string): string[] {
 function BackPanel() {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const pathSegments = useMemo(() => getBackPanelSegments(pathname), [pathname]);
   // 1. 狀態 hooks 命名與學生端一致
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>(null);
   const [userInfo, setUserInfo] = useState<BackPanelUserInfo | null>(null);
-  const [lastActivity, setLastActivity] = useState<number>(Date.now());
+  const lastActivityRef = useRef(Date.now());
+  const authRedirectRef = useRef(false);
   const [isChildProcessing, setIsChildProcessing] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
   const [adminStats, setAdminStats] = useState({ studentCount: 0, teacherCount: 0, courseCount: 0 });
@@ -166,15 +156,13 @@ function BackPanel() {
   const isCompactNav = useCompactNav();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  useEffect(() => {
-    setSidebarOpen(!isCompactNav);
-  }, [isCompactNav]);
-
-  const handleActivity = useCallback(() => setLastActivity(Date.now()), []);
+  const handleActivity = useCallback(() => {
+    lastActivityRef.current = Date.now();
+  }, []);
 
   const handleProcessingStateChange = useCallback((isProcessing: boolean) => {
     setIsChildProcessing(isProcessing);
-    if (!isProcessing) setLastActivity(Date.now());
+    if (!isProcessing) lastActivityRef.current = Date.now();
   }, []);
 
   const onToggleSidebar = useCallback(() => {
@@ -189,7 +177,9 @@ function BackPanel() {
   useEffect(() => {
     const checkActivity = () => {
       if (isChildProcessing || isLoggingOut) return;
-      if (Date.now() - lastActivity > 3 * 60 * 1000) {
+      // 預覽／課程互動開啟中（含其他分頁）：不計入後台滯留登出
+      if (shouldSkipIdleLogout(pathname)) return;
+      if (Date.now() - lastActivityRef.current > 3 * 60 * 1000) {
         void logoutClient('/panel');
       }
     };
@@ -201,18 +191,22 @@ function BackPanel() {
       clearInterval(interval);
       events.forEach(event => window.removeEventListener(event, handleActivity));
     };
-  }, [isChildProcessing, lastActivity, router, handleActivity, isLoggingOut]);
+  }, [isChildProcessing, handleActivity, isLoggingOut, pathname]);
 
   useEffect(() => {
     setError(null);
     const session = getSession();
     if (!session) {
-      if (!isLoggingOut) {
-        router.push('/panel');
+      if (!isLoggingOut && !authRedirectRef.current) {
+        authRedirectRef.current = true;
+        router.replace('/panel');
       }
       return;
     }
+    authRedirectRef.current = false;
     const userRole = getBackPanelRole(session);
+    // 重寫精簡 session cookie（避免舊版把 token 寫入 cookie 導致解析失敗）
+    refreshSessionCookie(session);
 
     if (userRole === '學生') {
       void handleLogout();
@@ -223,23 +217,13 @@ function BackPanel() {
 
     const fetchTeacher = async () => {
       try {
-        const res = await fetch('/api/teacher/profile', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ account: session.account }),
+        const data = await fetchTeacherProfile(session.account);
+        setUserInfo({
+          id: String(data.id),
+          name: String(data.name || session.name || ''),
+          account: session.account,
+          role: '老師',
         });
-        if (res.ok) {
-          const data = await res.json();
-          setUserInfo({
-            id: data.id,
-            name: data.name || session.name || '',
-            account: session.account,
-            role: '老師',
-          });
-        } else {
-          console.error('Failed to fetch teacher profile:', res.status);
-          setError('無法取得老師資料，請稍後再試。');
-        }
       } catch (err) {
         console.error('Error fetching teacher profile:', err);
         setError('連線發生錯誤，請檢查網路連線。');
@@ -249,7 +233,7 @@ function BackPanel() {
     if (userRole === '老師') {
       void fetchTeacher();
     }
-  }, [router, handleLogout, isLoggingOut]);
+  }, [handleLogout, isLoggingOut, router]);
 
   // 初始化 activeTab 根據網址 path
   useEffect(() => {
@@ -281,10 +265,47 @@ function BackPanel() {
     return userInfo.role === 'teacher' || userInfo.role === '老師';
   }, [userInfo]);
 
-  const teacherGradesCourseCode = useMemo(() => {
-    if (pathSegments[0] !== 'teacher-grades' || !pathSegments[1]) return '';
-    return decodeURIComponent(pathSegments[1]);
+  const teacherCoursesCourseCode = useMemo(() => {
+    if (pathSegments[0] !== 'teacher-courses' || !pathSegments[1]) return '';
+    const codeSeg = decodeURIComponent(pathSegments[1]);
+    if (codeSeg === 'preview' || codeSeg === 'interact') return '';
+    return codeSeg;
   }, [pathSegments]);
+
+  // 進入單一課程後：課程 Hub、測驗／問卷編輯、點名明細都收合側選單
+  const isTeacherCourseWorkspace = useMemo(() => {
+    const [root, seg1, seg2] = pathSegments;
+    if (root === 'teacher-courses' && seg1 && seg1 !== 'preview' && seg1 !== 'interact') return true;
+    if (root === 'teacher-exams' && seg1) return true;
+    if (root === 'teacher-surveys' && seg1) return true;
+    if (root === 'teacher-attendance' && seg1 && seg2) return true;
+    return false;
+  }, [pathSegments]);
+
+  useEffect(() => {
+    // 桌面：列表展開；進入課程相關頁面後收合。窄螢幕維持收合。
+    setSidebarOpen(!isCompactNav && !isTeacherCourseWorkspace);
+  }, [isCompactNav, isTeacherCourseWorkspace]);
+
+  const teacherCoursesTab = useMemo(() => {
+    if (pathSegments[0] !== 'teacher-courses') return '';
+    return searchParams.get('tab') || '';
+  }, [pathSegments, searchParams]);
+
+  const teacherExamInitialCourseId = useMemo(() => {
+    if (pathSegments[0] !== 'teacher-exams') return '';
+    return searchParams.get('courseId') || '';
+  }, [pathSegments, searchParams]);
+
+  const teacherSurveyInitialCourseId = useMemo(() => {
+    if (pathSegments[0] !== 'teacher-surveys') return '';
+    return searchParams.get('courseId') || '';
+  }, [pathSegments, searchParams]);
+
+  const teacherAttendanceReturnTo = useMemo(() => {
+    if (pathSegments[0] !== 'teacher-attendance') return '';
+    return searchParams.get('returnTo') || '';
+  }, [pathSegments, searchParams]);
 
   const teacherAttendanceRoute = useMemo(() => {
     if (pathSegments[0] !== 'teacher-attendance') {
@@ -296,37 +317,65 @@ function BackPanel() {
     };
   }, [pathSegments]);
 
-  useEffect(() => {
-    if (isAdmin) {
-      const fetchAdminStats = async () => {
-        try {
-          const res = await fetch('/api/admin/stats');
-          if (res.ok) {
-            const stats = await res.json();
-            setAdminStats(stats);
-          } else {
-            setAdminStats({ studentCount: 0, teacherCount: 0, courseCount: 0 });
-          }
-        } catch (error) {
-          setAdminStats({ studentCount: 0, teacherCount: 0, courseCount: 0 });
-          console.error("Error fetching admin stats:", error);
-        }
-      };
-      fetchAdminStats();
+  const teacherExamRoute = useMemo((): { quizCode: string; subView: ExamSubView } => {
+    if (pathSegments[0] !== 'teacher-exams') {
+      return { quizCode: '', subView: '' };
     }
+    const codeSeg = pathSegments[1] ? decodeURIComponent(pathSegments[1]) : '';
+    if (!codeSeg || codeSeg === 'preview') {
+      return { quizCode: '', subView: '' };
+    }
+    if (codeSeg === 'new') {
+      return { quizCode: 'new', subView: 'new' };
+    }
+    const action = pathSegments[2];
+    if (action === 'grading' || action === 'analytics') {
+      return { quizCode: codeSeg, subView: action };
+    }
+    return { quizCode: codeSeg, subView: 'builder' };
+  }, [pathSegments]);
+
+  const teacherSurveyRoute = useMemo((): { surveyCode: string; subView: SurveySubView } => {
+    if (pathSegments[0] !== 'teacher-surveys') {
+      return { surveyCode: '', subView: '' };
+    }
+    const codeSeg = pathSegments[1] ? decodeURIComponent(pathSegments[1]) : '';
+    if (!codeSeg || codeSeg === 'preview') {
+      return { surveyCode: '', subView: '' };
+    }
+    if (codeSeg === 'new') {
+      return { surveyCode: 'new', subView: 'new' };
+    }
+    const action = pathSegments[2];
+    if (action === 'analytics') {
+      return { surveyCode: codeSeg, subView: 'analytics' };
+    }
+    return { surveyCode: codeSeg, subView: 'builder' };
+  }, [pathSegments]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    const fetchAdminStats = async () => {
+      try {
+        const stats = await fetchAdminStatsApi();
+        setAdminStats(stats);
+      } catch (error) {
+        setAdminStats({ studentCount: 0, teacherCount: 0, courseCount: 0 });
+        // 權限／session 問題時不洗版；其餘才留下診斷訊息
+        const message = error instanceof Error ? error.message : String(error);
+        if (!message.includes('(401)') && !message.includes('(403)')) {
+          console.warn('Error fetching admin stats:', error);
+        }
+      }
+    };
+    void fetchAdminStats();
   }, [isAdmin]);
 
   const fetchAdminCourses = useCallback(async () => {
     try {
-      const res = await fetch('/api/courses/list', { method: 'GET' });
-      if (res.ok) {
-        const allCourses: Course[] = await res.json();
-        setCourses(allCourses);
-      } else {
-        const errorMsg = await res.text().catch(() => '');
-        console.error(`Failed to fetch admin courses: ${res.status} ${res.statusText}`, errorMsg);
-        setCourses([]);
-      }
+      const allCourses = await fetchAdminCoursesList<Course>();
+      setCourses(allCourses);
     } catch (e) {
       console.error('Error fetching admin courses:', e);
       setCourses([]);
@@ -334,33 +383,11 @@ function BackPanel() {
   }, []);
 
   useEffect(() => {
-    if (userInfo?.role === '老師' && userInfo.account) {
+    if (userInfo?.role === '老師' && userInfo.id) {
       (async () => {
         try {
-          const res = await fetch('/api/teacher/courses', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ account: userInfo.account }),
-          });
-          let courseNames: string[] = [];
-          if (res.ok) {
-            const data = await res.json();
-            courseNames = (data.courses || []).map((str: string) => {
-              const match = str.match(/(.+?)\(([^)]*\))$/);
-              return match ? match[1] : str;
-            });
-          }
-          const res2 = await fetch('/api/courses/list', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ teacherId: userInfo.id }),
-          });
-          let fullCourses: Course[] = [];
-          if (res2.ok) {
-            const allCourses: Course[] = await res2.json();
-            fullCourses = allCourses.filter((c: Course) => courseNames.includes(c.name));
-          }
-          setCourses(fullCourses as Course[]);
+          const allCourses = await fetchCoursesByTeacherId<Course>(userInfo.id);
+          setCourses(allCourses);
         } catch (err) {
           console.error('Error fetching teacher courses:', err);
         }
@@ -368,26 +395,21 @@ function BackPanel() {
     } else if (userInfo?.role === '管理員') {
       fetchAdminCourses();
     }
-  }, [userInfo?.account, userInfo?.id, userInfo?.role, fetchAdminCourses]);
+  }, [userInfo?.id, userInfo?.role, fetchAdminCourses]);
 
-  // 統一處理快速操作項目的樣式與圖標
   const processedQuickActions = useMemo(() => {
     if (!userInfo) return [];
     const config = isAdmin ? ADMIN_MENU_CONFIG : TEACHER_MENU_CONFIG;
 
     return config.map(item => {
-      const style = getColorClasses(item.color);
+      const style = getDashboardColorClasses(item.color);
       let iconEl = item.icon;
       if (React.isValidElement(item.icon)) {
-        iconEl = React.cloneElement(item.icon as React.ReactElement<React.SVGProps<SVGSVGElement>>, { 
-          className: `h-6 w-6 ${style.iconText}` 
+        iconEl = React.cloneElement(item.icon as React.ReactElement<React.SVGProps<SVGSVGElement>>, {
+          className: 'h-6 w-6',
         });
       }
-      return {
-        ...item,
-        ...style,
-        icon: iconEl
-      };
+      return { ...item, ...style, icon: iconEl };
     });
   }, [isAdmin, userInfo]);
 
@@ -402,9 +424,8 @@ function BackPanel() {
         { title: '系統設定', value: '可修改', color: 'purple', icon: <Cog6ToothIcon className="h-6 w-6 text-purple-600" /> },
       ] : [
         { title: '授課課程', value: courses.filter(c => !c.archived && c.status !== '已封存').length, color: 'indigo', icon: <AcademicCapIcon className="h-6 w-6 text-indigo-600" /> },
-        { title: '成績管理', value: '可管理', color: 'emerald', icon: <ChartBarIcon className="h-6 w-6 text-emerald-600" /> },
         { title: '輔導預約', value: '可預約', color: 'amber', icon: <ClockIcon className="h-6 w-6 text-amber-600" /> },
-        { title: '測驗模組', value: '開發中', color: 'purple', icon: <BeakerIcon className="h-6 w-6 text-purple-600" /> },
+        { title: '線上資源', value: '可管理', color: 'purple', icon: <CloudArrowDownIcon className="h-6 w-6 text-purple-600" /> },
       ];
 
       return (
@@ -432,31 +453,29 @@ function BackPanel() {
             </div>
           </div>
 
-          {/* 統計卡片 - 升級為懸浮卡片風格 */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+          {/* 統計卡片：固定列數（管理員 1×4／教師 1×3），不隨視窗改列 */}
+          <div className={`grid gap-2 sm:gap-4 md:gap-6 mb-8 sm:mb-10 ${isAdminPanel ? 'grid-cols-4' : 'grid-cols-3'}`}>
             {statsCards.map(card => {
-                const colors = getColorClasses(card.color);
+                const colors = getDashboardColorClasses(card.color);
                 return (
-                  <div key={card.title} className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex items-center hover:shadow-md transition-shadow">
-                    <div className={`p-3 rounded-lg ${colors.iconBg} mr-4 flex-shrink-0`}>
+                  <div key={card.title} className="bg-white rounded-xl shadow-sm border border-gray-100 p-2.5 sm:p-4 md:p-6 flex flex-col sm:flex-row sm:items-center hover:shadow-md transition-shadow min-w-0">
+                    <div className={`hidden sm:flex p-2.5 md:p-3 rounded-lg ${colors.iconBg} sm:mr-4 flex-shrink-0`}>
                         {card.icon}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-gray-500 mb-1">{card.title}</p>
-                      <p className="text-2xl font-bold text-gray-800 truncate">{card.value}</p>
+                      <p className="text-[10px] sm:text-sm font-medium text-gray-500 mb-0.5 sm:mb-1 leading-tight">{card.title}</p>
+                      <p className="text-base sm:text-2xl font-bold text-gray-800 truncate tabular-nums">{card.value}</p>
                     </div>
                   </div>
                 );
             })}
           </div>
 
-          {/* 快速操作 - 升級為 Grid Layout 與 Card 樣式 */}
+          {/* 快速操作 — 彩色卡片（側選單與功能頁標題維持 indigo 統一） */}
           <div>
-            <div className="flex items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-800 border-l-4 border-indigo-500 pl-3">快速操作</h2>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <h2 className="text-xl font-bold text-gray-800 border-l-4 border-indigo-500 pl-4 mb-6">快速操作</h2>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {processedQuickActions.map(action => {
                 const isActive = activeTab === action.id;
                 const Component = action.disabled ? 'button' : Link;
@@ -465,34 +484,42 @@ function BackPanel() {
                     key={action.id}
                     disabled={action.disabled}
                     className={`
-                        relative overflow-hidden text-left p-6 rounded-2xl border bg-white transition-all duration-300 group
-                        ${isActive ? `ring-2 ${action.ring} border-transparent` : `border-gray-100 hover:border-transparent hover:shadow-md hover:-translate-y-1`}
-                        ${action.disabled ? 'opacity-60 cursor-not-allowed bg-gray-50' : 'cursor-pointer'}
+                      text-left p-6 rounded-2xl border transition-all duration-300 flex items-center group
+                      ${action.disabled
+                        ? 'bg-gray-50 cursor-not-allowed opacity-60 border-gray-100'
+                        : isActive
+                          ? action.activeCard
+                          : `bg-white border-gray-200 ${action.cardHover} hover:shadow-lg hover:-translate-y-1 cursor-pointer`
+                      }
                     `}
                     href={action.href}
                   >
-                    <div className="flex items-start">
-                        <div className={`p-3 rounded-xl mr-4 ${action.iconBg} group-hover:scale-110 transition-transform duration-300`}>
-                            {action.icon}
-                        </div>
-                        <div className="flex-1">
-                            <h3 className={`text-lg font-bold ${action.disabled ? 'text-gray-400' : 'text-gray-800'}`}>
-                                {action.title}
-                            </h3>
-                            <p className={`text-sm mt-1 leading-relaxed ${action.disabled ? 'text-gray-400' : 'text-gray-500'}`}>
-                                {action.description}
-                            </p>
-                        </div>
+                    <div className={`p-4 rounded-xl mr-5 flex-shrink-0 relative z-10 transition-colors [&_svg]:text-current ${
+                      action.disabled
+                        ? 'bg-gray-200 text-gray-400'
+                        : `${action.iconBg} ${action.iconText} ${action.iconHover}`
+                    }`}>
+                      {action.icon}
                     </div>
-                    {!action.disabled && (
-                        <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity text-indigo-500">
-                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-                        </div>
-                    )}
+                    <div className="min-w-0">
+                      <h3 className={`text-lg font-bold ${
+                        action.disabled ? 'text-gray-500' : `text-gray-900 ${action.titleHover}`
+                      }`}>
+                        {action.title}
+                      </h3>
+                      <p className={`text-sm mt-1 ${action.disabled ? 'text-gray-400' : 'text-gray-500'}`}>
+                        {action.description}
+                      </p>
+                    </div>
                   </Component>
                 );
               })}
             </div>
+          </div>
+
+          <div className="mt-8 sm:mt-10">
+            {!isAdminPanel && <LiveAttendanceBanner audience="teacher" />}
+            <CourseActivityFeed audience={isAdminPanel ? 'admin' : 'teacher'} />
           </div>
         </div>
       );
@@ -571,37 +598,54 @@ function BackPanel() {
         case 'courses': return <CourseManager onProcessingStateChange={handleProcessingStateChange} />;
         case 'admin-teachers': return <TeacherAdminManager />;
         case 'password': return <PasswordManager apiEndpoint='/api/auth/change-password' userInfo={normalizedUserInfo || undefined} />;
-        case 'teacher-courses': return <TeacherCourseManager userInfo={normalizedUserInfo} courses={courses} />;
-        case 'teacher-grades':
+        case 'teacher-courses':
           return (
-            <GradeManager
+            <TeacherCourseManager
               userInfo={normalizedUserInfo}
-              courseCodeFromUrl={teacherGradesCourseCode}
+              courses={courses}
+              courseCodeFromUrl={teacherCoursesCourseCode}
+              tabFromUrl={teacherCoursesTab}
             />
           );
-        case 'teacher-exams': return <TeacherExamManager />;
+        case 'teacher-exams':
+          // 僅保留建立／編輯／批改／分析；列表已併入授課管理
+          if (!teacherExamRoute.quizCode) return null;
+          return (
+            <TeacherExamManager
+              userInfo={normalizedUserInfo}
+              courses={courses}
+              quizCodeFromUrl={teacherExamRoute.quizCode}
+              examSubView={teacherExamRoute.subView}
+              initialCourseId={teacherExamInitialCourseId}
+            />
+          );
+        case 'teacher-surveys':
+          if (!teacherSurveyRoute.surveyCode) return null;
+          return (
+            <TeacherSurveyManager
+              userInfo={normalizedUserInfo}
+              courses={courses}
+              surveyCodeFromUrl={teacherSurveyRoute.surveyCode}
+              surveySubView={teacherSurveyRoute.subView}
+              initialCourseId={teacherSurveyInitialCourseId}
+            />
+          );
         case 'tutoring': return <TutoringManager userInfo={normalizedUserInfo} courses={courses} />;
         case 'teacher-attendance':
+          // 僅保留單一點名活動深連結；列表／課程層已併入授課管理
+          if (!teacherAttendanceRoute.attendanceCode) return null;
           return (
             <AttendanceManagementComponent
               courses={courses}
               courseCodeFromUrl={teacherAttendanceRoute.courseCode}
               attendanceCodeFromUrl={teacherAttendanceRoute.attendanceCode}
+              returnTo={teacherAttendanceReturnTo}
             />
           );
         case 'resources': return <ResourceManagement />;
         default: return null;
       }
     })();
-
-    // For placeholder pages like 'teacher-exams', render without the standard header.
-    if (activeTab === 'teacher-exams') {
-      return (
-        <div className="animate-fade-in flex flex-col bg-gray-50/50 p-3 sm:p-4 md:p-6 min-w-0">
-          {componentToRender}
-        </div>
-      );
-    }
 
     return (
       <div className="animate-fade-in flex flex-col bg-gray-50/50 p-3 sm:p-4 md:p-6 min-w-0">
@@ -643,7 +687,7 @@ function BackPanel() {
 
 export default function BackPanelPage() {
   return (
-    <Suspense>
+    <Suspense fallback={<PageLoadingArea minHeight="min-h-[50vh]" />}>
       <BackPanel />
     </Suspense>
   );

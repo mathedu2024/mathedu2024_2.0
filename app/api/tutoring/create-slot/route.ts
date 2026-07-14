@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { tutoringService } from '@/services/tutoringService';
 
 export async function POST(req: NextRequest) {
@@ -14,6 +15,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ message: 'Tutoring slot created successfully', slotId }, { status: 201 });
   } catch (error) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     if (error instanceof Error && error.message === 'Invalid teacherId') {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }

@@ -1,9 +1,48 @@
 import { adminDb } from './firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { subMonths } from 'date-fns';
 import { TutoringSlot, Appointment } from './interfaces'; // Import interfaces
+
+export const TUTORING_RETENTION_MONTHS = 3;
+const FIRESTORE_BATCH_LIMIT = 500;
 
 class TutoringService {
   private slotsCollection = adminDb.collection('tutoringSlots');
+
+  private getSlotEndDateTime(slot: Pick<TutoringSlot, 'date' | 'endTime'>): Date {
+    const dateStr = (slot.date || '').split('T')[0];
+    const endTime = slot.endTime || '23:59';
+    return new Date(`${dateStr}T${endTime}`);
+  }
+
+  private getRetentionCutoff(): Date {
+    return subMonths(new Date(), TUTORING_RETENTION_MONTHS);
+  }
+
+  private isWithinRetention(slot: Pick<TutoringSlot, 'date' | 'endTime'>): boolean {
+    return this.getSlotEndDateTime(slot) >= this.getRetentionCutoff();
+  }
+
+  /** 刪除超過保留期限的輔導時段（含預約紀錄） */
+  async purgeExpiredTutoringData(): Promise<number> {
+    const cutoff = this.getRetentionCutoff();
+    const snapshot = await this.slotsCollection.get();
+    const docsToDelete = snapshot.docs.filter((doc) => {
+      const slotData = doc.data() as TutoringSlot;
+      return this.getSlotEndDateTime(slotData) < cutoff;
+    });
+
+    if (docsToDelete.length === 0) return 0;
+
+    for (let i = 0; i < docsToDelete.length; i += FIRESTORE_BATCH_LIMIT) {
+      const batch = adminDb.batch();
+      const chunk = docsToDelete.slice(i, i + FIRESTORE_BATCH_LIMIT);
+      chunk.forEach((doc) => batch.delete(doc.ref));
+      await batch.commit();
+    }
+
+    return docsToDelete.length;
+  }
 
   async createTimeSlot(slot: TutoringSlot): Promise<string> {
     const teacherRef = adminDb.collection('users').doc(slot.teacherId);
@@ -114,19 +153,22 @@ class TutoringService {
   }
 
   async getAllTimeSlots(): Promise<TutoringSlot[]> {
+    await this.purgeExpiredTutoringData();
     const snapshot = await this.slotsCollection.get();
-    return snapshot.docs.map(doc => {
-      const data = doc.data() as TutoringSlot;
-      const bookedCount = data.bookedStudents ? data.bookedStudents.length : 0;
-      const result = {
-        id: doc.id,
-        ...data,
-        bookedCount: bookedCount,
-        isFull: bookedCount >= data.participantLimit,
-      };
-      console.log('getTimeSlots returning slot:', result);
-      return result;
-    });
+    return snapshot.docs
+      .filter((doc) => this.isWithinRetention(doc.data() as TutoringSlot))
+      .map(doc => {
+        const data = doc.data() as TutoringSlot;
+        const bookedCount = data.bookedStudents ? data.bookedStudents.length : 0;
+        const result = {
+          id: doc.id,
+          ...data,
+          bookedCount: bookedCount,
+          isFull: bookedCount >= data.participantLimit,
+        };
+        console.log('getTimeSlots returning slot:', result);
+        return result;
+      });
   }
 
   async getTimeSlots(teacherId: string): Promise<TutoringSlot[]> {
@@ -134,12 +176,28 @@ class TutoringService {
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TutoringSlot));
   }
 
-  async getStudentAppointments(studentId: string): Promise<Appointment[]> {
+  async getStudentAppointments(
+    studentId: string,
+    dateRange?: { from?: string; to?: string },
+  ): Promise<Appointment[]> {
+    await this.purgeExpiredTutoringData();
     const allSlotsSnapshot = await this.slotsCollection.get();
     const studentAppointments: Appointment[] = [];
+    const now = new Date();
 
     allSlotsSnapshot.docs.forEach(slotDoc => {
       const slotData = slotDoc.data() as TutoringSlot;
+      if (!this.isWithinRetention(slotData)) return;
+
+      const slotDate = (slotData.date || '').split('T')[0];
+      const slotEnd = this.getSlotEndDateTime(slotData);
+      const isUpcoming = slotEnd > now;
+
+      if (!isUpcoming && dateRange) {
+        if (dateRange.from && slotDate < dateRange.from) return;
+        if (dateRange.to && slotDate > dateRange.to) return;
+      }
+
       if (slotData.bookedStudents) {
         slotData.bookedStudents.forEach(bookedAppointment => {
           if (bookedAppointment.studentId === studentId) {

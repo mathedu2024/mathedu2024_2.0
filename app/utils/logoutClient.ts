@@ -8,6 +8,11 @@ import { clearSession } from './session';
 export async function logoutClient(redirectTo?: string): Promise<void> {
   clearSession();
   try {
+    await fetch('/api/auth/logout', { method: 'POST' });
+  } catch {
+    // httpOnly cookie 清除失敗不阻斷登出流程
+  }
+  try {
     if (auth.currentUser) {
       await signOut(auth);
     }

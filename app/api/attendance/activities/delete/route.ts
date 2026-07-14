@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { adminDb } from '@/firebaseAdmin';
 import { getSessionFromCookie } from '@/utils/session';
 
@@ -30,6 +31,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     console.error('[API/attendance/activities/delete] Error:', error);
     return NextResponse.json({ error: '刪除失敗' }, { status: 500 });
   }

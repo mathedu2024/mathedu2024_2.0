@@ -4,10 +4,14 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { getSession } from '@/utils/session';
 import { useSearchParams, useRouter } from 'next/navigation';
 import PageLoadingArea from '@/components/ui/PageLoadingArea';
+import TabNav from '@/components/ui/TabNav';
+import { useStudentInfo } from '../StudentInfoContext';
+import { fetchStudentDashboardData } from '@/utils/studentClientApi';
 import { useInterval } from '@/utils/hooks';
-import Swal from 'sweetalert2';
+import Swal from '@/utils/swalTheme';
 import StudentCourseSelector, { isCourseArchived } from '@/components/StudentCourseSelector';
 import { ClockIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline';
+import AttendanceQrScanner from '@/components/AttendanceQrScanner';
 
 // ====================================================================
 // 1. Interfaces
@@ -35,7 +39,7 @@ interface EnrolledCourse {
 }
 
 interface ActivityDetails extends Activity {
-  checkInMethod: 'numeric' | 'manual';
+  checkInMethod: 'numeric' | 'manual' | 'qr';
 }
 
 // Helper to group activities by course name
@@ -180,8 +184,21 @@ const CourseGroupedList = ({ activities, emptyText }: { activities: Activity[], 
 // 3. Check-in View (大部分邏輯維持不變，僅微調樣式)
 // ====================================================================
 
-function CheckInView({ firestoreCourseId, activityId, onSuccess }: { firestoreCourseId: string, activityId: string, onSuccess?: () => void }) {
+function CheckInView({
+  firestoreCourseId,
+  activityId,
+  onSuccess,
+  returnTo,
+  initialQrToken,
+}: {
+  firestoreCourseId: string;
+  activityId: string;
+  onSuccess?: () => void;
+  returnTo?: string | null;
+  initialQrToken?: string | null;
+}) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [activity, setActivity] = useState<ActivityDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -189,6 +206,12 @@ function CheckInView({ firestoreCourseId, activityId, onSuccess }: { firestoreCo
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasCheckedIn, _setHasCheckedIn] = useState(false);
   const [finalStatus, _setFinalStatus] = useState<string | null>(null);
+  const autoTokenTriedRef = React.useRef(false);
+
+  const resolveReturnPath = () => {
+    if (returnTo && returnTo.startsWith('/student/')) return returnTo;
+    return '/student/attendance';
+  };
 
   useEffect(() => {
     const fetchActivityDetails = async () => {
@@ -210,7 +233,7 @@ function CheckInView({ firestoreCourseId, activityId, onSuccess }: { firestoreCo
     fetchActivityDetails();
   }, [firestoreCourseId, activityId]);
 
-  const processCheckIn = async (code: string) => {
+  const processCheckIn = async (payload: { checkInCode?: string; qrToken?: string }) => {
     setIsSubmitting(true);
 
     const session = getSession();
@@ -221,8 +244,8 @@ function CheckInView({ firestoreCourseId, activityId, onSuccess }: { firestoreCo
     }
 
     try {
-      if (!code) {
-        Swal.fire({ icon: 'error', title: '錯誤', text: '簽到碼遺失。' });
+      if (!payload.checkInCode && !payload.qrToken) {
+        Swal.fire({ icon: 'error', title: '錯誤', text: '簽到憑證遺失。' });
         setIsSubmitting(false);
         return;
       }
@@ -234,7 +257,8 @@ function CheckInView({ firestoreCourseId, activityId, onSuccess }: { firestoreCo
           courseId: firestoreCourseId,
           activityId,
           studentId: session.id,
-          checkInCode: code,
+          checkInCode: payload.checkInCode,
+          qrToken: payload.qrToken,
         }),
       });
 
@@ -244,9 +268,15 @@ function CheckInView({ firestoreCourseId, activityId, onSuccess }: { firestoreCo
         throw new Error(data.error || '簽到失敗。');
       }
 
-      // 在跳出成功提示彈窗前，立刻在背景觸發資料刷新
       if (onSuccess) {
         onSuccess();
+      }
+
+      // 清掉 URL 上的 token，避免重新整理重複提交
+      if (payload.qrToken && searchParams.get('token')) {
+        const next = new URLSearchParams(searchParams.toString());
+        next.delete('token');
+        router.replace(`/student/attendance?${next.toString()}`);
       }
 
       const statusText = data.status === 'present' ? '出席' : '遲到';
@@ -256,7 +286,7 @@ function CheckInView({ firestoreCourseId, activityId, onSuccess }: { firestoreCo
         text: `狀態：${statusText}`,
         confirmButtonColor: '#4f46e5'
       }).then(() => {
-        router.push('/student/attendance');
+        router.push(resolveReturnPath());
       });
 
     } catch (err) {
@@ -266,16 +296,26 @@ function CheckInView({ firestoreCourseId, activityId, onSuccess }: { firestoreCo
         text: err instanceof Error ? err.message : '簽到時發生錯誤。',
       });
       
-      // 如果簽到失敗，自動清空輸入框，方便學生重新輸入
       setCheckInCode('');
+      autoTokenTriedRef.current = false;
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // 系統相機掃碼開啟連結時，自動帶 token 簽到
+  useEffect(() => {
+    if (!activity || activity.checkInMethod !== 'qr' || !initialQrToken || autoTokenTriedRef.current || isSubmitting) {
+      return;
+    }
+    autoTokenTriedRef.current = true;
+    void processCheckIn({ qrToken: initialQrToken });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activity, initialQrToken]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    processCheckIn(checkInCode);
+    processCheckIn({ checkInCode });
   };
 
   if (isLoading) {
@@ -336,7 +376,7 @@ function CheckInView({ firestoreCourseId, activityId, onSuccess }: { firestoreCo
                       const newCode = e.target.value.replace(/\D/g, '');
                       setCheckInCode(newCode);
                       if (newCode.length === 6 && !isSubmitting) {
-                        processCheckIn(newCode);
+                        processCheckIn({ checkInCode: newCode });
                       }
                     }}
                     maxLength={6}
@@ -350,14 +390,31 @@ function CheckInView({ firestoreCourseId, activityId, onSuccess }: { firestoreCo
                   />
                 </div>
               )}
+
+              {activity.checkInMethod === 'qr' && (
+                <div className="mb-6">
+                  <AttendanceQrScanner
+                    disabled={isSubmitting}
+                    onToken={(token) => {
+                      if (!isSubmitting) processCheckIn({ qrToken: token });
+                    }}
+                  />
+                </div>
+              )}
+
               <div className="flex flex-col gap-3">
-                <button 
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-bold shadow-md hover:bg-indigo-700 hover:shadow-lg transition-all disabled:bg-indigo-300 disabled:shadow-none"
-                >
-                  {isSubmitting ? '驗證中...' : '確認簽到'}
-                </button>
+                {activity.checkInMethod === 'numeric' && (
+                  <button 
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-bold shadow-md hover:bg-indigo-700 hover:shadow-lg transition-all disabled:bg-indigo-300 disabled:shadow-none"
+                  >
+                    {isSubmitting ? '驗證中...' : '確認簽到'}
+                  </button>
+                )}
+                {activity.checkInMethod === 'qr' && isSubmitting && (
+                  <div className="w-full text-center text-indigo-600 font-medium py-2">驗證簽到中…</div>
+                )}
                 <button 
                   type="button"
                   onClick={() => router.back()}
@@ -380,31 +437,44 @@ function CheckInView({ firestoreCourseId, activityId, onSuccess }: { firestoreCo
 
 export default function AttendanceContent() {
   const searchParams = useSearchParams();
+  const { studentInfo } = useStudentInfo();
   const firestoreCourseId = searchParams.get('courseId');
   const activityId = searchParams.get('activity');
+  const returnTo = searchParams.get('returnTo');
+  const qrToken = searchParams.get('token');
   const [tab, setTab] = useState<'live' | 'history'>('live');
   const [activities, setActivities] = useState<Activity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [enrolledCourses, setEnrolledCourses] = useState<EnrolledCourse[]>([]);
   const [selectedCourseForHistory, setSelectedCourseForHistory] = useState<string>('');
 
-  // Fetch enrolled courses list
+  // Fetch enrolled courses list（共用 dashboard 快取）
   useEffect(() => {
-    const fetchEnrolledCourses = async () => {
+    const studentId = studentInfo?.id;
+    if (!studentId) return;
+
+    let cancelled = false;
+    void (async () => {
       try {
-        const response = await fetch('/api/student/courses/list', {
-          headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
-        });
-        if (response.ok) {
-          const coursesData = await response.json();
-          setEnrolledCourses(Array.isArray(coursesData) ? coursesData : []);
-        }
+        const data = await fetchStudentDashboardData(studentId, { coursesOnly: true });
+        if (cancelled) return;
+        const coursesData = (data.courses || []).map((c) => ({
+          id: c.id,
+          name: c.name,
+          code: c.code,
+          status: c.status,
+          archived: c.archived,
+        }));
+        setEnrolledCourses(coursesData);
       } catch (err) {
         console.error('Error fetching enrolled courses:', err);
       }
+    })();
+
+    return () => {
+      cancelled = true;
     };
-    fetchEnrolledCourses();
-  }, []);
+  }, [studentInfo?.id]);
 
   // Fetch all activities
   const fetchAllActivities = useCallback(async (showLoading = false) => {
@@ -431,9 +501,11 @@ export default function AttendanceContent() {
     fetchAllActivities(true);
   }, [fetchAllActivities]);
 
-  // Polling for live updates
+  // Polling for live updates（頁面不可見時暫停）
   useInterval(() => {
-    if (tab === 'live') fetchAllActivities(false);
+    if (tab === 'live' && document.visibilityState === 'visible') {
+      fetchAllActivities(false);
+    }
   }, 10000);
 
   // 2. 嚴格過濾出未封存的課程（確保狀態比對不受空白字元干擾）
@@ -474,7 +546,9 @@ export default function AttendanceContent() {
       <CheckInView 
         firestoreCourseId={firestoreCourseId} 
         activityId={activityId} 
-        onSuccess={() => fetchAllActivities(false)} 
+        onSuccess={() => fetchAllActivities(false)}
+        returnTo={returnTo}
+        initialQrToken={qrToken}
       />
     );
   }
@@ -492,36 +566,26 @@ export default function AttendanceContent() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="mb-6 border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
-          <button
-            onClick={() => setTab('live')}
-            className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-              tab === 'live'
-                ? 'border-indigo-500 text-indigo-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            即時活動
-            {liveActivities.length > 0 && (
-              <span className="ml-2 bg-red-100 text-red-600 py-0.5 px-2 rounded-full text-xs font-bold">
-                {liveActivities.length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setTab('history')}
-            className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-              tab === 'history'
-                ? 'border-indigo-500 text-indigo-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            歷史紀錄
-          </button>
-        </nav>
-      </div>
+      <TabNav
+        items={[
+          {
+            id: 'live',
+            label: (
+              <>
+                即時活動
+                {liveActivities.length > 0 && (
+                  <span className="ml-2 bg-red-100 text-red-600 py-0.5 px-2 rounded-full text-xs font-bold">
+                    {liveActivities.length}
+                  </span>
+                )}
+              </>
+            ),
+          },
+          { id: 'history', label: '歷史紀錄' },
+        ]}
+        activeId={tab}
+        onChange={(id) => setTab(id as 'live' | 'history')}
+      />
 
       {/* Content Area */}
       {isLoading ? (

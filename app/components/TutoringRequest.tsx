@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import PageLoadingArea from './ui/PageLoadingArea';
+import { tableActionStyles } from './ui';
 import BookingModal from './BookingModal';
 import { TutoringSlot } from '@/services/interfaces';
 import { useStudentInfo } from '../student/StudentInfoContext';
@@ -167,14 +168,10 @@ const TutoringRequest: React.FC = () => {
                     </div>
                   </div>
                   
-                  <div className="pl-3 pt-3 border-t border-gray-100">
+                  <div className="pt-3 border-t border-gray-100">
                     <button
                         onClick={() => handleOpenModal(slot)}
-                        className={`w-full py-2 rounded-lg font-medium transition-colors shadow-sm ${
-                            !canBook 
-                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                            : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                        }`}
+                        className={`w-full ${!canBook ? tableActionStyles.disabled : tableActionStyles.primary}`}
                         disabled={!canBook}
                     >
                         {isBooked ? '您已預約' : isFull ? '名額已滿' : '立即預約'}
@@ -237,11 +234,7 @@ const TutoringRequest: React.FC = () => {
                       <td className="px-6 py-4 text-right">
                         <button
                           onClick={() => handleOpenModal(slot)}
-                          className={`inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
-                            !canBook
-                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                              : 'text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm'
-                          }`}
+                          className={!canBook ? tableActionStyles.disabled : tableActionStyles.primary}
                           disabled={!canBook}
                         >
                           預約

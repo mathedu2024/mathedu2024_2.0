@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { adminDb } from '../../../../services/firebase-admin';
 import { cookies } from 'next/headers';
 
@@ -15,6 +16,9 @@ export async function POST(req: NextRequest) {
     }
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (_error) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(_error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -24,6 +28,9 @@ export async function POST(req: NextRequest) {
     await adminDb.collection('course_info').doc(id).delete();
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     let message = '刪除失敗';
     if (error instanceof Error) message = error.message;
     return NextResponse.json({ error: message }, { status: 500 });

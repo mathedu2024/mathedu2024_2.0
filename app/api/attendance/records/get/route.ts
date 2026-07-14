@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { db } from '@/lib/db';
 import { getCourseEnrolledStudentKeys } from '@/services/attendanceService';
+import { syncAttendanceLifecycle } from '@/services/attendanceLifecycle';
 
 interface AttendanceRecord {
   studentId: string;
@@ -14,8 +16,11 @@ interface AttendanceActivityResponse {
   name: string;
   date: string;
   type: string;
-  mode: 'manual' | 'digital';
+  mode: 'manual' | 'digital' | 'qr';
   checkInCode?: string | null;
+  status?: string;
+  startTime?: string | null;
+  endTime?: string | null;
 }
 
 export async function POST(req: NextRequest) {
@@ -39,6 +44,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 同步預約開始／結束後未紀錄改缺席
+    await syncAttendanceLifecycle(courseId, activityId);
+
     const activityRef = db
       .collection('courses')
       .doc(courseId)
@@ -51,11 +59,13 @@ export async function POST(req: NextRequest) {
     if (activityDoc.exists) {
       const data = activityDoc.data() as {
         startTime?: unknown;
+        endTime?: unknown;
         date?: unknown;
         checkInMethod?: string;
         title?: string;
         type?: string;
         checkInCode?: string;
+        status?: string;
       };
 
       const toISO = (d: unknown) => {
@@ -72,17 +82,31 @@ export async function POST(req: NextRequest) {
         }
       };
 
-      const rawDate = toISO(data.startTime || data.date || new Date());
-      const mode: 'manual' | 'digital' =
-        data.checkInMethod === 'numeric' ? 'digital' : 'manual';
+      const startISO = toISO(data.startTime || data.date || new Date());
+      const mode: 'manual' | 'digital' | 'qr' =
+        data.checkInMethod === 'numeric'
+          ? 'digital'
+          : data.checkInMethod === 'qr'
+            ? 'qr'
+            : 'manual';
+
+      const visibleCode =
+        data.status === 'active' && mode === 'digital' && /^\d{6}$/.test(data.checkInCode || '')
+          ? data.checkInCode
+          : mode === 'qr' || mode === 'manual'
+            ? data.checkInCode || null
+            : null;
 
       activity = {
         id: activityDoc.id,
         name: data.title || data.type || '未命名活動',
-        date: rawDate,
+        date: startISO,
         type: data.type || '一般課程',
         mode,
-        checkInCode: data.checkInCode || null,
+        checkInCode: visibleCode,
+        status: data.status,
+        startTime: startISO,
+        endTime: data.endTime ? toISO(data.endTime) : null,
       };
     }
 
@@ -120,19 +144,26 @@ export async function POST(req: NextRequest) {
           leaveType?: string;
           remarks?: string;
         };
-        const studentId =
-          data.studentId || data.studentCode || doc.id;
 
-        if (!isEnrolledRecord(doc.id, data) && !isEnrolledRecord(studentId, data)) return;
+        if (!isEnrolledRecord(doc.id, data)) return;
 
         const normalizedStatus = normalizeStatus(data.status || '');
 
         records.push({
-          studentId,
+          studentId: data.studentId || doc.id,
           status: normalizedStatus,
           leaveType: normalizedStatus === 'leave' ? data.leaveType || '' : '',
           note: data.remarks || '',
         });
+        // 若學號與帳號 id 不同，多推一筆以帳號 id 對應（前端 getRecord 會查兩者）
+        if (data.studentId && data.studentId !== doc.id) {
+          records.push({
+            studentId: doc.id,
+            status: normalizedStatus,
+            leaveType: normalizedStatus === 'leave' ? data.leaveType || '' : '',
+            note: data.remarks || '',
+          });
+        }
       });
     }
 
@@ -141,6 +172,9 @@ export async function POST(req: NextRequest) {
       activity,
     });
   } catch (error) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     console.error('[API] /api/attendance/records/get error:', error);
     return NextResponse.json(
       { error: '取得點名紀錄失敗' },

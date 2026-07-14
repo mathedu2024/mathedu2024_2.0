@@ -21,11 +21,14 @@ try {
 
   const privateKey = serviceAccount.private_key;
 
-  console.log('\n✅ Successfully generated your FIREBASE_PRIVATE_KEY value.\n');
-  console.log('Copy the following line and paste it into your .env.local file:');
+  console.log('\n✅ Successfully generated a Firebase private key value.\n');
+  console.log('Copy one of the following lines into your .env.local file:');
+  console.log('  - FIREBASE_CORE_PRIVATE_KEY  → 主站');
+  console.log('  - FIREBASE_QUIZ_PRIVATE_KEY  → 線上測驗專用');
   console.log('Make sure to enclose the key in double quotes.');
   console.log('------------------------------------------------------------------');
-  console.log(`FIREBASE_PRIVATE_KEY="${privateKey.replace(/\n/g, '\\n')}"`);
+  console.log(`FIREBASE_CORE_PRIVATE_KEY="${privateKey.replace(/\n/g, '\\n')}"`);
+  console.log(`FIREBASE_QUIZ_PRIVATE_KEY="${privateKey.replace(/\n/g, '\\n')}"`);
   console.log('------------------------------------------------------------------\n');
 
 } catch (error) {

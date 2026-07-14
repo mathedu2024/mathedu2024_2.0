@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
-import Swal from 'sweetalert2';
+import Swal from '@/utils/swalTheme';
+import PageLoadingArea from '@/components/ui/PageLoadingArea';
 
 export default function Error({
   error,
@@ -41,10 +42,7 @@ export default function Error({
 
   return (
     <div className="min-h-[calc(100vh-64px)] flex items-center justify-center bg-gray-50">
-      <div className="flex flex-col items-center">
-        <div className="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
-        <p className="mt-4 text-gray-400 text-sm font-medium">正在處理異常訊息...</p>
-      </div>
+      <PageLoadingArea minHeight="min-h-0" />
     </div>
   );
 }

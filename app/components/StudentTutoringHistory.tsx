@@ -16,6 +16,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { Appointment } from '@/services/interfaces';
 import LoadingSpinner from './LoadingSpinner';
+import { tableActionStyles, tableActionRow } from './ui';
 
 interface StudentTutoringHistoryProps {
   userInfo: {
@@ -293,29 +294,26 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
                     </div>
                   </div>
 
-                  <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                  <div className={`${tableActionRow} pt-2 border-t border-gray-100`}>
                     <button 
                       onClick={() => handleOpenDetailsModal(appointment)} 
-                      className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                      title="詳情"
+                      className={tableActionStyles.secondary}
                     >
-                      <EyeIcon className="w-5 h-5" />
+                      詳情
                     </button>
                     {isUpcoming && (appointment.status === 'confirmed' || appointment.status === 'pending') && (
                       <>
                         <button 
                           onClick={() => handleOpenEditModal(appointment)} 
-                          className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                          title="編輯"
+                          className={tableActionStyles.primary}
                         >
-                          <PencilIcon className="w-5 h-5" />
+                          編輯
                         </button>
                         <button 
                           onClick={() => handleCancelAppointment(appointment)} 
-                          className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
-                          title="取消"
+                          className={tableActionStyles.danger}
                         >
-                          <XCircleIcon className="w-5 h-5" />
+                          取消
                         </button>
                       </>
                     )}
@@ -357,29 +355,26 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
                         {getStatusChip(appointment.status)}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-3 opacity-80 group-hover:opacity-100 transition-opacity">
+                        <div className={tableActionRow}>
                           <button
                             onClick={() => handleOpenDetailsModal(appointment)}
-                            className="text-indigo-600 hover:text-indigo-900 transition-colors p-1.5 hover:bg-indigo-50 rounded-lg"
-                            title="查看詳情"
+                            className={tableActionStyles.secondary}
                           >
-                            <EyeIcon className="w-4 h-4" />
+                            詳情
                           </button>
                           {isUpcoming && (appointment.status === 'confirmed' || appointment.status === 'pending') && (
                             <>
                               <button
                                 onClick={() => handleOpenEditModal(appointment)}
-                                className="text-amber-600 hover:text-amber-800 transition-colors p-1.5 hover:bg-amber-50 rounded-lg"
-                                title="編輯問題"
+                                className={tableActionStyles.primary}
                               >
-                                <PencilIcon className="w-4 h-4" />
+                                編輯
                               </button>
                               <button
                                 onClick={() => handleCancelAppointment(appointment)}
-                                className="text-red-500 hover:text-red-700 transition-colors p-1.5 hover:bg-red-50 rounded-lg"
-                                title="取消預約"
+                                className={tableActionStyles.danger}
                               >
-                                <XCircleIcon className="w-4 h-4" />
+                                取消
                               </button>
                             </>
                           )}
@@ -396,7 +391,7 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
 
       {/* Edit Modal */}
       {isEditModalOpen && selectedAppointment && createPortal(
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-[99999] p-4 animate-fade-in">
+        <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-[99999] p-4 animate-fade-in">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-full sm:max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in">
             {/* Header */}
             <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-4 flex justify-between items-center text-white flex-shrink-0">
@@ -448,7 +443,7 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
 
       {/* Details Modal */}
       {isDetailsModalOpen && detailsAppointment && createPortal(
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex justify-center items-center z-[99999] p-4 animate-fade-in">
+        <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-[99999] p-4 animate-fade-in">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-full sm:max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in">
             {/* Header */}
             <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">

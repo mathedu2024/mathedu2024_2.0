@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { adminDb } from '@/firebaseAdmin';
 import { getSessionFromCookie } from '@/utils/session';
 
@@ -49,6 +50,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(activities);
   } catch (error) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     console.error('[API/attendance/activities] Error:', error);
     return NextResponse.json({ error: '讀取點名紀錄失敗' }, { status: 500 });
   }

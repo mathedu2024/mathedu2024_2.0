@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { v2 as cloudinary } from 'cloudinary';
 
 // Cloudinary 配置
@@ -61,6 +62,9 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, request);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     console.error('Upload error:', error);
     return NextResponse.json(
       { error: 'Upload failed' },
@@ -88,6 +92,9 @@ export async function DELETE(request: NextRequest) {
     });
 
   } catch (error) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, request);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     console.error('Delete error:', error);
     return NextResponse.json(
       { error: 'Delete failed' },

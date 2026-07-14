@@ -1,5 +1,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { adminDb } from '@/services/firebase-admin';
 
 import { getSessionFromCookie } from '@/utils/session';
@@ -105,6 +106,9 @@ export async function GET(req: NextRequest) {
     const attendance = await getAttendanceForStudent(studentId);
     return NextResponse.json(attendance);
   } catch (error) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     console.error('Error fetching student attendance:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     return NextResponse.json({ error: 'Failed to fetch attendance data.', details: errorMessage }, { status: 500 });

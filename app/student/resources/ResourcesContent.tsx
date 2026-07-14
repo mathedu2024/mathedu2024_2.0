@@ -348,7 +348,7 @@ export default function ResourcesContent() {
             線上資源
           </h1>
           <p className="text-gray-500 text-sm mt-1">
-            搜尋並下載老師分享的教學資源、講義與補充影片。
+            搜尋與下載教學資源
           </p>
         </div>
       </div>

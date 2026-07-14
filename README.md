@@ -38,44 +38,109 @@
 | ver2.3.4 | 2026/06/14 | 修正錯誤、更新UI |
 | ver2.4.0 | 2026/06/18 | 修正錯誤、新增HTML編輯器用於網站公告及課程公告 |
 | ver2.4.1 | 2026/07/01 | 更新成績登記運作模式、響應式畫面優化、優化系統 |
+| ver3.1.0 | 2026/07/15 | 線上測驗啟用、課程問卷啟用、課程問卷啟用、新增QRcode點名、儀錶板新增課程公告和線上點名、新增課程互動視窗、所有功能改以課程為單位運作、統一SweetAlert的運作模式及樣式、新增網站內自訂錯誤代碼、多項內容優化 |
 
+## 網站內自訂錯誤代碼
 
+| 代碼 | 意義 |
+|:--- | :---|
+| SITE-DB-R001 | 自訂每日讀取上限已達 |
+| SITE-DB-R002 | Firestore 配額耗盡（RESOURCE_EXHAUSTED） |
+| SITE-DB-R003 | 單次請求讀取預算不足 |
+| SITE-DB-W001 | 自訂每日寫入上限已達 |
+| SITE-DB-W002 | Firestore 寫入配額耗盡 |
+| SITE-DB-W003 | 單次請求寫入預算不足 |
+| SITE-IMG-C001 | 測驗圖片儲存（R2）尚未設定 |
+| SITE-IMG-C002 | 測驗圖片儲存服務異常 |
+| SITE-IMG-U001 | 圖片上傳失敗（服務端） |
+| SITE-IMG-D001 | 圖片刪除失敗（服務端） |
 
-## 專案結構
+## 專案結構(更新於2026/07/08)
 
 ```
 .
-├── app/                  # 主要的應用程式原始碼 (Next.js App Router)
-│   ├── api/              # API 接口 (後端邏輯)
-│   │   ├── panel/        # (可能是管理員/老師後台相關的 API)
-│   │   └── upload-image/ # 處理圖片上傳的 API
-│   ├── components/       # 可重複使用的 React 元件 (如對話框、管理工具、導覽列)
-│   ├── config/           # 設定檔 (例如，使用者驗證邏輯)
-│   ├── courses/          # 公開的課程介紹頁面
-│   ├── fqa/              # "常見問題" 頁面
-│   ├── student/          # 學生專用的頁面
-│   ├── teacher/          # 老師專用的頁面
-│   ├── back-login/       # 後台登入頁面 (給老師/管理員)
-│   ├── back-panel/       # 後台儀表板 (給老師/管理員)
-│   ├── login/            # 學生登入頁面
-│   ├── panel/            # (可能是舊版的後台或重新導向頁面)
-│   ├── layout.tsx        # 網站的根佈局檔案
-│   ├── page.tsx          # 網站首頁
-│   └── globals.css       # 全域 CSS 樣式
+├── app/                          # Next.js App Router 主程式
+│   ├── api/                      # API Routes（後端邏輯）
+│   │   ├── admin/                # 管理員帳號、統計
+│   │   ├── announcement/         # 網站公告
+│   │   ├── attendance/           # 線上點名
+│   │   ├── auth/                 # 登入與密碼
+│   │   ├── course-info/          # 課程介紹資訊
+│   │   ├── course-images/        # 課程圖片
+│   │   ├── course-student-list/  # 課程學生名單
+│   │   ├── courses/              # 課程 CRUD 與設定
+│   │   ├── exam-dates/           # 考試日期
+│   │   ├── grades/               # 成績登記
+│   │   ├── lessons/              # 課堂單元
+│   │   ├── panel/                # 後台面板資料
+│   │   ├── quiz-images/          # 測驗圖片上傳（Cloudflare R2）
+│   │   ├── quiz-submissions/     # 測驗繳交、評分與分析
+│   │   ├── quizzes/              # 線上測驗 CRUD
+│   │   ├── student/              # 學生端 API（含 exams/）
+│   │   ├── subjects/             # 科目列表
+│   │   ├── teacher/              # 老師資料
+│   │   ├── time-slots/           # 時段管理
+│   │   ├── tutoring/             # 輔導預約
+│   │   ├── tutoring-sessions/    # 輔導紀錄
+│   │   └── upload-image/         # 圖片上傳
+│   ├── back-panel/               # 老師／管理員後台頁面
+│   │   ├── admin-teachers/       # 管理員：老師帳號
+│   │   ├── announcements/        # 公告管理
+│   │   ├── courses/              # 課程管理
+│   │   ├── exam-dates/           # 考試日期
+│   │   ├── password/             # 密碼管理
+│   │   ├── resources/            # 線上資源
+│   │   ├── students/             # 學生管理
+│   │   ├── teacher-attendance/   # 老師點名
+│   │   ├── teacher-courses/      # 老師課程
+│   │   ├── teacher-exams/        # 線上測驗（analytics、grading）
+│   │   ├── teacher-grades/       # 成績登記
+│   │   └── tutoring/             # 輔導預約管理
+│   ├── components/               # React 元件
+│   │   ├── quiz/                 # 測驗編輯器（QuizBuilder、評分等）
+│   │   ├── student-exam/         # 學生作答介面
+│   │   └── ui/                   # 共用 UI 元件
+│   ├── config/                   # 設定（auth.ts）
+│   ├── courses/                  # 公開課程介紹頁
+│   ├── faq/                      # 常見問題
+│   ├── login/                    # 學生登入
+│   ├── panel/                    # 後台重新導向
+│   ├── stores/                   # Zustand 狀態（useQuizStore）
+│   ├── student/                  # 學生專區
+│   │   ├── attendance/           # 點名紀錄
+│   │   ├── counseling/           # 輔導預約
+│   │   ├── courses/              # 我的課程
+│   │   ├── exam/                 # 線上測驗
+│   │   ├── grades/               # 成績查詢
+│   │   ├── information/          # 個人資料
+│   │   ├── lesson-detail/        # 課堂內容
+│   │   ├── resources/            # 線上資源
+│   │   └── watch/                # 影片觀看
+│   ├── teacher/                  # 老師頁面（重新導向）
+│   ├── utils/                    # 前端工具（session、測驗草稿、SweetAlert 等）
+│   ├── layout.tsx                # 根佈局
+│   ├── page.tsx                  # 首頁
+│   └── globals.css               # 全域樣式
 │
-├── public/               # 靜態資源 (如圖片、圖示)
-│   ├── 老師介紹/         # 存放老師介紹的圖片
-│   └── 課程介紹圖片/       # 存放課程介紹的封面圖片
-│
-├── services/             # 後端服務整合
-│   ├── announcementService.ts # 處理公告相關的邏輯
-│   ├── authService.ts    # 使用者驗證邏輯
-│   ├── cloudinary.ts     # Cloudinary SDK 設定與相關函式
-│   ├── examService.ts    # 處理考試相關的邏輯
-│   └── firebase.ts       # Firebase SDK 初始化設定
-│
-├── middleware.ts         # Next.js 中介層，用於處理請求 (例如，權限驗證)
-├── next.config.ts        # Next.js 設定檔
-├── tailwind.config.js    # Tailwind CSS 設定檔
-├── tsconfig.json         # TypeScript 設定檔
-└── package.json          # 專案依賴與腳本設定
+├── components/                   # 根目錄共用元件（RichTextEditor、線上資源管理等）
+├── lib/                          # 資料庫與 Firebase 客戶端初始化
+├── public/                       # 靜態資源
+│   ├── 老師介紹/                 # 老師介紹圖片
+│   └── 課程介紹圖片/             # 課程封面圖片
+├── scripts/                      # 維護腳本（seed-firebase、API 錯誤處理補丁等）
+├── services/                     # 後端服務層
+│   ├── firebase-admin.ts         # Firebase Admin SDK
+│   ├── dbReadGuard.ts            # Firestore 讀取配額守衛
+│   ├── dbWriteGuard.ts           # Firestore 寫入配額守衛
+│   ├── quizService.ts            # 線上測驗邏輯
+│   ├── quizSubmissionService.ts  # 測驗繳交與評分
+│   ├── attendanceService.ts      # 點名邏輯
+│   ├── tutoringService.ts        # 輔導預約邏輯
+│   └── siteErrorCodes.ts         # 網站自訂錯誤代碼
+├── types/                        # TypeScript 型別定義
+├── firestore.rules               # Firestore 安全規則
+├── next.config.ts                # Next.js 設定
+├── tailwind.config.js            # Tailwind CSS 設定
+├── tsconfig.json                 # TypeScript 設定
+└── package.json                  # 專案依賴與腳本
+```

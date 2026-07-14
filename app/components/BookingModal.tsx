@@ -149,7 +149,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ slot, userInfo, onClose, on
   return createPortal(
       <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6">
         <motion.div
-          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          className="absolute inset-0 bg-black/60"
           variants={overlayVariants}
           initial="hidden"
           animate="visible"

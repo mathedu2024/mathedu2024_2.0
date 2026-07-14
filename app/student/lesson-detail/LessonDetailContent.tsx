@@ -1,29 +1,28 @@
 ﻿'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-
-// 定義範例資料，確保在沒有 localStorage 的預覽環境也能顯示 UI
-const MOCK_LESSON: LessonDetail = {
-  id: 'mock-1',
-  title: '範例課程：微積分基礎 (預覽模式)',
-  date: '2023-10-27',
-  progress: '第一章：極限與連續',
-  attachments: [
-    { url: '#', name: '第一章講義.pdf' } as unknown as string,
-    { url: '#', name: '習題解答.pdf' } as unknown as string
-  ],
-  videos: ['https://www.youtube.com/watch?v=5qap5aO4i9A'], // Lofi girl for safe demo
-  homework: '請完成課本 p.10-12 的習題。',
-  onlineExam: 'https://example.com/exam',
-  examScope: '第一章全',
-  notes: '下週停課一次，請同學利用時間複習。',
-  courseName: '微積分 (一)',
-  courseCode: 'MATH101',
-  lessonIndex: 1,
-  location: '綜合大樓 301',
-  description: '這是微積分的基礎課程。'
-};
+import { LockClosedIcon, ClipboardDocumentCheckIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
+import BackButton from '@/components/ui/BackButton';
+import PageLoadingArea from '@/components/ui/PageLoadingArea';
+import StudentExamStartModal from '@/components/student-exam/StudentExamStartModal';
+import StudentExamAttemptPickerModal from '@/components/student-exam/StudentExamAttemptPickerModal';
+import { useStudentInfo } from '@/student/StudentInfoContext';
+import {
+  fetchStudentExamList,
+  invalidateStudentExamList,
+  type StudentExamListItem,
+} from '@/utils/studentClientApi';
+import {
+  getLessonVideoLockQuizCodes,
+  hasLessonOnlineExam,
+  hasPendingAccessibleLessonQuizzes,
+  normalizeLessonAssignedQuizzes,
+  type LessonAssignedQuiz,
+} from '@/services/lessonQuiz';
+import { canStartExamTake } from '@/utils/examDraftStorage';
+import { openStudentExamReviewInNewTab } from '@/utils/examAttemptLabel';
+import { showExamTakeBlockedAlert } from '@/utils/examTakeAlerts';
 
 interface LessonDetail {
   id: string;
@@ -35,6 +34,9 @@ interface LessonDetail {
   homework: string;
   noHomework?: boolean;
   onlineExam: string;
+  assignedQuizzes?: LessonAssignedQuiz[];
+  assignedQuizCodes?: string[];
+  requireQuizBeforeVideo?: boolean;
   noOnlineExam?: boolean;
   examScope: string;
   noExamScope?: boolean;
@@ -52,9 +54,85 @@ interface LessonDetail {
 export default function LessonDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { studentInfo } = useStudentInfo();
   const [lesson, setLesson] = useState<LessonDetail | null>(null);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [examList, setExamList] = useState<StudentExamListItem[]>([]);
+  const [examsLoading, setExamsLoading] = useState(false);
+  const [startModal, setStartModal] = useState<{
+    exam: StudentExamListItem;
+    mode: 'start' | 'retake';
+  } | null>(null);
+  const [historyModal, setHistoryModal] = useState<StudentExamListItem | null>(null);
+
+  const assignedQuizzes = useMemo(
+    () => (lesson ? normalizeLessonAssignedQuizzes(lesson) : []),
+    [lesson]
+  );
+
+  const assignedQuizCodes = useMemo(
+    () => assignedQuizzes.map((q) => q.quizCode),
+    [assignedQuizzes]
+  );
+
+  const videoLockQuizCodes = useMemo(
+    () => (lesson ? getLessonVideoLockQuizCodes(lesson) : []),
+    [lesson]
+  );
+
+  const refreshExamList = useCallback(async () => {
+    if (!studentInfo?.id || assignedQuizCodes.length === 0) {
+      setExamList([]);
+      return;
+    }
+    setExamsLoading(true);
+    try {
+      invalidateStudentExamList(studentInfo.id);
+      const exams = await fetchStudentExamList(studentInfo.id);
+      setExamList(exams);
+    } catch {
+      setExamList([]);
+    } finally {
+      setExamsLoading(false);
+    }
+  }, [studentInfo?.id, assignedQuizCodes.length]);
+
+  const resolveExamTitle = useCallback(
+    (quizCode: string) => examList.find((e) => e.quizCode === quizCode)?.title,
+    [examList]
+  );
+
+  const openStartModal = useCallback(
+    async (exam: StudentExamListItem, mode: 'start' | 'retake') => {
+      if (!studentInfo?.id) return;
+      const check = canStartExamTake(studentInfo.id, exam.quizCode);
+      if (!check.allowed) {
+        const alertResult = await showExamTakeBlockedAlert(check, {
+          blockingTitle: check.blockingQuizCode
+            ? resolveExamTitle(check.blockingQuizCode)
+            : undefined,
+          studentId: studentInfo.id,
+          targetQuizCode: exam.quizCode,
+        });
+        if (alertResult !== 'retry-allowed') return;
+      }
+      setStartModal({ exam, mode });
+    },
+    [studentInfo?.id, resolveExamTitle]
+  );
+
+  const openHistory = useCallback((exam: StudentExamListItem) => {
+    if (exam.attempts && exam.attempts.length > 0) {
+      setHistoryModal(exam);
+      return;
+    }
+    if (exam.latestSubmissionId) {
+      openStudentExamReviewInNewTab(exam.quizCode, { submissionId: exam.latestSubmissionId });
+      return;
+    }
+    openStudentExamReviewInNewTab(exam.quizCode, { review: true });
+  }, []);
 
   // Initialize and fetch data
   useEffect(() => {
@@ -83,19 +161,25 @@ export default function LessonDetailPage() {
           
         // 先設定既有的資料以加快顯示
         setLesson(parsedLesson);
-      } else {
-        // 如果沒有資料（預覽環境），使用 Mock Data
-        console.log("No local data found, using mock data for preview.");
-        setLesson(MOCK_LESSON);
       }
     } catch (error) {
       console.error('Error parsing lesson data:', error);
-      // 發生錯誤時也使用 Mock Data 避免畫面空白
-      setLesson(MOCK_LESSON);
     } finally {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    void refreshExamList();
+  }, [refreshExamList]);
+
+  useEffect(() => {
+    const onFocus = () => {
+      void refreshExamList();
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [refreshExamList]);
 
   // Convert YouTube URL to Embed URL
   const getEmbedUrl = (url: string) => {
@@ -152,35 +236,51 @@ export default function LessonDetailPage() {
     }
 
     if (lesson && lesson.courseCode) {
-      router.push(`/student/courses/${encodeURIComponent(lesson.courseCode)}`);
+      router.push(`/student/courses/${encodeURIComponent(lesson.courseCode)}?tab=lessons`);
       return;
     }
 
     if (lesson?.courseId) {
-      router.push(`/student/courses/${encodeURIComponent(lesson.courseId)}`);
+      router.push(`/student/courses/${encodeURIComponent(lesson.courseId)}?tab=lessons`);
       return;
     }
 
     router.push('/student/courses');
   };
 
-  // Loading Skeleton
+  const examsByCode = useMemo(() => {
+    const map = new Map<string, StudentExamListItem>();
+    examList.forEach((exam) => map.set(exam.quizCode, exam));
+    return map;
+  }, [examList]);
+
+  const assignedQuizItems = useMemo(
+    () =>
+      assignedQuizzes.map(({ quizCode, requireBeforeVideo }) => ({
+        quizCode,
+        requireBeforeVideo,
+        exam: examsByCode.get(quizCode) ?? null,
+      })),
+    [assignedQuizzes, examsByCode]
+  );
+
+  const videosLocked =
+    videoLockQuizCodes.length > 0 &&
+    hasPendingAccessibleLessonQuizzes(videoLockQuizCodes, examsByCode);
+
+  const pendingQuizTitles = assignedQuizItems
+    .filter(({ quizCode, requireBeforeVideo, exam }) => {
+      if (!requireBeforeVideo) return false;
+      if (!exam) return false;
+      if (exam.submitted) return false;
+      return exam.accessible !== false;
+    })
+    .map(({ exam }) => exam?.title || '線上測驗');
+
   if (loading) {
     return (
       <div className="page-shell w-full min-w-0 pt-4 sm:pt-6 md:pt-8 pb-10 flex flex-col h-full">
-        <div className="w-full animate-pulse grid grid-cols-1 lg:grid-cols-3 gap-8">
-           {/* Header Skeleton */}
-          <div className="lg:col-span-3 h-20 bg-gray-200 rounded-2xl mb-4"></div>
-           {/* Video Skeleton */}
-          <div className="lg:col-span-2">
-            <div className="aspect-video bg-gray-200 rounded-2xl mb-4"></div>
-          </div>
-           {/* Info Skeleton */}
-          <div className="lg:col-span-1 space-y-4">
-            <div className="h-40 bg-gray-200 rounded-2xl"></div>
-            <div className="h-40 bg-gray-200 rounded-2xl"></div>
-          </div>
-        </div>
+        <PageLoadingArea minHeight="min-h-[50vh]" />
       </div>
     );
   }
@@ -192,12 +292,7 @@ export default function LessonDetailPage() {
         <div className="bg-white p-8 rounded-2xl shadow-sm text-center max-w-md w-full">
           <div className="text-red-500 text-5xl mb-4">⚠️</div>
           <h2 className="text-2xl font-bold text-gray-900 mb-4">找不到課程資訊</h2>
-          <button
-            onClick={handleBack}
-            className="w-full bg-indigo-600 text-white px-6 py-3 rounded-xl hover:bg-indigo-700 transition-colors font-medium"
-          >
-            返回課程列表
-          </button>
+          <BackButton label="返回課程列表" onClick={handleBack} variant="primary" withSpacing={false} />
         </div>
       </div>
     );
@@ -209,7 +304,10 @@ export default function LessonDetailPage() {
     : null;
 
   const showHomework = !lesson.noHomework && !!lesson.homework?.trim();
-  const showOnlineExam = !lesson.noOnlineExam && !!lesson.onlineExam?.trim();
+  const showOnlineExam = hasLessonOnlineExam(lesson);
+  const showLegacyOnlineExam =
+    !lesson.noOnlineExam && !!lesson.onlineExam?.trim() && assignedQuizCodes.length === 0;
+  const showAssignedQuizzes = assignedQuizCodes.length > 0;
   const showExamScope = !lesson.noExamScope && !!lesson.examScope?.trim();
   const showNotes = !lesson.noNotes && !!lesson.notes?.trim();
 
@@ -217,17 +315,7 @@ export default function LessonDetailPage() {
     <div className="page-shell w-full min-w-0 pt-4 sm:pt-6 md:pt-8 pb-10 flex flex-col h-full animate-fade-in">
         
         {/* Header Section */}
-        <div className="mb-8">
-          <button
-            onClick={handleBack}
-            className="group flex items-center text-gray-500 hover:text-indigo-600 mb-4 transition-colors"
-          >
-            <div className="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center mr-2 group-hover:border-indigo-200 group-hover:bg-indigo-50 shadow-sm">
-               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-            </div>
-            <span className="font-medium">返回列表</span>
-          </button>
-          
+        <div className="mb-4">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-gray-800 tracking-tight leading-snug">
@@ -250,6 +338,7 @@ export default function LessonDetailPage() {
               </div>
             </div>
           </div>
+          <BackButton label="返回課程列表" onClick={handleBack} withSpacing={false} className="mt-4" />
         </div>
 
         {/* Main Content Layout - 2 Columns on Large Screens */}
@@ -262,7 +351,19 @@ export default function LessonDetailPage() {
                 <div className="flex flex-col">
                   {/* Video Container */}
                   <div className="relative w-full pt-[56.25%] bg-black">
-                     {currentEmbedUrl ? (
+                     {videosLocked ? (
+                        <div className="absolute inset-0 flex items-center justify-center bg-gray-900 text-white p-6">
+                          <div className="text-center max-w-md">
+                            <LockClosedIcon className="w-12 h-12 mx-auto mb-4 text-amber-400" />
+                            <p className="text-lg font-semibold mb-2">請先完成測驗後再觀看影片</p>
+                            <p className="text-sm text-gray-300">
+                              {pendingQuizTitles.length > 0
+                                ? `尚須完成：${pendingQuizTitles.join('、')}`
+                                : '請至右側線上測驗區完成指定測驗。'}
+                            </p>
+                          </div>
+                        </div>
+                     ) : currentEmbedUrl ? (
                         <iframe
                           key={`${lesson.id}-${currentVideoIndex}`}
                           src={currentEmbedUrl}
@@ -290,7 +391,7 @@ export default function LessonDetailPage() {
                       <span>影片片段</span>
                     </div>
 
-                    {lesson.videos.length > 1 && (
+                    {lesson.videos.length > 1 && !videosLocked && (
                       <div className="flex items-center space-x-3">
                         <button
                           onClick={() => handleVideoChange('prev')}
@@ -462,20 +563,133 @@ export default function LessonDetailPage() {
             {showOnlineExam && (
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 w-full">
                 <h3 className="text-lg font-bold text-gray-800 mb-4 border-l-4 border-green-500 pl-3">線上測驗</h3>
-                <p className="text-gray-500 text-sm mb-4">請點擊下方按鈕前往測驗平台進行考試。</p>
-                <a
-                  href={lesson.onlineExam}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center w-full px-4 py-3 bg-green-50 text-green-700 font-semibold rounded-lg border border-green-100 hover:bg-green-100 transition-colors"
-                >
-                  開始考試
-                  <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-                </a>
+                {showAssignedQuizzes ? (
+                  <div className="space-y-3">
+                    {videoLockQuizCodes.length > 0 && (
+                      <p className="text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                        完成標示為「須完成後觀課」的測驗後，即可觀看本堂課影片。
+                      </p>
+                    )}
+                    {examsLoading ? (
+                      <PageLoadingArea minHeight="min-h-[4rem]" />
+                    ) : (
+                      assignedQuizItems.map(({ quizCode, requireBeforeVideo, exam }) => {
+                        const isRemoved = !exam && !examsLoading;
+                        const title = exam?.title || (isRemoved ? '測驗已隱藏' : '線上測驗');
+                        const submitted = !!exam?.submitted;
+                        const accessible = !!exam?.accessible;
+                        const windowUpcoming = exam?.windowPhase === 'upcoming';
+                        const windowEnded = !!exam?.windowEnded || exam?.windowPhase === 'ended';
+                        const canStart =
+                          !!exam && accessible && (!submitted || exam.canRetake);
+                        const isRetake = submitted && !!exam?.canRetake;
+                        return (
+                          <div
+                            key={quizCode}
+                            className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl border ${
+                              isRemoved ? 'border-amber-200 bg-amber-50' : 'border-gray-200 bg-gray-50'
+                            }`}
+                          >
+                            <div className="min-w-0">
+                              <p className={`text-sm font-bold truncate ${isRemoved ? 'text-amber-900' : 'text-gray-800'}`}>
+                                {title}
+                              </p>
+                              {requireBeforeVideo && !isRemoved && (
+                                <p className="text-xs text-amber-700 mt-1 font-medium">須完成後觀課</p>
+                              )}
+                              <p className="text-xs mt-1">
+                                {isRemoved ? (
+                                  <span className="text-amber-700 font-medium">此測驗已隱藏，無需作答</span>
+                                ) : submitted ? (
+                                  <span className="text-emerald-600 font-medium">已完成</span>
+                                ) : windowUpcoming ? (
+                                  <span className="text-gray-500">作答期間尚未開始</span>
+                                ) : windowEnded ? (
+                                  <span className="text-gray-500">作答期間已截止</span>
+                                ) : accessible ? (
+                                  <span className="text-amber-600 font-medium">尚未完成</span>
+                                ) : (
+                                  <span className="text-gray-500">{exam?.inaccessibleReason || '測驗尚未開放'}</span>
+                                )}
+                              </p>
+                            </div>
+                            {!isRemoved && (
+                            <div className="flex flex-col gap-2 shrink-0 w-full sm:w-auto sm:min-w-[10rem]">
+                              {submitted && exam && (
+                                <button
+                                  type="button"
+                                  onClick={() => openHistory(exam)}
+                                  className="inline-flex items-center justify-center px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50"
+                                >
+                                  查看作答紀錄
+                                </button>
+                              )}
+                              {canStart && exam ? (
+                                <button
+                                  type="button"
+                                  onClick={() => void openStartModal(exam, isRetake ? 'retake' : 'start')}
+                                  className="inline-flex items-center justify-center px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-colors"
+                                >
+                                  <ClipboardDocumentCheckIcon className="w-4 h-4 mr-1.5" />
+                                  {isRetake ? '再次作答' : '開始作答'}
+                                  <ArrowRightIcon className="w-4 h-4 ml-1.5" />
+                                </button>
+                              ) : !submitted ? (
+                                <button
+                                  type="button"
+                                  disabled
+                                  className="inline-flex items-center justify-center px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg opacity-50 cursor-not-allowed"
+                                >
+                                  {windowUpcoming ? '尚未開始' : windowEnded ? '已截止' : '無法作答'}
+                                </button>
+                              ) : null}
+                            </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                ) : showLegacyOnlineExam ? (
+                  <>
+                    <p className="text-gray-500 text-sm mb-4">請點擊下方按鈕前往測驗平台進行考試。</p>
+                    <a
+                      href={lesson.onlineExam}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center w-full px-4 py-3 bg-green-50 text-green-700 font-semibold rounded-lg border border-green-100 hover:bg-green-100 transition-colors"
+                    >
+                      開始考試
+                      <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                    </a>
+                  </>
+                ) : null}
               </div>
             )}
           </div>
         </div>
+
+        {startModal && studentInfo?.id && (
+          <StudentExamStartModal
+            open
+            onClose={() => setStartModal(null)}
+            exam={startModal.exam}
+            studentId={studentInfo.id}
+            mode={startModal.mode}
+            resolveExamTitle={resolveExamTitle}
+          />
+        )}
+
+        {historyModal && (
+          <StudentExamAttemptPickerModal
+            open
+            onClose={() => setHistoryModal(null)}
+            quizCode={historyModal.quizCode}
+            examTitle={historyModal.title}
+            attempts={historyModal.attempts ?? []}
+            resultsPublished={historyModal.resultsPublished}
+          />
+        )}
     </div>
   );
 }

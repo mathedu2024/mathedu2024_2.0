@@ -38,20 +38,51 @@ export function generateUniqueManualCheckInCode(used: Set<string>): string {
   throw new Error('無法產生唯一的手動點名代碼');
 }
 
+/** QR 點名用隱藏路由代碼（Q 開頭；實際簽到使用輪換 token，不顯示此碼） */
+export function generateUniqueQrCheckInCode(used: Set<string>): string {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    let code = 'Q';
+    for (let i = 0; i < 8; i++) {
+      code += MANUAL_CODE_CHARS[Math.floor(Math.random() * MANUAL_CODE_CHARS.length)];
+    }
+    if (!used.has(code)) return code;
+  }
+  throw new Error('無法產生唯一的 QR 點名代碼');
+}
+
 export function isManualHiddenCheckInCode(code: string): boolean {
   return /^M[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{8}$/.test(code);
+}
+
+export function isQrHiddenCheckInCode(code: string): boolean {
+  return /^Q[ABCDEFGHJKLMNPQRSTUVWXYZ23456789]{8}$/.test(code);
+}
+
+export function isStudentVisibleCheckInCode(code: string | null | undefined): boolean {
+  return typeof code === 'string' && /^\d{6}$/.test(code);
 }
 
 export async function assignUniqueCheckInCode(
   db: Firestore,
   courseId: string,
-  checkInMethod: 'manual' | 'numeric' | string,
+  checkInMethod: 'manual' | 'numeric' | 'qr' | string,
   excludeActivityId?: string
 ): Promise<string> {
   const used = await getUsedCheckInCodes(db, courseId, excludeActivityId);
-  return checkInMethod === 'numeric'
-    ? generateUniqueDigitalCheckInCode(used)
-    : generateUniqueManualCheckInCode(used);
+  if (checkInMethod === 'numeric') return generateUniqueDigitalCheckInCode(used);
+  if (checkInMethod === 'qr') return generateUniqueQrCheckInCode(used);
+  return generateUniqueManualCheckInCode(used);
+}
+
+/** 僅在進行中的數字點名才對外回傳簽到碼；其餘方式／已結束活動不暴露代碼 */
+export function publicCheckInCodeForActivity(data: {
+  status?: string;
+  checkInMethod?: string;
+  checkInCode?: string | null;
+}): string | null {
+  if (data.status !== 'active') return null;
+  if (data.checkInMethod !== 'numeric') return null;
+  return isStudentVisibleCheckInCode(data.checkInCode) ? (data.checkInCode as string) : null;
 }
 
 /** 若活動缺少點名代碼則補上，並確保課程內唯一 */
@@ -70,12 +101,13 @@ export async function ensureActivityCheckInCode(
     return existing;
   }
 
-  const code = await assignUniqueCheckInCode(
-    db,
-    courseId,
-    data.checkInMethod === 'numeric' ? 'numeric' : 'manual',
-    activityId
-  );
+  const method =
+    data.checkInMethod === 'numeric'
+      ? 'numeric'
+      : data.checkInMethod === 'qr'
+        ? 'qr'
+        : 'manual';
+  const code = await assignUniqueCheckInCode(db, courseId, method, activityId);
   await ref.update({ checkInCode: code });
   return code;
 }

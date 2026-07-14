@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import RichHtmlContent from '@/components/RichHtmlContent';
 import { db } from '../firebase';
 import Dropdown from '@/components/ui/Dropdown';
 import 'react-quill-new/dist/quill.snow.css';
@@ -24,12 +25,6 @@ interface Announcement {
   createdAt: unknown;
 }
 
-const mockExams: Exam[] = [
-  { id: 'gsat', name: '學科能力測驗', startDate: '2025-01-18', endDate: '2025-01-20' },
-  { id: 'tcat', name: '四技二專統一入學測驗', startDate: '2025-04-26', endDate: '2025-04-27' },
-  { id: 'bcat', name: '國中教育會考', startDate: '2025-05-17', endDate: '2025-05-18' },
-  { id: 'ast', name: '分科測驗', startDate: '2025-07-11', endDate: '2025-07-12' }
-];
 
 const contentTypeOptions = [
   { value: '全部', label: '全部類型' },
@@ -150,7 +145,7 @@ const sortExams = (list: Exam[]) => {
 
 export default function Home() {
 
-  const [exams, setExams] = useState<Exam[]>(sortExams(mockExams));
+  const [exams, setExams] = useState<Exam[]>([]);
   const [countdowns, setCountdowns] = useState<number[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [expandedAnnouncement, setExpandedAnnouncement] = useState<string | null>(null);
@@ -235,19 +230,20 @@ export default function Home() {
       <div className="page-shell space-y-12">
         
       
-        <div className="bg-indigo-600 rounded-2xl p-6 md:p-10 shadow-xl text-white relative overflow-hidden">
+        <div className="bg-indigo-600 rounded-2xl p-4 sm:p-6 md:p-10 shadow-xl text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl"></div>
-          <h2 className="text-2xl md:text-3xl font-bold text-center mb-8 flex items-center justify-center">
-            <i className="fas fa-calendar-alt mr-3 text-indigo-200"></i> 重要考試時程
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-center mb-4 sm:mb-6 md:mb-8 flex items-center justify-center gap-2">
+            <i className="fas fa-calendar-alt text-indigo-200"></i>
+            <span>重要考試時程</span>
           </h2>
           
           <motion.div 
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6"
+            className="grid grid-cols-4 gap-1.5 sm:gap-3 md:gap-6"
             variants={containerVariants}
             initial="hidden"
             animate="visible"
           >
-            {exams.map((exam, index) => {
+            {exams.length > 0 ? exams.map((exam, index) => {
               const daysLeft = countdowns[index] !== undefined ? countdowns[index] : calculateDaysLeft(exam.startDate);
               let statusColor = "text-emerald-300";
               if (daysLeft < 0) statusColor = "text-gray-400";
@@ -256,21 +252,25 @@ export default function Home() {
               return (
                 <motion.div 
                   key={exam.id} 
-                  className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-6 text-center hover:bg-white/20 transition-all duration-300 transform hover:-translate-y-1"
+                  className="bg-white/10 backdrop-blur-md border border-white/20 rounded-lg sm:rounded-xl p-2 sm:p-4 md:p-6 text-center hover:bg-white/20 transition-all duration-300 transform hover:-translate-y-1 min-w-0"
                   variants={itemVariants}
                 >
-                  <h3 className="text-xl font-bold mb-2 tracking-wide">{exam.name}</h3>
-                  <div className="text-indigo-100 text-sm mb-4 font-mono">
-                    {exam.startDate} {exam.startDate !== exam.endDate && ` ~ ${exam.endDate}`}
+                  <h3 className="text-[11px] sm:text-base md:text-xl font-bold mb-1 sm:mb-2 tracking-wide leading-tight line-clamp-2">{exam.name}</h3>
+                  <div className="text-indigo-100 text-[9px] sm:text-xs md:text-sm mb-2 sm:mb-4 font-mono leading-snug break-words">
+                    {exam.startDate}{exam.startDate !== exam.endDate ? ` ~ ${exam.endDate}` : ''}
                   </div>
-                  <div className={`text-2xl md:text-3xl font-bold ${statusColor}`}>
+                  <div className={`text-sm sm:text-2xl md:text-3xl font-bold ${statusColor}`}>
                     {daysLeft > 0 ? (
-                      <>倒數 <span className="text-4xl">{daysLeft}</span> 天</>
+                      <>倒數 <span className="text-lg sm:text-3xl md:text-4xl tabular-nums">{daysLeft}</span> 天</>
                     ) : daysLeft === 0 ? '考試開始' : '已結束'}
                   </div>
                 </motion.div>
               );
-            })}
+            }) : (
+              <div className="col-span-4 text-center py-8 text-indigo-100/80 text-sm">
+                尚無考試時程資料
+              </div>
+            )}
           </motion.div>
         </div>
 
@@ -328,9 +328,9 @@ export default function Home() {
                       <div className="p-5 border-t border-gray-100 bg-gray-50/50">
                         {/<[a-z][\s\S]*>/i.test(ann.content) ? (
                           <div className="ql-snow">
-                            <div
+                            <RichHtmlContent
+                              html={ann.content}
                               className="ql-editor text-gray-600 mb-6"
-                              dangerouslySetInnerHTML={{ __html: ann.content }}
                             />
                           </div>
                         ) : (

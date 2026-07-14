@@ -7,8 +7,11 @@ import Swal from 'sweetalert2';
 import LoadingSpinner from './LoadingSpinner';
 import PageHeader from './ui/PageHeader';
 import PageLoadingArea from './ui/PageLoadingArea'; 
+import BackButton from './ui/BackButton';
+import { tableActionStyles, tableActionRowWrap } from './ui';
 // 引入您的外部表單元件
 import CreateAttendanceActivityForm from './CreateAttendanceActivityForm';
+import AttendanceQrDisplay from './AttendanceQrDisplay';
 import CourseFilter from './CourseFilter';
 import { 
   CalendarDaysIcon, ArrowLeftIcon, PlusIcon, TrashIcon, 
@@ -18,6 +21,9 @@ import {
   ArrowDownTrayIcon
 } from '@heroicons/react/24/outline';
 import { getSession } from '@/utils/session';
+import { teacherCourseHubPath, withReturnTo } from '@/utils/teacherCourseHub';
+import { CourseHubFeatureIcon } from './CourseHubTabNav';
+import StudentVisibilityToggle, { isStudentVisible } from './StudentVisibilityToggle';
 
 // ==========================================
 // 1. 型別定義
@@ -46,8 +52,14 @@ interface AttendanceActivity {
   name: string;
   date: string;
   type: string;
-  mode: 'manual' | 'digital';
+  mode: 'manual' | 'digital' | 'qr';
   checkInCode?: string;
+  status?: string;
+  endTime?: string;
+  gracePeriodMinutes?: number;
+  checkInMethod?: 'manual' | 'numeric' | 'qr';
+  /** 開放＝學生可見；隱藏＝學生端不顯示 */
+  visibleToStudents?: boolean;
 }
 
 interface AttendanceRecord {
@@ -111,15 +123,28 @@ const PRESENT_OPTIONS = [
 const ALL_PRESENT_VALUES = PRESENT_OPTIONS.map(l => l.value);
 
 function buildAttendanceUrl(courseCode?: string, attendanceCode?: string) {
-  if (!courseCode) return '/back-panel/teacher-attendance';
+  if (!courseCode) return '/back-panel/teacher-courses';
   if (!attendanceCode) {
-    return `/back-panel/teacher-attendance/${encodeURIComponent(courseCode)}`;
+    return teacherCourseHubPath(courseCode, 'attendance');
   }
   return `/back-panel/teacher-attendance/${encodeURIComponent(courseCode)}/${encodeURIComponent(attendanceCode)}`;
 }
 
 function shouldDisplayCheckInCode(activity: AttendanceActivity): boolean {
+  // 僅進行中的數字點名顯示簽到碼
+  if (activity.status && activity.status !== 'active') return false;
   return activity.mode === 'digital' && !!activity.checkInCode && /^\d{6}$/.test(activity.checkInCode);
+}
+
+function modeLabel(activity: AttendanceActivity): string {
+  const method = activity.checkInMethod;
+  if (method === 'qr' || activity.mode === 'qr') return 'QR點名';
+  if (method === 'numeric' || activity.mode === 'digital') return '數字點名';
+  return '手動點名';
+}
+
+function activityRouteKey(activity: AttendanceActivity): string {
+  return activity.checkInCode || activity.id;
 }
 
 type AttendanceRouteLayer = 'list' | 'course' | 'activity';
@@ -251,10 +276,14 @@ function mapActivityFromApi(item: {
   title?: string;
   date?: unknown;
   startTime?: unknown;
-  mode?: 'manual' | 'digital';
+  endTime?: unknown;
+  mode?: 'manual' | 'digital' | 'qr';
   checkInMethod?: string;
   type?: string;
   checkInCode?: string;
+  status?: string;
+  gracePeriodMinutes?: number;
+  visibleToStudents?: boolean;
 }): AttendanceActivity {
   const toISO = (d: unknown) => {
     if (!d) return undefined;
@@ -262,15 +291,26 @@ function mapActivityFromApi(item: {
     if (typeof d === 'object' && d !== null && '_seconds' in d && '_nanoseconds' in d) {
       return new Date((d as { _seconds: number })._seconds * 1000 + (d as { _nanoseconds: number })._nanoseconds / 1000000).toISOString();
     }
+    if (d instanceof Date) return d.toISOString();
     try { return new Date(d as string | number).toISOString(); } catch { return String(d); }
   };
 
   const dateISO = toISO(item.date);
   const startTimeISO = toISO(item.startTime);
+  const endTimeISO = toISO(item.endTime);
   const rawDate = dateISO || startTimeISO || new Date().toISOString();
-  const mode: 'manual' | 'digital' =
+  const method = item.checkInMethod;
+  const mode: AttendanceActivity['mode'] =
     item.mode ||
-    (item.checkInMethod === 'numeric' ? 'digital' : 'manual');
+    (method === 'numeric' ? 'digital' : method === 'qr' ? 'qr' : 'manual');
+  const checkInMethod: AttendanceActivity['checkInMethod'] =
+    method === 'numeric' || method === 'manual' || method === 'qr'
+      ? method
+      : mode === 'digital'
+        ? 'numeric'
+        : mode === 'qr'
+          ? 'qr'
+          : 'manual';
 
   return {
     id: item.id,
@@ -279,6 +319,11 @@ function mapActivityFromApi(item: {
     type: item.type || '一般課程',
     mode,
     checkInCode: item.checkInCode,
+    status: item.status,
+    endTime: endTimeISO,
+    gracePeriodMinutes: item.gracePeriodMinutes,
+    checkInMethod,
+    visibleToStudents: item.visibleToStudents !== false,
   };
 }
 
@@ -294,7 +339,7 @@ const Modal = ({ open, onClose, title, size = 'md', children }: { open: boolean;
   
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex justify-center items-center p-4 animate-fade-in">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
+      <div className="absolute inset-0 bg-black/60" onClick={onClose}></div>
       <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${maxWidthClass} max-h-full sm:max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in border border-gray-100`}>
         <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
           <h3 className="text-xl font-bold flex items-center">{title}</h3>
@@ -530,31 +575,29 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
         : `${courseName} • 共 ${studentCount} 人`;
 
     return (
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
-        <div className="border-l-4 border-indigo-500 pl-4">
-          <div className="flex items-start gap-2">
-            <button onClick={onBack} className="mr-1 p-2 rounded-full hover:bg-gray-100 text-gray-500 transition-colors mt-0.5">
-              <ArrowLeftIcon className="w-6 h-6" />
-            </button>
-            <div className="flex flex-col gap-2">
-              <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
-                <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-                  {activityName}
-                </h1>
-                {activityInfo && shouldDisplayCheckInCode(activityInfo) && (
-                  <div className="inline-flex">
-                    <span className="bg-indigo-100 text-indigo-700 px-2 py-1.5 rounded-lg text-sm font-bold flex items-center shadow-sm border border-indigo-200">
-                      <QrCodeIcon className="w-4 h-4 mr-1.5"/>
-                      簽到碼: <span className="text-lg ml-1 font-mono tracking-wider">{activityInfo.checkInCode}</span>
-                    </span>
-                  </div>
-                )}
+      <div className="pt-0 mb-8">
+        <div className="border-l-4 border-indigo-500 pl-4 mb-4">
+          <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+            <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+              {activityName}
+            </h1>
+            {activityInfo && shouldDisplayCheckInCode(activityInfo) && (
+              <div className="inline-flex">
+                <span className="bg-indigo-100 text-indigo-700 px-2 py-1.5 rounded-lg text-sm font-bold flex items-center shadow-sm border border-indigo-200">
+                  <QrCodeIcon className="w-4 h-4 mr-1.5"/>
+                  簽到碼: <span className="text-lg ml-1 font-mono tracking-wider">{activityInfo.checkInCode}</span>
+                </span>
               </div>
-              <p className="text-gray-500 text-sm mt-1">{subtitle}</p>
-            </div>
+            )}
           </div>
+          <p className="text-gray-500 text-sm mt-1">{subtitle}</p>
         </div>
-        {actions ? <div className="flex gap-2 self-end md:self-auto">{actions}</div> : null}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <BackButton label="返回點名列表" onClick={onBack} withSpacing={false} />
+          {actions ? (
+            <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>
+          ) : null}
+        </div>
       </div>
     );
   }
@@ -865,6 +908,17 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
             此課程已封存，您只能查看點名紀錄，無法進行修改。
           </div>
         )}
+
+        {(activityInfo?.checkInMethod === 'qr' || activityInfo?.mode === 'qr') &&
+          activityInfo?.status !== 'ended' && (
+          <div className="mb-4 max-w-md">
+            <AttendanceQrDisplay
+              courseId={courseId}
+              activityId={activityId}
+              endTime={activityInfo.endTime}
+            />
+          </div>
+        )}
   
         {/* Stats Bar */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4 mb-4">
@@ -1018,9 +1072,11 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
     onBack: () => void;
     isArchived?: boolean;
     onSelectActivity: (activity: AttendanceActivity) => void;
+    /** 嵌入課程詳情分頁時隱藏標題與返回列 */
+    embedded?: boolean;
   }
   
-  function AttendanceActivityList({ courseId, courseName, courseCode, onBack, onSelectActivity, isArchived = false }: AttendanceActivityListProps) {
+  function AttendanceActivityList({ courseId, courseName, courseCode, onBack, onSelectActivity, isArchived = false, embedded = false }: AttendanceActivityListProps) {
     const [activities, setActivities] = useState<AttendanceActivity[]>([]);
     const [loading, setLoading] = useState(true);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -1118,7 +1174,7 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
             date: formatDate(a.date),
             type: a.type,
             name: a.name,
-            mode: a.mode === 'digital' ? '數字點名' : '手動點名',
+            mode: modeLabel(a),
             checkInCode: shouldDisplayCheckInCode(a) ? a.checkInCode || '' : '',
           });
         });
@@ -1265,53 +1321,106 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
         } catch { Swal.fire('錯誤', '刪除失敗', 'error'); }
       }
     };
+
+    const handleToggleVisibility = async (activity: AttendanceActivity) => {
+      if (isArchived) return;
+      const nextVisible = !isStudentVisible(activity.visibleToStudents);
+      try {
+        const res = await fetch('/api/attendance/activities/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            courseId,
+            activityId: activity.id,
+            visibleToStudents: nextVisible,
+          }),
+        });
+        if (!res.ok) throw new Error('更新失敗');
+        setActivities((prev) =>
+          prev.map((a) =>
+            a.id === activity.id ? { ...a, visibleToStudents: nextVisible } : a
+          )
+        );
+        Swal.fire({
+          icon: 'success',
+          title: nextVisible ? '已開放' : '已隱藏',
+          text: nextVisible ? '學生端現在可以看到此點名。' : '學生端將無法看到此點名。',
+          confirmButtonColor: '#4f46e5',
+        });
+      } catch {
+        Swal.fire('錯誤', '更新可見性失敗', 'error');
+      }
+    };
   
+    const actionButtons = (
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        {!isArchived && (
+          <button
+            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center"
+            onClick={() => setIsCreateModalOpen(true)}
+          >
+            <PlusIcon className="w-4 h-4 mr-2" /> 新增點名
+          </button>
+        )}
+        <button
+          onClick={handleExport}
+          className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center"
+        >
+          <ArrowDownTrayIcon className="w-4 h-4 mr-2" /> 匯出紀錄
+        </button>
+      </div>
+    );
+
     return (
-      <div className="page-shell w-full min-w-0 pb-10 flex flex-col h-full animate-fade-in">
-        {/* Header Area */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
-          <div className="border-l-4 border-indigo-500 pl-4">
-            <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-              <CalendarDaysIcon className="h-8 w-8 text-indigo-600" />
-              {courseName}
-            </h1>
-            <p className="text-gray-500 text-sm mt-1">點名活動列表</p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <button
-              className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors shadow-sm font-medium flex items-center"
-              onClick={onBack}
-            >
-              <ArrowLeftIcon className="w-4 h-4 mr-2" /> 返回課程
-            </button>
-            {!isArchived && (
-              <button className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center" onClick={() => setIsCreateModalOpen(true)}>
-                <PlusIcon className="w-4 h-4 mr-2" /> 新增點名
+      <div className={embedded ? 'w-full min-w-0 flex flex-col animate-fade-in' : 'page-shell w-full min-w-0 pb-10 flex flex-col h-full animate-fade-in'}>
+        {!embedded && (
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
+            <div className="border-l-4 border-indigo-500 pl-4">
+              <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+                <CalendarDaysIcon className="h-8 w-8 text-indigo-600" />
+                {courseName}
+              </h1>
+              <p className="text-gray-500 text-sm mt-1">點名活動列表</p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <button
+                className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors shadow-sm font-medium flex items-center"
+                onClick={onBack}
+              >
+                <ArrowLeftIcon className="w-4 h-4 mr-2" /> 返回課程
               </button>
-            )}
-            <button
-              onClick={handleExport}
-              className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center"
-            >
-              <ArrowDownTrayIcon className="w-4 h-4 mr-2" /> 匯出紀錄
-            </button>
+              {actionButtons}
+            </div>
           </div>
-        </div>
-  
+        )}
+
         {isArchived && (
           <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl flex items-center shadow-sm mb-4">
             <span className="font-bold mr-2">提示：</span>
             此課程已封存，您只能查看活動列表及匯出紀錄，無法新增或刪除點名活動。
           </div>
         )}
+
+        {embedded && (
+          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3 mb-6">
+            {actionButtons}
+          </div>
+        )}
   
         {/* 外部表單 Modal Wrapper */}
         {isCreateModalOpen && (
-            <Modal open={true} onClose={() => setIsCreateModalOpen(false)} title="新增點名活動">
+            <Modal
+              open={true}
+              onClose={() => setIsCreateModalOpen(false)}
+              title="新增點名活動"
+            >
                 <CreateAttendanceActivityForm 
                   courseId={courseId}
                   onClose={() => setIsCreateModalOpen(false)}
-                  onComplete={() => { setIsCreateModalOpen(false); fetchActivities(); }}
+                  onComplete={() => {
+                    setIsCreateModalOpen(false);
+                    fetchActivities();
+                  }}
                 />
             </Modal>
         )}
@@ -1319,85 +1428,67 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
         {loading ? (
           <PageLoadingArea />
         ) : activities.length === 0 ? (
-             <div className="text-center py-16 px-6 bg-white rounded-2xl border border-dashed border-gray-300">
-                 <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4 text-gray-400"><ClipboardDocumentCheckIcon className="w-8 h-8" /></div>
-                 <h3 className="mt-2 text-xl font-bold text-gray-900">尚無點名紀錄</h3>
-                 {!isArchived && (
-                   <button className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm mt-4" onClick={() => setIsCreateModalOpen(true)}>新增點名活動</button>
-                 )}
+             <div className="text-center min-h-[280px] flex flex-col items-center justify-center bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                 <ClipboardDocumentCheckIcon className="w-12 h-12 mb-3 text-gray-300" />
+                 <p className="text-gray-500 font-medium">目前沒有點名活動</p>
              </div>
          ) : (
-             <>
-                <div className="hidden md:block bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-                   <div className="overflow-x-auto">
-                   <table className="w-full min-w-[860px] text-sm text-left text-gray-500">
-                      <thead className="bg-gray-50 text-xs text-gray-700 uppercase">
-                          <tr>
-                              <th className="px-6 py-4 font-bold w-[160px]">日期</th>
-                              <th className="px-6 py-4 font-bold w-[120px]">類型</th>
-                              <th className="px-6 py-4 font-bold min-w-[200px]">活動名稱</th>
-                              <th className="px-6 py-4 font-bold w-[150px]">點名代碼</th>
-                              <th className="px-6 py-4 font-bold text-right w-[150px]">操作</th>
-                          </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                          {activities.map((activity) => (
-                              <tr key={activity.id} className="hover:bg-indigo-50/30 transition-colors group">
-                                  <td className="px-6 py-4 font-mono text-gray-900 font-bold whitespace-nowrap">{formatDate(activity.date)}</td>
-                                  <td className="px-6 py-4 font-bold whitespace-nowrap text-gray-700">
-                                      {activity.mode === 'digital' ? '數字點名' : '手動點名'}
-                                  </td>
-                                  <td className="px-6 py-4 font-bold text-gray-900">{activity.name}</td>
-                                  <td className="px-6 py-4 font-mono text-gray-700 font-bold">
-                                      {shouldDisplayCheckInCode(activity) ? (
-                                          <span className="bg-gray-100 px-2 py-1 rounded text-indigo-600">{activity.checkInCode}</span>
-                                      ) : (
-                                          <span className="text-xs text-gray-400"> - </span>
-                                      )}
-                                  </td>
-                                  <td className="px-6 py-4 text-right whitespace-nowrap">
-                                      <div className="flex justify-end gap-2">
-                                          <button onClick={() => onSelectActivity(activity)} className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center">{isArchived ? '查看紀錄' : '進入點名'}</button>
-                                          {!isArchived && (
-                                            <button onClick={() => handleDelete(activity.id)} className="text-red-500 hover:text-red-700 p-1.5 rounded-md hover:bg-red-50"><TrashIcon className="w-4 h-4" /></button>
-                                          )}
-                                      </div>
-                                  </td>
-                              </tr>
-                          ))}
-                      </tbody>
-                   </table>
-                   </div>
-                </div>
-                
-                {/* Mobile View */}
-                <div className="md:hidden space-y-4">
-                    {activities.map((activity) => (
-                        <div key={activity.id} className="bg-white border border-gray-100 rounded-xl shadow-sm p-5 flex flex-col gap-3 active:scale-[0.99] transition-transform" onClick={() => onSelectActivity(activity)}>
-                            <div>
-                                 <h4 className="font-bold text-gray-800 text-lg mb-1">{activity.name}</h4>
-                                 <div className="flex items-center flex-wrap gap-2 text-xs text-gray-500 font-mono">
-                                     <span>{formatDate(activity.date)}</span>
-                                     <span className="px-2 py-0.5 rounded border bg-gray-50 text-gray-700">
-                                         {activity.mode === 'digital' ? '數字點名' : '手動點名'}
-                                     </span>
-                                 </div>
-                            </div>
-                            {shouldDisplayCheckInCode(activity) && (
-                                <div className="bg-gray-50 px-3 py-2 rounded text-indigo-700 text-sm font-bold flex items-center border border-gray-200">
-                                    <QrCodeIcon className="w-4 h-4 mr-2"/> 代碼: {activity.checkInCode}
-                                </div>
-                            )}
-                            <div className={`grid ${!isArchived ? 'grid-cols-2' : 'grid-cols-1'} gap-3 pt-3 border-t border-gray-50 mt-1`}>
-                                 {!isArchived && (
-                                   <button onClick={(e) => { e.stopPropagation(); handleDelete(activity.id); }} className="w-full flex items-center justify-center text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium py-2"><TrashIcon className="w-4 h-4 mr-1" /> 刪除</button>
-                                 )}
-                                 <button className="w-full flex items-center justify-center text-sm text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg font-bold py-2">{isArchived ? '查看紀錄' : '進入點名'} <ChevronRightIcon className="w-4 h-4 ml-1" /></button>
-                            </div>
+             <div className="grid grid-cols-1 gap-4">
+                {activities.map((activity) => (
+                  <div
+                    key={activity.id}
+                    className="w-full text-left bg-white border border-gray-100 rounded-xl p-5 hover:shadow-md hover:border-indigo-200 transition-shadow duration-200"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 min-h-[2.5rem]">
+                      <div className="min-w-0 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+                        <div className="hidden sm:flex flex-shrink-0 w-10 h-10 bg-indigo-50 rounded-full items-center justify-center text-indigo-600">
+                          <CourseHubFeatureIcon id="attendance" />
                         </div>
-                    ))}
-                </div>
-             </>
+                        <div className="min-w-0">
+                        <h4 className="text-lg font-bold text-gray-900 line-clamp-2 sm:line-clamp-1 leading-7">
+                          {activity.name}
+                        </h4>
+                        <div className="text-sm text-gray-500 mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                          <span className="font-mono">{formatDate(activity.date)}</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded border bg-gray-50 text-gray-700 text-xs font-bold">
+                            {modeLabel(activity)}
+                          </span>
+                          {shouldDisplayCheckInCode(activity) && (
+                            <span className="inline-flex items-center text-indigo-600 font-mono font-bold">
+                              <QrCodeIcon className="w-4 h-4 mr-1 shrink-0" />
+                              {activity.checkInCode}
+                            </span>
+                          )}
+                        </div>
+                        </div>
+                      </div>
+                      <div className={tableActionRowWrap}>
+                        <StudentVisibilityToggle
+                          open={isStudentVisible(activity.visibleToStudents)}
+                          disabled={isArchived}
+                          onToggle={() => void handleToggleVisibility(activity)}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => onSelectActivity(activity)}
+                          className={tableActionStyles.primary}
+                        >
+                          {isArchived ? '查看紀錄' : '進入點名'}
+                        </button>
+                        {!isArchived && (
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(activity.id)}
+                            className={tableActionStyles.danger}
+                          >
+                            刪除
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+             </div>
          )}
       </div>
     );
@@ -1412,6 +1503,10 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
     userInfo?: { id: string; name?: string; role?: string | string[] } | null;
     courseCodeFromUrl?: string;
     attendanceCodeFromUrl?: string;
+    /** 嵌入課程詳情分頁時隱藏標題與返回列 */
+    embedded?: boolean;
+    /** 從課程整合頁進入時，返回應回到此路徑（如 ?tab=attendance） */
+    returnTo?: string;
   }
   
   export default function AttendanceManagementComponent({
@@ -1419,6 +1514,8 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
     userInfo,
     courseCodeFromUrl = '',
     attendanceCodeFromUrl = '',
+    embedded = false,
+    returnTo = '',
   }: AttendanceManagementComponentProps = {}) {
     const router = useRouter();
     const [courses, setCourses] = useState<Course[]>([]);
@@ -1490,24 +1587,38 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
         } else {
           clearPendingAttendanceCourse();
         }
+        if (!course && returnTo) {
+          router.push(returnTo);
+          return;
+        }
         router.push(buildAttendanceUrl(course?.code));
       },
-      [router]
+      [router, returnTo]
     );
 
     const selectActivity = useCallback(
       (activity: AttendanceActivity | null, course?: Course | null) => {
         const targetCourse = course ?? selectedCourse;
-        if (activity && targetCourse?.code && activity.checkInCode) {
+        const routeKey = activity ? activityRouteKey(activity) : '';
+        if (activity && targetCourse?.code && routeKey) {
           setPendingAttendanceCourse(targetCourse);
-          setPendingAttendanceActivity(targetCourse.code, activity.checkInCode, activity);
+          setPendingAttendanceActivity(targetCourse.code, routeKey, activity);
           setActivityCache(activity);
-          router.push(buildAttendanceUrl(targetCourse.code, activity.checkInCode));
+          const hubReturn =
+            returnTo ||
+            (embedded ? teacherCourseHubPath(targetCourse.code, 'attendance') : '');
+          router.push(
+            withReturnTo(buildAttendanceUrl(targetCourse.code, routeKey), hubReturn || null)
+          );
           return;
         }
 
         setActivityCache(null);
         clearPendingAttendanceActivity();
+        if (returnTo && !activity) {
+          router.push(returnTo);
+          return;
+        }
         if (targetCourse?.code) {
           router.push(buildAttendanceUrl(targetCourse.code));
         } else {
@@ -1515,7 +1626,7 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
           router.push(buildAttendanceUrl());
         }
       },
-      [router, selectedCourse]
+      [router, selectedCourse, returnTo, embedded]
     );
   
     useEffect(() => {
@@ -1568,7 +1679,8 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
       if (!decodedAttendanceCode || !selectedCourse) return;
 
       if (
-        activityCache?.checkInCode === decodedAttendanceCode &&
+        (activityCache?.checkInCode === decodedAttendanceCode ||
+          activityCache?.id === decodedAttendanceCode) &&
         activityCache.id
       ) {
         return;
@@ -1589,7 +1701,10 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
 
           const activity = data
             .map((item: Parameters<typeof mapActivityFromApi>[0]) => mapActivityFromApi(item))
-            .find((a: AttendanceActivity) => a.checkInCode === decodedAttendanceCode);
+            .find(
+              (a: AttendanceActivity) =>
+                a.checkInCode === decodedAttendanceCode || a.id === decodedAttendanceCode
+            );
 
           if (activity && !cancelled) {
             setActivityCache(activity);
@@ -1715,12 +1830,14 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
     if (routeLayer === 'course') {
       if (!selectedCourse?.id) {
         return (
-          <div className="page-shell w-full min-w-0 pb-10 flex flex-col h-full animate-fade-in">
-            <PageHeader
-              title={resolvedCourseName}
-              description="點名活動列表 • 載入中"
-              icon={<CalendarDaysIcon className="h-8 w-8 text-indigo-600" />}
-            />
+          <div className={embedded ? 'w-full min-w-0 flex flex-col animate-fade-in' : 'page-shell w-full min-w-0 pb-10 flex flex-col h-full animate-fade-in'}>
+            {!embedded && (
+              <PageHeader
+                title={resolvedCourseName}
+                description="點名活動列表 • 載入中"
+                icon={<CalendarDaysIcon className="h-8 w-8 text-indigo-600" />}
+              />
+            )}
             <PageLoadingArea />
           </div>
         );
@@ -1733,7 +1850,8 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
           courseCode={selectedCourse.code}
           onBack={() => selectCourse(null)} 
           isArchived={selectedCourse.status === '已封存'}
-          onSelectActivity={(activity) => selectActivity(activity)} 
+          onSelectActivity={(activity) => selectActivity(activity)}
+          embedded={embedded}
         />
       );
     }

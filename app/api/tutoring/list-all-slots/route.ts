@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { tutoringService } from '@/services/tutoringService';
 import { adminDb } from '@/services/firebase-admin';
 
@@ -27,6 +28,9 @@ export async function GET(_req: NextRequest) {
 
     return NextResponse.json({ slots: slotsWithDetails }, { status: 200 });
   } catch (error) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     console.error('Error listing all tutoring slots:', error);
     return NextResponse.json({ error: 'Failed to list all tutoring slots' }, { status: 500 });
   }

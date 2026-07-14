@@ -1,14 +1,15 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import Swal from 'sweetalert2';
+import Swal from '@/utils/swalTheme';
+import LoadingSpinner from './LoadingSpinner';
 
 // --- Types & Interfaces ---
 
 export interface AttendanceActivity {
   id: string;
   title: string;
-  checkInMethod: 'numeric' | 'manual';
+  checkInMethod: 'numeric' | 'manual' | 'qr';
   checkInCode?: string;
   status: 'active' | 'ended' | 'scheduled';
   startTime: string;
@@ -21,6 +22,8 @@ interface CreateAttendanceActivityFormProps {
   onComplete: (activity: AttendanceActivity) => void;
   initialData?: AttendanceActivity;
   onClose: () => void;
+  /** 新建時預設模式（互動投影頁建議 instant） */
+  defaultCreationMode?: CreationMode;
 }
 
 type CreationMode = 'instant' | 'scheduled';
@@ -117,6 +120,7 @@ const Dropdown = ({
 
 const checkInMethodOptions = [
   { value: 'numeric', label: '數字點名' },
+  { value: 'qr', label: 'QR點名' },
   { value: 'manual', label: '手動點名' },
 ];
 
@@ -130,13 +134,37 @@ const formatDateTimeLocal = (date: Date): string => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
 
-export default function CreateAttendanceActivityForm({ courseId, onComplete, onClose, initialData }: CreateAttendanceActivityFormProps) {
+const methodTitlePrefix = (method: 'manual' | 'numeric' | 'qr'): string => {
+  if (method === 'manual') return '手動點名';
+  if (method === 'qr') return 'QR點名';
+  return '數字點名';
+};
+
+const buildActivityTitle = (
+  method: 'manual' | 'numeric' | 'qr',
+  when: Date,
+  localeOptions: Intl.DateTimeFormatOptions
+): string => `${methodTitlePrefix(method)} ${when.toLocaleString('zh-TW', localeOptions)}`;
+
+export default function CreateAttendanceActivityForm({
+  courseId,
+  onComplete,
+  onClose,
+  initialData,
+  defaultCreationMode = 'scheduled',
+}: CreateAttendanceActivityFormProps) {
   const isEditMode = !!initialData;
 
   // Initialize state from initialData if in edit mode
-  const [creationMode, setCreationMode] = useState<CreationMode>(initialData?.status === 'active' ? 'instant' : 'scheduled');
+  const [creationMode, setCreationMode] = useState<CreationMode>(
+    initialData
+      ? initialData.status === 'active'
+        ? 'instant'
+        : 'scheduled'
+      : defaultCreationMode
+  );
   const [title, setTitle] = useState(initialData?.title || '');
-  const [checkInMethod, setCheckInMethod] = useState<'manual' | 'numeric'>(initialData?.checkInMethod || 'numeric');
+  const [checkInMethod, setCheckInMethod] = useState<'manual' | 'numeric' | 'qr'>(initialData?.checkInMethod || 'numeric');
   const [error, setError] = useState<string | null>(null);
   
   const formatDateTimeForInput = (isoString: string | undefined) => {
@@ -147,6 +175,7 @@ export default function CreateAttendanceActivityForm({ courseId, onComplete, onC
   const [startTime, setStartTime] = useState(formatDateTimeForInput(initialData?.startTime));
   const [endTime, setEndTime] = useState(formatDateTimeForInput(initialData?.endTime));
   const [gracePeriodMinutes, setGracePeriodMinutes] = useState(initialData?.gracePeriodMinutes || 5);
+  const [defaultRosterStatus, setDefaultRosterStatus] = useState<'present' | 'absent'>('absent');
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -171,44 +200,40 @@ export default function CreateAttendanceActivityForm({ courseId, onComplete, onC
     minute: '2-digit'
   }), []);
 
-  // Effect for resetting/initializing values when creation mode changes
+  // 標題由系統依簽到方式自動訂定（即時／預約皆同規則，避免變成「預約點名」）
   useEffect(() => {
     if (isEditMode) return;
 
     if (creationMode === 'instant') {
       const now = new Date();
-      const formattedDateTime = now.toLocaleString('zh-TW', localeOptions);
-
-      if (checkInMethod !== 'manual') {
-        setTitle(`即時點名 ${formattedDateTime}`);
-      } else {
-        setTitle(`手動點名 ${formattedDateTime}`);
-      }
+      setTitle(buildActivityTitle(checkInMethod, now, localeOptions));
       setStartTime(formatDateTimeLocal(now));
       setEndTime('');
-    } else {
-      // Scheduled mode: Reset fields to allow fresh input
-      setTitle('');
+      return;
+    }
+
+    if (startTime) {
+      setTitle(buildActivityTitle(checkInMethod, new Date(startTime), localeOptions));
+    }
+  }, [creationMode, checkInMethod, startTime, isEditMode, localeOptions]);
+
+  const handleCreationModeChange = (value: string) => {
+    const mode = value as CreationMode;
+    setCreationMode(mode);
+    if (mode === 'scheduled') {
       setStartTime('');
       setEndTime('');
+      setTitle('');
     }
-  }, [creationMode, checkInMethod, isEditMode, localeOptions]);
-
-  // Effect for updating title specifically in scheduled mode when a start time is picked
-  useEffect(() => {
-    if (!isEditMode && creationMode === 'scheduled' && startTime && checkInMethod !== 'manual') {
-      const selectedDate = new Date(startTime);
-      setTitle(`預約點名 ${selectedDate.toLocaleString('zh-TW', localeOptions)}`);
-    }
-  }, [startTime, creationMode, checkInMethod, isEditMode, localeOptions]);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
-    if (!title) {
-      setError('請填寫活動標題');
+    if (!title && creationMode === 'scheduled' && !startTime) {
+      setError('請設定開始時間');
       setIsLoading(false);
       return;
     }
@@ -246,18 +271,73 @@ export default function CreateAttendanceActivityForm({ courseId, onComplete, onC
         ? new Date(endTime).toISOString()
         : new Date(new Date(finalStartTime).getTime() + gracePeriodMinutes * 60 * 1000).toISOString();
 
+      const finalTitle = buildActivityTitle(
+        checkInMethod,
+        new Date(finalStartTime),
+        localeOptions
+      );
+
       const activityData = {
         courseId,
-        title,
+        title: finalTitle,
         checkInMethod,
         startTime: finalStartTime,
         endTime: finalEndTime,
         gracePeriodMinutes: Math.max(1, Math.floor(Number(gracePeriodMinutes) || 5)),
         status: (creationMode === 'instant' ? 'active' : 'scheduled') as AttendanceActivity['status'],
+        ...(checkInMethod === 'manual' ? { defaultRosterStatus } : {}),
       };
 
       // Debug: 檢查送出的資料
       console.log('Submitting activity data:', activityData);
+
+      if (isEditMode && initialData?.id) {
+        const response = await fetch('/api/attendance/activities/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            courseId,
+            activityId: initialData.id,
+            title: activityData.title,
+            checkInMethod: activityData.checkInMethod,
+            startTime: activityData.startTime,
+            endTime: activityData.endTime,
+            gracePeriodMinutes: activityData.gracePeriodMinutes,
+            status: activityData.status,
+            ...(checkInMethod === 'manual' ? { defaultRosterStatus } : {}),
+          }),
+        });
+
+        if (!response.ok) {
+          const responseText = await response.text();
+          let errorMessage = '更新失敗，請稍後再試';
+          try {
+            const errorData = JSON.parse(responseText);
+            if (errorData && typeof errorData === 'object') {
+              errorMessage = errorData.error || errorData.message || errorMessage;
+            }
+          } catch {
+            if (responseText && responseText.length < 200) errorMessage = responseText;
+          }
+          throw new Error(errorMessage);
+        }
+
+        await Swal.fire({
+          icon: 'success',
+          title: '活動已更新！',
+          showConfirmButton: true,
+          confirmButtonText: '確定',
+          confirmButtonColor: '#4f46e5',
+          customClass: { popup: 'rounded-2xl' },
+        });
+
+        onComplete({
+          ...activityData,
+          id: initialData.id,
+          checkInCode: initialData.checkInCode,
+        } as AttendanceActivity);
+        return;
+      }
 
       const response = await fetch('/api/attendance/activities/create', {
         method: 'POST',
@@ -305,6 +385,9 @@ export default function CreateAttendanceActivityForm({ courseId, onComplete, onC
         ?? extractCheckInCode(result.activity as Record<string, unknown> | undefined)
         ?? extractCheckInCode(result.data as Record<string, unknown> | undefined);
 
+      const routingCode =
+        (typeof result.routingCode === 'string' && result.routingCode) || finalCheckInCode;
+
       const fetchCheckInCodeFromDetails = async (): Promise<string | undefined> => {
         if (!newActivityId) return undefined;
         for (let i = 0; i < 5; i++) {
@@ -324,36 +407,70 @@ export default function CreateAttendanceActivityForm({ courseId, onComplete, onC
         return undefined;
       };
 
+      const createdTitle = isEditMode
+        ? '活動已更新！'
+        : creationMode === 'scheduled'
+          ? '預約點名已建立！'
+          : `${methodTitlePrefix(checkInMethod)}已建立！`;
+
       if (checkInMethod === 'numeric') {
-        if (!finalCheckInCode) {
-          finalCheckInCode = await fetchCheckInCodeFromDetails();
+        if (creationMode === 'instant') {
+          if (!finalCheckInCode) {
+            finalCheckInCode = await fetchCheckInCodeFromDetails();
+          }
+
+          const codeDisplayHtml = finalCheckInCode
+            ? `<div class="mt-2 text-4xl font-mono font-bold text-indigo-600 tracking-[0.25em] bg-indigo-50 py-3 rounded-xl border border-indigo-100">${finalCheckInCode}</div>`
+            : `<div class="mt-2 text-xl text-red-500 py-3">無法取得簽到碼，請至活動查看</div>`;
+
+          await Swal.fire({
+            icon: 'success',
+            title: createdTitle,
+            html: `<div class="mt-4"><span class="text-gray-500 font-medium">請將此簽到碼提供給學生：</span><br>${codeDisplayHtml}</div>`,
+            showConfirmButton: true,
+            confirmButtonText: '確定',
+            confirmButtonColor: '#4f46e5',
+            customClass: { popup: 'rounded-2xl' },
+            allowOutsideClick: false,
+          });
+        } else {
+          await Swal.fire({
+            icon: 'success',
+            title: createdTitle,
+            html: '<p class="text-gray-600 text-sm mt-2">開始時間到後才會開放數字簽到；開始前可先登錄請假。</p>',
+            showConfirmButton: true,
+            confirmButtonText: '確定',
+            confirmButtonColor: '#4f46e5',
+            customClass: { popup: 'rounded-2xl' }
+          });
         }
-
-        const codeDisplayHtml = finalCheckInCode
-          ? `<div class="mt-2 text-4xl font-mono font-bold text-indigo-600 tracking-[0.25em] bg-indigo-50 py-3 rounded-xl border border-indigo-100">${finalCheckInCode}</div>`
-          : `<div class="mt-2 text-xl text-red-500 py-3">無法取得簽到碼，請至活動列表查看</div>`;
-
+      } else if (checkInMethod === 'qr') {
         await Swal.fire({
           icon: 'success',
-          title: isEditMode ? '活動已更新！' : '點名活動已建立！',
-          html: `<div class="mt-4"><span class="text-gray-500 font-medium">請將此簽到碼提供給學生：</span><br>${codeDisplayHtml}</div>`,
+          title: createdTitle,
+          html: creationMode === 'scheduled'
+            ? '<p class="text-gray-600 text-sm mt-2">開始時間到後才會顯示簽到 QR；開始前可先登錄請假。</p>'
+            : '<p class="text-gray-600 text-sm mt-2">進入活動後即可顯示簽到 QR Code，供學生掃描。</p>',
           showConfirmButton: true,
           confirmButtonText: '確定',
           confirmButtonColor: '#4f46e5',
-          customClass: { popup: 'rounded-2xl' },
-          allowOutsideClick: false,
+          customClass: { popup: 'rounded-2xl' }
         });
       } else {
         await Swal.fire({
           icon: 'success',
-          title: isEditMode ? '活動已更新！' : '點名活動已建立！',
+          title: createdTitle,
           showConfirmButton: true,
           confirmButtonText: '確定',
           confirmButtonColor: '#4f46e5',
           customClass: { popup: 'rounded-2xl' }
         });
       }
-      onComplete({ ...activityData, id: newActivityId, checkInCode: finalCheckInCode } as AttendanceActivity);
+      onComplete({
+        ...activityData,
+        id: newActivityId,
+        checkInCode: routingCode || finalCheckInCode,
+      } as AttendanceActivity);
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : '發生未知錯誤';
@@ -374,23 +491,23 @@ export default function CreateAttendanceActivityForm({ courseId, onComplete, onC
             <label className="block text-sm font-bold text-gray-700 mb-2">建立模式</label>
             <Dropdown
               value={creationMode}
-              onChange={(value) => setCreationMode(value as CreationMode)}
+              onChange={handleCreationModeChange}
               options={creationModeOptions}
               disabled={isEditMode}
             />
           </div>
 
-          {/* Title Input */}
+          {/* Title Input（系統依簽到方式自動訂定） */}
           <div>
             <label htmlFor="title" className="block text-sm font-bold text-gray-700 mb-2">活動標題</label>
             <input
               type="text"
               id="title"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all sm:text-sm shadow-sm disabled:bg-gray-100 disabled:text-gray-500"
+              readOnly
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-700 bg-gray-100 focus:outline-none sm:text-sm shadow-sm cursor-default"
               required
-              disabled={!isEditMode && creationMode === 'instant' && checkInMethod !== 'manual'}
+              placeholder={creationMode === 'scheduled' ? '選擇開始時間後自動產生' : ''}
             />
           </div>
 
@@ -399,10 +516,24 @@ export default function CreateAttendanceActivityForm({ courseId, onComplete, onC
             <label htmlFor="checkInMethod" className="block text-sm font-bold text-gray-700 mb-2">簽到方式</label>
             <Dropdown
               value={checkInMethod}
-              onChange={(value) => setCheckInMethod(value as 'manual' | 'numeric')}
+              onChange={(value) => setCheckInMethod(value as 'manual' | 'numeric' | 'qr')}
               options={checkInMethodOptions}
             />
           </div>
+
+          {checkInMethod === 'manual' && (
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">名冊預設狀態</label>
+              <Dropdown
+                value={defaultRosterStatus}
+                onChange={(value) => setDefaultRosterStatus(value as 'present' | 'absent')}
+                options={[
+                  { value: 'absent', label: '缺席' },
+                  { value: 'present', label: '出席' },
+                ]}
+              />
+            </div>
+          )}
 
           {/* Start / End Time & Grace Period */}
           {(checkInMethod !== 'manual' || creationMode === 'scheduled') && (
@@ -479,12 +610,7 @@ export default function CreateAttendanceActivityForm({ courseId, onComplete, onC
               className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 shadow-sm font-medium transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex items-center"
               disabled={isLoading}
             >
-              {isLoading && (
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-              )}
+              {isLoading && <LoadingSpinner size={16} color="white" className="mr-2" />}
               {isLoading ? (isEditMode ? '儲存中...' : '建立中...') : (isEditMode ? '儲存變更' : '建立活動')}
             </button>
           </div>

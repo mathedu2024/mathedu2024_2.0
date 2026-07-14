@@ -1,4 +1,4 @@
-import Swal from 'sweetalert2';
+import Swal, { SWAL_COLORS } from './swalTheme';
 
 const alerts = {
   showSuccess: (title: string, text?: string) => {
@@ -6,22 +6,23 @@ const alerts = {
       icon: 'success',
       title,
       text,
-      timer: 1500,
-      showConfirmButton: false
+      confirmButtonColor: SWAL_COLORS.confirm,
     });
   },
   showError: (title: string, text?: string) => {
     Swal.fire({
       icon: 'error',
       title,
-      text
+      text,
+      confirmButtonColor: SWAL_COLORS.confirm,
     });
   },
   showWarning: (title: string, text?: string) => {
     Swal.fire({
       icon: 'warning',
       title,
-      text
+      text,
+      confirmButtonColor: SWAL_COLORS.confirm,
     });
   },
   confirm: async (title: string, text?: string): Promise<boolean> => {
@@ -30,13 +31,13 @@ const alerts = {
       text,
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33',
+      confirmButtonColor: SWAL_COLORS.confirm,
+      cancelButtonColor: SWAL_COLORS.cancel,
       confirmButtonText: '確定',
-      cancelButtonText: '取消'
+      cancelButtonText: '取消',
     });
     return result.isConfirmed;
-  }
+  },
 };
 
 export default alerts;

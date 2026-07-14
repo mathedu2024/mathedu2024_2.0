@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { getActiveActivityForCourse } from '@/services/attendanceService';
 import { getSessionFromCookie } from '@/utils/session';
 
@@ -24,6 +25,9 @@ export async function GET(req: NextRequest) {
     }
     return NextResponse.json(activity);
   } catch (error) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     console.error(`Error fetching active attendance activity for course ${courseId}:`, error);
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     return NextResponse.json({ error: errorMessage }, { status: 500 });

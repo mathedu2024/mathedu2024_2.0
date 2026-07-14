@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createPortal, } from 'react-dom';
 import LoadingSpinner from './LoadingSpinner';
 import PageLoadingArea from './ui/PageLoadingArea';
+import { tableActionStyles } from './ui';
 import { 
   AdjustmentsHorizontalIcon, 
   CloudArrowUpIcon, ClipboardDocumentListIcon,
@@ -12,10 +13,12 @@ import {
   ChartBarIcon,
   PlusIcon,
   ArrowDownTrayIcon,
+  ArrowUpTrayIcon,
   ArrowLeftIcon,
 } from '@heroicons/react/24/outline';
 import CourseFilter from './CourseFilter';
 import Dropdown from './ui/Dropdown';
+import { teacherCourseHubPath } from '@/utils/teacherCourseHub';
 
 const regularTypeOptions = [
   { value: '小考', label: '小考' },
@@ -23,6 +26,7 @@ const regularTypeOptions = [
   { value: '上課態度', label: '上課態度' },
 ];
 import GradeRegistrationMobile from './GradeRegistrationMobile';
+import GradeImportModal from './GradeImportModal';
 import Swal from 'sweetalert2';
 import {
   DEFAULT_PERIODIC_ITEM_KEYS,
@@ -80,7 +84,7 @@ const Modal = ({ open, onClose, title, size = 'md', children }: { open?: boolean
   
   return createPortal(
     <div className="fixed inset-0 z-[99999] flex justify-center items-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
+      <div className="absolute inset-0 bg-black/60" onClick={onClose}></div>
       <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${maxWidth} max-h-full sm:max-h-[90vh] flex flex-col overflow-hidden`}>
         <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white">
           <h3 className="font-bold flex items-center">{title}</h3>
@@ -98,9 +102,12 @@ const Modal = ({ open, onClose, title, size = 'md', children }: { open?: boolean
 export default function GradeManager({
   userInfo,
   courseCodeFromUrl = '',
+  embedded = false,
 }: {
   userInfo?: UserInfo | null;
   courseCodeFromUrl?: string;
+  /** 嵌入課程詳情分頁時隱藏標題與返回列 */
+  embedded?: boolean;
 }) {
   const router = useRouter();
   const [courses, setCourses] = useState<CourseInfo[]>([]);
@@ -120,6 +127,7 @@ export default function GradeManager({
 
   // UI 輔助狀態
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [columnEditor, setColumnEditor] = useState<
     { kind: 'regular'; index: number } | { kind: 'periodic'; key: string } | null
   >(null);
@@ -145,9 +153,10 @@ export default function GradeManager({
           .map(([, v]) => v).filter((v): v is number => typeof v === 'number' && !isNaN(v));
         
         if (scores.length === 0) return 0;
-        const { mode, n } = s.calcModes[type];
-        const targetScores = mode === 'all' ? scores : [...scores].sort((a,b)=>b-a).slice(0, n);
-        return targetScores.reduce((a,b)=>a+b, 0) / targetScores.length;
+        const { mode, n } = s.calcModes[type] ?? { mode: 'all' as const, n: 3 };
+        const takeN = Math.min(Math.max(1, n || 1), scores.length);
+        const targetScores = mode === 'best' ? [...scores].sort((a, b) => b - a).slice(0, takeN) : scores;
+        return targetScores.reduce((a, b) => a + b, 0) / targetScores.length;
       };
 
       const { percents } = s;
@@ -282,9 +291,9 @@ export default function GradeManager({
     (course: CourseInfo | null) => {
       setSelectedCourse(course);
       if (course) {
-        router.push(`/back-panel/teacher-grades/${encodeURIComponent(course.code)}`);
+        router.push(teacherCourseHubPath(course.code, 'grades'));
       } else {
-        router.push('/back-panel/teacher-grades');
+        router.push('/back-panel/teacher-courses');
       }
     },
     [router]
@@ -408,6 +417,65 @@ export default function GradeManager({
       setIsSaving(false);
     }
   };
+
+  const handleImportRegular = useCallback(
+    (params: {
+      columnIndex: number;
+      columnDetail: ColumnDetail;
+      scoresByStudentId: Record<string, number>;
+    }) => {
+      const { columnIndex, columnDetail, scoresByStudentId } = params;
+      const colKey = String(columnIndex);
+
+      setColumnDetails((prev) => ({
+        ...prev,
+        [colKey]: columnDetail,
+      }));
+
+      if (columnIndex >= regularColumns) {
+        setRegularColumns(columnIndex + 1);
+      }
+
+      setStudents((prev) =>
+        prev.map((s) => {
+          const score = scoresByStudentId[s.studentId];
+          if (score === undefined) return s;
+          return {
+            ...s,
+            regularScores: { ...s.regularScores, [colKey]: score },
+          };
+        })
+      );
+    },
+    [regularColumns]
+  );
+
+  const handleImportPeriodic = useCallback(
+    (params: {
+      periodicKey: string;
+      columnMeta: PeriodicColumnMeta;
+      scoresByStudentId: Record<string, number>;
+    }) => {
+      const { periodicKey, columnMeta, scoresByStudentId } = params;
+
+      setPeriodicColumnDetails((prev) => ({
+        ...prev,
+        [periodicKey]: columnMeta,
+      }));
+
+      setStudents((prev) =>
+        prev.map((s) => {
+          const score = scoresByStudentId[s.studentId];
+          if (score === undefined) return s;
+          return {
+            ...s,
+            periodicScores: { ...s.periodicScores, [periodicKey]: score },
+          };
+        })
+      );
+    },
+    []
+  );
 
   const handleExportGrades = useCallback(async () => {
     if (!selectedCourse || computedData.length === 0) {
@@ -557,26 +625,30 @@ export default function GradeManager({
 
   // --- 渲染部分 ---
   return (
-    <div className="page-shell w-full min-w-0 flex flex-col h-full animate-fade-in">
-      {/* Header Area */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
-        <div className="border-l-4 border-indigo-500 pl-4">
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-            <ClipboardDocumentListIcon className="h-8 w-8 text-indigo-600" />
-            成績管理
-          </h1>
-          <p className="text-gray-500 text-sm mt-1">設定評量比例並登記學生的平時與定期成績。</p>
+    <div className={embedded ? 'w-full min-w-0 flex flex-col animate-fade-in' : 'page-shell w-full min-w-0 flex flex-col h-full animate-fade-in'}>
+      {!embedded && (
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
+          <div className="border-l-4 border-indigo-500 pl-4">
+            <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+              <ClipboardDocumentListIcon className="h-8 w-8 text-indigo-600" />
+              成績管理
+            </h1>
+            <p className="text-gray-500 text-sm mt-1">設定評量比例並登記學生的平時與定期成績。</p>
+          </div>
+          {selectedCourse && (
+            <button onClick={() => selectCourse(null)} className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors shadow-sm font-medium flex items-center text-sm">
+              <ArrowLeftIcon className="w-4 h-4 mr-2" /> 返回列表
+            </button>
+          )}
         </div>
-        {selectedCourse && (
-          <button onClick={() => selectCourse(null)} className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors shadow-sm font-medium flex items-center text-sm">
-            <ArrowLeftIcon className="w-4 h-4 mr-2" /> 返回列表
-          </button>
-        )}
-      </div>
+      )}
 
       {isLoading ? (
         <PageLoadingArea />
       ) : !selectedCourse ? (
+        embedded ? (
+          <PageLoadingArea />
+        ) : (
         <>
           {/* 篩選器 */}
           {!isLoading && courses.length > 0 && (
@@ -624,7 +696,7 @@ export default function GradeManager({
                                   <div className="text-xs font-mono text-gray-500 mt-1">{course.code}</div>
                               </td>
                               <td className="px-6 py-4 text-right whitespace-nowrap">
-                                  <button onClick={() => selectCourse(course)} className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
+                                  <button onClick={() => selectCourse(course)} className={tableActionStyles.primary}>
                                       管理成績
                                   </button>
                               </td>
@@ -645,7 +717,7 @@ export default function GradeManager({
                            </div>
                       </div>
                       <div className="border-t border-gray-100 pt-3 flex justify-end">
-                           <button onClick={(e) => { e.stopPropagation(); selectCourse(course); }} className="w-full flex items-center justify-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
+                           <button onClick={(e) => { e.stopPropagation(); selectCourse(course); }} className={`${tableActionStyles.primary} w-full`}>
                                管理成績
                            </button>
                       </div>
@@ -655,6 +727,7 @@ export default function GradeManager({
             </>
           )}
         </>
+        )
       ) : (
         /* 管理主畫面 */
         <div className="space-y-4">
@@ -665,7 +738,7 @@ export default function GradeManager({
             </div>
           )}
           {/* 工具列 */}
-          <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm">
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
             <div className="flex bg-gray-100 p-1 rounded-xl w-full lg:w-auto">
               {(['regular', 'periodic', 'total'] as const).map(t => (
                 <button key={t} onClick={() => setSelectedTab(t)} className={`flex-1 lg:flex-none px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${selectedTab === t ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500'}`}>
@@ -690,6 +763,16 @@ export default function GradeManager({
                 <ArrowDownTrayIcon className="w-5 h-5 mr-1.5 shrink-0" />
                 匯出成績
               </button>
+              {!isArchived && (
+                <button
+                  type="button"
+                  className="px-3 sm:px-5 py-2.5 bg-white text-indigo-600 border border-indigo-200 rounded-xl hover:bg-indigo-50 font-medium transition-colors shadow-sm flex items-center justify-center text-sm whitespace-nowrap"
+                  onClick={() => setShowImportModal(true)}
+                >
+                  <ArrowUpTrayIcon className="w-5 h-5 mr-1.5 shrink-0" />
+                  匯入成績
+                </button>
+              )}
               {!isArchived && (
                 <button className="px-3 sm:px-5 py-2.5 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 transition-colors shadow-sm flex items-center justify-center text-sm whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed" onClick={handleSaveChanges} disabled={isSaving}>
                   {isSaving ? <LoadingSpinner size={16} color="white" className="mr-1.5 shrink-0" /> : <CloudArrowUpIcon className="w-5 h-5 mr-1.5 shrink-0" />}
@@ -859,36 +942,117 @@ export default function GradeManager({
           const finalPeriodicPct = 100 - s.percents.periodic;
           return (
             <div className="space-y-8">
-              {/* 平時成績權重設定 */}
+              {/* 平時成績權重與採計模式 */}
               <div className="bg-gray-50 p-5 rounded-xl border border-gray-200">
                 <h4 className="text-base font-bold text-gray-900 mb-4 flex items-center">
                   <span className="w-1 h-5 bg-indigo-500 rounded-full mr-2"></span>
                   平時成績各項目佔比 (建議加總為 100%)
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-                  {([['quiz', '小考'], ['hw', '作業'], ['att', '上課態度']] as const).map(([key, label]) => (
-                    <div key={key}>
-                      <label className="block text-base font-medium text-gray-900 mb-2">{label} (%)</label>
-                      <input
-                        type="number"
-                        className="w-full border border-gray-300 rounded-lg p-2.5 text-base focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-                        value={s.percents[key]}
-                        onChange={(e) =>
-                          setSettings((prev) => {
-                            const base = (prev ?? defaultGradeSettings) as GradeSettings;
-                            return {
-                              ...base,
-                              percents: { ...base.percents, [key]: Number(e.target.value) || 0 },
-                            };
-                          })
-                        }
-                      />
-                    </div>
-                  ))}
+                  {([
+                    ['quiz', '小考', '小考'],
+                    ['hw', '作業', '作業'],
+                    ['att', '上課態度', '上課態度'],
+                  ] as const).map(([key, type, label]) => {
+                    const modeCfg = s.calcModes[type] ?? { mode: 'all' as const, n: 3 };
+                    return (
+                      <div key={key} className="space-y-3">
+                        <div>
+                          <label className="block text-base font-medium text-gray-900 mb-2">{label} (%)</label>
+                          <input
+                            type="number"
+                            className="w-full border border-gray-300 rounded-lg p-2.5 text-base focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                            value={s.percents[key]}
+                            onChange={(e) =>
+                              setSettings((prev) => {
+                                const base = (prev ?? defaultGradeSettings) as GradeSettings;
+                                return {
+                                  ...base,
+                                  percents: { ...base.percents, [key]: Number(e.target.value) || 0 },
+                                };
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <label className="flex items-center gap-1.5 text-sm text-gray-800 cursor-pointer">
+                            <input
+                              type="radio"
+                              name={`calcMode-${type}`}
+                              className="w-4 h-4 accent-indigo-600"
+                              checked={modeCfg.mode === 'all'}
+                              onChange={() =>
+                                setSettings((prev) => {
+                                  const base = (prev ?? defaultGradeSettings) as GradeSettings;
+                                  return {
+                                    ...base,
+                                    calcModes: {
+                                      ...base.calcModes,
+                                      [type]: { ...base.calcModes[type], mode: 'all' },
+                                    },
+                                  };
+                                })
+                              }
+                            />
+                            平均
+                          </label>
+                          <label className="flex items-center gap-1.5 text-sm text-gray-800 cursor-pointer">
+                            <input
+                              type="radio"
+                              name={`calcMode-${type}`}
+                              className="w-4 h-4 accent-indigo-600"
+                              checked={modeCfg.mode === 'best'}
+                              onChange={() =>
+                                setSettings((prev) => {
+                                  const base = (prev ?? defaultGradeSettings) as GradeSettings;
+                                  return {
+                                    ...base,
+                                    calcModes: {
+                                      ...base.calcModes,
+                                      [type]: {
+                                        mode: 'best',
+                                        n: Math.max(1, base.calcModes[type]?.n ?? 3),
+                                      },
+                                    },
+                                  };
+                                })
+                              }
+                            />
+                            擇優
+                          </label>
+                          {modeCfg.mode === 'best' && (
+                            <input
+                              type="number"
+                              min={1}
+                              title="設定擇優項數；若實際資料少於設定值，改以現有資料平均"
+                              className="w-16 border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                              value={modeCfg.n}
+                              onChange={(e) => {
+                                const n = Math.max(1, Number(e.target.value) || 1);
+                                setSettings((prev) => {
+                                  const base = (prev ?? defaultGradeSettings) as GradeSettings;
+                                  return {
+                                    ...base,
+                                    calcModes: {
+                                      ...base.calcModes,
+                                      [type]: { mode: 'best', n },
+                                    },
+                                  };
+                                });
+                              }}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
                 <div className={`mt-5 text-base font-bold flex items-center ${regSum === 100 ? 'text-emerald-600' : 'text-amber-600'}`}>
                   目前平時權重加總：{regSum}% {regSum !== 100 && <span className="text-sm ml-2 font-medium">(建議調整至 100%)</span>}
                 </div>
+                <p className="mt-2 text-sm text-gray-500">
+                  擇優：取最高 n 項平均；若實際有成績的筆數少於 n，則以現有筆數平均。
+                </p>
               </div>
 
               {/* 學期總成績權重設定 */}
@@ -1250,6 +1414,20 @@ export default function GradeManager({
           </div>
         )}
       </Modal>
+
+      {selectedCourse && userInfo?.id && (
+        <GradeImportModal
+          open={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          courseId={selectedCourse.id}
+          teacherId={userInfo.id}
+          students={students}
+          columnDetails={columnDetails}
+          regularColumns={regularColumns}
+          onImportRegular={handleImportRegular}
+          onImportPeriodic={handleImportPeriodic}
+        />
+      )}
     </div>
   );
 }

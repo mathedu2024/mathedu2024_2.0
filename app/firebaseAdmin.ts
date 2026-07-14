@@ -1,1 +1,1 @@
-export { adminDb } from '@/services/firebase-admin';
+export { adminDb, quizDb } from '@/services/firebase-admin';

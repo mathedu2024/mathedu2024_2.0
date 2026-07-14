@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { cookies } from 'next/headers';
 import { adminDb } from '../../../../services/firebase-admin';
 
@@ -47,6 +48,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: '密碼更新成功' });
 
   } catch (error) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     console.error('Error changing student password:', error);
     return NextResponse.json({ message: '更新密碼時發生內部錯誤' }, { status: 500 });
   }

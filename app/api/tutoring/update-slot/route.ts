@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { adminDb } from '@/services/firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
 
@@ -38,6 +39,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ message: 'Tutoring slot updated successfully' }, { status: 200 });
   } catch (error) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     console.error('Error updating tutoring slot:', error);
     return NextResponse.json({ error: 'Failed to update tutoring slot' }, { status: 500 });
   }

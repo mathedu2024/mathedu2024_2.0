@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { EnvelopeIcon } from '@heroicons/react/24/outline';
-import Swal from 'sweetalert2';
+import Swal from '@/utils/swalTheme';
 
 const faqData = [
   {

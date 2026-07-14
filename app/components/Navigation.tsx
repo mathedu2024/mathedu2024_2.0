@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { getSession, type SessionData } from '../utils/session';
 import { useCompactNav } from '../utils/useCompactNav';
+import { useExamFocusMode } from '@/utils/useExamFocusMode';
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 import { logoutClient } from '../utils/logoutClient';
 
@@ -17,10 +18,16 @@ export default function Navigation() {
     menuItems: any[];
     dashboardHref?: string;
     activeTab?: string | null;
+    boldNavLabels?: boolean;
   } | null>(null);
 
   const refreshSession = useCallback(() => {
-    setSessionState(getSession());
+    const next = getSession();
+    setSessionState(next);
+    if (!next) {
+      setSidebarData(null);
+      setIsMenuOpen(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -38,8 +45,9 @@ export default function Navigation() {
 
   useEffect(() => {
     const handleAuthLogout = () => {
-      setSessionState(null); // 登出時，立刻強制清空登入狀態，避免資料殘留
+      setSessionState(null);
       setSidebarData(null);
+      setIsMenuOpen(false);
     };
     const handleStorage = () => {
       refreshSession();
@@ -53,7 +61,8 @@ export default function Navigation() {
   }, [refreshSession]);
 
   useEffect(() => {
-    const handleSidebarSync = (e: any) => {
+    const handleSidebarSync = (e: CustomEvent<{ menuItems: unknown[]; dashboardHref?: string; activeTab?: string | null; boldNavLabels?: boolean }>) => {
+      if (!getSession()) return;
       setSidebarData(e.detail);
     };
     if (typeof window !== 'undefined') {
@@ -69,6 +78,9 @@ export default function Navigation() {
   const isActive = (path: string) => {
     return pathname === path;
   };
+
+  const mobileNavFont = (isActiveItem: boolean) =>
+    sidebarData?.boldNavLabels || isActiveItem ? 'font-bold' : 'font-medium';
 
   const isManagementRole = (sessionData: any) => {
     if (!sessionData) return false;
@@ -118,10 +130,13 @@ export default function Navigation() {
     { href: '/faq', label: '常見問題' },
   ];
 
+  const examFocusMode = useExamFocusMode();
+  if (examFocusMode) return null;
+
   return (
-    <nav className="bg-white sticky top-0 z-50 shadow-sm border-b border-gray-100">
-      <div className="page-shell">
-        <div className="flex justify-between items-center h-16">
+    <nav className="bg-white sticky top-0 z-50 h-16 box-border border-b border-gray-100">
+      <div className="page-shell h-full">
+        <div className="flex justify-between items-center h-full">
           {/* Logo */}
           <div className="flex-1 flex items-center min-w-0">
             <Link href="/" className="flex items-center gap-2 text-base sm:text-xl md:text-2xl font-bold text-gray-900 hover:text-indigo-600 transition-colors truncate group">
@@ -217,7 +232,7 @@ export default function Navigation() {
                   {sidebarData.dashboardHref ? (
                     <Link
                       href={sidebarData.dashboardHref}
-                      className={`block px-4 py-3 rounded-xl text-base font-medium transition-colors ${
+                      className={`block px-4 py-3 rounded-xl text-base ${mobileNavFont(isActive(sidebarData.dashboardHref))} transition-colors ${
                         isActive(sidebarData.dashboardHref) ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600'
                       }`}
                       onClick={() => setIsMenuOpen(false)}
@@ -226,7 +241,7 @@ export default function Navigation() {
                     </Link>
                   ) : (
                     <button
-                      className={`block w-full text-left px-4 py-3 rounded-xl text-base font-medium transition-colors ${
+                      className={`block w-full text-left px-4 py-3 rounded-xl text-base ${mobileNavFont(sidebarData.activeTab === null)} transition-colors ${
                         sidebarData.activeTab === null ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600'
                       }`}
                       onClick={() => {
@@ -257,7 +272,7 @@ export default function Navigation() {
                         <Link
                           key={displayItem.id}
                           href={displayItem.href}
-                          className={`block px-4 py-3 rounded-xl text-base font-medium transition-colors ${
+                          className={`block px-4 py-3 rounded-xl text-base ${mobileNavFont(isActive(displayItem.href))} transition-colors ${
                             isActive(displayItem.href) ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600'
                           }`}
                           onClick={() => setIsMenuOpen(false)}
@@ -281,7 +296,7 @@ export default function Navigation() {
                     return (
                       <button
                         key={displayItem.id}
-                        className={`block w-full text-left px-4 py-3 rounded-xl text-base font-medium transition-colors ${
+                        className={`block w-full text-left px-4 py-3 rounded-xl text-base ${mobileNavFont(sidebarData.activeTab === displayItem.id)} transition-colors ${
                           sidebarData.activeTab === displayItem.id ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600'
                         }`}
                         onClick={() => {

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { db } from '@/utils/firebase-admin';
 
 export async function POST(request: Request) {
@@ -19,6 +20,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, message: 'Profile updated successfully' });
   } catch (error) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     console.error('Error updating student profile:', error);
     return NextResponse.json({ error: 'Internal Server Error', details: (error as Error)?.message }, { status: 500 });
   }

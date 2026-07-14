@@ -26,6 +26,8 @@ interface CourseFilterProps {
   selectedStatus: string;
   onStatusChange: (value: string) => void;
   onReset: () => void;
+  /** 學生端僅顯示科目與狀態篩選 */
+  variant?: 'teacher' | 'student';
 }
 
 export default function CourseFilter({
@@ -39,7 +41,8 @@ export default function CourseFilter({
   onNatureChange,
   selectedStatus,
   onStatusChange,
-  onReset
+  onReset,
+  variant = 'teacher',
 }: CourseFilterProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -66,16 +69,44 @@ export default function CourseFilter({
         mt-3 md:mt-0 transition-all duration-300 ease-in-out md:overflow-visible relative z-[60]
         ${isOpen ? 'max-h-[1000px] opacity-100 overflow-visible' : 'max-h-0 md:max-h-none opacity-0 md:opacity-100 overflow-hidden'}
       `}>
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col xl:flex-row gap-4 items-center">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full xl:w-auto xl:flex-1">
-            <Dropdown value={selectedGrade} onChange={onGradeChange} options={gradeOptions} placeholder="全部年級" className="w-full" />
-            <Dropdown value={selectedSubject} onChange={onSubjectChange} options={subjectOptions} placeholder="全部科目" className="w-full" />
-            <Dropdown value={selectedNature} onChange={onNatureChange} options={natureOptions} placeholder="全部性質" className="w-full" />
-            <Dropdown value={selectedStatus} onChange={onStatusChange} options={statusOptions} placeholder="全部狀態" className="w-full" />
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col xl:flex-row xl:items-center gap-4">
+          <div className="flex flex-col sm:flex-row flex-wrap gap-4 shrink-0">
+            {variant === 'teacher' && (
+              <Dropdown
+                value={selectedGrade}
+                onChange={onGradeChange}
+                options={gradeOptions}
+                placeholder="全部年級"
+                className="w-full sm:w-40"
+              />
+            )}
+            <Dropdown
+              value={selectedSubject}
+              onChange={onSubjectChange}
+              options={subjectOptions}
+              placeholder="全部科目"
+              className="w-full sm:w-40"
+            />
+            {variant === 'teacher' && (
+              <Dropdown
+                value={selectedNature}
+                onChange={onNatureChange}
+                options={natureOptions}
+                placeholder="全部性質"
+                className="w-full sm:w-40"
+              />
+            )}
+            <Dropdown
+              value={selectedStatus}
+              onChange={onStatusChange}
+              options={statusOptions}
+              placeholder="全部狀態"
+              className="w-full sm:w-40"
+            />
           </div>
-          
-          <div className="flex flex-col sm:flex-row gap-4 w-full xl:w-auto xl:min-w-[320px]">
-            <div className="w-full flex-1 relative">
+
+          <div className="flex flex-col sm:flex-row gap-4 flex-1 min-w-0 w-full">
+            <div className="relative flex-1 min-w-0">
               <input
                 type="text"
                 placeholder="搜尋課程名稱..."
@@ -87,7 +118,7 @@ export default function CourseFilter({
             </div>
             <button
               onClick={onReset}
-              className="w-full sm:w-auto px-5 py-2.5 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-colors font-medium whitespace-nowrap flex items-center justify-center text-sm shadow-sm"
+              className="w-full sm:w-auto shrink-0 px-5 py-2.5 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 transition-colors font-medium whitespace-nowrap flex items-center justify-center text-sm shadow-sm"
             >
               <ArrowPathIcon className="w-4 h-4 mr-1.5" />
               重置

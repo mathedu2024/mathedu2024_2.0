@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { adminDb } from '@/services/firebase-admin';
 
 const gradeRankDesc: Record<string, number> = {
@@ -75,6 +76,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(sortStudentsForSchool(students));
   } catch (error: unknown) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     let message = '查詢失敗';
     if (error instanceof Error) {
       message = error.message;
@@ -118,6 +122,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(sortStudentsForSchool(students));
   } catch (error: unknown) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     let message = '查詢失敗';
     if (error instanceof Error) {
       message = error.message;

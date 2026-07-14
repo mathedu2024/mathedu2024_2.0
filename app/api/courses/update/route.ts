@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { adminDb } from '../../../../services/firebase-admin';
 import { cookies } from 'next/headers';
 
@@ -94,6 +95,9 @@ export async function POST(req: NextRequest) {
                 });
               }
             } catch (error) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
               console.error(`Error removing course from old teacher ${oldTeacherId}:`, error);
             }
           }
@@ -116,16 +120,25 @@ export async function POST(req: NextRequest) {
               }
             }
           } catch (error) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
             console.error(`Error updating teacher ${teacherId}:`, error);
           }
         }
       } catch (error) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
         console.error('Error syncing teacher courses:', error);
       }
     }
 
     return NextResponse.json({ success: true, id });
   } catch (error: unknown) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     let message = '更新課程失敗';
     if (error instanceof Error) message = error.message;
     return NextResponse.json({ error: message }, { status: 500 });

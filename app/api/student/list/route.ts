@@ -1,12 +1,22 @@
 import { NextResponse } from 'next/server';
-import { adminDb } from '../../../../services/firebase-admin';
- 
-export async function GET() {
-  const snapshot = await adminDb.collection('student_data').get();
-  const data = snapshot.docs.map(doc => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...studentData } = doc.data();
-    return { id: doc.id, ...studentData };
-  });
-  return NextResponse.json(data);
-} 
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
+import { adminDb } from '@/services/firebase-admin';
+import { requireAuthFromRequest, authGuard, stripPasswordsFromDocs } from '@/services/apiAuth';
+import type { NextRequest } from 'next/server';
+
+export async function GET(req: NextRequest) {
+  const denied = authGuard(requireAuthFromRequest(req, 'admin', 'teacher'));
+  if (denied) return denied;
+
+  try {
+    const snapshot = await adminDb.collection('student_data').get();
+    const data = stripPasswordsFromDocs(
+      snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
+    );
+    return NextResponse.json(data);
+  } catch (error) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+    throw error;
+  }
+}

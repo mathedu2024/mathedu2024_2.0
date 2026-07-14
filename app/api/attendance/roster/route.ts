@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { db } from '@/lib/db';
 import { getSessionFromCookie } from '@/utils/session';
 import { getCourseEnrolledStudentKeys } from '@/services/attendanceService';
@@ -130,6 +131,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(roster);
 
   } catch (error) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     console.error('[API] Error in /api/attendance/roster:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     return NextResponse.json({ error: errorMessage }, { status: 500 });

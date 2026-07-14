@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import Swal from 'sweetalert2';
+import Swal from '@/utils/swalTheme';
 import { KeyIcon, LockClosedIcon, CheckCircleIcon, IdentificationIcon, UserCircleIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from './LoadingSpinner';
 import { isCourseArchived } from './StudentCourseSelector';
@@ -114,7 +114,7 @@ function PasswordManager({ onPasswordChangeSuccess, apiEndpoint = '/api/student/
           title: '成功!',
           text: '密碼修改成功',
           icon: 'success',
-          confirmButtonText: '好',
+          confirmButtonText: '確定',
           confirmButtonColor: '#4f46e5', // indigo-600
         });
         reset();
@@ -151,7 +151,7 @@ function PasswordManager({ onPasswordChangeSuccess, apiEndpoint = '/api/student/
             <UserCircleIcon className="w-8 h-8 text-indigo-600" />
             個人資料
           </h1>
-          <p className="text-gray-500 text-sm mt-1">檢視帳號資訊與修改登入密碼</p>
+          <p className="text-gray-500 text-sm mt-1">檢視與修改個人資料與密碼</p>
         </div>
       </div>
 

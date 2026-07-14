@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { adminDb } from '@/services/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { requireAuthFromRequest, authGuard } from '@/services/apiAuth';
 
 interface StudentData {
   studentId?: string;
@@ -29,6 +31,9 @@ async function getCourseDocRefByCompositeId(compositeId: string) {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = authGuard(requireAuthFromRequest(req, 'admin'));
+  if (denied) return denied;
+
   try {
     const { studentIds, grade, schoolGroup, addCourses, removeCourses } = await req.json();
     const ids = Array.isArray(studentIds) ? (studentIds as string[]).filter(Boolean) : [];
@@ -36,10 +41,10 @@ export async function POST(req: NextRequest) {
     const coursesToRemove = Array.isArray(removeCourses) ? (removeCourses as string[]).filter(Boolean) : [];
 
     if (ids.length === 0) {
-      return NextResponse.json({ error: '缺少 studentIds' }, { status: 400 });
+      return NextResponse.json({ error: '?? studentIds' }, { status: 400 });
     }
     if (!grade && !schoolGroup && coursesToAdd.length === 0 && coursesToRemove.length === 0) {
-      return NextResponse.json({ error: '至少提供 grade、schoolGroup 或課程異動' }, { status: 400 });
+      return NextResponse.json({ error: '????? grade?schoolGroup ?????' }, { status: 400 });
     }
 
     const uniqueCourseIds = Array.from(new Set(coursesToAdd));
@@ -78,7 +83,7 @@ export async function POST(req: NextRequest) {
           account: student.account || studentId,
           email: student.email || '',
           studentId: student.studentId || studentId,
-          grade: grade || student.grade || '未設定',
+          grade: grade || student.grade || '???',
           schoolGroup: schoolGroup || student.schoolGroup || '',
           className: student.className || '',
           seatNumber: student.seatNumber || undefined,
@@ -122,7 +127,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, updatedCount });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : '批次修改失敗';
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
+    const message = error instanceof Error ? error.message : '??????';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

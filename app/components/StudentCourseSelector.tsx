@@ -7,7 +7,7 @@ import { isCourseArchived, type ArchivableCourse } from '@/services/courseArchiv
 
 export { isCourseArchived };
 
-interface CourseShortInfo extends ArchivableCourse {
+export interface CourseShortInfo extends ArchivableCourse {
   id?: string;
   name: string;
   code: string;

@@ -3,13 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbopack",
+    "dev:webpack": "next dev --webpack",
     "deploy:rules": "firebase deploy --only firestore:rules",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1084.0",
     "@emailjs/browser": "^4.4.1",
     "@headlessui/react": "^2.2.4",
     "@hello-pangea/dnd": "^18.0.1",
@@ -31,10 +33,12 @@
     "framer-motion": "^12.23.24",
     "git-filter-repo": "^0.0.30",
     "jsonwebtoken": "^9.0.3",
+    "katex": "^0.17.0",
     "lucide-react": "^0.544.0",
     "next": "^16.2.6",
     "openai": "^5.1.1",
     "protobufjs": "^8.2.1",
+    "qrcode": "^1.5.4",
     "react": "^19.2.6",
     "react-chartjs-2": "^5.3.0",
     "react-datepicker": "^8.4.0",
@@ -51,7 +55,8 @@
     "sweetalert2": "^11.23.0",
     "tailwind-merge": "^3.3.1",
     "tsx": "^4.20.3",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -69,6 +74,7 @@
     "@types/mime": "^3.0.4",
     "@types/ms": "^2.1.0",
     "@types/node": "^20",
+    "@types/qrcode": "^1.5.6",
     "@types/qs": "^6.14.0",
     "@types/range-parser": "^1.2.7",
     "@types/react": "^19.2.0",
@@ -89,5 +95,14 @@
   },
   "overrides": {
     "glob": "^9.0.0"
+  },
+  "allowScripts": {
+    "esbuild@0.27.7": true,
+    "sharp@0.34.5": true,
+    "protobufjs@7.6.5": true,
+    "protobufjs@8.7.0": true,
+    "core-js@3.49.0": true,
+    "@firebase/util@1.12.1": true,
+    "unrs-resolver@1.11.1": true
   }
 }

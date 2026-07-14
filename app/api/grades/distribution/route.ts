@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { adminDb } from '@/services/firebase-admin';
 import * as cookie from 'cookie';
 
@@ -173,6 +174,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ statistics, distribution });
   } catch (error: unknown) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     let message = 'An unexpected error occurred';
     if (error instanceof Error) message = error.message;
     console.error('Error fetching grade distribution:', error);

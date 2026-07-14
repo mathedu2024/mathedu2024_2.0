@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { adminDb } from '@/services/firebase-admin';
 import {
   defaultGradeSettings,
@@ -7,11 +8,15 @@ import {
   mergePeriodicColumnDetails,
   normalizeGradeDocStudents,
 } from '@/services/gradeShape';
+import { requireAuthFromRequest, authGuard } from '@/services/apiAuth';
 
 /**
- * 讀取課程成績：Firestore 路徑為 `courses/{課程DocId}/grades/data`
+ * ???????Firestore ??? `courses/{??DocId}/grades/data`
  */
 export async function POST(req: NextRequest) {
+  const denied = authGuard(requireAuthFromRequest(req, 'admin', 'teacher'));
+  if (denied) return denied;
+
   try {
     const { courseId, courseName, courseCode } = await req.json();
     const derivedId =
@@ -22,7 +27,7 @@ export async function POST(req: NextRequest) {
 
     if (idsToTry.length === 0) {
       return NextResponse.json(
-        { error: '缺少 courseId 或 courseName／courseCode' },
+        { error: '?? courseId ? courseName?courseCode' },
         { status: 400 }
       );
     }
@@ -76,9 +81,10 @@ export async function POST(req: NextRequest) {
       periodicColumnDetails,
     });
   } catch (error: unknown) {
-    let message = '讀取成績失敗';
-    if (error instanceof Error) message = error.message;
-    console.error('grades/get:', error);
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
+    const message = error instanceof Error ? error.message : '??????';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

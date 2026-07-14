@@ -1,32 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { adminDb } from '../../../../services/firebase-admin';
+import { requireAuthFromRequest, authGuard } from '@/services/apiAuth';
 
 export async function POST(req: NextRequest) {
+  const denied = authGuard(requireAuthFromRequest(req, 'admin'));
+  if (denied) return denied;
+
   try {
     const { id } = await req.json();
-    
+
     if (!id) {
       return NextResponse.json({ error: 'Missing student ID' }, { status: 400 });
     }
 
-    // 重置密碼為預設密碼 'abcd1234'
     const defaultPassword = 'abcd1234';
-    
-    // 更新學生密碼為明文密碼
+
     await adminDb.collection('student_data').doc(id).update({
-      password: defaultPassword
+      password: defaultPassword,
     });
 
-    return NextResponse.json({ 
-      success: true, 
-      message: '密碼已重置為預設值' 
+    return NextResponse.json({
+      success: true,
+      message: '?????????',
     });
-
   } catch (error) {
-    console.error('重置學生密碼失敗:', error);
-    return NextResponse.json(
-      { error: '重置密碼時發生錯誤' }, 
-      { status: 500 }
-    );
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
+    return NextResponse.json({ error: '?????????' }, { status: 500 });
   }
 }

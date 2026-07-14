@@ -19,7 +19,7 @@ export const MULTISELECT_BUTTON_CLASS =
   'w-full px-4 py-2.5 border border-gray-300 rounded-xl bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all shadow-sm outline-none text-sm text-gray-700 cursor-pointer flex items-center justify-between text-left';
 
 export const MULTISELECT_MENU_CLASS =
-  'absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-xl bg-white py-1 text-sm shadow-lg border border-gray-100 focus:outline-none';
+  'z-[100000] max-h-60 overflow-auto rounded-xl bg-white py-1 text-sm shadow-xl border border-gray-200 focus:outline-none';
 
 export const MULTISELECT_OPTION_BASE_CLASS =
   'relative cursor-pointer select-none py-2.5 pl-10 pr-4 transition-colors mx-1 rounded-lg';

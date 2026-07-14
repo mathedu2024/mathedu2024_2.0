@@ -7,6 +7,16 @@ import Link from 'next/link';
 import { UserCircleIcon } from '@heroicons/react/24/outline';
 import { useHydrated } from '@/utils/useHydrated';
 import { isCompactNavMode, useCompactNav } from '@/utils/useCompactNav';
+import { getSession } from '@/utils/session';
+import {
+  clearSidebarCache,
+  getCachedActiveTab,
+  getCachedMenuItems,
+  getCachedUserInfo,
+  setCachedActiveTab,
+  setCachedMenuItems,
+  setCachedUserInfo,
+} from '@/utils/sidebarCache';
 
 interface UserInfo {
   id: string;
@@ -43,13 +53,10 @@ interface SidebarProps {
   // 登出處理
   onLogout: () => void;
   dashboardHref?: string;
+  /** 學生端：所有選單文字粗體；教師端：僅選中項目粗體 */
+  boldNavLabels?: boolean;
   
 }
-
-// 模組層級的快取，讓資料在元件隨路由重新掛載時能無縫保留在記憶體中
-let globalCachedUserInfo: UserInfo | null = null;
-let globalCachedMenuItems: MenuItem[] = [];
-let globalCachedActiveTab: string | null | undefined = undefined;
 
 export default function Sidebar({
   sidebarOpen,
@@ -59,7 +66,8 @@ export default function Sidebar({
   activeTab,
   onTabChange,
   onLogout,
-  dashboardHref
+  dashboardHref,
+  boldNavLabels = false,
 }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -68,19 +76,25 @@ export default function Sidebar({
 
   // 新增：記住上一次的 userInfo，避免換頁時因為瞬間為 null 而造成畫面文字閃爍
   const [persistedUserInfo, setPersistedUserInfo] = useState<UserInfo | null>(userInfo ?? null);
-  const [persistedMenuItems, setPersistedMenuItems] = useState<MenuItem[]>(menuItems?.length > 0 ? menuItems : globalCachedMenuItems);
+  const [persistedMenuItems, setPersistedMenuItems] = useState<MenuItem[]>(menuItems?.length > 0 ? menuItems : getCachedMenuItems() as MenuItem[]);
   const [optimisticTab, setOptimisticTab] = useState<string | null>(
-    globalCachedActiveTab !== undefined ? (globalCachedActiveTab as string | null) : activeTab
+    getCachedActiveTab() !== undefined ? (getCachedActiveTab() as string | null) : activeTab
   );
+
+  const resetPersistedSidebarState = useCallback(() => {
+    setPersistedUserInfo(null);
+    setPersistedMenuItems([]);
+    setOptimisticTab(null);
+  }, []);
   
   useEffect(() => {
     // 若為 F5 重新整理，嘗試從 sessionStorage 救回使用者資訊，避免短暫空白
-    if (!userInfo && !globalCachedUserInfo && typeof window !== 'undefined') {
+    if (!userInfo && !getCachedUserInfo() && typeof window !== 'undefined') {
       try {
         const stored = sessionStorage.getItem('sidebar_user_info');
         if (stored) {
           const parsed = JSON.parse(stored);
-          globalCachedUserInfo = parsed;
+          setCachedUserInfo(parsed);
           setPersistedUserInfo(parsed);
         }
       } catch (e) {}
@@ -88,8 +102,17 @@ export default function Sidebar({
   }, [userInfo]);
 
   useEffect(() => {
+    const onAuthLogout = () => {
+      clearSidebarCache();
+      resetPersistedSidebarState();
+    };
+    window.addEventListener('auth-logout', onAuthLogout);
+    return () => window.removeEventListener('auth-logout', onAuthLogout);
+  }, [resetPersistedSidebarState]);
+
+  useEffect(() => {
     if (userInfo) {
-      globalCachedUserInfo = userInfo;
+      setCachedUserInfo(userInfo);
       setPersistedUserInfo(userInfo);
       if (typeof window !== 'undefined') {
         try {
@@ -102,7 +125,7 @@ export default function Sidebar({
   // 新增：記住上一次的 menuItems，避免換頁時選單陣列瞬間為空造成按鈕消失
   useEffect(() => {
     if (menuItems && menuItems.length > 0) {
-      globalCachedMenuItems = menuItems;
+      setCachedMenuItems(menuItems);
       setPersistedMenuItems(menuItems);
     }
   }, [menuItems]);
@@ -110,7 +133,7 @@ export default function Sidebar({
   // 新增：防止換頁瞬間 parent 傳入 null 導致色塊跳動
   useEffect(() => {
     if (activeTab !== null) {
-      globalCachedActiveTab = activeTab;
+      setCachedActiveTab(activeTab);
       setOptimisticTab(activeTab);
     } else {
       const isDashboard = dashboardHref 
@@ -118,7 +141,7 @@ export default function Sidebar({
         : (pathname === '/' || pathname === '/student' || pathname === '/panel');
       
       if (isDashboard) {
-        globalCachedActiveTab = null;
+        setCachedActiveTab(null);
         setOptimisticTab(null);
       }
     }
@@ -141,7 +164,7 @@ export default function Sidebar({
   };
 
   const handleTabClick = (tab: string | null) => {
-    globalCachedActiveTab = tab;
+    setCachedActiveTab(tab);
     setOptimisticTab(tab);
     handleTabChange(tab);
   };
@@ -154,16 +177,18 @@ export default function Sidebar({
 
   // 廣播側邊欄的選單項目，讓 Navigation 在手機版時能合併顯示
   const syncSidebar = useCallback(() => {
+    if (typeof window !== 'undefined' && !getSession()) return;
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('sidebar-sync', {
         detail: {
           menuItems: currentMenuItems,
           dashboardHref,
           activeTab: optimisticTab,
+          boldNavLabels,
         }
       }));
     }
-  }, [currentMenuItems, dashboardHref, optimisticTab]);
+  }, [currentMenuItems, dashboardHref, optimisticTab, boldNavLabels]);
 
   useEffect(() => {
     syncSidebar();
@@ -181,7 +206,7 @@ export default function Sidebar({
     const handleTabChangeRequest = (e: Event) => {
       const customEvent = e as CustomEvent;
       const tab = customEvent.detail;
-      globalCachedActiveTab = tab;
+      setCachedActiveTab(tab);
       setOptimisticTab(tab);
       onTabChange(tab);
     };
@@ -194,16 +219,14 @@ export default function Sidebar({
 
   // 當點擊登出時清除所有快取
   const handleLogoutClick = useCallback(() => {
-    globalCachedUserInfo = null;
-    globalCachedMenuItems = [];
-    globalCachedActiveTab = null;
+    clearSidebarCache();
+    resetPersistedSidebarState();
     if (typeof window !== 'undefined') {
-      try { sessionStorage.removeItem('sidebar_user_info'); } catch (e) {}
       // 主動觸發全域登出事件，讓 Navigation 等元件也能立刻清空畫面
       window.dispatchEvent(new Event('auth-logout'));
     }
     onLogout();
-  }, [onLogout]);
+  }, [onLogout, resetPersistedSidebarState]);
 
   // 監聽來自 Navigation 手機版選單的登出請求
   useEffect(() => {
@@ -267,6 +290,18 @@ export default function Sidebar({
     }
   );
 
+  const navItemBase = 'flex items-center h-12 rounded-xl select-none w-full transition-all duration-200 group';
+  const navItemActive = 'bg-indigo-50 text-indigo-600 shadow-sm';
+  const navItemInactive = 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600';
+
+  const navItemClass = (isActive: boolean, layoutClass = '') =>
+    clsx(
+      navItemBase,
+      isActive ? navItemActive : navItemInactive,
+      boldNavLabels || isActive ? 'font-bold' : 'font-medium',
+      layoutClass,
+    );
+
   return (
     <>
       {/* 統一的側邊欄 */}
@@ -293,12 +328,9 @@ export default function Sidebar({
               <Link
                 href={dashboardHref}
                 onClick={() => handleTabClick(null)}
-                className={clsx(
-                    'flex items-center h-12 rounded-xl select-none w-full transition-all duration-200 group',
-                    optimisticTab === null 
-                        ? 'bg-indigo-50 text-indigo-600 font-bold shadow-sm' 
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600',
-                    !sidebarOpen ? 'justify-center px-0' : 'px-3'
+                className={navItemClass(
+                  optimisticTab === null,
+                  !sidebarOpen ? 'justify-center px-0' : 'px-3',
                 )}
                 title="儀表板"
             >
@@ -314,12 +346,9 @@ export default function Sidebar({
             ) : (
               <button
                   onClick={() => handleTabClick(null)}
-                  className={clsx(
-                      'flex items-center h-12 rounded-xl select-none w-full transition-all duration-200 group',
-                      optimisticTab === null 
-                          ? 'bg-indigo-50 text-indigo-600 font-bold shadow-sm' 
-                          : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600',
-                      !sidebarOpen ? 'justify-center px-0' : 'px-3'
+                  className={navItemClass(
+                    optimisticTab === null,
+                    !sidebarOpen ? 'justify-center px-0' : 'px-3',
                   )}
                   title="儀表板"
               >
@@ -350,7 +379,7 @@ export default function Sidebar({
                 } : item;
 
                 const handlePersonalInfoClick = () => {
-                  globalCachedActiveTab = displayItem.id;
+                  setCachedActiveTab(displayItem.id);
                   setOptimisticTab(displayItem.id);
                   if (isCompactNavMode() && sidebarOpen) {
                     onToggleSidebar();
@@ -370,12 +399,11 @@ export default function Sidebar({
                           handleTabClick(displayItem.id);
                         }}
                         className={clsx(
-                            'flex items-center h-12 rounded-xl select-none w-full transition-all duration-200 group',
-                            optimisticTab === displayItem.id 
-                                ? 'bg-indigo-50 text-indigo-600 font-bold shadow-sm' 
-                                : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600',
+                            navItemClass(
+                              optimisticTab === displayItem.id,
+                              !sidebarOpen ? 'justify-center px-0' : 'px-3',
+                            ),
                             displayItem.disabled && 'opacity-50 cursor-not-allowed pointer-events-none bg-gray-50',
-                            !sidebarOpen ? 'justify-center px-0' : 'px-3'
                         )}
                         title={!sidebarOpen ? displayItem.title : ''}
                     >
@@ -409,12 +437,11 @@ export default function Sidebar({
                         }}
                         disabled={displayItem.disabled}
                         className={clsx(
-                            'flex items-center h-12 rounded-xl select-none w-full transition-all duration-200 group',
-                            optimisticTab === displayItem.id 
-                                ? 'bg-indigo-50 text-indigo-600 font-bold shadow-sm' 
-                                : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600',
+                            navItemClass(
+                              optimisticTab === displayItem.id,
+                              !sidebarOpen ? 'justify-center px-0' : 'px-3',
+                            ),
                             displayItem.disabled && 'opacity-50 cursor-not-allowed pointer-events-none bg-gray-50',
-                            !sidebarOpen ? 'justify-center px-0' : 'px-3'
                         )}
                         title={!sidebarOpen ? displayItem.title : ''}
                     >

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { adminDb } from '@/services/firebase-admin';
-import { parse as parseCookie } from 'cookie';
+import { getSessionFromCookie } from '@/utils/session';
 
 export async function POST(req: NextRequest) {
   try {
@@ -28,21 +29,12 @@ export async function POST(req: NextRequest) {
     let lessons = lessonsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
     if (fallback) lessons = lessons.reverse();
 
-    const cookieHeader = req.headers.get('cookie');
-    let isStudent = false;
-    if (cookieHeader) {
-      try {
-        const cookies = parseCookie(cookieHeader);
-        const sessionRaw = cookies.session;
-        if (sessionRaw) {
-          const session = JSON.parse(decodeURIComponent(sessionRaw));
-          const roles = Array.isArray(session?.role) ? session.role : [session?.role];
-          isStudent = roles.includes('student');
-        }
-      } catch {
-        isStudent = false;
-      }
-    }
+    const session = getSessionFromCookie(req.headers.get('cookie') || '');
+    const roles = session?.role
+      ? (Array.isArray(session.role) ? session.role : [session.role]).map((r) => String(r).toLowerCase())
+      : [];
+    const currentRole = String(session?.currentRole || '').toLowerCase();
+    const isStudent = currentRole === 'student' || roles.includes('student');
 
     if (isStudent) {
       lessons = lessons
@@ -63,8 +55,11 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json(lessons);
   } catch (error: unknown) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     let message = '查詢失敗';
     if (error instanceof Error) message = error.message;
     return NextResponse.json({ error: message }, { status: 500 });
   }
-} 
+}

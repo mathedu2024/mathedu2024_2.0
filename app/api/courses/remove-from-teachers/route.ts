@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { adminDb } from '@/services/firebase-admin';
 
 export async function POST(req: NextRequest) {
@@ -41,6 +42,9 @@ export async function POST(req: NextRequest) {
           console.log(`Teacher ${teacherId} not found`);
         }
       } catch (error) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
         console.error(`Error removing course from teacher ${teacherId}:`, error);
       }
     }
@@ -50,6 +54,9 @@ export async function POST(req: NextRequest) {
       message: `Successfully removed course from ${teacherIds.length} teachers` 
     });
   } catch (error: unknown) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     let message = '從老師課程移除失敗';
     if (error instanceof Error) message = error.message;
     return NextResponse.json({ error: message }, { status: 500 });

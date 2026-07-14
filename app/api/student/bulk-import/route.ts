@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { adminDb } from '@/services/firebase-admin';
+import { requireAuthFromRequest, authGuard } from '@/services/apiAuth';
 
 interface ImportStudentPayload {
   studentId: string;
@@ -19,16 +21,19 @@ interface ImportStudentPayload {
 }
 
 export async function POST(req: NextRequest) {
+  const denied = authGuard(requireAuthFromRequest(req, 'admin'));
+  if (denied) return denied;
+
   try {
     const body = await req.json();
-    const students = Array.isArray(body?.students) ? body.students as ImportStudentPayload[] : [];
+    const students = Array.isArray(body?.students) ? (body.students as ImportStudentPayload[]) : [];
 
     if (students.length === 0) {
-      return NextResponse.json({ error: '缺少匯入資料' }, { status: 400 });
+      return NextResponse.json({ error: '??????' }, { status: 400 });
     }
 
     if (students.length > 1000) {
-      return NextResponse.json({ error: '單次最多匯入 1000 筆' }, { status: 400 });
+      return NextResponse.json({ error: '?????? 1000 ?' }, { status: 400 });
     }
 
     const uniqueByStudentId = new Map<string, ImportStudentPayload>();
@@ -38,7 +43,7 @@ export async function POST(req: NextRequest) {
     }
     const validStudents = Array.from(uniqueByStudentId.values());
     if (validStudents.length === 0) {
-      return NextResponse.json({ error: '沒有有效的匯入資料' }, { status: 400 });
+      return NextResponse.json({ error: '?????????' }, { status: 400 });
     }
 
     const studentRefs = validStudents.map((student) => adminDb.collection('student_data').doc(student.studentId));
@@ -65,7 +70,10 @@ export async function POST(req: NextRequest) {
       skippedCount: validStudents.length - createdCount,
     });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : '批次匯入失敗';
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
+    const message = error instanceof Error ? error.message : '??????';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -1,13 +1,15 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase-client';
-import { getSession } from '../utils/session';
+import { getSession, refreshSessionCookie } from '../utils/session';
 import {
   buildStudentInfoFromSession,
   isStudentSession,
 } from '@/utils/studentSession';
+import { fetchStudentProfile, prefetchStudentDashboard, StudentApiError } from '@/utils/studentClientApi';
+import { useHydrated } from '@/utils/useHydrated';
 
 export interface StudentInfo {
   id: string;
@@ -36,7 +38,7 @@ const StudentContext = createContext<StudentContextType>({
 export const useStudentInfo = () => useContext(StudentContext);
 
 export const StudentInfoProvider = ({ children }: { children: React.ReactNode }) => {
-  const [mounted, setMounted] = useState(false);
+  const hydrated = useHydrated();
   const [studentInfo, setStudentInfo] = useState<StudentInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -45,6 +47,22 @@ export const StudentInfoProvider = ({ children }: { children: React.ReactNode })
     setLoading(false);
   };
 
+  const syncSessionFromStorage = useCallback(() => {
+    const session = getSession();
+    if (!session || !isStudentSession(session)) {
+      clearStudentInfo();
+      return;
+    }
+
+    setStudentInfo((prev) => {
+      if (!prev || prev.id !== session.id) {
+        return buildStudentInfoFromSession(session);
+      }
+      return prev;
+    });
+    setLoading(false);
+  }, []);
+
   useEffect(() => {
     const onAuthLogout = () => clearStudentInfo();
     window.addEventListener('auth-logout', onAuthLogout);
@@ -52,8 +70,37 @@ export const StudentInfoProvider = ({ children }: { children: React.ReactNode })
   }, []);
 
   useEffect(() => {
-    setMounted(true);
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === 'user_session' || event.key === null) {
+        syncSessionFromStorage();
+      }
+    };
+    const onFocus = () => syncSessionFromStorage();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        syncSessionFromStorage();
+      }
+    };
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        syncSessionFromStorage();
+      }
+    };
 
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('pageshow', onPageShow);
+
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('pageshow', onPageShow);
+    };
+  }, [syncSessionFromStorage]);
+
+  useEffect(() => {
     // 安全機制：設定 3 秒超時，避免 loading 狀態卡死導致畫面全白
     const safetyTimer = setTimeout(() => {
       setLoading(prev => {
@@ -64,55 +111,40 @@ export const StudentInfoProvider = ({ children }: { children: React.ReactNode })
 
     const session = getSession();
     if (session && isStudentSession(session)) {
+      // 重新寫入工作階段 cookie，並同步 tab 內 sessionStorage
+      refreshSessionCookie(session);
       setStudentInfo(buildStudentInfoFromSession(session));
       setLoading(false);
+      prefetchStudentDashboard(session.id);
 
       const fetchStudentData = async () => {
         try {
-          // 改用 API 請求，避免 Client 端權限不足 (Missing or insufficient permissions)
-          const res = await fetch('/api/student/profile', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: session.id }),
+          const userData = await fetchStudentProfile(session.id);
+          clearTimeout(safetyTimer);
+          const courses = userData.enrolledCourses || userData.courses || userData.enrolled_courses || [];
+          const attendance = userData.attendance || [];
+
+          setStudentInfo({
+            id: session.id,
+            name: String(userData.name || session.name),
+            studentId: String(userData.studentId || session.account),
+            account: session.account,
+            email: String(userData.email || ''),
+            grade: String(userData.grade || ''),
+            enrolledCourses: Array.isArray(courses) ? courses.map(String) : [],
+            attendance: Array.isArray(attendance) ? attendance : [],
+            role: 'student',
           });
-
-          clearTimeout(safetyTimer); // API 成功回應，清除超時設定
-          if (res.ok) {
-            const userData = await res.json();
-            console.log('Student data fetched:', userData); // Debug: 檢查 API 回傳的資料結構
-            // 相容性處理：嘗試讀取 enrolledCourses 或 courses，並確保它是陣列
-            const courses = userData.enrolledCourses || userData.courses || userData.enrolled_courses || [];
-            const attendance = userData.attendance || [];
-
-            setStudentInfo({
-              id: session.id,
-              name: userData.name || session.name,
-              studentId: userData.studentId || session.account,
-              account: session.account,
-              email: userData.email || '',
-              grade: userData.grade || '',
-              enrolledCourses: Array.isArray(courses) ? courses.map(String) : [],
-              attendance: Array.isArray(attendance) ? attendance : [],
-              role: 'student',
-            });
-          } else {
-            // 若找不到資料，回退顯示基本 Session 資訊
-            console.warn('Failed to fetch student profile via API, using session data.');
-            setStudentInfo({
-              id: session.id,
-              name: session.name,
-              studentId: session.account,
-              account: session.account,
-              grade: '',
-              email: '',
-              enrolledCourses: [],
-              attendance: [],
-              role: 'student',
-            });
-          }
         } catch (error) {
-          console.error('Error fetching student data:', error);
-          // 發生錯誤時（如權限問題），仍顯示基本資訊以免被登出
+          if (error instanceof StudentApiError) {
+            // 401/403：session 已由 notifyStudentSessionInvalid 清除，勿還原假資料
+            clearTimeout(safetyTimer);
+            setStudentInfo(null);
+            setLoading(false);
+            return;
+          }
+          console.warn('Error fetching student data:', error);
+          // 非認證錯誤時仍顯示 session 基本資訊，避免被誤登出
           setStudentInfo({
             id: session.id,
             name: session.name,
@@ -125,8 +157,7 @@ export const StudentInfoProvider = ({ children }: { children: React.ReactNode })
             role: 'student',
           });
         } finally {
-          // 確保 API 請求結束後 loading 保持為 false
-          setLoading(false); 
+          setLoading(false);
         }
       };
       fetchStudentData();
@@ -151,11 +182,14 @@ export const StudentInfoProvider = ({ children }: { children: React.ReactNode })
     };
   }, []);
 
-  // Keep loading true until after mount so SSR HTML matches the first client render.
-  const contextLoading = !mounted || loading;
+  // hydration 完成前維持 loading，避免 SSR 與 client 首屏不一致
+  const contextLoading = !hydrated || loading;
+  const contextStudentInfo = hydrated ? studentInfo : null;
 
   return (
-    <StudentContext.Provider value={{ studentInfo, loading: contextLoading, clearStudentInfo }}>
+    <StudentContext.Provider
+      value={{ studentInfo: contextStudentInfo, loading: contextLoading, clearStudentInfo }}
+    >
       {children}
     </StudentContext.Provider>
   );

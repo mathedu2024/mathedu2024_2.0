@@ -1,15 +1,16 @@
 
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { adminDb } from '@/services/firebase-admin';
 import type { GradeSettingsShape } from '@/services/gradeShape';
 import { settingsToTotalSetting } from '@/services/gradeShape';
-import { resolveCourseDocsByEnrolledIds } from '@/services/courseId';
+import { resolveCourseDocsByEnrolledIds, getCourseCompositeKey } from '@/services/courseId';
 import { isCourseArchived } from '@/services/courseArchive';
 import { buildTeacherIdToNameMap, formatTeacherNames } from '@/services/teacherLookup';
 import { normalizeCourseDate } from '@/services/courseDate';
 
 export const dynamic = 'force-dynamic';
-import { parse as parseCookie } from 'cookie';
+import { getStudentSessionFromRequest } from '@/utils/studentSession';
 
 interface ClassTime {
   day: string;
@@ -44,24 +45,12 @@ type StudentGradeRow = { studentId: string; regularScores?: Record<string, numbe
 
 export async function POST(req: NextRequest) {
   try {
-    const cookieHeader = req.headers.get('cookie');
-    if (!cookieHeader) {
-      return NextResponse.json({ error: 'Unauthorized: No session cookie' }, { status: 401 });
+    const session = getStudentSessionFromRequest(req.headers.get('cookie'));
+    if (!session?.id) {
+      return NextResponse.json({ error: 'Unauthorized: Student session required' }, { status: 401 });
     }
 
-    const cookies = parseCookie(cookieHeader);
-    const sessionCookie = cookies.session;
-    if (!sessionCookie) {
-      return NextResponse.json({ error: 'Unauthorized: No session cookie' }, { status: 401 });
-    }
-
-    const session = JSON.parse(decodeURIComponent(sessionCookie));
-    const userId = session?.id;
-    const userRole = session?.role;
-
-    if (!userId || !userRole.includes('student')) {
-      return NextResponse.json({ error: 'Forbidden: Invalid role or missing user ID' }, { status: 403 });
-    }
+    const userId = session.id;
 
     const body = await req.json().catch(() => ({}));
     const coursesOnly = body.coursesOnly === true;
@@ -84,6 +73,9 @@ export async function POST(req: NextRequest) {
     return fetchCourseData(studentId, enrolledCourses, coursesOnly);
 
   } catch (error: unknown) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     let message = 'An unexpected error occurred';
     if (error instanceof Error) {
       message = error.message;
@@ -102,14 +94,18 @@ async function fetchCourseData(studentId: string, enrolledCourses: string[], cou
 
     const courseDocs: FirebaseFirestore.QueryDocumentSnapshot[] = [];
     const seenDocIds = new Set<string>();
-    const teacherLookup = await buildTeacherIdToNameMap(adminDb);
+    const allTeacherIds: string[] = [];
 
     for (const enrolledId of enrolledCourses) {
         const doc = resolvedMap.get(enrolledId);
         if (!doc || seenDocIds.has(doc.id)) continue;
         seenDocIds.add(doc.id);
         courseDocs.push(doc);
+        const teachersList = Array.isArray(doc.data().teachers) ? doc.data().teachers : [];
+        allTeacherIds.push(...teachersList);
     }
+
+    const teacherLookup = await buildTeacherIdToNameMap(adminDb, allTeacherIds);
 
     const classDataByCourseId = coursesOnly
         ? new Map<string, Record<string, unknown>>()
@@ -129,15 +125,22 @@ async function fetchCourseData(studentId: string, enrolledCourses: string[], cou
         );
 
     const courses: CourseInfo[] = [];
+    const coveredKeys = new Set<string>();
+
     for (const doc of courseDocs) {
         const data = doc.data();
-        const teachersList = Array.isArray(data.teachers) ? data.teachers : [];
         const classData = classDataByCourseId.get(doc.id) || {};
-        const courseInfo: CourseInfo = {
+        const archivedFlag = isCourseArchived({
+            archived: data.archived,
+            status: data.status,
+            name: data.name,
+        });
+        const teachersList = Array.isArray(data.teachers) ? data.teachers : [];
+        courses.push({
             id: doc.id,
             name: data.name,
             code: data.code,
-            status: data.status,
+            status: archivedFlag ? '已封存' : (data.status || ''),
             gradeTags: data.gradeTags,
             subjectTag: data.subjectTag,
             startDate: normalizeCourseDate(data.startDate),
@@ -150,13 +153,42 @@ async function fetchCourseData(studentId: string, enrolledCourses: string[], cou
             liveStreamURL: coursesOnly ? data.liveStreamURL : (data.liveStreamURL || classData.liveStreamURL),
             coverImageURL: data.coverImageURL,
             classTimes: data.classTimes,
-            archived: data.archived ?? false,
+            archived: archivedFlag,
             teacherName: formatTeacherNames(teachersList, teacherLookup) || undefined,
             customLinks: coursesOnly ? [] : ((classData.customLinks ?? data.customLinks) || []),
             announcements: coursesOnly ? [] : ((classData.announcements ?? data.announcements) || []),
-        };
-        if (isCourseArchived(courseInfo)) continue;
-        courses.push(courseInfo);
+        });
+        coveredKeys.add(doc.id);
+        coveredKeys.add(getCourseCompositeKey(data.name, data.code));
+    }
+
+    for (const enrolledId of enrolledCourses) {
+        if (!enrolledId || coveredKeys.has(enrolledId)) continue;
+        const alreadyListed = courses.some(
+            (course) =>
+                course.id === enrolledId ||
+                getCourseCompositeKey(course.name, course.code) === enrolledId
+        );
+        if (alreadyListed) continue;
+
+        // resolveCourseDocsByEnrolledIds 已嘗試過；仍找不到則以 placeholder 顯示
+        const match = enrolledId.match(/^(.+)\(([^()]+)\)$/) || enrolledId.match(/^(.+)[（]([^（）]+)[）]$/);
+        courses.push({
+            id: enrolledId,
+            name: match ? match[1].trim() : enrolledId,
+            code: match ? match[2].trim() : '',
+            status: '已封存',
+            gradeTags: [],
+            subjectTag: '',
+            startDate: '',
+            endDate: '',
+            teachers: [],
+            description: '',
+            teachingMethod: '',
+            courseNature: '',
+            archived: true,
+        });
+        coveredKeys.add(enrolledId);
     }
 
     if (coursesOnly) {

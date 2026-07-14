@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { adminDb } from '@/services/firebase-admin';
 import { resolveSingleCourseDoc, getCourseCompositeKey } from '@/services/courseId';
 import type { GradeSettingsShape } from '@/services/gradeShape';
@@ -125,6 +126,9 @@ export async function GET(req: NextRequest) {
       periodicColumnDetails: gradeData.periodicColumnDetails || {},
     });
   } catch (error) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     console.error('Error fetching single course grade data:', error);
     return NextResponse.json({ error: '讀取課程成績資料時發生伺服器錯誤' }, { status: 500 });
   }

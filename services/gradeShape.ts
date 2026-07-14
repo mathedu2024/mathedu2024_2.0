@@ -147,6 +147,19 @@ export function inferRegularColumns(
   return Math.max(...nums) + 1;
 }
 
+function parseCalcMode(detail?: { calcMethod?: string; n?: number }): { mode: 'all' | 'best'; n: number } {
+  const method = detail?.calcMethod;
+  const isBest =
+    method === 'best' ||
+    method === '取N高' ||
+    method === '擇優' ||
+    method === '擇優採計';
+  return {
+    mode: isBest ? 'best' : 'all',
+    n: detail?.n ?? 3,
+  };
+}
+
 export function totalSettingToSettings(
   ts: Record<string, unknown> | undefined | null
 ): GradeSettingsShape | null {
@@ -166,18 +179,9 @@ export function totalSettingToSettings(
       periodic: periodicPercent === undefined || periodicPercent === null ? 0 : numOrZero(periodicPercent),
     },
     calcModes: {
-      小考: {
-        mode: regularDetail['小考']?.calcMethod === 'best' ? 'best' : 'all',
-        n: regularDetail['小考']?.n ?? 3,
-      },
-      作業: {
-        mode: regularDetail['作業']?.calcMethod === 'best' ? 'best' : 'all',
-        n: regularDetail['作業']?.n ?? 3,
-      },
-      上課態度: {
-        mode: regularDetail['上課態度']?.calcMethod === 'best' ? 'best' : 'all',
-        n: regularDetail['上課態度']?.n ?? 3,
-      },
+      小考: parseCalcMode(regularDetail['小考']),
+      作業: parseCalcMode(regularDetail['作業']),
+      上課態度: parseCalcMode(regularDetail['上課態度']),
     },
     periodicEnabled: { ...defaultGradeSettings.periodicEnabled, ...pe },
   };
@@ -203,18 +207,9 @@ export function mergeLoadedSettings(
       periodic: numOrZero(src.percents?.periodic),
     },
     calcModes: {
-      小考: {
-        mode: src.calcModes?.小考?.mode === 'best' ? 'best' : 'all',
-        n: src.calcModes?.小考?.n ?? 3,
-      },
-      作業: {
-        mode: src.calcModes?.作業?.mode === 'best' ? 'best' : 'all',
-        n: src.calcModes?.作業?.n ?? 3,
-      },
-      上課態度: {
-        mode: src.calcModes?.上課態度?.mode === 'best' ? 'best' : 'all',
-        n: src.calcModes?.上課態度?.n ?? 3,
-      },
+      小考: parseCalcMode(src.calcModes?.小考 ? { calcMethod: src.calcModes.小考.mode, n: src.calcModes.小考.n } : undefined),
+      作業: parseCalcMode(src.calcModes?.作業 ? { calcMethod: src.calcModes.作業.mode, n: src.calcModes.作業.n } : undefined),
+      上課態度: parseCalcMode(src.calcModes?.上課態度 ? { calcMethod: src.calcModes.上課態度.mode, n: src.calcModes.上課態度.n } : undefined),
     },
     periodicEnabled: { ...defaultGradeSettings.periodicEnabled, ...src.periodicEnabled },
   };

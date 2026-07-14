@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { adminDb } from '@/services/firebase-admin';
 
 export async function POST(req: NextRequest) {
@@ -80,12 +81,18 @@ export async function POST(req: NextRequest) {
               console.log(`找不到老師 ${teacherId} 的資料`);
             }
           } catch (error: unknown) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
             let message = `更新老師 ${teacherId} 授課清單時發生錯誤`;
             if (error instanceof Error) message = error.message;
             console.error(message, error);
           }
         }
       } catch (error: unknown) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
         let message = '同步老師課程時發生錯誤';
         if (error instanceof Error) message = error.message;
         console.error(message, error);
@@ -96,6 +103,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, id });
     
   } catch (error: unknown) {
+    const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
+    if (siteReadErrorResponse) return siteReadErrorResponse;
+
     let message = '創建課程失敗';
     let details = '未知錯誤';
     if (error instanceof Error) {

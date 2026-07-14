@@ -14,7 +14,12 @@ import {
   HomeIcon,
   BookOpenIcon
 } from '@heroicons/react/24/outline';
-import Swal from 'sweetalert2';
+import Swal from '@/utils/swalTheme';
+import {
+  fetchStudentProfile,
+  fetchStudentDashboardData,
+  invalidateStudentClientCache,
+} from '@/utils/studentClientApi';
 
 // 定義符合您要求的資料介面，確保讀取時格式正確
 interface ExtendedStudentInfo {
@@ -38,7 +43,7 @@ interface MinimalCourse {
 }
 
 export default function StudentInformationContent() {
-  const { studentInfo: rawStudentInfo, loading } = useStudentInfo();
+  const { studentInfo: rawStudentInfo } = useStudentInfo();
   const [apiData, setApiData] = useState<Partial<ExtendedStudentInfo>>({});
   const [userCourses, setUserCourses] = useState<MinimalCourse[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
@@ -68,8 +73,6 @@ export default function StudentInformationContent() {
   };
 
   useEffect(() => {
-    if (loading) return;
-
     if (!rawStudentInfo?.id) {
       setDataLoading(false);
       return;
@@ -80,35 +83,23 @@ export default function StudentInformationContent() {
     const loadPageData = async () => {
       setDataLoading(true);
       try {
-        const [profileRes, coursesRes] = await Promise.all([
-          fetch('/api/student/profile', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: rawStudentInfo.id }),
-          }),
-          fetch('/api/student/dashboard-data', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ studentId: rawStudentInfo.id }),
-          }),
+        const studentId = rawStudentInfo.id;
+        const [profileData, dashboardData] = await Promise.all([
+          fetchStudentProfile(studentId),
+          fetchStudentDashboardData(studentId, { coursesOnly: true }),
         ]);
 
         if (cancelled) return;
 
-        if (profileRes.ok) {
-          const data = await profileRes.json();
-          setApiData(data);
-          setEmail(data.email || '');
-          setAddress(data.address || '');
-          setPhone(data.phone || '');
-        }
+        setApiData(profileData as Partial<ExtendedStudentInfo>);
+        setEmail(String(profileData.email || ''));
+        setAddress(String(profileData.address || ''));
+        setPhone(String(profileData.phone || ''));
 
-        if (coursesRes.ok) {
-          const data = await coursesRes.json();
-          const filtered = (data.courses || [])
-            .filter((c: MinimalCourse) => c && c.status !== '已封存' && c.archived !== true && String(c.archived) !== 'true');
-          setUserCourses(filtered);
-        }
+        const filtered = (dashboardData.courses || []).filter(
+          (c) => c && c.status !== '已封存' && c.archived !== true && String(c.archived) !== 'true'
+        );
+        setUserCourses(filtered);
       } catch (error) {
         console.error('無法載入個人資料頁面資料', error);
       } finally {
@@ -121,7 +112,7 @@ export default function StudentInformationContent() {
     return () => {
       cancelled = true;
     };
-  }, [rawStudentInfo?.id, loading]);
+  }, [rawStudentInfo?.id]);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -142,7 +133,8 @@ export default function StudentInformationContent() {
       });
 
       if (res.ok) {
-        Swal.fire({ icon: 'success', title: '更新成功', text: '個人資料已儲存', timer: 1500, showConfirmButton: false });
+        invalidateStudentClientCache(studentInfo?.id);
+        Swal.fire({ icon: 'success', title: '更新成功', text: '個人資料已儲存', confirmButtonColor: '#4f46e5' });
       } else {
         throw new Error('更新失敗'); 
       }
@@ -213,7 +205,7 @@ export default function StudentInformationContent() {
     }
   };
 
-  if (!loading && !studentInfo) {
+  if (!studentInfo) {
     return (
         <div className="min-h-screen flex items-center justify-center">
             <p className="text-gray-500">無法載入學生資料</p>
@@ -230,11 +222,11 @@ export default function StudentInformationContent() {
             <UserCircleIcon className="w-8 h-8 text-indigo-600" />
             個人資料
           </h1>
-          <p className="text-gray-500 text-sm mt-1">檢視學生基本資料與密碼設定</p>
+          <p className="text-gray-500 text-sm mt-1">查看個人資料與修改密碼</p>
         </div>
       </div>
 
-      {loading || dataLoading || !studentInfo ? (
+      {dataLoading || !studentInfo ? (
         <PageLoadingArea />
       ) : (
       <>
