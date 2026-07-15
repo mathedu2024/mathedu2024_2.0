@@ -75,12 +75,42 @@ export function editorHtmlFromStorage(html: string, questionNumber: number): str
   return restoreLatexAttributes(withEmbeds, values);
 }
 
-/** 編輯器儲存：將方框 embed 還原為 [[-N]] 占位符 */
+/** 從選填格標籤（如 3-2）還原格子序號 */
+function cellIndexFromFillLabel(label: string | null): number | null {
+  if (!label) return null;
+  const matched = /^(\d+)-(\d+)$/.exec(label.trim());
+  if (!matched) return null;
+  const subNumber = parseInt(matched[2], 10);
+  return Number.isNaN(subNumber) || subNumber < 1 ? null : subNumber;
+}
+
+/** 編輯器儲存：將方框 embed／預覽 span 還原為 [[-N]] 占位符 */
 export function storageHtmlFromEditor(html: string): string {
   if (!html) return html;
+
+  if (typeof document !== 'undefined') {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    doc
+      .querySelectorAll<HTMLElement>(
+        `.${FILL_IN_EMBED_CLASS}[data-fill-token], .fill-in-blank-katex[data-fill-token]`
+      )
+      .forEach((el) => {
+        const token = el.getAttribute('data-fill-token');
+        if (token) el.replaceWith(doc.createTextNode(token));
+      });
+    doc.querySelectorAll<HTMLElement>('.fill-in-blank-katex[data-fill-label]').forEach((el) => {
+      if (el.getAttribute('data-fill-token')) return;
+      const subNumber = cellIndexFromFillLabel(el.getAttribute('data-fill-label'));
+      if (subNumber !== null) {
+        el.replaceWith(doc.createTextNode(makeFillInBlankToken(subNumber)));
+      }
+    });
+    return doc.body.innerHTML;
+  }
+
   return html.replace(
     new RegExp(
-      `<span[^>]*class="[^"]*${FILL_IN_EMBED_CLASS}[^"]*"[^>]*data-fill-token="(\\[\\[(?:\\.-|-)?\\d+\\]\\])"[^>]*>[\\s\\S]*?</span>`,
+      `<span[^>]*class="[^"]*(?:${FILL_IN_EMBED_CLASS}|fill-in-blank-katex)[^"]*"[^>]*data-fill-token="(\\[\\[(?:\\.-|-)?\\d+\\]\\])"[^>]*>[\\s\\S]*?</span>`,
       'g'
     ),
     (_, token: string) => token

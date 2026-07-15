@@ -467,7 +467,9 @@ export function normalizeQuestion(raw: unknown): Question {
       type,
       options: Array.isArray(q.options) ? (q.options as string[]) : ['', ''],
       correctAnswers: Array.isArray(q.correctAnswers) ? (q.correctAnswers as string[]) : [],
-      optionLabelStyle: q.optionLabelStyle as OptionLabelStyle | undefined,
+      ...(q.optionLabelStyle
+        ? { optionLabelStyle: q.optionLabelStyle as OptionLabelStyle }
+        : {}),
       optionLayout: (q.optionLayout as OptionLayout) || 'vertical',
     };
   }
@@ -661,10 +663,10 @@ export function validateQuizAnswerKeys(
     if (isTrueFalseQuestion(q)) continue;
 
     if (isFillInQuestion(q)) {
-      const unset = q.cells.filter((c) => !c.correctAnswer || c.correctAnswer === '0');
-      if (unset.length === q.cells.length) {
+      if (!q.cells.length) {
         return `第 ${entry.number} 題尚未設定正確答案`;
       }
+      // 「0」為合法答案（學測畫卡），不可再當成未設定
     }
   }
   return null;

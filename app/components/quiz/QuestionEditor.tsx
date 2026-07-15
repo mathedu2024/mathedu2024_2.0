@@ -10,7 +10,7 @@ import {
 } from '@heroicons/react/24/outline';
 import Dropdown from '../ui/Dropdown';
 import RichTextField from './RichTextField';
-import RichTextEditor from '@/components/RichTextEditor';
+import RichTextEditor, { type RichTextEditorHandle } from '@/components/RichTextEditor';
 import RichHtmlContent from '@/components/RichHtmlContent';
 import FillInQuestionContent from './FillInQuestionContent';
 import { isHtmlEmpty, toEditorHtml } from '@/utils/richText';
@@ -264,8 +264,9 @@ function GsatGridAnswerEditor({
     <div className="space-y-3">
       <RequiredLabel>答案設定（學測畫卡格式）</RequiredLabel>
       <p className="text-xs text-gray-400 -mt-2">
-        題號在左、選項在右，每格限填一個符號。一個編號對應一格答案，請在題目內文或 LaTeX 公式內以{' '}
-        <code className="text-emerald-700">[[-N]]</code> 標示選填格。
+        題號在左、選項在右，每格限填一個符號（含 0）。一個編號對應一格答案；可在題目文字游標處，或於 LaTeX
+        公式編輯視窗內插入選填格{' '}
+        <code className="text-emerald-700">[[-N]]</code>。
       </p>
       {cells.map((cell, cellIdx) => (
         <div
@@ -445,12 +446,37 @@ function SubQuestionFields({
   const [expanded, setExpanded] = React.useState(true);
   const subQuestionRef = React.useRef(subQuestion);
   const onChangeRef = React.useRef(onChange);
+  const editorRef = React.useRef<RichTextEditorHandle>(null);
   subQuestionRef.current = subQuestion;
   onChangeRef.current = onChange;
 
   const patchSub = React.useCallback((patch: Partial<SubQuestion>) => {
     onChangeRef.current({ ...subQuestionRef.current, ...patch } as SubQuestion);
   }, []);
+
+  const handleFillInChange = React.useCallback(
+    (cells: GridCell[], removedCellIndex?: number) => {
+      const current = subQuestionRef.current;
+      if (!isFillInQuestion(current)) return;
+      const content =
+        removedCellIndex !== undefined
+          ? removeFillInBlankTokenByCellIndex(current.content, removedCellIndex)
+          : current.content;
+      onChangeRef.current(
+        relabelFillInCells({ ...current, cells, content }, subNumber)
+      );
+    },
+    [subNumber]
+  );
+
+  const insertFillInToken = React.useCallback((token: string) => {
+    if (editorRef.current) {
+      editorRef.current.insertFillInToken(token);
+      return;
+    }
+    const current = subQuestionRef.current;
+    patchSub({ content: `${current.content}${token}` });
+  }, [patchSub]);
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -479,11 +505,13 @@ function SubQuestionFields({
         <div className="p-4 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-[1fr_100px] gap-3">
             <RichTextField
+              ref={editorRef}
               label="子題內容"
               value={subQuestion.content}
-              onChange={(content) => onChange({ ...subQuestion, content })}
+              onChange={(content) => patchSub({ content })}
               placeholder="輸入子題目敘述"
               minHeight="100px"
+              instanceKey={`sub-${subQuestion.id}`}
               fillInCellLabels={
                 isFillInQuestion(subQuestion) ? subQuestion.cells.map((c) => c.label) : undefined
               }
@@ -493,7 +521,7 @@ function SubQuestionFields({
               <label className={labelClass}>配分</label>
               <PointsInput
                 value={subQuestion.points}
-                onChange={(points) => onChange({ ...subQuestion, points })}
+                onChange={(points) => patchSub({ points })}
               />
             </div>
           </div>
@@ -502,7 +530,7 @@ function SubQuestionFields({
             <>
               <ChoiceDisplaySettings
                 optionLayout={subQuestion.optionLayout}
-                onLayoutChange={(optionLayout) => onChange({ ...subQuestion, optionLayout })}
+                onLayoutChange={(optionLayout) => patchSub({ optionLayout })}
               />
               <ChoiceOptionsEditor
                 options={subQuestion.options}
@@ -517,26 +545,23 @@ function SubQuestionFields({
           {isTrueFalseQuestion(subQuestion) && (
             <TrueFalseEditor
               correctAnswer={subQuestion.correctAnswer}
-              onChange={(correctAnswer) => onChange({ ...subQuestion, correctAnswer })}
+              onChange={(correctAnswer) => patchSub({ correctAnswer })}
             />
           )}
           {isFillInQuestion(subQuestion) && (
             <>
-              <FillInBlankInsertBar
-                cells={subQuestion.cells}
-                onInsert={(token) => onChange({ ...subQuestion, content: `${subQuestion.content}${token}` })}
-              />
+              <FillInBlankInsertBar cells={subQuestion.cells} onInsert={insertFillInToken} />
               <GsatGridAnswerEditor
                 cells={subQuestion.cells}
                 questionNumber={subNumber}
-                onChange={(cells) => onChange(relabelFillInCells({ ...subQuestion, cells }, subNumber))}
+                onChange={handleFillInChange}
               />
             </>
           )}
           {isShortAnswerQuestion(subQuestion) && (
             <ShortAnswerReferenceEditor
               referenceAnswer={subQuestion.referenceAnswer}
-              onChange={(referenceAnswer) => onChange({ ...subQuestion, referenceAnswer })}
+              onChange={(referenceAnswer) => patchSub({ referenceAnswer })}
             />
           )}
         </div>
@@ -566,11 +591,20 @@ export default function QuestionEditor({
   const quizImageContext = useQuizImageContext();
   const questionRef = React.useRef(question);
   const onChangeRef = React.useRef(onChange);
+  const contentEditorRef = React.useRef<RichTextEditorHandle>(null);
   questionRef.current = question;
   onChangeRef.current = onChange;
 
   const patchQuestion = React.useCallback((patch: Partial<Question>) => {
     onChangeRef.current({ ...questionRef.current, ...patch } as Question);
+  }, []);
+
+  const patchGroupSubQuestion = React.useCallback((subIdx: number, updated: SubQuestion) => {
+    const current = questionRef.current;
+    if (!isGroupQuestion(current)) return;
+    const subQuestions = [...current.subQuestions];
+    subQuestions[subIdx] = updated;
+    onChangeRef.current({ ...current, subQuestions });
   }, []);
 
   const [internalExpanded, setInternalExpanded] = React.useState(defaultExpanded);
@@ -604,40 +638,53 @@ export default function QuestionEditor({
   const previewText = isHtmlEmpty(question.content) ? '（尚未輸入題目）' : null;
 
   const addSubQuestion = (type: Exclude<QuestionType, 'group'>) => {
-    if (!isGroupQuestion(question)) return;
-    const nextNum = (subQuestionNumbers?.size ?? question.subQuestions.length) + questionNumber;
-    onChange({
-      ...question,
+    const current = questionRef.current;
+    if (!isGroupQuestion(current)) return;
+    const nextNum = (subQuestionNumbers?.size ?? current.subQuestions.length) + questionNumber;
+    onChangeRef.current({
+      ...current,
       subQuestions: [
-        ...question.subQuestions,
+        ...current.subQuestions,
         createEmptySubQuestion(type, nextNum, optionLabelStyle, defaultPoints),
       ],
     });
   };
 
   const handleTypeChange = (newType: QuestionType) => {
-    if (newType === question.type) return;
+    const current = questionRef.current;
+    if (newType === current.type) return;
     const fresh = createEmptyQuestion(newType, questionNumber, optionLabelStyle);
-    onChange({
+    onChangeRef.current({
       ...fresh,
-      id: question.id,
-      content: question.content,
-      points: question.points,
+      id: current.id,
+      content: current.content,
+      points: current.points,
     });
   };
 
-  const insertFillInToken = (token: string) => {
-    onChange({ ...question, content: `${question.content}${token}` });
-  };
+  const insertFillInToken = React.useCallback((token: string) => {
+    if (contentEditorRef.current) {
+      contentEditorRef.current.insertFillInToken(token);
+      return;
+    }
+    const current = questionRef.current;
+    patchQuestion({ content: `${current.content}${token}` });
+  }, [patchQuestion]);
 
-  const handleFillInChange = (cells: GridCell[], removedCellIndex?: number) => {
-    if (!isFillInQuestion(question)) return;
-    const content =
-      removedCellIndex !== undefined
-        ? removeFillInBlankTokenByCellIndex(question.content, removedCellIndex)
-        : question.content;
-    onChange(relabelFillInCells({ ...question, cells, content }, questionNumber));
-  };
+  const handleFillInChange = React.useCallback(
+    (cells: GridCell[], removedCellIndex?: number) => {
+      const current = questionRef.current;
+      if (!isFillInQuestion(current)) return;
+      const content =
+        removedCellIndex !== undefined
+          ? removeFillInBlankTokenByCellIndex(current.content, removedCellIndex)
+          : current.content;
+      onChangeRef.current(
+        relabelFillInCells({ ...current, cells, content }, questionNumber)
+      );
+    },
+    [questionNumber]
+  );
 
   return (
     <div
@@ -740,7 +787,7 @@ export default function QuestionEditor({
                   <label className="text-sm text-gray-600 mb-1.5 block">配分</label>
                   <PointsInput
                     value={question.points}
-                    onChange={(points) => onChange({ ...question, points })}
+                    onChange={(points) => patchQuestion({ points })}
                   />
                 </div>
               )}
@@ -749,9 +796,10 @@ export default function QuestionEditor({
             <div className={isGroupQuestion(question) ? 'rounded-xl border border-indigo-100 bg-indigo-50/40 p-4' : ''}>
               <RequiredLabel>{isGroupQuestion(question) ? '題組題幹' : '題目'}</RequiredLabel>
               <RichTextEditor
-                instanceKey={`q-${questionNumber}`}
+                ref={contentEditorRef}
+                instanceKey={`q-${question.id}`}
                 value={toEditorHtml(question.content)}
-                onChange={(content) => onChange({ ...question, content })}
+                onChange={(content) => patchQuestion({ content })}
                 placeholder="輸入題目敘述"
                 minHeight="160px"
                 enableFontSize={false}
@@ -769,7 +817,7 @@ export default function QuestionEditor({
               <>
                 <ChoiceDisplaySettings
                   optionLayout={question.optionLayout}
-                  onLayoutChange={(optionLayout) => onChange({ ...question, optionLayout })}
+                  onLayoutChange={(optionLayout) => patchQuestion({ optionLayout })}
                 />
                 <ChoiceOptionsEditor
                   options={question.options}
@@ -785,7 +833,7 @@ export default function QuestionEditor({
             {isTrueFalseQuestion(question) && (
               <TrueFalseEditor
                 correctAnswer={question.correctAnswer}
-                onChange={(correctAnswer) => onChange({ ...question, correctAnswer })}
+                onChange={(correctAnswer) => patchQuestion({ correctAnswer })}
               />
             )}
 
@@ -800,7 +848,7 @@ export default function QuestionEditor({
             {isShortAnswerQuestion(question) && (
               <ShortAnswerReferenceEditor
                 referenceAnswer={question.referenceAnswer}
-                onChange={(referenceAnswer) => onChange({ ...question, referenceAnswer })}
+                onChange={(referenceAnswer) => patchQuestion({ referenceAnswer })}
               />
             )}
 
@@ -842,17 +890,15 @@ export default function QuestionEditor({
                       subQuestion={sub}
                       subNumber={subQuestionNumbers?.get(sub.id) ?? subIdx + 1}
                       quizDefaultLabelStyle={optionLabelStyle}
-                      onChange={(updated) => {
-                        const subQuestions = [...question.subQuestions];
-                        subQuestions[subIdx] = updated;
-                        onChange({ ...question, subQuestions });
+                      onChange={(updated) => patchGroupSubQuestion(subIdx, updated)}
+                      onDelete={() => {
+                        const current = questionRef.current;
+                        if (!isGroupQuestion(current)) return;
+                        onChangeRef.current({
+                          ...current,
+                          subQuestions: current.subQuestions.filter((_, i) => i !== subIdx),
+                        });
                       }}
-                      onDelete={() =>
-                        onChange({
-                          ...question,
-                          subQuestions: question.subQuestions.filter((_, i) => i !== subIdx),
-                        })
-                      }
                     />
                   ))
                 )}

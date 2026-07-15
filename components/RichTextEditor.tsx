@@ -34,6 +34,12 @@ type Props = {
   instanceKey?: string;
 };
 
+export type RichTextEditorHandle = {
+  /** 於游標位置插入選填格（文字題幹）；公式內請改用 LaTeX 編輯視窗 */
+  insertFillInToken: (token: string) => void;
+  flushPendingChange: () => void;
+};
+
 /** ReactQuill.getEditor() 在尚未掛載時會 throw，不可只用 optional chaining */
 function safeGetQuill(
   ref: React.RefObject<ReactQuill | null>
@@ -127,20 +133,23 @@ function cursorFollowsFormulaEmbed(
   return false;
 }
 
-function RichTextEditor({
-  value = "",
-  onChange,
-  placeholder,
-  compact = false,
-  minHeight,
-  className = "",
-  enableLatex = true,
-  enableFontSize = true,
-  latexOnly = false,
-  fillInCellLabels = [],
-  fillInQuestionNumber,
-  instanceKey,
-}: Props) {
+const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
+  {
+    value = "",
+    onChange,
+    placeholder,
+    compact = false,
+    minHeight,
+    className = "",
+    enableLatex = true,
+    enableFontSize = true,
+    latexOnly = false,
+    fillInCellLabels = [],
+    fillInQuestionNumber,
+    instanceKey,
+  },
+  ref
+) {
   const editorRef = useRef<ReactQuill>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const selectionRef = useRef<{ index: number; length: number } | null>(null);
@@ -480,6 +489,34 @@ function RichTextEditor({
     selectionRef.current = null;
   }, [emitChange, isFillInEditor, decorateFillInEditor]);
 
+  const insertFillInTokenAtSelection = useCallback(
+    (token: string) => {
+      if (!isFillInEditor || !token) return;
+      const quill = safeGetQuill(editorRef);
+      if (!quill || typeof quill.insertEmbed !== 'function') {
+        const next = `${localHtmlRef.current || ''}${token}`;
+        setLocalHtml(next);
+        emitChange(next);
+        return;
+      }
+
+      const sel = quill.getSelection(true);
+      const index = sel?.index ?? Math.max(0, quill.getLength() - 1);
+      if (sel && sel.length > 0) {
+        quill.deleteText(index, sel.length, 'user');
+      }
+      quill.insertEmbed(index, 'fill-in-blank', token, 'user');
+      quill.setSelection(index + 1, 0, 'user');
+
+      const html = quill.root.innerHTML;
+      localHtmlRef.current = html;
+      setLocalHtml(html);
+      emitChange(html);
+      decorateFillInEditor();
+    },
+    [decorateFillInEditor, emitChange, isFillInEditor]
+  );
+
   const handleQuizImageUpload = useCallback(async (file: File) => {
     if (!quizImageContext) return;
     if (quizImageContext.getImageCount() >= QUIZ_MAX_IMAGES_PER_QUIZ) {
@@ -527,6 +564,15 @@ function RichTextEditor({
     if (!quill) return;
     emitChange(quill.root.innerHTML);
   }, [emitChange]);
+
+  React.useImperativeHandle(
+    ref,
+    () => ({
+      insertFillInToken: insertFillInTokenAtSelection,
+      flushPendingChange,
+    }),
+    [flushPendingChange, insertFillInTokenAtSelection]
+  );
 
   useEffect(() => {
     if (!mounted || !formulaReady) return;
@@ -836,6 +882,6 @@ function RichTextEditor({
       )}
     </div>
   );
-}
+});
 
 export default React.memo(RichTextEditor, richTextEditorPropsEqual);

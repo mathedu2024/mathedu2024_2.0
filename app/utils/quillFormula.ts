@@ -271,8 +271,11 @@ function renderRemainingFillInTokensInElement(
       const subNumber = parseInt(matched[1], 10);
       const cellIndex = Number.isNaN(subNumber) || subNumber < 1 ? 0 : subNumber - 1;
       const label = buildGridCellLabel(fillInQuestionNumber, cellIndex);
+      const token = matched[0];
       const span = document.createElement('span');
-      span.className = 'fill-in-blank-katex';
+      // 使用 embed class + data-fill-token，儲存時可還原 [[-N]]
+      span.className = 'fill-in-blank-embed';
+      span.setAttribute('data-fill-token', token);
       span.setAttribute('data-fill-label', label);
       span.setAttribute('contenteditable', 'false');
       span.appendChild(document.createTextNode('\u200b'));

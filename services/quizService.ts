@@ -157,7 +157,11 @@ class QuizService {
   }
 
   private buildPayload(input: Partial<QuizInput>) {
-    const sections = input.sections ?? [];
+    // 雙重 JSON round-trip：去掉 undefined（Firestore 不接受），並正規化各大題／題組巢狀結構
+    const rawSections = JSON.parse(JSON.stringify(input.sections ?? [])) as unknown[];
+    const sections = JSON.parse(
+      JSON.stringify(rawSections.map((s, i) => normalizeSection(s, i)))
+    ) as QuizSection[];
     const flat = flattenQuestions(sections);
     return {
       sections,
