@@ -683,6 +683,12 @@ export function validateQuizForPublish(
     return '請選擇適用班級後再發布';
   }
   if (countQuizQuestions(quiz) === 0) {
+    const hasEmptyGroup = quiz.sections.some((s) =>
+      s.questions.some((q) => q.type === 'group' && q.subQuestions.length === 0)
+    );
+    if (hasEmptyGroup) {
+      return '題組題至少需新增一題子題後再發布';
+    }
     return '請至少新增一題後再發布';
   }
   const answerError = validateQuizAnswerKeys(quiz);

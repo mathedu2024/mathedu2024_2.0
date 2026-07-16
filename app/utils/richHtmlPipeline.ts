@@ -6,6 +6,11 @@ export interface RichHtmlDisplayOptions {
   fillInQuestionNumber?: number;
   /** 預設 true；編輯器即時裝飾可設 false */
   sanitize?: boolean;
+  /**
+   * 是否把純文字中的 $...$／$$...$$ 轉成 KaTeX。
+   * 預覽預設 true；編輯器內必須 false，否則按方程式按鈕失焦時會整段改寫。
+   */
+  convertDelimiters?: boolean;
 }
 
 function stripFormulaPreviewInElement(root: HTMLElement): void {
@@ -20,7 +25,8 @@ function stripFormulaPreviewInElement(root: HTMLElement): void {
 }
 
 /**
- * 在 DOM 節點上渲染 $...$、ql-formula、選填格（編輯器即時預覽用）。
+ * 在 DOM 節點上渲染公式 embed、選填格（編輯器即時裝飾用）。
+ * 預設不轉換 $...$／$$...$$ 純文字，避免編輯中內容被整段改寫。
  */
 export function renderRichHtmlInElement(
   element: HTMLElement,
@@ -28,7 +34,9 @@ export function renderRichHtmlInElement(
 ): void {
   const fillInQuestionNumber = options?.fillInQuestionNumber;
   stripFormulaPreviewInElement(element);
-  renderLatexDelimitersInElement(element, fillInQuestionNumber);
+  if (options?.convertDelimiters) {
+    renderLatexDelimitersInElement(element, fillInQuestionNumber);
+  }
   renderLatexInElement(element, fillInQuestionNumber);
 }
 
@@ -52,6 +60,7 @@ export function prepareRichHtmlForDisplay(
   const doc = new DOMParser().parseFromString(source, 'text/html');
   const root = doc.body;
   stripFormulaPreviewInElement(root);
+  // 預覽才轉換 $...$／$$...$$；編輯器內保留原文
   renderLatexDelimitersInElement(root, fillInQuestionNumber);
   renderLatexInElement(root, fillInQuestionNumber);
 

@@ -1066,9 +1066,12 @@ body.swal2-shown {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
 
-.rich-text-editor .ql-toolbar button.ql-latex .ql-latex-icon {
+/* 以 CSS 顯示 ∑，避免工具列重建後 JS 注入遺失 */
+.rich-text-editor .ql-toolbar button.ql-latex::before {
+  content: '∑';
   font-size: 18px;
   font-weight: 700;
   line-height: 1;
@@ -1077,9 +1080,13 @@ body.swal2-shown {
   user-select: none;
 }
 
-.rich-text-editor .ql-toolbar button.ql-latex:hover .ql-latex-icon,
-.rich-text-editor .ql-toolbar button.ql-latex.ql-active .ql-latex-icon {
+.rich-text-editor .ql-toolbar button.ql-latex:hover::before,
+.rich-text-editor .ql-toolbar button.ql-latex.ql-active::before {
   color: #4f46e5;
+}
+
+.rich-text-editor .ql-toolbar button.ql-latex .ql-latex-icon {
+  display: none !important;
 }
 
 .rich-text-editor .ql-toolbar button.ql-latex svg {
@@ -1114,6 +1121,15 @@ body.swal2-shown {
 .rich-text-editor .ql-editor p,
 .rich-text-editor .ql-editor li {
   line-height: 1.7;
+}
+
+.rich-text-editor .ql-editor img {
+  max-width: 100%;
+  height: auto;
+  display: inline-block;
+  margin: 0.35rem 0;
+  border-radius: 0.5rem;
+  vertical-align: middle;
 }
 
 .rich-text-editor .ql-editor .ql-formula {

@@ -14,44 +14,58 @@ export interface QuizImageUploadParams {
   isPersisted: boolean;
   /** 讀取當下圖片數量（避免每次改題就讓 Context 變動觸發編輯器重渲染） */
   getImageCount: () => number;
-  /** 登記本機暫存圖（儲存時才上傳） */
-  registerPendingImage: (blobUrl: string, file: File) => void;
-  getPendingFile: (blobUrl: string) => File | undefined;
+  /** 登記本機暫存圖（儲存時才上傳；key 為 data: 或 blob: URL） */
+  registerPendingImage: (previewUrl: string, file: File) => void;
+  getPendingFile: (previewUrl: string) => File | undefined;
 }
 
-/** 模組級暫存：blob URL → File（跨編輯器實例共用） */
+/** 模組級暫存：preview URL（data:／blob:）→ File（跨編輯器實例共用） */
 const pendingQuizImages = new Map<string, File>();
 
-export function registerPendingQuizImage(blobUrl: string, file: File): void {
-  pendingQuizImages.set(blobUrl, file);
+export function registerPendingQuizImage(previewUrl: string, file: File): void {
+  pendingQuizImages.set(previewUrl, file);
 }
 
-export function getPendingQuizImageFile(blobUrl: string): File | undefined {
-  return pendingQuizImages.get(blobUrl);
+export function getPendingQuizImageFile(previewUrl: string): File | undefined {
+  return pendingQuizImages.get(previewUrl);
 }
 
-export function revokePendingQuizImage(blobUrl: string): void {
-  const file = pendingQuizImages.get(blobUrl);
-  if (file) pendingQuizImages.delete(blobUrl);
-  if (blobUrl.startsWith('blob:')) {
+export function revokePendingQuizImage(url: string): void {
+  const file = pendingQuizImages.get(url);
+  if (file) pendingQuizImages.delete(url);
+  if (url.startsWith('blob:')) {
     try {
-      URL.revokeObjectURL(blobUrl);
+      URL.revokeObjectURL(url);
     } catch {
       /* ignore */
     }
   }
 }
 
-export function createLocalQuizImagePreview(file: File): string {
+/**
+ * 產生編輯器用的本機預覽 URL。
+ * 使用 data:（非 blob:）：Quill Image.sanitize 預設會把 blob: 改成 //:0 造成破圖。
+ */
+export async function createLocalQuizImagePreview(file: File): Promise<string> {
   if (!QUIZ_IMAGE_ALLOWED_MIME_TYPES.has(file.type)) {
     throw new Error('不支援的圖片格式');
   }
   if (file.size > QUIZ_MAX_IMAGE_FILE_BYTES) {
     throw new Error('圖片檔案超過大小上限');
   }
-  const blobUrl = URL.createObjectURL(file);
-  registerPendingQuizImage(blobUrl, file);
-  return blobUrl;
+
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') resolve(reader.result);
+      else reject(new Error('讀取圖片失敗'));
+    };
+    reader.onerror = () => reject(new Error('讀取圖片失敗'));
+    reader.readAsDataURL(file);
+  });
+
+  registerPendingQuizImage(dataUrl, file);
+  return dataUrl;
 }
 
 export async function uploadQuizImageFile(

@@ -385,6 +385,8 @@ export default function StudentCoursesContent({
     mode: 'start' | 'retake';
   } | null>(null);
   const [historyModal, setHistoryModal] = useState<StudentExamListItem | null>(null);
+  const examsLoadedCourseIdRef = useRef<string | null>(null);
+  const surveysLoadedCourseIdRef = useRef<string | null>(null);
   const examsPerPage = 5;
   const attendancePerPage = 5;
 
@@ -529,6 +531,8 @@ export default function StudentCoursesContent({
       setCourseExams([]);
       setCourseAttendance([]);
       setCourseSurveys([]);
+      examsLoadedCourseIdRef.current = null;
+      surveysLoadedCourseIdRef.current = null;
     }
   }, [resolvedCourse?.id, previewMode]);
 
@@ -640,7 +644,7 @@ export default function StudentCoursesContent({
     return () => { cancelled = true; };
   }, [resolvedCourse?.id, isResolvedCourseArchived, activeCourseTab, previewMode]);
 
-  // 線上測驗：切到 exams tab 才載入
+  // 線上測驗：每個課程載入一次（切 tab 不重抓）
   useEffect(() => {
     let cancelled = false;
     const fetchExams = async () => {
@@ -649,6 +653,7 @@ export default function StudentCoursesContent({
         return;
       }
       if (activeCourseTab !== 'exams') return;
+      if (examsLoadedCourseIdRef.current === resolvedCourse.id) return;
       setLoadingExams(true);
       try {
         const exams = await fetchStudentExamList(studentInfo.id, {
@@ -659,6 +664,7 @@ export default function StudentCoursesContent({
         if (cancelled) return;
         setCourseExams(sortQuizzesByOrder(exams));
         setExamPage(1);
+        examsLoadedCourseIdRef.current = resolvedCourse.id;
       } catch {
         if (!cancelled) setCourseExams([]);
       } finally {
@@ -669,7 +675,7 @@ export default function StudentCoursesContent({
     return () => { cancelled = true; };
   }, [resolvedCourse?.id, resolvedCourse?.name, resolvedCourse?.code, isResolvedCourseArchived, studentInfo?.id, courseCodeFromUrl, activeCourseTab, previewMode]);
 
-  // 課程問卷：切到 surveys tab 才載入
+  // 課程問卷：每個課程載入一次（切 tab 不重抓）
   useEffect(() => {
     let cancelled = false;
     const fetchSurveys = async () => {
@@ -678,6 +684,7 @@ export default function StudentCoursesContent({
         return;
       }
       if (activeCourseTab !== 'surveys') return;
+      if (surveysLoadedCourseIdRef.current === resolvedCourse.id) return;
       setLoadingSurveys(true);
       try {
         const surveys = await fetchStudentSurveyList(studentInfo.id, {
@@ -687,6 +694,7 @@ export default function StudentCoursesContent({
         });
         if (cancelled) return;
         setCourseSurveys(sortSurveysByOrder(surveys));
+        surveysLoadedCourseIdRef.current = resolvedCourse.id;
       } catch {
         if (!cancelled) setCourseSurveys([]);
       } finally {
@@ -788,6 +796,11 @@ export default function StudentCoursesContent({
   const openStartModal = useCallback(
     async (exam: StudentExamListItem, mode: 'start' | 'retake') => {
       if (previewMode) {
+        // 未開始／無法作答：開啟開始視窗顯示擋訊；已開放：走老師編輯預覽（模擬送出不記錄）
+        if (!exam.accessible) {
+          setStartModal({ exam, mode });
+          return;
+        }
         const blank = openBlankPreviewTab();
         try {
           const quiz = await fetchQuizByCode(exam.quizCode);
@@ -822,6 +835,10 @@ export default function StudentCoursesContent({
   const openSurveyStart = useCallback(
     async (survey: StudentSurveyListItem, mode: 'start' | 'retake') => {
       if (previewMode) {
+        if (!survey.accessible) {
+          setSurveyStartModal({ survey, mode });
+          return;
+        }
         const blank = openBlankPreviewTab();
         try {
           const full = await fetchSurveyByCode(survey.surveyCode);
@@ -1305,7 +1322,11 @@ export default function StudentCoursesContent({
                                         onClick={() => void openStartModal(exam, isRetake ? 'retake' : 'start')}
                                         className={featurePrimaryBtn}
                                       >
-                                        {isRetake ? '再次作答' : '開始作答'}
+                                        {previewMode
+                                          ? '預覽作答'
+                                          : isRetake
+                                            ? '再次作答'
+                                            : '開始作答'}
                                       </button>
                                     ) : windowUpcoming && !exam.submitted ? (
                                       <button
@@ -1392,7 +1413,11 @@ export default function StudentCoursesContent({
                                       }
                                       className={featurePrimaryBtn}
                                     >
-                                      {isRetake ? '再次填寫' : '開始填寫'}
+                                      {previewMode
+                                        ? '預覽填寫'
+                                        : isRetake
+                                          ? '再次填寫'
+                                          : '開始填寫'}
                                     </button>
                                   ) : windowUpcoming && !survey.submitted ? (
                                     <button
@@ -1576,12 +1601,12 @@ export default function StudentCoursesContent({
         document.body
       )}
 
-      {startModal && studentInfo?.id && (
+      {startModal && (studentInfo?.id || previewMode) && (
         <StudentExamStartModal
           open
           onClose={() => setStartModal(null)}
           exam={startModal.exam}
-          studentId={studentInfo.id}
+          studentId={studentInfo?.id || 'preview'}
           mode={startModal.mode}
           resolveExamTitle={resolveExamTitle}
         />

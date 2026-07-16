@@ -29,14 +29,16 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
   const examFocusMode = useExamFocusMode();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // /student/courses/[courseCode]：進入單一課程詳情
-  const isCourseDetail =
-    pathname.startsWith('/student/courses/') && pathname !== '/student/courses/';
+  // /student/courses/[courseCode]、課堂詳情、觀課：進入課程內容時收合側選單
+  const isCourseContentView =
+    (pathname.startsWith('/student/courses/') && pathname !== '/student/courses/') ||
+    pathname.startsWith('/student/lesson-detail') ||
+    pathname.startsWith('/student/watch');
 
   useEffect(() => {
-    // 桌面：列表展開；進入課程後收合。窄螢幕維持收合。
-    setSidebarOpen(!isCompactNav && !isCourseDetail);
-  }, [isCompactNav, isCourseDetail]);
+    // 桌面：列表展開；進入課程內容後收合。窄螢幕維持收合。
+    setSidebarOpen(!isCompactNav && !isCourseContentView);
+  }, [isCompactNav, isCourseContentView]);
 
   useEffect(() => {
     const pathSegments = pathname.split('/').filter(Boolean);

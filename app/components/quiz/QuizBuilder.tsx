@@ -191,35 +191,48 @@ export default function QuizBuilder({
     }));
   };
 
-  const saveQuiz = async (status?: Quiz['status']) => {
+  const saveQuiz = async (
+    status?: Quiz['status'],
+    options?: { silentSuccess?: boolean; silent?: boolean }
+  ): Promise<boolean> => {
+    const silent = !!options?.silent;
+    const quietSuccess = silent || !!options?.silentSuccess;
+
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
     }
-    await new Promise((resolve) => window.setTimeout(resolve, 220));
+    await new Promise((resolve) => window.setTimeout(resolve, silent ? 50 : 220));
 
     const currentQuiz = quizRef.current;
     if (!currentQuiz.title.trim()) {
-      Swal.fire({ icon: 'warning', title: '請輸入測驗標題', confirmButtonColor: '#4f46e5' });
-      return;
+      if (!silent) {
+        Swal.fire({ icon: 'warning', title: '請輸入測驗標題', confirmButtonColor: '#4f46e5' });
+      }
+      return false;
     }
 
     const imageLimitError = validateQuizImageCount(currentQuiz);
     if (imageLimitError) {
-      Swal.fire({ icon: 'warning', title: imageLimitError, confirmButtonColor: '#4f46e5' });
-      return;
+      if (!silent) {
+        Swal.fire({ icon: 'warning', title: imageLimitError, confirmButtonColor: '#4f46e5' });
+      }
+      return false;
     }
 
     if (currentQuiz.timeLimitEnabled && (!currentQuiz.timeLimitMinutes || currentQuiz.timeLimitMinutes < 1)) {
-      Swal.fire({
-        icon: 'warning',
-        title: '請設定有效的考試時間（至少 1 分鐘）',
-        confirmButtonColor: '#4f46e5',
-      });
-      return;
+      if (!silent) {
+        Swal.fire({
+          icon: 'warning',
+          title: '請設定有效的考試時間（至少 1 分鐘）',
+          confirmButtonColor: '#4f46e5',
+        });
+      }
+      return false;
     }
 
     const nextStatus = status ?? currentQuiz.status;
     if (nextStatus === 'draft' && currentQuiz.status === 'published') {
+      if (silent) return false;
       const demote = await Swal.fire({
         icon: 'warning',
         title: '改為隱藏？',
@@ -230,14 +243,16 @@ export default function QuizBuilder({
         confirmButtonText: '改為隱藏',
         cancelButtonText: '取消',
       });
-      if (!demote.isConfirmed) return;
+      if (!demote.isConfirmed) return false;
     }
 
     if (nextStatus === 'published') {
       const publishError = validateQuizForPublish(currentQuiz);
       if (publishError) {
-        Swal.fire({ icon: 'warning', title: publishError, confirmButtonColor: '#4f46e5' });
-        return;
+        if (!silent) {
+          Swal.fire({ icon: 'warning', title: publishError, confirmButtonColor: '#4f46e5' });
+        }
+        return false;
       }
     }
 
@@ -332,54 +347,48 @@ export default function QuizBuilder({
       snapshotReadyRef.current = true;
       onSaved(savedQuiz);
 
-      const wasPublished = currentQuiz.status === 'published';
-      let successTitle = '測驗已儲存';
-      let successText: string | undefined;
+      if (!quietSuccess) {
+        const wasPublished = currentQuiz.status === 'published';
+        let successTitle = '測驗已儲存';
+        let successText: string | undefined;
 
-      if (nextStatus === 'published' && !wasPublished) {
-        successTitle = '已開放測驗';
-        successText = '學生端現在可以進入此測驗作答。';
-      } else if (nextStatus === 'published' && wasPublished) {
-        successTitle = '變更已儲存';
-        successText = '測驗仍維持開放，學生端將顯示最新內容。';
-      } else if (nextStatus === 'draft' && wasPublished) {
-        successTitle = '已改為隱藏';
-        successText = '學生端將無法看到此測驗。若要再次開放，請點「開放測驗」。';
+        if (nextStatus === 'published' && !wasPublished) {
+          successTitle = '已開放測驗';
+          successText = '學生端現在可以進入此測驗作答。';
+        } else if (nextStatus === 'published' && wasPublished) {
+          successTitle = '變更已儲存';
+          successText = '測驗仍維持開放，學生端將顯示最新內容。';
+        } else if (nextStatus === 'draft' && wasPublished) {
+          successTitle = '已改為隱藏';
+          successText = '學生端將無法看到此測驗。若要再次開放，請點「開放測驗」。';
+        }
+
+        await Swal.fire({
+          icon: 'success',
+          title: successTitle,
+          text: successText,
+          confirmButtonColor: '#4f46e5',
+        });
       }
-
-      Swal.fire({
-        icon: 'success',
-        title: successTitle,
-        text: successText,
-        confirmButtonColor: '#4f46e5',
-      });
+      return true;
     } catch (error) {
-      Swal.fire({
-        icon: 'error',
-        title: '儲存失敗',
-        text: error instanceof Error ? error.message : '請稍後再試',
-        confirmButtonColor: '#4f46e5',
-      });
+      if (!silent) {
+        Swal.fire({
+          icon: 'error',
+          title: '儲存失敗',
+          text: error instanceof Error ? error.message : '請稍後再試',
+          confirmButtonColor: '#4f46e5',
+        });
+      }
+      return false;
     } finally {
       setSaving(false);
     }
   };
 
-  const openStudentPreview = () => {
-    const current = quizRef.current;
-    if (!current.sections.some((s) => s.questions.length > 0)) {
-      Swal.fire({
-        icon: 'info',
-        title: '尚無題目',
-        text: '請先新增至少一題再預覽學生作答畫面。',
-        confirmButtonColor: '#4f46e5',
-      });
-      return;
-    }
-
-    // 先同步開分頁（保留使用者手勢），再寫入預覽資料並導向
-    const previewWin = openBlankPreviewTab();
-    if (!previewWin) {
+  const launchStudentPreview = (previewWin?: Window | null) => {
+    const win = previewWin ?? openBlankPreviewTab();
+    if (!win) {
       Swal.fire({
         icon: 'warning',
         title: '無法開啟預覽',
@@ -395,10 +404,10 @@ export default function QuizBuilder({
 
     window.setTimeout(() => {
       try {
-        openTeacherExamPreviewInNewTab(quizRef.current, { targetWindow: previewWin });
+        openTeacherExamPreviewInNewTab(quizRef.current, { targetWindow: win });
       } catch (error) {
         try {
-          previewWin.close();
+          win.close();
         } catch {
           /* ignore */
         }
@@ -412,10 +421,71 @@ export default function QuizBuilder({
     }, 220);
   };
 
+  const openStudentPreview = async () => {
+    const current = quizRef.current;
+    if (!current.sections.some((s) => s.questions.length > 0)) {
+      Swal.fire({
+        icon: 'info',
+        title: '尚無題目',
+        text: '請先新增至少一題再預覽學生作答畫面。',
+        confirmButtonColor: '#4f46e5',
+      });
+      return;
+    }
+
+    if (isQuizDirty()) {
+      const result = await Swal.fire({
+        icon: 'warning',
+        title: '尚未儲存變更',
+        text: '目前有未儲存的內容。請先儲存後再預覽，以免預覽與編輯內容不一致。',
+        showCancelButton: true,
+        confirmButtonText: '儲存並預覽',
+        cancelButtonText: '取消',
+        confirmButtonColor: '#4f46e5',
+        cancelButtonColor: '#9ca3af',
+      });
+      if (!result.isConfirmed) return;
+
+      // 在 await 儲存前先開分頁，保留使用者點擊手勢，降低被瀏覽器封鎖的機率
+      const previewWin = openBlankPreviewTab();
+      const saveStatus = current.status === 'published' ? undefined : 'draft';
+      const ok = await saveQuiz(saveStatus, { silentSuccess: true });
+      if (!ok) {
+        try {
+          previewWin?.close();
+        } catch {
+          /* ignore */
+        }
+        return;
+      }
+      launchStudentPreview(previewWin);
+      return;
+    }
+
+    launchStudentPreview();
+  };
+
   const saveQuizRef = useRef(saveQuiz);
   saveQuizRef.current = saveQuiz;
   const openStudentPreviewRef = useRef(openStudentPreview);
   openStudentPreviewRef.current = openStudentPreview;
+  const savingRef = useRef(saving);
+  savingRef.current = saving;
+  const isQuizDirtyRef = useRef(isQuizDirty);
+  isQuizDirtyRef.current = isQuizDirty;
+
+  // 每 5 分鐘靜默自動儲存（無彈窗）；維持目前開放／隱藏狀態
+  useEffect(() => {
+    const AUTO_SAVE_MS = 5 * 60 * 1000;
+    const timer = window.setInterval(() => {
+      if (savingRef.current) return;
+      if (!isQuizDirtyRef.current()) return;
+      const current = quizRef.current;
+      if (!current.title.trim()) return;
+      void saveQuizRef.current(current.status, { silent: true });
+    }, AUTO_SAVE_MS);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const toolbar = useMemo(
     () => {

@@ -149,10 +149,43 @@ export function renderFormulaIntoElement(
   katexRender(node, latex, displayMode, fillInQuestionNumber);
 }
 
+/** 讀取公式節點的可編輯 LaTeX（含 data-latex 遺失時從 KaTeX annotation 還原） */
+export function readFormulaLatexFromElement(formulaEl: HTMLElement): string {
+  const fromAttr = formulaEl.getAttribute('data-latex') || '';
+  if (fromAttr.trim()) return decodeHtmlEntities(fromAttr);
+
+  const annotation = formulaEl.querySelector(
+    'annotation[encoding="application/x-tex"]'
+  );
+  const fromAnnotation = (annotation?.textContent || '').trim();
+  if (fromAnnotation) {
+    formulaEl.setAttribute('data-latex', fromAnnotation);
+    return fromAnnotation;
+  }
+  return '';
+}
+
 export async function registerQuillFormula(): Promise<void> {
-  if (registered || typeof window === 'undefined') return;
+  if (typeof window === 'undefined') return;
 
   const { default: Quill } = await import('quill');
+
+  // Quill 預設 Image.sanitize 只允許 http/https/data，會把 blob: 換成 //:0（破圖）。
+  // 每次呼叫都重套，避免 HMR 後仍沿用舊 sanitize。
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ImageBlot = Quill.import('formats/image') as any;
+  ImageBlot.sanitize = (url: string) => {
+    if (typeof url !== 'string' || !url) return '//:0';
+    if (url.startsWith('blob:') || url.startsWith('data:image/')) return url;
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    const protocol = anchor.href.slice(0, anchor.href.indexOf(':'));
+    return ['http', 'https', 'data', 'blob'].includes(protocol) ? url : '//:0';
+  };
+  Quill.register(ImageBlot, true);
+
+  if (registered) return;
+  registered = true;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const Embed = Quill.import('blots/embed') as any;
@@ -166,6 +199,7 @@ export async function registerQuillFormula(): Promise<void> {
       const node = super.create() as HTMLElement;
       node.setAttribute('data-latex', value);
       node.setAttribute('contenteditable', 'false');
+      node.setAttribute('title', '點擊編輯公式');
       try {
         katexRender(node, value, false);
       } catch {
@@ -175,7 +209,7 @@ export async function registerQuillFormula(): Promise<void> {
     }
 
     static value(node: HTMLElement) {
-      return node.getAttribute('data-latex') || '';
+      return readFormulaLatexFromElement(node);
     }
   }
 
@@ -190,6 +224,7 @@ export async function registerQuillFormula(): Promise<void> {
       const node = super.create() as HTMLElement;
       node.setAttribute('data-latex', value);
       node.setAttribute('contenteditable', 'false');
+      node.setAttribute('title', '點擊編輯公式');
       try {
         katexRender(node, value, true);
       } catch {
@@ -199,7 +234,7 @@ export async function registerQuillFormula(): Promise<void> {
     }
 
     static value(node: HTMLElement) {
-      return node.getAttribute('data-latex') || '';
+      return readFormulaLatexFromElement(node);
     }
   }
 
@@ -223,7 +258,6 @@ export async function registerQuillFormula(): Promise<void> {
   }
 
   Quill.register(FillInBlankBlot, true);
-  registered = true;
 }
 
 function renderFillInBlankBox(node: HTMLElement, label: string): void {
@@ -311,6 +345,7 @@ export function renderLatexInElement(
   element.querySelectorAll<HTMLElement>('.ql-formula-block[data-latex]').forEach((node) => {
     const latex = node.getAttribute('data-latex');
     if (!latex) return;
+    node.setAttribute('title', '點擊編輯公式');
     try {
       katexRender(node, decodeHtmlEntities(latex), true, fillInQuestionNumber);
     } catch {
@@ -321,6 +356,7 @@ export function renderLatexInElement(
   element.querySelectorAll<HTMLElement>('.ql-formula[data-latex]:not(.ql-formula-block)').forEach((node) => {
     const latex = node.getAttribute('data-latex');
     if (!latex) return;
+    node.setAttribute('title', '點擊編輯公式');
     try {
       katexRender(node, decodeHtmlEntities(latex), false, fillInQuestionNumber);
     } catch {

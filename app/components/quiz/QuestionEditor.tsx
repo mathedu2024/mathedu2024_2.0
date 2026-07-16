@@ -31,6 +31,7 @@ import {
   createEmptyQuestion,
   createEmptySubQuestion,
   createEmptyGridCell,
+  generateQuestionId,
   relabelFillInCells,
   isChoiceQuestion,
   isFillInQuestion,
@@ -254,10 +255,12 @@ function FillInBlankInsertBar({
 function GsatGridAnswerEditor({
   cells,
   questionNumber,
+  questionId,
   onChange,
 }: {
   cells: GridCell[];
   questionNumber: number;
+  questionId: string;
   onChange: (cells: GridCell[], removedCellIndex?: number) => void;
 }) {
   return (
@@ -284,7 +287,7 @@ function GsatGridAnswerEditor({
                 </span>
                 <input
                   type="radio"
-                  name={`grid-${cell.id}`}
+                  name={`grid-${questionId}-${cell.id}`}
                   checked={cell.correctAnswer === ans}
                   onChange={() => {
                     const next = [...cells];
@@ -451,7 +454,9 @@ function SubQuestionFields({
   onChangeRef.current = onChange;
 
   const patchSub = React.useCallback((patch: Partial<SubQuestion>) => {
-    onChangeRef.current({ ...subQuestionRef.current, ...patch } as SubQuestion);
+    const next = { ...subQuestionRef.current, ...patch } as SubQuestion;
+    subQuestionRef.current = next;
+    onChangeRef.current(next);
   }, []);
 
   const handleFillInChange = React.useCallback(
@@ -462,9 +467,9 @@ function SubQuestionFields({
         removedCellIndex !== undefined
           ? removeFillInBlankTokenByCellIndex(current.content, removedCellIndex)
           : current.content;
-      onChangeRef.current(
-        relabelFillInCells({ ...current, cells, content }, subNumber)
-      );
+      const next = relabelFillInCells({ ...current, cells, content }, subNumber);
+      subQuestionRef.current = next;
+      onChangeRef.current(next);
     },
     [subNumber]
   );
@@ -554,6 +559,7 @@ function SubQuestionFields({
               <GsatGridAnswerEditor
                 cells={subQuestion.cells}
                 questionNumber={subNumber}
+                questionId={subQuestion.id}
                 onChange={handleFillInChange}
               />
             </>
@@ -596,7 +602,9 @@ export default function QuestionEditor({
   onChangeRef.current = onChange;
 
   const patchQuestion = React.useCallback((patch: Partial<Question>) => {
-    onChangeRef.current({ ...questionRef.current, ...patch } as Question);
+    const next = { ...questionRef.current, ...patch } as Question;
+    questionRef.current = next;
+    onChangeRef.current(next);
   }, []);
 
   const patchGroupSubQuestion = React.useCallback((subIdx: number, updated: SubQuestion) => {
@@ -604,7 +612,9 @@ export default function QuestionEditor({
     if (!isGroupQuestion(current)) return;
     const subQuestions = [...current.subQuestions];
     subQuestions[subIdx] = updated;
-    onChangeRef.current({ ...current, subQuestions });
+    const next = { ...current, subQuestions };
+    questionRef.current = next;
+    onChangeRef.current(next);
   }, []);
 
   const [internalExpanded, setInternalExpanded] = React.useState(defaultExpanded);
@@ -653,7 +663,45 @@ export default function QuestionEditor({
   const handleTypeChange = (newType: QuestionType) => {
     const current = questionRef.current;
     if (newType === current.type) return;
-    const fresh = createEmptyQuestion(newType, questionNumber, optionLabelStyle);
+
+    // 改為題組：把原題整包成第一個子題，避免答案／選項被清空後無法儲存已發布測驗
+    if (newType === 'group') {
+      if (isGroupQuestion(current)) return;
+      const asSub = { ...current, id: generateQuestionId() } as SubQuestion;
+      onChangeRef.current({
+        id: current.id,
+        type: 'group',
+        content: '',
+        points: 0,
+        subQuestions: [asSub],
+        shuffleSubQuestions: false,
+      });
+      return;
+    }
+
+    // 題組改回一般題型：優先沿用第一個子題
+    if (isGroupQuestion(current)) {
+      const first = current.subQuestions[0];
+      const fresh = createEmptyQuestion(newType, questionNumber, optionLabelStyle, defaultPoints);
+      if (first && first.type === newType) {
+        onChangeRef.current({
+          ...first,
+          id: current.id,
+          content: first.content || current.content,
+          points: first.points || defaultPoints,
+        });
+        return;
+      }
+      onChangeRef.current({
+        ...fresh,
+        id: current.id,
+        content: first?.content || current.content,
+        points: first?.points || current.points || defaultPoints,
+      });
+      return;
+    }
+
+    const fresh = createEmptyQuestion(newType, questionNumber, optionLabelStyle, defaultPoints);
     onChangeRef.current({
       ...fresh,
       id: current.id,
@@ -679,9 +727,9 @@ export default function QuestionEditor({
         removedCellIndex !== undefined
           ? removeFillInBlankTokenByCellIndex(current.content, removedCellIndex)
           : current.content;
-      onChangeRef.current(
-        relabelFillInCells({ ...current, cells, content }, questionNumber)
-      );
+      const next = relabelFillInCells({ ...current, cells, content }, questionNumber);
+      questionRef.current = next;
+      onChangeRef.current(next);
     },
     [questionNumber]
   );
@@ -841,6 +889,7 @@ export default function QuestionEditor({
               <GsatGridAnswerEditor
                 cells={question.cells}
                 questionNumber={questionNumber}
+                questionId={question.id}
                 onChange={handleFillInChange}
               />
             )}

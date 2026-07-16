@@ -23,6 +23,9 @@ import {
 import { canStartExamTake } from '@/utils/examDraftStorage';
 import { openStudentExamReviewInNewTab } from '@/utils/examAttemptLabel';
 import { showExamTakeBlockedAlert } from '@/utils/examTakeAlerts';
+import { fetchQuizByCode } from '@/utils/teacherClientApi';
+import { openBlankPreviewTab, openTeacherExamPreviewInNewTab } from '@/utils/teacherExamPreview';
+import Swal from '@/utils/swalTheme';
 
 interface LessonDetail {
   id: string;
@@ -51,14 +54,20 @@ interface LessonDetail {
   order?: number;
 }
 
-export default function LessonDetailPage() {
+export default function LessonDetailPage({
+  previewMode = false,
+  previewExams = null,
+}: {
+  previewMode?: boolean;
+  previewExams?: StudentExamListItem[] | null;
+} = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { studentInfo } = useStudentInfo();
   const [lesson, setLesson] = useState<LessonDetail | null>(null);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [examList, setExamList] = useState<StudentExamListItem[]>([]);
+  const [examList, setExamList] = useState<StudentExamListItem[]>(previewExams ?? []);
   const [examsLoading, setExamsLoading] = useState(false);
   const [startModal, setStartModal] = useState<{
     exam: StudentExamListItem;
@@ -81,14 +90,22 @@ export default function LessonDetailPage() {
     [lesson]
   );
 
-  const refreshExamList = useCallback(async () => {
+  const refreshExamList = useCallback(async (opts?: { force?: boolean }) => {
+    if (previewMode) {
+      setExamList(previewExams ?? []);
+      setExamsLoading(false);
+      return;
+    }
     if (!studentInfo?.id || assignedQuizCodes.length === 0) {
       setExamList([]);
+      setExamsLoading(false);
       return;
     }
     setExamsLoading(true);
     try {
-      invalidateStudentExamList(studentInfo.id);
+      if (opts?.force) {
+        invalidateStudentExamList(studentInfo.id);
+      }
       const exams = await fetchStudentExamList(studentInfo.id);
       setExamList(exams);
     } catch {
@@ -96,7 +113,7 @@ export default function LessonDetailPage() {
     } finally {
       setExamsLoading(false);
     }
-  }, [studentInfo?.id, assignedQuizCodes.length]);
+  }, [previewMode, previewExams, studentInfo?.id, assignedQuizCodes.length]);
 
   const resolveExamTitle = useCallback(
     (quizCode: string) => examList.find((e) => e.quizCode === quizCode)?.title,
@@ -105,6 +122,30 @@ export default function LessonDetailPage() {
 
   const openStartModal = useCallback(
     async (exam: StudentExamListItem, mode: 'start' | 'retake') => {
+      if (previewMode) {
+        // 未開始／無法作答：開啟開始視窗顯示擋訊；已開放：走老師編輯預覽（模擬送出不記錄）
+        if (!exam.accessible) {
+          setStartModal({ exam, mode });
+          return;
+        }
+        const blank = openBlankPreviewTab();
+        try {
+          const quiz = await fetchQuizByCode(exam.quizCode);
+          openTeacherExamPreviewInNewTab(quiz, { targetWindow: blank });
+        } catch (e) {
+          try {
+            blank?.close();
+          } catch {
+            /* ignore */
+          }
+          await Swal.fire({
+            icon: 'error',
+            title: '無法開啟預覽',
+            text: e instanceof Error ? e.message : '請稍後再試',
+          });
+        }
+        return;
+      }
       if (!studentInfo?.id) return;
       const check = canStartExamTake(studentInfo.id, exam.quizCode);
       if (!check.allowed) {
@@ -119,7 +160,7 @@ export default function LessonDetailPage() {
       }
       setStartModal({ exam, mode });
     },
-    [studentInfo?.id, resolveExamTitle]
+    [previewMode, studentInfo?.id, resolveExamTitle]
   );
 
   const openHistory = useCallback((exam: StudentExamListItem) => {
@@ -169,16 +210,9 @@ export default function LessonDetailPage() {
     }
   }, []);
 
+  // 課堂綁定測驗：進入頁面載入一次即可（沿用 client cache，不每次 invalidate／focus 重抓）
   useEffect(() => {
     void refreshExamList();
-  }, [refreshExamList]);
-
-  useEffect(() => {
-    const onFocus = () => {
-      void refreshExamList();
-    };
-    window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
   }, [refreshExamList]);
 
   // Convert YouTube URL to Embed URL
@@ -338,7 +372,7 @@ export default function LessonDetailPage() {
               </div>
             </div>
           </div>
-          <BackButton label="返回課程列表" onClick={handleBack} withSpacing={false} className="mt-4" />
+          <BackButton label="返回課程清單" onClick={handleBack} withSpacing={false} className="mt-4" />
         </div>
 
         {/* Main Content Layout - 2 Columns on Large Screens */}
@@ -631,8 +665,20 @@ export default function LessonDetailPage() {
                                   className="inline-flex items-center justify-center px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-colors"
                                 >
                                   <ClipboardDocumentCheckIcon className="w-4 h-4 mr-1.5" />
-                                  {isRetake ? '再次作答' : '開始作答'}
+                                  {previewMode
+                                    ? '預覽作答'
+                                    : isRetake
+                                      ? '再次作答'
+                                      : '開始作答'}
                                   <ArrowRightIcon className="w-4 h-4 ml-1.5" />
+                                </button>
+                              ) : windowUpcoming && exam && !submitted ? (
+                                <button
+                                  type="button"
+                                  onClick={() => void openStartModal(exam, 'start')}
+                                  className="inline-flex items-center justify-center px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition-colors"
+                                >
+                                  查看詳情
                                 </button>
                               ) : !submitted ? (
                                 <button
@@ -640,7 +686,7 @@ export default function LessonDetailPage() {
                                   disabled
                                   className="inline-flex items-center justify-center px-4 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-lg opacity-50 cursor-not-allowed"
                                 >
-                                  {windowUpcoming ? '尚未開始' : windowEnded ? '已截止' : '無法作答'}
+                                  {windowEnded ? '已截止' : '無法作答'}
                                 </button>
                               ) : null}
                             </div>
@@ -669,12 +715,12 @@ export default function LessonDetailPage() {
           </div>
         </div>
 
-        {startModal && studentInfo?.id && (
+        {startModal && (studentInfo?.id || previewMode) && (
           <StudentExamStartModal
             open
             onClose={() => setStartModal(null)}
             exam={startModal.exam}
-            studentId={studentInfo.id}
+            studentId={studentInfo?.id || 'preview'}
             mode={startModal.mode}
             resolveExamTitle={resolveExamTitle}
           />

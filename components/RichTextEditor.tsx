@@ -4,7 +4,13 @@ import React, { useMemo, useRef, useEffect, useState, useCallback } from "react"
 import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
 import LatexInsertModal from "./LatexInsertModal";
-import { registerQuillFormula, resolveFormulaEmbedIndex, normalizeLatexLimits, renderFormulaIntoElement } from "@/utils/quillFormula";
+import {
+  registerQuillFormula,
+  resolveFormulaEmbedIndex,
+  normalizeLatexLimits,
+  renderFormulaIntoElement,
+  readFormulaLatexFromElement,
+} from "@/utils/quillFormula";
 import { renderRichHtmlInElement } from "@/utils/richHtmlPipeline";
 import { editorHtmlFromStorage, storageHtmlFromEditor, stripRenderedEmbedsForStorage } from "@/utils/fillInContent";
 import { useQuizImageContext } from "@/components/quiz/QuizImageContext";
@@ -59,6 +65,39 @@ function stringArraysEqual(a?: string[], b?: string[]): boolean {
   if (!a || !b) return !a && !b;
   if (a.length !== b.length) return false;
   return a.every((v, i) => v === b[i]);
+}
+
+/** 從選取文字取出可編輯的 LaTeX（支援 $...$ / $$...$$ / \(...\) / \[...\]） */
+function extractLatexFromSelectedText(raw: string): { latex: string; displayMode: boolean } {
+  let text = raw.replace(/\u00a0/g, ' ').trim();
+  // Quill getText 常在結尾帶換行
+  text = text.replace(/\n+$/g, '').trim();
+  if (!text) return { latex: '', displayMode: false };
+
+  let displayMode = false;
+
+  // 僅在「整段選取剛好是一組」分隔符時才剝除，避免 $$a$$ … $$b$$ 被貪心吃成一大塊
+  const blockDollar = /^\$\$([\s\S]*?)\$\$$/.exec(text);
+  if (blockDollar && blockDollar[0] === text && !/\$\$/.test(blockDollar[1])) {
+    return { latex: blockDollar[1].trim(), displayMode: true };
+  }
+  const blockBracket = /^\\\[([\s\S]*?)\\\]$/.exec(text);
+  if (blockBracket && blockBracket[0] === text) {
+    return { latex: blockBracket[1].trim(), displayMode: true };
+  }
+  if (/^\\begin\{[\s\S]+\}$/.test(text)) {
+    return { latex: text, displayMode: true };
+  }
+  const inlineDollar = /^\$([^$]+)\$$/.exec(text);
+  if (inlineDollar && inlineDollar[0] === text) {
+    return { latex: inlineDollar[1].trim(), displayMode: false };
+  }
+  const inlineParen = /^\\\(([\s\S]*?)\\\)$/.exec(text);
+  if (inlineParen && inlineParen[0] === text) {
+    return { latex: inlineParen[1].trim(), displayMode: false };
+  }
+
+  return { latex: text, displayMode };
 }
 
 function richTextEditorPropsEqual(prev: Props, next: Props): boolean {
@@ -250,7 +289,7 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
       ['button.ql-link', '插入連結'],
       ['button.ql-clean', '清除格式'],
       ['button.ql-image', '插入圖片'],
-      ['button.ql-latex', '插入 LaTeX 公式'],
+      ['button.ql-latex', '插入／轉換 LaTeX 公式（可先選取文字；已插入的公式可點擊編輯）'],
       ['button.ql-list[value="ordered"]', '編號清單'],
       ['button.ql-list[value="bullet"]', '項目符號'],
     ];
@@ -264,11 +303,15 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
 
     const latexBtn = root.querySelector<HTMLButtonElement>('button.ql-latex');
     if (latexBtn && enableLatex) {
-      if (!latexBtn.querySelector('.ql-latex-icon')) {
-        latexBtn.innerHTML = '<span class="ql-latex-icon" aria-hidden="true">∑</span>';
-      }
       latexBtn.setAttribute('type', 'button');
-      setTip(latexBtn, '插入 LaTeX 公式');
+      setTip(latexBtn, '插入／轉換 LaTeX 公式（可先選取文字；已插入的公式可點擊編輯）');
+      // 避免點工具列時讓 Quill 先清掉選取／搶焦點
+      if (!latexBtn.dataset.latexMousedownBound) {
+        latexBtn.dataset.latexMousedownBound = '1';
+        latexBtn.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+        });
+      }
     }
   }, [enableLatex]);
 
@@ -387,21 +430,84 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
     selectionRef.current = null;
   }, []);
 
+  const openFormulaForEdit = useCallback((formulaEl: HTMLElement) => {
+    const latex = readFormulaLatexFromElement(formulaEl);
+    if (!latex) return false;
+
+    const quill = safeGetQuill(editorRef);
+    const isBlock = formulaEl.classList.contains('ql-formula-block');
+    const index = quill ? resolveFormulaEmbedIndex(quill, formulaEl) : null;
+
+    editingFormulaRef.current = {
+      index,
+      displayMode: isBlock,
+      element: formulaEl,
+    };
+    formulaEl.setAttribute('title', '點擊編輯公式');
+    setLatexEditMode(true);
+    setLatexInitial({ latex, displayMode: isBlock });
+    setLatexModalOpen(true);
+    return true;
+  }, []);
+
   const openLatexModal = useCallback(() => {
     editingFormulaRef.current = null;
     setLatexEditMode(false);
     setLatexInitial(null);
     const quill = safeGetQuill(editorRef);
     if (quill) {
-      const sel = quill.getSelection();
-      selectionRef.current = sel
+      // 勿用 getSelection(true)：會強制 focus 回編輯器，導致公式視窗無法輸入
+      const sel = quill.getSelection(false);
+      const safeSel = sel
         ? { index: sel.index, length: sel.length }
         : { index: Math.max(0, quill.getLength() - 1), length: 0 };
+      selectionRef.current = safeSel;
+
+      // 游標落在已插入的公式上 → 直接進入編輯
+      if (safeSel.length === 0 || safeSel.length === 1) {
+        try {
+          const leafAt = (quill.getLeaf(safeSel.index) as [QuillLeaf | null, number])[0];
+          const leafPrev =
+            safeSel.index > 0
+              ? (quill.getLeaf(safeSel.index - 1) as [QuillLeaf | null, number])[0]
+              : null;
+          const pickFormula = (blot: QuillLeaf | null) => {
+            const node = blot?.domNode;
+            if (!(node instanceof HTMLElement)) return null;
+            return node.closest('.ql-formula, .ql-formula-block') as HTMLElement | null;
+          };
+          const candidate = pickFormula(leafAt) || pickFormula(leafPrev);
+          if (candidate && openFormulaForEdit(candidate)) {
+            try {
+              (quill.root as HTMLElement).blur();
+            } catch {
+              /* ignore */
+            }
+            return;
+          }
+        } catch {
+          /* fall through to insert / convert */
+        }
+      }
+
+      if (safeSel.length > 0) {
+        const selectedText = quill.getText(safeSel.index, safeSel.length);
+        const extracted = extractLatexFromSelectedText(selectedText);
+        if (extracted.latex) {
+          setLatexInitial({ latex: extracted.latex, displayMode: extracted.displayMode });
+        }
+      }
+
+      try {
+        (quill.root as HTMLElement).blur();
+      } catch {
+        /* ignore */
+      }
     } else {
       selectionRef.current = null;
     }
     setLatexModalOpen(true);
-  }, []);
+  }, [openFormulaForEdit]);
   openLatexModalRef.current = openLatexModal;
 
   useEffect(() => {
@@ -409,35 +515,21 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
     const container = containerRef.current;
     if (!container) return;
 
-    const handleDblClick = (e: MouseEvent) => {
+    // 單擊即可編輯（游標樣式已是 pointer）
+    const handleClick = (e: MouseEvent) => {
+      if (e.button !== 0) return;
       const target = e.target as HTMLElement;
       const formulaEl = target.closest('.ql-formula, .ql-formula-block') as HTMLElement | null;
       if (!formulaEl || !container.contains(formulaEl)) return;
 
       e.preventDefault();
       e.stopPropagation();
-
-      const quill = safeGetQuill(editorRef);
-      const latex = formulaEl.getAttribute('data-latex') || '';
-      if (!latex) return;
-
-      const isBlock = formulaEl.classList.contains('ql-formula-block');
-      const index = quill ? resolveFormulaEmbedIndex(quill, formulaEl) : null;
-
-      if (index !== null) {
-        editingFormulaRef.current = { index, displayMode: isBlock, element: formulaEl };
-      } else {
-        editingFormulaRef.current = { index: null, displayMode: isBlock, element: formulaEl };
-      }
-
-      setLatexEditMode(true);
-      setLatexInitial({ latex, displayMode: isBlock });
-      setLatexModalOpen(true);
+      openFormulaForEdit(formulaEl);
     };
 
-    container.addEventListener('dblclick', handleDblClick, true);
-    return () => container.removeEventListener('dblclick', handleDblClick, true);
-  }, [enableLatex, formulaReady, mounted]);
+    container.addEventListener('click', handleClick, true);
+    return () => container.removeEventListener('click', handleClick, true);
+  }, [enableLatex, formulaReady, mounted, openFormulaForEdit]);
 
   const emitChange = useCallback(
     (content: string) => {
@@ -470,6 +562,7 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
     renderRichHtmlInElement(root, {
       fillInQuestionNumber,
       sanitize: false,
+      convertDelimiters: false,
     });
   }, [isFillInEditor, fillInQuestionNumber]);
 
@@ -536,7 +629,7 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
 
     setImageUploading(true);
     try {
-      const localUrl = createLocalQuizImagePreview(file);
+      const localUrl = await createLocalQuizImagePreview(file);
       insertImageAtSelection(localUrl);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : '圖片加入失敗');
@@ -647,7 +740,7 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
     if (!mounted || !formulaReady || !enableLatex || isFocusedRef.current) return;
     const quill = safeGetQuill(editorRef);
     if (!quill) return;
-    // 儲存格式可能只有 data-latex 空節點；補渲染讓雙擊可編輯
+    // 儲存格式可能只有 data-latex 空節點；補渲染讓點擊可編輯
     renderLatexInElement(quill.root as HTMLElement, fillInQuestionNumber);
   }, [mounted, formulaReady, enableLatex, localHtml, fillInQuestionNumber]);
 
@@ -676,6 +769,7 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
       } else if (editing.element) {
         const el = editing.element;
         el.setAttribute("data-latex", normalized);
+        el.setAttribute("title", "點擊編輯公式");
         el.className = displayMode ? "ql-formula-block" : "ql-formula";
         el.innerHTML = "";
         try {
@@ -695,15 +789,26 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
     }
 
     const saved = selectionRef.current;
-    const index = saved?.index ?? Math.max(0, quill.getLength() - 1);
+    let index = saved?.index ?? Math.max(0, quill.getLength() - 1);
+    const length = saved?.length ?? 0;
 
-    if (displayMode) {
+    // 有選取文字時：刪除原文後插入公式（LaTeX → 網站方程式樣式）
+    if (length > 0) {
+      quill.deleteText(index, length, "user");
+    }
+
+    const normalized = normalizeLatexLimits(latex);
+    // 轉換選取文字時不要插入換行，避免把整段題幹拆開（尤其是 $$...$$）
+    if (displayMode && length === 0) {
       quill.insertText(index, "\n", "user");
-      quill.insertEmbed(index + 1, "formula-block", normalizeLatexLimits(latex), "user");
+      quill.insertEmbed(index + 1, "formula-block", normalized, "user");
       quill.insertText(index + 2, "\n", "user");
       quill.setSelection(index + 3, 0, "user");
+    } else if (displayMode) {
+      quill.insertEmbed(index, "formula-block", normalized, "user");
+      quill.setSelection(index + 1, 0, "user");
     } else {
-      quill.insertEmbed(index, "formula", normalizeLatexLimits(latex), "user");
+      quill.insertEmbed(index, "formula", normalized, "user");
       quill.setSelection(index + 1, 0, "user");
     }
 

@@ -1,7 +1,8 @@
 /**
- * 全站日期時間：設定器、儲存值與顯示一律採 24 小時制。
- * HTML time / datetime-local 的 value 本身即 HH:mm（24h）；
- * 以 lang="en-GB" 讓 Chromium / Edge / Firefox 的挑選器 UI 也顯示 24h。
+ * 全站日期時間：儲存值與顯示一律採 24 小時制。
+ * HTML datetime-local 的 value 本身即 HH:mm（24h）；
+ * 以 lang="en-GB" 讓 Chromium / Edge / Firefox 的挑選器盡量顯示 24h
+ *（實際 UI 仍可能受作業系統區域設定影響）。
  */
 export const DATETIME_INPUT_LANG = 'en-GB';
 
@@ -9,10 +10,11 @@ export const ZH_TW_24H: Intl.DateTimeFormatOptions = {
   hour12: false,
 };
 
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
 /** 將 Date 轉成 datetime-local 用的本地字串（yyyy-MM-ddTHH:mm） */
 export function toDatetimeLocalValue(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}T${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
 }
 
 /** 以 zh-TW + 24 小時制格式化日期時間 */

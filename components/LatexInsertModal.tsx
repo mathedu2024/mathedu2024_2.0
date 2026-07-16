@@ -109,6 +109,33 @@ export default function LatexInsertModal({
     }
   }, [open, initialLatex, initialDisplayMode]);
 
+  // 開啟後強制聚焦輸入框（避開 Quill contenteditable 搶焦點）
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    const focusInput = () => {
+      if (cancelled) return;
+      const el = textareaRef.current;
+      if (!el) return;
+      el.focus({ preventScroll: true });
+      const len = el.value.length;
+      try {
+        el.setSelectionRange(len, len);
+      } catch {
+        /* ignore */
+      }
+    };
+    const t1 = window.setTimeout(focusInput, 0);
+    const t2 = window.setTimeout(focusInput, 50);
+    const t3 = window.setTimeout(focusInput, 150);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.clearTimeout(t3);
+    };
+  }, [open, initialLatex]);
+
   useEffect(() => {
     if (!latex.trim()) {
       setPreviewHtml('');
@@ -184,14 +211,25 @@ export default function LatexInsertModal({
   if (!mounted || !open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[200000] flex items-center justify-center p-4 bg-black/40">
+    <div
+      className="fixed inset-0 z-[200000] flex items-center justify-center p-4 bg-black/40"
+      onMouseDown={(e) => {
+        // 點遮罩外關閉；點內容時阻止冒泡，避免焦點回到 Quill
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div
         className={`bg-white rounded-2xl shadow-2xl w-full overflow-hidden max-h-[90vh] flex flex-col ${
           matrixOpen ? 'max-w-2xl' : 'max-w-lg'
         }`}
+        onMouseDown={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
       >
         <div className="bg-gradient-to-r from-indigo-500 to-purple-500 px-5 py-4 flex justify-between items-center text-white shrink-0">
-          <h3 className="font-bold text-lg">{editMode ? '編輯 LaTeX 公式' : '插入 LaTeX 公式'}</h3>
+          <h3 className="font-bold text-lg">
+            {editMode ? '編輯 LaTeX 公式' : initialLatex ? '轉換為公式' : '插入 LaTeX 公式'}
+          </h3>
           <button type="button" onClick={onClose} className="text-white/80 hover:text-white">
             <XMarkIcon className="w-6 h-6" />
           </button>
@@ -200,6 +238,11 @@ export default function LatexInsertModal({
         <div className="p-5 space-y-4 overflow-y-auto">
           <div>
             <label className="text-gray-700 text-sm font-bold mb-2 block">LaTeX 語法</label>
+            {!!initialLatex && !editMode && (
+              <p className="text-xs text-indigo-600 mb-2">
+                已帶入選取的文字；確認預覽無誤後按「轉換為公式」。
+              </p>
+            )}
             <textarea
               ref={textareaRef}
               value={latex}
@@ -221,7 +264,6 @@ export default function LatexInsertModal({
                   : '例如：\\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}'
               }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-              autoFocus
             />
           </div>
 
@@ -388,7 +430,7 @@ export default function LatexInsertModal({
             }}
             className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm disabled:opacity-50"
           >
-            {editMode ? '更新公式' : '插入公式'}
+            {editMode ? '更新公式' : initialLatex ? '轉換為公式' : '插入公式'}
           </button>
         </div>
       </div>

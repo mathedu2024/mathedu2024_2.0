@@ -49,6 +49,12 @@ const SANITIZE_OPTIONS = {
     'x1', 'y1', 'x2', 'y2',
   ],
   ALLOW_DATA_ATTR: false,
+  /**
+   * 允許測驗編輯暫存圖（blob: object URL）。
+   * 預設正則不含 blob，會把預覽區 <img src="blob:..."> 的 src 剝掉。
+   */
+  ALLOWED_URI_REGEXP:
+    /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|matrix|blob):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
 };
 
 /** 消毒使用者輸入的 HTML，防止 XSS（僅在瀏覽器端執行） */

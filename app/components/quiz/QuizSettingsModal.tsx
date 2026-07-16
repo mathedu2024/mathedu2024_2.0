@@ -24,6 +24,7 @@ import {
   toDatetimeLocalValue,
   fromDatetimeLocalValue,
 } from '@/services/quizTypes';
+import { DATETIME_INPUT_LANG } from '@/utils/dateTimeFormat';
 
 interface QuizSettingsModalProps {
   open: boolean;
@@ -101,7 +102,7 @@ export default function QuizSettingsModal({ open, quiz, onChange, onClose }: Qui
                   <label className="text-sm text-gray-600 mb-1.5 block">開始時間</label>
                   <input
                     type="datetime-local"
-                    lang="en-GB"
+                    lang={DATETIME_INPUT_LANG}
                     value={toDatetimeLocalValue(quiz.answerStartAt)}
                     onChange={(e) =>
                       onChange((prev) => ({
@@ -116,7 +117,7 @@ export default function QuizSettingsModal({ open, quiz, onChange, onClose }: Qui
                   <label className="text-sm text-gray-600 mb-1.5 block">截止時間</label>
                   <input
                     type="datetime-local"
-                    lang="en-GB"
+                    lang={DATETIME_INPUT_LANG}
                     value={toDatetimeLocalValue(quiz.answerEndAt)}
                     onChange={(e) =>
                       onChange((prev) => ({
