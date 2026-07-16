@@ -32,7 +32,6 @@ import {
 import { logoutClient } from '@/utils/logoutClient';
 import { useCompactNav } from '@/utils/useCompactNav';
 import { getDashboardColorClasses } from '@/utils/dashboardColors';
-import { shouldSkipIdleLogout } from '@/utils/interactKeepalive';
 import type { Course } from '@/components/TeacherCourseManager';
 import {
   fetchTeacherProfile,
@@ -147,23 +146,15 @@ function BackPanel() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>(null);
   const [userInfo, setUserInfo] = useState<BackPanelUserInfo | null>(null);
-  const lastActivityRef = useRef(Date.now());
   const authRedirectRef = useRef(false);
-  const [isChildProcessing, setIsChildProcessing] = useState(false);
   const [courses, setCourses] = useState<Course[]>([]);
   const [adminStats, setAdminStats] = useState({ studentCount: 0, teacherCount: 0, courseCount: 0 });
   const [error, setError] = useState<string | null>(null);
   const isCompactNav = useCompactNav();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  const handleActivity = useCallback(() => {
-    lastActivityRef.current = Date.now();
-  }, []);
-
-  const handleProcessingStateChange = useCallback((isProcessing: boolean) => {
-    setIsChildProcessing(isProcessing);
-    if (!isProcessing) lastActivityRef.current = Date.now();
-  }, []);
+  // CourseManager 仍會回報處理中狀態；閒置登出改由 AutoLogout 統一處理
+  const handleProcessingStateChange = useCallback((_isProcessing: boolean) => {}, []);
 
   const onToggleSidebar = useCallback(() => {
     setSidebarOpen(prev => !prev);
@@ -173,25 +164,6 @@ function BackPanel() {
     setIsLoggingOut(true);
     await logoutClient('/panel');
   }, []);
-
-  useEffect(() => {
-    const checkActivity = () => {
-      if (isChildProcessing || isLoggingOut) return;
-      // 預覽／課程互動開啟中（含其他分頁）：不計入後台滯留登出
-      if (shouldSkipIdleLogout(pathname)) return;
-      if (Date.now() - lastActivityRef.current > 3 * 60 * 1000) {
-        void logoutClient('/panel');
-      }
-    };
-    const interval = setInterval(checkActivity, 30000);
-    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
-    events.forEach(event => window.addEventListener(event, handleActivity));
-
-    return () => {
-      clearInterval(interval);
-      events.forEach(event => window.removeEventListener(event, handleActivity));
-    };
-  }, [isChildProcessing, handleActivity, isLoggingOut, pathname]);
 
   useEffect(() => {
     setError(null);

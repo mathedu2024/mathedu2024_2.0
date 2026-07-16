@@ -1452,9 +1452,9 @@ export default function StudentCoursesContent({
                                   <>
                                     <span className="inline-flex items-center">
                                       <ClockIcon className="w-4 h-4 mr-1 shrink-0" />
-                                      {new Date(activity.startTime).toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                      {new Date(activity.startTime).toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })}
                                       {' ~ '}
-                                      {new Date(activity.endTime).toLocaleString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+                                      {new Date(activity.endTime).toLocaleString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false })}
                                     </span>
                                     <span className={
                                       activity.status === 'active'

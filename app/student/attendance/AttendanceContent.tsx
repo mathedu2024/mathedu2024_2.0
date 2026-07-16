@@ -106,9 +106,9 @@ const ActivityCard = ({ activity }: { activity: Activity }) => {
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          {new Date(activity.startTime).toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })} 
+          {new Date(activity.startTime).toLocaleString('zh-TW', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })} 
           {' ~ '} 
-          {new Date(activity.endTime).toLocaleString('zh-TW', { hour: '2-digit', minute: '2-digit' })}
+          {new Date(activity.endTime).toLocaleString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false })}
         </div>
       </div>
 
@@ -348,9 +348,9 @@ function CheckInView({
         {/* Body */}
         <div className="p-8">
           <div className="flex justify-center mb-6 text-gray-500 text-sm bg-gray-50 py-2 rounded-lg">
-             <span>{new Date(activity.startTime).toLocaleString('zh-TW')}</span>
+             <span>{new Date(activity.startTime).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })}</span>
              <span className="mx-2">➔</span>
-             <span>{new Date(activity.endTime).toLocaleString('zh-TW')}</span>
+             <span>{new Date(activity.endTime).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })}</span>
           </div>
 
           {hasCheckedIn ? (

@@ -33,6 +33,23 @@ interface Props {
   onEditColumn?: (kind: 'regular' | 'periodic', id: number | string) => void;
 }
 
+/** Enter：同欄位往下一列學生；Shift+Enter：往上一列 */
+function handleGradeInputKeyDown(
+  e: React.KeyboardEvent<HTMLInputElement>,
+  colKey: string,
+  rowIndex: number
+) {
+  if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+  e.preventDefault();
+  const direction = e.shiftKey ? -1 : 1;
+  const next = document.querySelector<HTMLInputElement>(
+    `input[data-grade-col="${CSS.escape(colKey)}"][data-grade-row="${rowIndex + direction}"]`
+  );
+  if (!next || next.disabled || next.readOnly) return;
+  next.focus();
+  next.select();
+}
+
 export default function GradeRegistrationMobile({
   tab,
   students,
@@ -102,7 +119,7 @@ export default function GradeRegistrationMobile({
                   {isOpen && (
                     <div className="border-t border-indigo-100 bg-indigo-50/30">
                       <div className="max-h-[60vh] overflow-y-auto divide-y divide-gray-100">
-                        {students.map(stu => (
+                        {students.map((stu, rowIndex) => (
                           <div key={stu.id} className="flex items-center justify-between gap-4 px-4 py-3 hover:bg-white transition-colors">
                             <div className="flex flex-col flex-shrink-0">
                                <span className="text-sm font-bold text-gray-900 truncate max-w-[100px]">{stu.name}</span>
@@ -111,6 +128,8 @@ export default function GradeRegistrationMobile({
                             <div className="flex-1 max-w-[120px]">
                               <input
                                   inputMode="numeric"
+                                  data-grade-col={`m-reg-${idx}`}
+                                  data-grade-row={rowIndex}
                                   className={`w-full border border-gray-300 rounded-xl px-3 py-2.5 text-center text-lg font-bold bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow shadow-sm placeholder-gray-300 ${isArchived || !isSetup ? 'opacity-50 cursor-not-allowed bg-gray-50' : ''}`}
                                   placeholder="-"
                                   value={stu.regularScores?.[idx] ?? ''}
@@ -119,6 +138,7 @@ export default function GradeRegistrationMobile({
                                     const v = e.target.value;
                                     onUpdateRegularScore(stu.id, idx, v === '' ? undefined : parseInt(v, 10));
                                   }}
+                                  onKeyDown={(e) => handleGradeInputKeyDown(e, `m-reg-${idx}`, rowIndex)}
                               />
                             </div>
                           </div>
@@ -179,7 +199,7 @@ export default function GradeRegistrationMobile({
                          {isOpen && (
                             <div className="border-t border-indigo-100 bg-indigo-50/30">
                                 <div className="max-h-[60vh] overflow-y-auto divide-y divide-gray-100">
-                                {students.map(stu => (
+                                {students.map((stu, rowIndex) => (
                                     <div key={stu.id} className="flex items-center justify-between gap-4 px-4 py-3 hover:bg-white transition-colors">
                                     <div className="flex flex-col flex-shrink-0">
                                         <span className="text-sm font-bold text-gray-900 truncate max-w-[100px]">{stu.name}</span>
@@ -188,6 +208,8 @@ export default function GradeRegistrationMobile({
                                     <div className="flex-1 max-w-[120px]">
                                         <input
                                             inputMode="numeric"
+                                            data-grade-col={`m-peri-${scoreName}`}
+                                            data-grade-row={rowIndex}
                                             className={`w-full border border-gray-300 rounded-xl px-3 py-2 text-center text-lg font-bold bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow shadow-sm placeholder-gray-300 ${isArchived || !isSetup ? 'opacity-50 cursor-not-allowed bg-gray-50' : ''}`}
                                             placeholder="-"
                                             value={stu.periodicScores?.[scoreName] ?? ''}
@@ -196,6 +218,7 @@ export default function GradeRegistrationMobile({
                                               const v = e.target.value;
                                               _onUpdatePeriodicScore(stu.id, scoreName, v === '' ? undefined : parseInt(v, 10));
                                             }}
+                                            onKeyDown={(e) => handleGradeInputKeyDown(e, `m-peri-${scoreName}`, rowIndex)}
                                         />
                                     </div>
                                     </div>

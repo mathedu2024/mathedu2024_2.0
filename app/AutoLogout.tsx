@@ -12,11 +12,26 @@ import {
   shouldSkipIdleLogout,
   TEACHER_SESSION_KEEPALIVE_STORAGE_KEY,
 } from '@/utils/interactKeepalive';
+import {
+  hasRecentSessionActivity,
+  pulseSessionActivity,
+  SESSION_ACTIVITY_STORAGE_KEY,
+} from '@/utils/sessionActivity';
 
 const STUDENT_TIMEOUT = 3 * 60 * 60 * 1000;
 const TEACHER_TIMEOUT = 30 * 60 * 1000;
 /** 預覽／互動開啟時：定期心跳並再檢查，避免閒置登出（含原視窗） */
 const KEEPALIVE_RECHECK_MS = 20_000;
+
+function isTeacherOrAdminRole(role: string | string[] | undefined): boolean {
+  return (
+    role === 'teacher' ||
+    role === 'admin' ||
+    role === '老師' ||
+    role === '管理員' ||
+    (Array.isArray(role) && (role.includes('teacher') || role.includes('admin')))
+  );
+}
 
 export default function AutoLogout() {
   const pathname = usePathname();
@@ -28,14 +43,7 @@ export default function AutoLogout() {
     }
 
     const session = getSession();
-    const role = (session as { role?: string | string[] } | null)?.role;
-    const isTeacherOrAdmin =
-      role === 'teacher' ||
-      role === 'admin' ||
-      role === '老師' ||
-      role === '管理員' ||
-      (Array.isArray(role) && (role.includes('teacher') || role.includes('admin')));
-    const redirectTo = isTeacherOrAdmin ? '/panel' : '/login';
+    const redirectTo = isTeacherOrAdminRole(session?.role) ? '/panel' : '/login';
 
     await logoutClient();
 
@@ -63,6 +71,8 @@ export default function AutoLogout() {
     const session = getSession();
     if (!session) return;
 
+    pulseSessionActivity();
+
     // 本分頁在預覽／互動，或其他分頁正開著預覽／互動：持續保活、不登出
     if (shouldSkipIdleLogout(pathname)) {
       if (isTeacherPreviewOrInteractPath(pathname)) {
@@ -74,21 +84,14 @@ export default function AutoLogout() {
       return;
     }
 
-    const role = (session as { role?: string | string[] }).role;
-    let timeout = STUDENT_TIMEOUT;
-
-    const isTeacherOrAdmin =
-      role === 'teacher' ||
-      role === 'admin' ||
-      role === '老師' ||
-      role === '管理員' ||
-      (Array.isArray(role) && (role.includes('teacher') || role.includes('admin')));
-
-    if (isTeacherOrAdmin) {
-      timeout = TEACHER_TIMEOUT;
-    }
+    const timeout = isTeacherOrAdminRole(session.role) ? TEACHER_TIMEOUT : STUDENT_TIMEOUT;
 
     timerRef.current = setTimeout(() => {
+      // 到期時再確認：若其他分頁剛有操作，延長本分頁計時
+      if (hasRecentSessionActivity(timeout) || shouldSkipIdleLogout(pathname)) {
+        resetTimer();
+        return;
+      }
       void performLogout();
     }, timeout);
   }, [performLogout, pathname]);
@@ -96,7 +99,7 @@ export default function AutoLogout() {
   useEffect(() => {
     resetTimer();
 
-    const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click'];
+    const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click', 'input'];
 
     let lastResetTime = 0;
     const handleActivity = () => {
@@ -108,14 +111,19 @@ export default function AutoLogout() {
     };
 
     const onStorage = (e: StorageEvent) => {
-      if (e.key === TEACHER_SESSION_KEEPALIVE_STORAGE_KEY) {
+      if (
+        e.key === TEACHER_SESSION_KEEPALIVE_STORAGE_KEY ||
+        e.key === SESSION_ACTIVITY_STORAGE_KEY
+      ) {
         resetTimer();
       }
     };
 
     const onVisibility = () => {
-      if (document.visibilityState === 'visible' && isTeacherPreviewOrInteractPath(pathname)) {
-        pulseInteractKeepalive();
+      if (document.visibilityState === 'visible') {
+        if (isTeacherPreviewOrInteractPath(pathname)) {
+          pulseInteractKeepalive();
+        }
         resetTimer();
       }
     };
@@ -143,7 +151,6 @@ export default function AutoLogout() {
       window.removeEventListener('storage', onStorage);
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('beforeunload', onUnload);
-      // 離開預覽／互動路由時清除心跳，讓原視窗恢復一般閒置計時
       if (isTeacherPreviewOrInteractPath(pathname)) {
         clearInteractKeepalive();
       }

@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
@@ -1069,6 +1069,7 @@ export default function TeacherCourseManager({
   const [showAnnouncementManager, setShowAnnouncementManager] = useState<Course | null>(null);
   const [editingAnnouncement, setEditingAnnouncement] = useState<CourseAnnouncement | null>(null);
   const [annIsSubmitting, setAnnIsSubmitting] = useState(false);
+  const gradeLeaveConfirmRef = useRef<(() => Promise<boolean>) | null>(null);
 
   const resolvedCourseFromUrl = useMemo(() => {
     if (!courseCodeFromUrl) return null;
@@ -1076,11 +1077,23 @@ export default function TeacherCourseManager({
     return courses.find((c) => c.code === decoded || c.id === decoded) ?? null;
   }, [courseCodeFromUrl, courses]);
 
-  const setCourseTab = useCallback((tab: TeacherCourseTab) => {
+  const setCourseTab = useCallback(async (tab: TeacherCourseTab) => {
     const code = resolvedCourseFromUrl?.code || courseCodeFromUrl;
     if (!code) return;
+    if (activeCourseTab === 'grades' && tab !== 'grades' && gradeLeaveConfirmRef.current) {
+      const ok = await gradeLeaveConfirmRef.current();
+      if (!ok) return;
+    }
     router.replace(buildTeacherCourseTabUrl(code, tab), { scroll: false });
-  }, [resolvedCourseFromUrl?.code, courseCodeFromUrl, router]);
+  }, [activeCourseTab, resolvedCourseFromUrl?.code, courseCodeFromUrl, router]);
+
+  const leaveCourseDetail = useCallback(async () => {
+    if (activeCourseTab === 'grades' && gradeLeaveConfirmRef.current) {
+      const ok = await gradeLeaveConfirmRef.current();
+      if (!ok) return;
+    }
+    router.push('/back-panel/teacher-courses');
+  }, [activeCourseTab, router]);
 
   const openCourseDetail = useCallback((course: Course, tab: TeacherCourseTab = 'lessons') => {
     router.push(buildTeacherCourseTabUrl(course.code, tab));
@@ -2110,7 +2123,7 @@ export default function TeacherCourseManager({
       return (
         <div className="page-shell w-full min-w-0 flex flex-col h-full animate-fade-in">
           <div className="flex flex-col gap-4">
-            <BackButton label="返回授課清單" onClick={() => router.push('/back-panel/teacher-courses')} withSpacing={false} />
+            <BackButton label="返回授課清單" onClick={() => void leaveCourseDetail()} withSpacing={false} />
             <div className="text-center py-16 px-6 bg-white rounded-2xl border border-dashed border-gray-300">
               <h3 className="text-xl font-bold text-gray-900">找不到此課程</h3>
               <p className="text-gray-500 text-sm mt-2">請確認課程代碼是否正確，或返回清單重新選擇。</p>
@@ -2137,7 +2150,7 @@ export default function TeacherCourseManager({
           </div>
         </div>
         <div className="mt-4 mb-6 flex flex-wrap items-center justify-between gap-3">
-          <BackButton label="返回授課清單" onClick={() => router.push('/back-panel/teacher-courses')} withSpacing={false} />
+          <BackButton label="返回授課清單" onClick={() => void leaveCourseDetail()} withSpacing={false} />
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -2184,7 +2197,7 @@ export default function TeacherCourseManager({
               tabs={TEACHER_COURSE_HUB_TAB_IDS}
               active={activeCourseTab}
               audience="teacher"
-              onChange={(tab) => setCourseTab(tab as TeacherCourseTab)}
+              onChange={(tab) => void setCourseTab(tab as TeacherCourseTab)}
             />
           </div>
 
@@ -2524,6 +2537,7 @@ export default function TeacherCourseManager({
               userInfo={userInfo}
               courseCodeFromUrl={course.code}
               embedded
+              leaveConfirmRef={gradeLeaveConfirmRef}
             />
           )}
           </div>

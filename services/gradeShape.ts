@@ -260,3 +260,61 @@ export function normalizeGradeDocStudents(
     };
   });
 }
+
+/** 將已儲存成績列與課程選修名單合併，確保全班學生皆可登記成績 */
+export function mergeGradeStudentsWithRoster(
+  gradeStudents: Record<string, unknown>[],
+  roster: Record<string, unknown>[]
+): Record<string, unknown>[] {
+  if (roster.length === 0) return gradeStudents;
+
+  const byKey = new Map<string, Record<string, unknown>>();
+  for (const s of gradeStudents) {
+    const sid = String(s.studentId ?? '');
+    const id = String(s.id ?? '');
+    if (sid) byKey.set(sid, s);
+    if (id) byKey.set(id, s);
+  }
+
+  const merged: Record<string, unknown>[] = [];
+  const seen = new Set<string>();
+
+  for (const r of roster) {
+    const studentId = String(r.studentId ?? r.id ?? '');
+    const id = String(r.id ?? r.studentId ?? studentId);
+    const existing = byKey.get(studentId) || byKey.get(id);
+
+    if (existing) {
+      merged.push({
+        ...existing,
+        id: String(existing.id || id),
+        studentId: String(existing.studentId || studentId),
+        name: String(existing.name || r.name || ''),
+        grade: String(existing.grade || r.grade || ''),
+      });
+      seen.add(String(existing.studentId || studentId));
+      seen.add(String(existing.id || id));
+      continue;
+    }
+
+    merged.push({
+      id,
+      studentId,
+      name: String(r.name || ''),
+      grade: String(r.grade || ''),
+      regularScores: {},
+      periodicScores: normalizePeriodicScores(undefined),
+    });
+    seen.add(studentId);
+    seen.add(id);
+  }
+
+  for (const s of gradeStudents) {
+    const sid = String(s.studentId ?? '');
+    const id = String(s.id ?? '');
+    if ((sid && seen.has(sid)) || (id && seen.has(id))) continue;
+    merged.push(s);
+  }
+
+  return merged;
+}

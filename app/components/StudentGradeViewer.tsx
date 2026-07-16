@@ -201,24 +201,27 @@ export default function StudentGradeViewer({ studentInfo, courseCodeFromUrl, emb
       return;
     }
 
-    if (!selectedCourse || gradeItem.score === undefined) return;
+    const courseKey = effectiveSelectedCourse || selectedCourse;
+    const gd = gradeData || (courseKey ? allGrades[courseKey] : null);
+    if (!courseKey && !gd?.courseId) return;
+
     setSelectedGradeForChart(gradeItem);
-    setDistributionData(null); // Show loading state in modal
+    setDistributionData(null);
     try {
-      const gd = allGrades[selectedCourse];
       const res = await fetch('/api/grades/distribution', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({
           courseId: gd?.courseId,
-          courseKey: selectedCourse,
+          courseKey: courseKey || (gd as GradeApiResponse | null)?.courseKey || undefined,
           columnId: gradeItem.idx,
           scoreKind: gradeItem.type === '定期評量' ? 'periodic' : 'regular',
         }),
       });
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || '無法載入成績分布資料');
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error((errorData as { error?: string }).error || '無法載入成績分布資料');
       }
       const data = await res.json();
       const distribution = data as DistributionData;
@@ -228,27 +231,29 @@ export default function StudentGradeViewer({ studentInfo, courseCodeFromUrl, emb
         [gradeItem.idx]: distribution.statistics,
       }));
     } catch (e: unknown) {
+      setSelectedGradeForChart(null);
+      setDistributionData(null);
       setError((e as Error).message || '載入成績分布時發生未知錯誤');
     }
   };
 
   const handleSelectGrade = (gradeItem: { name: string; type: string; date: string; idx: string; score: number | undefined; maxScore?: number; }) => {
-    // Only open modal if there is a score
-    if (gradeItem.score !== undefined) {
-      fetchDistributionForChart(gradeItem);
-    }
+    // 未評分也可查看班級成績分析（五標／分布）
+    void fetchDistributionForChart(gradeItem);
   };
 
   const handleSelectPeriodicGrade = (name: string, score: number | undefined) => {
-    if (score === undefined || !gradeData) return;
+    if (!gradeData && !effectiveSelectedCourse) return;
 
     const gradeItem = {
-      name: name, type: '定期評量', date: '', // Date is not available for periodic scores here
-      idx: name, // Use the name as the identifier for the API call
-      score: score,
-      maxScore: gradeData.columns[name]?.maxScore ?? 100,
+      name,
+      type: '定期評量',
+      date: '',
+      idx: name,
+      score,
+      maxScore: gradeData?.columns?.[name]?.maxScore ?? 100,
     };
-    fetchDistributionForChart(gradeItem);
+    void fetchDistributionForChart(gradeItem);
   };
 
   useEffect(() => {
@@ -410,13 +415,17 @@ export default function StudentGradeViewer({ studentInfo, courseCodeFromUrl, emb
   }, [gradeData, studentGrade]);
 
   const filteredRegularScores = useMemo(() => {
-    if (!gradeData || !gradeData.student) return [] as { name: string; type: string; date: string; idx: string; score: number | undefined; maxScore?: number; }[];
-    
+    if (!gradeData?.columns) return [] as { name: string; type: string; date: string; idx: string; score: number | undefined; maxScore?: number; }[];
+
     const target = gradeData.student;
-    
+
     return Object.entries(gradeData.columns)
         .filter(([, col]) => col.name && col.date)
-        .map(([key, col]) => ({ ...col, idx: key, score: target.regularScores?.[key] } as { name: string; type: string; date: string; idx: string; score: number | undefined; maxScore?: number; }));
+        .map(([key, col]) => ({
+          ...col,
+          idx: key,
+          score: target?.regularScores?.[key],
+        } as { name: string; type: string; date: string; idx: string; score: number | undefined; maxScore?: number; }));
   }, [gradeData]);
 
   const paginatedScores = filteredRegularScores.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -696,21 +705,17 @@ export default function StudentGradeViewer({ studentInfo, courseCodeFromUrl, emb
                                     return (
                                         <div 
                                             key={name} 
-                                            className={`p-3 sm:p-4 md:p-6 bg-white border border-gray-100 rounded-xl sm:rounded-2xl shadow-sm hover:shadow-md transition-shadow group min-w-0 ${hasScore ? 'cursor-pointer' : ''}`}
-                                            onClick={() => hasScore && handleSelectPeriodicGrade(name, score)}
+                                            className="p-3 sm:p-4 md:p-6 bg-white border border-gray-100 rounded-xl sm:rounded-2xl shadow-sm hover:shadow-md transition-shadow group min-w-0 cursor-pointer"
+                                            onClick={() => handleSelectPeriodicGrade(name, hasScore ? score : undefined)}
                                         >
                                             <div className="text-[10px] sm:text-sm font-bold text-gray-500 uppercase tracking-wider mb-1 leading-tight line-clamp-2">{name}</div>
                                             <div className={`text-xl sm:text-3xl md:text-4xl font-bold tabular-nums ${hasScore ? 'text-gray-900 group-hover:text-indigo-600 transition-colors' : 'text-gray-900'}`}>
                                                 {hasScore ? score : <span className="text-gray-300 text-sm sm:text-2xl font-normal">未評分</span>}
                                             </div>
-                                            {hasScore && (
-                                                <>
-                                                  <div className="sm:hidden text-[9px] text-indigo-500 mt-1 font-medium">點擊分析</div>
-                                                  <div className="hidden sm:flex text-xs text-gray-400 mt-2 items-center">
-                                                      點擊查看成績分析 <svg className="w-3 h-3 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                                                  </div>
-                                                </>
-                                            )}
+                                            <div className="sm:hidden text-[9px] text-indigo-500 mt-1 font-medium">點擊分析</div>
+                                            <div className="hidden sm:flex text-xs text-gray-400 mt-2 items-center group-hover:text-indigo-500 transition-colors">
+                                                點擊查看成績分析 <svg className="w-3 h-3 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                            </div>
                                         </div>
                                     );
                                 })}
@@ -745,9 +750,10 @@ export default function StudentGradeViewer({ studentInfo, courseCodeFromUrl, emb
                                                     </span>
                                                     <span className="text-xs text-gray-500 font-mono">{col.date}</span>
                                                 </div>
+                                                <p className="text-[11px] text-indigo-500 mt-2 font-medium">點擊查看成績分析</p>
                                             </div>
                                             <div className="shrink-0 text-right">
-                                                {col.score !== undefined ? (
+                                                {col.score !== undefined && col.score !== null ? (
                                                     <span className={`text-lg font-bold ${col.score < 60 ? 'text-red-500' : 'text-gray-900'}`}>{col.score}</span>
                                                 ) : (
                                                     <span className="text-xs text-gray-400">未評分</span>
@@ -784,11 +790,12 @@ export default function StudentGradeViewer({ studentInfo, courseCodeFromUrl, emb
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">{col.date}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                    {col.score !== undefined ? (
+                                                    {col.score !== undefined && col.score !== null ? (
                                                         <span className={`text-sm font-bold ${col.score < 60 ? 'text-red-500' : 'text-gray-900'}`}>{col.score}</span>
                                                     ) : (
                                                         <span className="text-xs text-gray-400">未評分</span>
                                                     )}
+                                                    <div className="text-[10px] text-indigo-400 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">查看分析</div>
                                                 </td>
                                             </tr>
                                         ))
@@ -853,16 +860,20 @@ export default function StudentGradeViewer({ studentInfo, courseCodeFromUrl, emb
         )}
 
         <Modal
-            open={!!selectedGradeForChart && !!distributionData}
+            open={!!selectedGradeForChart}
             onClose={() => {
                 setSelectedGradeForChart(null);
                 setDistributionData(null);
             }}
-            title={`${selectedGradeForChart?.name} - 成績分布`}
+            title={`${selectedGradeForChart?.name ?? ''} - 成績分布`}
             size="lg"
         >
+            {selectedGradeForChart && !distributionData && (
+              <PageLoadingArea minHeight="min-h-[200px]" />
+            )}
             {selectedGradeForChart && distributionData && (() => {
                 const studentScore = selectedGradeForChart.score;
+                const hasStudentScore = studentScore !== undefined && studentScore !== null;
                 const maxScore = selectedGradeForChart.maxScore ?? 100;
 
                 const getFivePointInterval = (score: number, stats: DistributionData['statistics']): string => {
@@ -889,22 +900,31 @@ export default function StudentGradeViewer({ studentInfo, courseCodeFromUrl, emb
                     }
                 };
 
-                const fivePointInterval = studentScore !== undefined ? getFivePointInterval(studentScore, distributionData.statistics) : '';
+                const fivePointInterval = hasStudentScore ? getFivePointInterval(studentScore, distributionData.statistics) : '';
 
                 return (
                     <div className="space-y-8">
                         <div className="bg-indigo-50 p-6 rounded-xl border border-indigo-100 text-center">
                             <h5 className="font-bold text-indigo-900 mb-2 uppercase tracking-wide text-xs">您的分數</h5>
                             <div className="flex items-baseline justify-center gap-1 mb-2">
-                                <span className="text-5xl font-extrabold text-indigo-600 leading-none">
-                                    {studentScore ?? 'N/A'}
-                                </span>
-                                <span className="text-lg text-indigo-400 font-medium leading-none">/ {maxScore}</span>
+                                {hasStudentScore ? (
+                                  <>
+                                    <span className="text-5xl font-extrabold text-indigo-600 leading-none">
+                                        {studentScore}
+                                    </span>
+                                    <span className="text-lg text-indigo-400 font-medium leading-none">/ {maxScore}</span>
+                                  </>
+                                ) : (
+                                  <span className="text-3xl font-bold text-indigo-300 leading-none">未評分</span>
+                                )}
                             </div>
                             {fivePointInterval && (
                                 <span className="inline-block mt-2 px-3 py-1 bg-white text-indigo-600 rounded-full text-xs font-bold border border-indigo-100 shadow-sm">
                                     {fivePointInterval}
                                 </span>
+                            )}
+                            {!hasStudentScore && (
+                              <p className="text-xs text-indigo-400 mt-3">仍可查看本班五標與成績分布</p>
                             )}
                         </div>
 

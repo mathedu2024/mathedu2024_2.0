@@ -511,7 +511,7 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
               
               {detailsAppointment.bookingTimestamp && (
                 <p className="text-xs text-gray-400 text-right pt-2 border-t border-gray-50">
-                    預約時間: {new Date(detailsAppointment.bookingTimestamp).toLocaleString()}
+                    預約時間: {new Date(detailsAppointment.bookingTimestamp).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })}
                 </p>
               )}
             </div>

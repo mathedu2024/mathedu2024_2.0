@@ -1200,9 +1200,9 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                                     />
                                                 </div>
                                                 <div className="flex items-center gap-2 flex-grow">
-                                                    <input type="time" disabled={isEditingArchived} value={time.startTime} onChange={e => updateClassTime(index, 'startTime', e.target.value)} className={`p-2 border border-gray-300 rounded-lg w-full outline-none focus:ring-2 focus:ring-indigo-500 ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} step="300" />
+                                                    <input type="time" lang="en-GB" disabled={isEditingArchived} value={time.startTime} onChange={e => updateClassTime(index, 'startTime', e.target.value)} className={`p-2 border border-gray-300 rounded-lg w-full outline-none focus:ring-2 focus:ring-indigo-500 ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} step="300" />
                                                     <span className="text-gray-400">→</span>
-                                                    <input type="time" disabled={isEditingArchived} value={time.endTime} onChange={e => updateClassTime(index, 'endTime', e.target.value)} className={`p-2 border border-gray-300 rounded-lg w-full outline-none focus:ring-2 focus:ring-indigo-500 ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} step="300" />
+                                                    <input type="time" lang="en-GB" disabled={isEditingArchived} value={time.endTime} onChange={e => updateClassTime(index, 'endTime', e.target.value)} className={`p-2 border border-gray-300 rounded-lg w-full outline-none focus:ring-2 focus:ring-indigo-500 ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} step="300" />
                                                 </div>
                                                 {!isEditingArchived && (
                                                     <button type="button" onClick={() => removeClassTime(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors">

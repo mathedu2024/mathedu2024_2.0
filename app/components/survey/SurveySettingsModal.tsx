@@ -133,6 +133,7 @@ export default function SurveySettingsModal({
                   <label className="text-sm text-gray-600 mb-1.5 block">開始時間</label>
                   <input
                     type="datetime-local"
+                    lang="en-GB"
                     value={toDatetimeLocalValue(survey.answerStartAt)}
                     onChange={(e) =>
                       onChange((prev) => ({
@@ -147,6 +148,7 @@ export default function SurveySettingsModal({
                   <label className="text-sm text-gray-600 mb-1.5 block">截止時間</label>
                   <input
                     type="datetime-local"
+                    lang="en-GB"
                     value={toDatetimeLocalValue(survey.answerEndAt)}
                     onChange={(e) =>
                       onChange((prev) => ({

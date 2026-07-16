@@ -101,6 +101,7 @@ export default function QuizSettingsModal({ open, quiz, onChange, onClose }: Qui
                   <label className="text-sm text-gray-600 mb-1.5 block">開始時間</label>
                   <input
                     type="datetime-local"
+                    lang="en-GB"
                     value={toDatetimeLocalValue(quiz.answerStartAt)}
                     onChange={(e) =>
                       onChange((prev) => ({
@@ -115,6 +116,7 @@ export default function QuizSettingsModal({ open, quiz, onChange, onClose }: Qui
                   <label className="text-sm text-gray-600 mb-1.5 block">截止時間</label>
                   <input
                     type="datetime-local"
+                    lang="en-GB"
                     value={toDatetimeLocalValue(quiz.answerEndAt)}
                     onChange={(e) =>
                       onChange((prev) => ({

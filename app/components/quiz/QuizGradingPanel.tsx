@@ -410,6 +410,7 @@ export default function QuizGradingPanel({
                             day: 'numeric',
                             hour: '2-digit',
                             minute: '2-digit',
+                            hour12: false,
                           });
                       return (
                         <button

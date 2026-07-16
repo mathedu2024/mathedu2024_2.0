@@ -583,7 +583,7 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
                         )}
                         {student.bookingTimestamp && (
                             <p className="text-xs text-gray-400 mt-2 text-right">
-                                預約時間: {new Date(student.bookingTimestamp).toLocaleString()}
+                                預約時間: {new Date(student.bookingTimestamp).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })}
                             </p>
                         )}
                       </div>
@@ -646,13 +646,13 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
                 <div className="grid grid-cols-2 gap-2">
                     <div>
                         <label htmlFor="startTime" className="block text-sm font-bold text-gray-700 mb-1">開始</label>
-                        <input type="time" id="startTime" name="startTime" value={form.startTime} onChange={handleFormChange} required 
+                        <input type="time" id="startTime" name="startTime" lang="en-GB" value={form.startTime} onChange={handleFormChange} required 
                             className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent" 
                         />
                     </div>
                     <div>
                         <label htmlFor="endTime" className="block text-sm font-bold text-gray-700 mb-1">結束</label>
-                        <input type="time" id="endTime" name="endTime" value={form.endTime} onChange={handleFormChange} required 
+                        <input type="time" id="endTime" name="endTime" lang="en-GB" value={form.endTime} onChange={handleFormChange} required 
                             className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent" 
                         />
                     </div>

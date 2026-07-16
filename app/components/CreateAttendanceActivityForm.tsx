@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Swal from '@/utils/swalTheme';
 import LoadingSpinner from './LoadingSpinner';
+import { toDatetimeLocalValue } from '@/utils/dateTimeFormat';
 
 // --- Types & Interfaces ---
 
@@ -129,10 +130,7 @@ const creationModeOptions = [
   { value: 'scheduled', label: '預約點名' },
 ];
 
-const formatDateTimeLocal = (date: Date): string => {
-  const pad = (num: number) => num.toString().padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-};
+const formatDateTimeLocal = (date: Date): string => toDatetimeLocalValue(date);
 
 const methodTitlePrefix = (method: 'manual' | 'numeric' | 'qr'): string => {
   if (method === 'manual') return '手動點名';
@@ -169,7 +167,9 @@ export default function CreateAttendanceActivityForm({
   
   const formatDateTimeForInput = (isoString: string | undefined) => {
     if (!isoString) return '';
-    return isoString.slice(0, 16);
+    const d = new Date(isoString);
+    if (Number.isNaN(d.getTime())) return '';
+    return formatDateTimeLocal(d);
   };
 
   const [startTime, setStartTime] = useState(formatDateTimeForInput(initialData?.startTime));
@@ -197,7 +197,8 @@ export default function CreateAttendanceActivityForm({
     month: 'long',
     day: 'numeric',
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
+    hour12: false,
   }), []);
 
   // 標題由系統依簽到方式自動訂定（即時／預約皆同規則，避免變成「預約點名」）
@@ -543,6 +544,7 @@ export default function CreateAttendanceActivityForm({
                   <label htmlFor="startTime" className="block text-sm font-bold text-gray-700 mb-2">開始時間</label>
                   <input
                     type="datetime-local"
+                    lang="en-GB"
                     id="startTime"
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
@@ -555,6 +557,7 @@ export default function CreateAttendanceActivityForm({
                   <label htmlFor="endTime" className="block text-sm font-bold text-gray-700 mb-2">截止時間 (選填)</label>
                   <input
                     type="datetime-local"
+                    lang="en-GB"
                     id="endTime"
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}

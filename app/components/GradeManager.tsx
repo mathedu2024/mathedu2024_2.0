@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createPortal, } from 'react-dom';
 import LoadingSpinner from './LoadingSpinner';
@@ -74,6 +74,66 @@ interface GradeSettings {
   periodicEnabled: Record<string, boolean>;
 }
 
+type GradePersistedState = {
+  students: Array<{
+    id: string;
+    studentId: string;
+    name: string;
+    grade: string;
+    regularScores: Record<string, number | undefined>;
+    periodicScores: Record<string, number | undefined>;
+    manualAdjust?: number;
+  }>;
+  columnDetails: Record<string, ColumnDetail>;
+  regularColumns: number;
+  settings: GradeSettings;
+  periodicColumnDetails: Record<string, PeriodicColumnMeta>;
+};
+
+function serializeGradeState(state: GradePersistedState): string {
+  return JSON.stringify(state);
+}
+
+async function confirmDiscardGradeChanges(): Promise<boolean> {
+  const result = await Swal.fire({
+    icon: 'warning',
+    title: '尚未儲存成績',
+    text: '您有尚未儲存的修改，確定要離開嗎？離開後變更將會遺失。',
+    showCancelButton: true,
+    confirmButtonText: '離開',
+    cancelButtonText: '繼續編輯',
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: '#6b7280',
+    customClass: { popup: 'rounded-2xl' },
+  });
+  return result.isConfirmed;
+}
+
+/** Enter：同欄位往下一列學生；Shift+Enter：往上一列 */
+function focusAdjacentGradeInput(
+  e: React.KeyboardEvent<HTMLInputElement>,
+  colKey: string,
+  rowIndex: number,
+  direction: 1 | -1
+) {
+  e.preventDefault();
+  const next = document.querySelector<HTMLInputElement>(
+    `input[data-grade-col="${CSS.escape(colKey)}"][data-grade-row="${rowIndex + direction}"]`
+  );
+  if (!next || next.disabled || next.readOnly) return;
+  next.focus();
+  next.select();
+}
+
+function handleGradeInputKeyDown(
+  e: React.KeyboardEvent<HTMLInputElement>,
+  colKey: string,
+  rowIndex: number
+) {
+  if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+  focusAdjacentGradeInput(e, colKey, rowIndex, e.shiftKey ? -1 : 1);
+}
+
 
 const Modal = ({ open, onClose, title, size = 'md', children }: { open?: boolean; onClose?: () => void; title?: string; size?: string; children?: React.ReactNode }) => {
   const [mounted, setMounted] = useState(false);
@@ -103,11 +163,17 @@ export default function GradeManager({
   userInfo,
   courseCodeFromUrl = '',
   embedded = false,
+  onDirtyChange,
+  leaveConfirmRef,
 }: {
   userInfo?: UserInfo | null;
   courseCodeFromUrl?: string;
   /** 嵌入課程詳情分頁時隱藏標題與返回列 */
   embedded?: boolean;
+  /** 通知父層是否有未儲存變更（嵌入課程分頁用） */
+  onDirtyChange?: (dirty: boolean) => void;
+  /** 父層在切換分頁／離開課程前呼叫，確認是否可離開 */
+  leaveConfirmRef?: React.MutableRefObject<(() => Promise<boolean>) | null>;
 }) {
   const router = useRouter();
   const [courses, setCourses] = useState<CourseInfo[]>([]);
@@ -143,6 +209,44 @@ export default function GradeManager({
   const [selectedNature, setSelectedNature] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
+  const [savedSnapshot, setSavedSnapshot] = useState('');
+  const baselineReadyRef = useRef(false);
+  const allowLeaveRef = useRef(false);
+
+  const isArchived = selectedCourse?.status === '已封存';
+
+  const currentSnapshot = useMemo(
+    () =>
+      serializeGradeState({
+        students: students.map((s) => {
+          const { id, studentId, name, grade, regularScores, periodicScores, manualAdjust } = s;
+          return {
+            id,
+            studentId,
+            name,
+            grade,
+            regularScores: regularScores || {},
+            periodicScores: periodicScores || {},
+            manualAdjust,
+          };
+        }),
+        columnDetails,
+        regularColumns,
+        settings: (settings ?? defaultGradeSettings) as GradeSettings,
+        periodicColumnDetails,
+      }),
+    [students, columnDetails, regularColumns, settings, periodicColumnDetails]
+  );
+
+  const isDirty = useMemo(() => {
+    if (isCourseLoading || isArchived || !selectedCourse || !savedSnapshot) return false;
+    return currentSnapshot !== savedSnapshot;
+  }, [isCourseLoading, isArchived, selectedCourse, savedSnapshot, currentSnapshot]);
+
+  const confirmLeaveIfDirty = useCallback(async () => {
+    if (isArchived || !isDirty) return true;
+    return confirmDiscardGradeChanges();
+  }, [isArchived, isDirty]);
 
   const computedData: ComputedStudentGradeRow[] = useMemo(() => {
     const s = (settings ?? defaultGradeSettings) as GradeSettings;
@@ -288,7 +392,9 @@ export default function GradeManager({
   );
 
   const selectCourse = useCallback(
-    (course: CourseInfo | null) => {
+    async (course: CourseInfo | null) => {
+      if (!(await confirmLeaveIfDirty())) return;
+      allowLeaveRef.current = true;
       setSelectedCourse(course);
       if (course) {
         router.push(teacherCourseHubPath(course.code, 'grades'));
@@ -296,8 +402,46 @@ export default function GradeManager({
         router.push('/back-panel/teacher-courses');
       }
     },
-    [router]
+    [router, confirmLeaveIfDirty]
   );
+
+  useEffect(() => {
+    baselineReadyRef.current = false;
+    allowLeaveRef.current = false;
+    setSavedSnapshot('');
+  }, [selectedCourse?.id]);
+
+  useEffect(() => {
+    if (isCourseLoading || !selectedCourse) return;
+    if (!baselineReadyRef.current) {
+      setSavedSnapshot(currentSnapshot);
+      baselineReadyRef.current = true;
+    }
+  }, [isCourseLoading, selectedCourse, currentSnapshot]);
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+
+  useEffect(() => {
+    if (!leaveConfirmRef) return;
+    leaveConfirmRef.current = confirmLeaveIfDirty;
+    return () => {
+      leaveConfirmRef.current = null;
+    };
+  }, [leaveConfirmRef, confirmLeaveIfDirty]);
+
+  useEffect(() => {
+    if (!isDirty || isArchived || isCourseLoading || !selectedCourse) return;
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty, isArchived, isCourseLoading, selectedCourse]);
 
   // --- 副作用 (Fetch Data) ---
   useEffect(() => {
@@ -325,53 +469,70 @@ export default function GradeManager({
   }, [courseCodeFromUrl, courses]);
 
   useEffect(() => {
-    if (selectedCourse) {
-      const fetchGradeData = async () => {
-        setIsCourseLoading(true);
-        try {
-          const res = await fetch('/api/grades/get', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ courseId: selectedCourse.id, courseName: selectedCourse.name, courseCode: selectedCourse.code })
-          });
-          if (!res.ok) throw new Error('讀取成績資料失敗');
-          const data = await res.json();
-          
-          let fetchedRegularColumns = data.regularColumns || 0;
-          let fetchedColumnDetails = data.columnDetails || {};
+    if (!selectedCourse || !userInfo) return;
 
-          if (fetchedRegularColumns < 10) {
-            for (let i = fetchedRegularColumns; i < 10; i++) {
-              fetchedColumnDetails[String(i)] = {
-                type: '小考',
-                name: '',
-                date: '',
-                maxScore: 100,
-              };
-            }
-            fetchedRegularColumns = 10;
-          }
-
-          setStudents(data.students || []);
-          setColumnDetails(fetchedColumnDetails);
-          setRegularColumns(fetchedRegularColumns);
-          setSettings((data.settings ?? defaultGradeSettings) as GradeSettings);
-          setPeriodicColumnDetails(mergePeriodicColumnDetails(data.periodicColumnDetails));
-        } catch (error) {
-          Swal.fire({
-            icon: 'error',
-            title: '讀取失敗',
-            text: error instanceof Error ? error.message : '發生未知錯誤',
-            confirmButtonColor: '#ef4444',
-            customClass: { popup: 'rounded-2xl' }
-          });
-        } finally {
-          setIsCourseLoading(false);
+    let cancelled = false;
+    const course = selectedCourse;
+    const fetchGradeData = async () => {
+      setIsCourseLoading(true);
+      try {
+        const res = await fetch('/api/grades/get', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            courseId: course.id,
+            courseName: course.name,
+            courseCode: course.code,
+          }),
+        });
+        if (cancelled) return;
+        if (res.status === 401) {
+          throw new Error('登入已過期，請重新登入後再試');
         }
-      };
-      fetchGradeData();
-    }
-  }, [selectedCourse]);
+        if (!res.ok) throw new Error('讀取成績資料失敗');
+        const data = await res.json();
+        if (cancelled) return;
+
+        let fetchedRegularColumns = data.regularColumns || 0;
+        let fetchedColumnDetails = data.columnDetails || {};
+
+        if (fetchedRegularColumns < 10) {
+          for (let i = fetchedRegularColumns; i < 10; i++) {
+            fetchedColumnDetails[String(i)] = {
+              type: '小考',
+              name: '',
+              date: '',
+              maxScore: 100,
+            };
+          }
+          fetchedRegularColumns = 10;
+        }
+
+        setStudents(data.students || []);
+        setColumnDetails(fetchedColumnDetails);
+        setRegularColumns(fetchedRegularColumns);
+        setSettings((data.settings ?? defaultGradeSettings) as GradeSettings);
+        setPeriodicColumnDetails(mergePeriodicColumnDetails(data.periodicColumnDetails));
+      } catch (error) {
+        if (cancelled) return;
+        Swal.fire({
+          icon: 'error',
+          title: '讀取失敗',
+          text: error instanceof Error ? error.message : '發生未知錯誤',
+          confirmButtonColor: '#ef4444',
+          customClass: { popup: 'rounded-2xl' },
+        });
+      } finally {
+        if (!cancelled) setIsCourseLoading(false);
+      }
+    };
+    void fetchGradeData();
+    return () => {
+      cancelled = true;
+    };
+    // 依賴長度須固定；用 id 避免物件參考變動造成重複請求
+  }, [selectedCourse, userInfo]);
 
   const handleSaveChanges = async () => {
     if (!selectedCourse) return;
@@ -399,6 +560,9 @@ export default function GradeManager({
         })
       });
       if (!res.ok) throw new Error('儲存成績失敗');
+      setSavedSnapshot(currentSnapshot);
+      baselineReadyRef.current = true;
+      allowLeaveRef.current = false;
       Swal.fire({
         icon: 'success',
         title: '成績已儲存',
@@ -621,8 +785,6 @@ export default function GradeManager({
     });
   }, [courses, searchTerm, selectedGrade, selectedSubject, selectedNature, selectedStatus]);
 
-  const isArchived = selectedCourse?.status === '已封存';
-
   // --- 渲染部分 ---
   return (
     <div className={embedded ? 'w-full min-w-0 flex flex-col animate-fade-in' : 'page-shell w-full min-w-0 flex flex-col h-full animate-fade-in'}>
@@ -636,7 +798,7 @@ export default function GradeManager({
             <p className="text-gray-500 text-sm mt-1">設定評量比例並登記學生的平時與定期成績。</p>
           </div>
           {selectedCourse && (
-            <button onClick={() => selectCourse(null)} className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors shadow-sm font-medium flex items-center text-sm">
+            <button onClick={() => void selectCourse(null)} className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors shadow-sm font-medium flex items-center text-sm">
               <ArrowLeftIcon className="w-4 h-4 mr-2" /> 返回列表
             </button>
           )}
@@ -696,7 +858,7 @@ export default function GradeManager({
                                   <div className="text-xs font-mono text-gray-500 mt-1">{course.code}</div>
                               </td>
                               <td className="px-6 py-4 text-right whitespace-nowrap">
-                                  <button onClick={() => selectCourse(course)} className={tableActionStyles.primary}>
+                                  <button onClick={() => void selectCourse(course)} className={tableActionStyles.primary}>
                                       管理成績
                                   </button>
                               </td>
@@ -709,7 +871,7 @@ export default function GradeManager({
           {/* 手機版卡片視圖 */}
           <div className="md:hidden space-y-4">
               {filteredCourses.map(course => (
-                  <div key={course.id} className="bg-white border border-gray-100 rounded-xl shadow-sm p-5 flex flex-col gap-3 active:scale-[0.99] transition-transform" onClick={() => selectCourse(course)}>
+                  <div key={course.id} className="bg-white border border-gray-100 rounded-xl shadow-sm p-5 flex flex-col gap-3 active:scale-[0.99] transition-transform" onClick={() => void selectCourse(course)}>
                       <div className="flex justify-between items-start">
                            <div>
                                <h3 className="font-bold text-gray-900 text-lg">{course.name}</h3>
@@ -717,7 +879,7 @@ export default function GradeManager({
                            </div>
                       </div>
                       <div className="border-t border-gray-100 pt-3 flex justify-end">
-                           <button onClick={(e) => { e.stopPropagation(); selectCourse(course); }} className={`${tableActionStyles.primary} w-full`}>
+                           <button onClick={(e) => { e.stopPropagation(); void selectCourse(course); }} className={`${tableActionStyles.primary} w-full`}>
                                管理成績
                            </button>
                       </div>
@@ -825,7 +987,7 @@ export default function GradeManager({
                 </table>
               </div>
               {/* 右側滾動區塊 (成績登記) */}
-              <div className="overflow-x-auto custom-scrollbar flex-1 bg-white">
+              <div className="overflow-x-auto custom-scrollbar flex-1 min-w-0 bg-white">
                 <table className="w-full text-sm text-left min-w-max">
                   <thead className="bg-gray-50 text-gray-700 uppercase text-sm font-bold">
                     <tr className="h-[72px]">
@@ -868,20 +1030,24 @@ export default function GradeManager({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {computedData.map((stu) => (
+                  {computedData.map((stu, rowIndex) => (
                     <tr key={stu.id} className={`h-[65px] transition-colors ${hoveredRowId === stu.id ? 'bg-indigo-50' : 'bg-white'}`} onMouseEnter={() => setHoveredRowId(stu.id)} onMouseLeave={() => setHoveredRowId(null)}>
                       {selectedTab === 'regular' && Array.from({ length: regularColumns }).map((_, colIdx) => {
                         const isSetup = !!(columnDetails[colIdx]?.name && columnDetails[colIdx]?.date);
+                        const colKey = `reg-${colIdx}`;
                         return (
                           <td key={colIdx} className="px-4 py-2 text-center align-middle">
                             <input 
                               type="text"
                               inputMode="numeric"
+                              data-grade-col={colKey}
+                              data-grade-row={rowIndex}
                               title={!isSetup ? "請先設定項目名稱與日期" : ""}
                               placeholder="-"
                               className={`w-20 border rounded-lg px-2 py-1.5 text-center text-base font-semibold focus:ring-2 focus:ring-indigo-500 outline-none ${ (stu.regularScores[colIdx] ?? 0) < 60 ? 'text-red-500 font-bold' : ''} ${isArchived || !isSetup ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''} appearance-none`}
                               value={stu.regularScores[colIdx] ?? ''}
                               onChange={(e) => handleScoreChange(stu.id, 'reg', colIdx, e.target.value)}
+                              onKeyDown={(e) => handleGradeInputKeyDown(e, colKey, rowIndex)}
                               disabled={isArchived || !isSetup}
                             />
                           </td>
@@ -889,16 +1055,20 @@ export default function GradeManager({
                       })}
                       {selectedTab === 'periodic' && FIXED_PERIODIC_KEYS.map((pk) => {
                           const isSetup = !!periodicColumnDetails[pk]?.date;
+                          const colKey = `peri-${pk}`;
                           return (
                           <td key={pk} className="px-4 py-2 text-center align-middle">
                             <input
                               type="text"
                               inputMode="numeric"
+                              data-grade-col={colKey}
+                              data-grade-row={rowIndex}
                                 title={!isSetup ? "請先設定日期" : ""}
                                 placeholder="-"
                                 className={`w-20 border rounded-lg px-2 py-1.5 text-center text-base font-semibold focus:ring-2 focus:ring-indigo-500 outline-none ${(stu.periodicScores?.[pk] ?? 0) < 60 ? 'text-red-500 font-bold' : ''} ${isArchived || !isSetup ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''} appearance-none`}
                               value={stu.periodicScores?.[pk] ?? ''}
                               onChange={(e) => handleScoreChange(stu.id, 'peri', pk, e.target.value)}
+                              onKeyDown={(e) => handleGradeInputKeyDown(e, colKey, rowIndex)}
                                 disabled={isArchived || !isSetup}
                             />
                           </td>
@@ -913,10 +1083,13 @@ export default function GradeManager({
                             <input
                               type="text"
                               inputMode="numeric"
+                              data-grade-col="final"
+                              data-grade-row={rowIndex}
                               placeholder="-"
                               className={`w-24 border rounded-lg px-2 py-1.5 text-center text-base font-semibold focus:ring-2 focus:ring-indigo-500 outline-none ${stu.finalTotal < 60 ? 'text-red-600 font-bold' : 'text-indigo-600'} ${isArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''} appearance-none`}
                               value={stu.finalTotal ?? ''}
                               onChange={(e) => handleFinalScoreChange(stu.id, e.target.value)}
+                              onKeyDown={(e) => handleGradeInputKeyDown(e, 'final', rowIndex)}
                               disabled={isArchived}
                             />
                           </td>

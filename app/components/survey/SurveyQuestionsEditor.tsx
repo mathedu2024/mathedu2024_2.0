@@ -1,8 +1,15 @@
 'use client';
 
 import React from 'react';
+import {
+  DragDropContext,
+  Droppable,
+  Draggable,
+  type DropResult,
+} from '@hello-pangea/dnd';
 import { PlusIcon, TrashIcon, Bars3Icon } from '@heroicons/react/24/outline';
 import Dropdown from '../ui/Dropdown';
+import { fixDraggableStyle } from '@/utils/dndStyle';
 import type {
   SurveyChoiceQuestion,
   SurveyMatrixQuestion,
@@ -68,6 +75,17 @@ export default function SurveyQuestionsEditor({
     onChange([...questions, createQuestionByType(type)]);
   };
 
+  const onDragEnd = (result: DropResult) => {
+    if (!result.destination) return;
+    const from = result.source.index;
+    const to = result.destination.index;
+    if (from === to) return;
+    const next = [...questions];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    onChange(next);
+  };
+
   return (
     <div className="border border-gray-200 rounded-2xl p-4 sm:p-5 space-y-4 bg-white">
       {questions.length === 0 ? (
@@ -84,15 +102,31 @@ export default function SurveyQuestionsEditor({
         </div>
       ) : (
         <div className="space-y-4">
-          {questions.map((q, qi) => (
-            <QuestionEditor
-              key={q.id}
-              question={q}
-              index={qi}
-              onChange={(next) => updateQuestion(qi, next)}
-              onRemove={() => removeQuestion(qi)}
-            />
-          ))}
+          <DragDropContext onDragEnd={onDragEnd}>
+            <Droppable droppableId="survey-questions">
+              {(provided) => (
+                <div ref={provided.innerRef} {...provided.droppableProps} className="space-y-4">
+                  {questions.map((q, qi) => (
+                    <Draggable key={q.id} draggableId={q.id} index={qi}>
+                      {(dragProvided, snapshot) => (
+                        <QuestionEditor
+                          question={q}
+                          index={qi}
+                          onChange={(next) => updateQuestion(qi, next)}
+                          onRemove={() => removeQuestion(qi)}
+                          innerRef={dragProvided.innerRef}
+                          draggableProps={dragProvided.draggableProps}
+                          dragHandleProps={dragProvided.dragHandleProps ?? undefined}
+                          isDragging={snapshot.isDragging}
+                        />
+                      )}
+                    </Draggable>
+                  ))}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
           <div className="flex justify-end pt-2">
             <Dropdown
               value=""
@@ -116,11 +150,21 @@ function QuestionEditor({
   index,
   onChange,
   onRemove,
+  innerRef,
+  draggableProps,
+  dragHandleProps,
+  isDragging,
 }: {
   question: SurveyQuestion;
   index: number;
   onChange: (q: SurveyQuestion) => void;
   onRemove: () => void;
+  innerRef?: React.Ref<HTMLDivElement>;
+  draggableProps?: React.HTMLAttributes<HTMLDivElement> & {
+    style?: React.CSSProperties;
+  };
+  dragHandleProps?: React.HTMLAttributes<HTMLDivElement> | null;
+  isDragging?: boolean;
 }) {
   const handleTypeChange = (newType: SurveyQuestionType) => {
     if (newType === question.type) return;
@@ -134,10 +178,23 @@ function QuestionEditor({
   };
 
   return (
-    <div className="rounded-xl border border-gray-100 bg-gray-50/80 p-4 space-y-3">
+    <div
+      ref={innerRef}
+      {...draggableProps}
+      style={fixDraggableStyle(draggableProps?.style)}
+      className={`rounded-xl border border-gray-100 bg-gray-50/80 p-4 space-y-3 ${
+        isDragging ? 'ring-2 ring-indigo-400 shadow-lg' : ''
+      }`}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
-          <Bars3Icon className="w-4 h-4 text-gray-300 shrink-0" />
+          <div
+            {...dragHandleProps}
+            className="text-gray-400 hover:text-gray-600 cursor-grab active:cursor-grabbing p-1 touch-none shrink-0"
+            title="拖曳排序"
+          >
+            <Bars3Icon className="w-4 h-4" />
+          </div>
           <span className="text-xs font-bold text-indigo-600 shrink-0">Q{index + 1}</span>
         </div>
         <button type="button" onClick={onRemove} className="text-gray-400 hover:text-red-500" title="刪除題目">
