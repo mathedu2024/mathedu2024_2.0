@@ -21,7 +21,7 @@ import {
   type LessonAssignedQuiz,
 } from '@/services/lessonQuiz';
 import { canStartExamTake } from '@/utils/examDraftStorage';
-import { openStudentExamReviewInNewTab } from '@/utils/examAttemptLabel';
+import { openStudentExamReviewInNewTab, buildStudentCourseExamsUrl } from '@/utils/examAttemptLabel';
 import { showExamTakeBlockedAlert } from '@/utils/examTakeAlerts';
 import { fetchQuizByCode } from '@/utils/teacherClientApi';
 import { openBlankPreviewTab, openTeacherExamPreviewInNewTab } from '@/utils/teacherExamPreview';
@@ -120,6 +120,11 @@ export default function LessonDetailPage({
     [examList]
   );
 
+  const examsBackHref = useMemo(() => {
+    const code = lesson?.courseCode || lesson?.courseId;
+    return code ? buildStudentCourseExamsUrl(code) : undefined;
+  }, [lesson?.courseCode, lesson?.courseId]);
+
   const openStartModal = useCallback(
     async (exam: StudentExamListItem, mode: 'start' | 'retake') => {
       if (previewMode) {
@@ -164,16 +169,20 @@ export default function LessonDetailPage({
   );
 
   const openHistory = useCallback((exam: StudentExamListItem) => {
+    const fromOpt = examsBackHref ? { from: examsBackHref } : undefined;
     if (exam.attempts && exam.attempts.length > 0) {
       setHistoryModal(exam);
       return;
     }
     if (exam.latestSubmissionId) {
-      openStudentExamReviewInNewTab(exam.quizCode, { submissionId: exam.latestSubmissionId });
+      openStudentExamReviewInNewTab(exam.quizCode, {
+        submissionId: exam.latestSubmissionId,
+        ...fromOpt,
+      });
       return;
     }
-    openStudentExamReviewInNewTab(exam.quizCode, { review: true });
-  }, []);
+    openStudentExamReviewInNewTab(exam.quizCode, { review: true, ...fromOpt });
+  }, [examsBackHref]);
 
   // Initialize and fetch data
   useEffect(() => {
@@ -723,6 +732,7 @@ export default function LessonDetailPage({
             studentId={studentInfo?.id || 'preview'}
             mode={startModal.mode}
             resolveExamTitle={resolveExamTitle}
+            backHref={examsBackHref}
           />
         )}
 
@@ -734,6 +744,7 @@ export default function LessonDetailPage({
             examTitle={historyModal.title}
             attempts={historyModal.attempts ?? []}
             resultsPublished={historyModal.resultsPublished}
+            backHref={examsBackHref}
           />
         )}
     </div>

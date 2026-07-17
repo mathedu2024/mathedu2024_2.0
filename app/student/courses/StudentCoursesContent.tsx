@@ -858,6 +858,12 @@ export default function StudentCoursesContent({
     [previewMode]
   );
 
+  const examsBackHref = useMemo(() => {
+    const code = resolvedCourse?.code || courseCodeFromUrl;
+    if (!code) return undefined;
+    return buildCourseTabUrl(code, 'exams', previewMode);
+  }, [resolvedCourse?.code, courseCodeFromUrl, previewMode]);
+
   const openHistory = useCallback((exam: StudentExamListItem) => {
     if (previewMode) {
       void Swal.fire({
@@ -867,16 +873,20 @@ export default function StudentCoursesContent({
       });
       return;
     }
+    const fromOpt = examsBackHref ? { from: examsBackHref } : undefined;
     if (exam.attempts && exam.attempts.length > 0) {
       setHistoryModal(exam);
       return;
     }
     if (exam.latestSubmissionId) {
-      openStudentExamReviewInNewTab(exam.quizCode, { submissionId: exam.latestSubmissionId });
+      openStudentExamReviewInNewTab(exam.quizCode, {
+        submissionId: exam.latestSubmissionId,
+        ...fromOpt,
+      });
       return;
     }
-    openStudentExamReviewInNewTab(exam.quizCode, { review: true });
-  }, [previewMode]);
+    openStudentExamReviewInNewTab(exam.quizCode, { review: true, ...fromOpt });
+  }, [previewMode, examsBackHref]);
 
   const deepLinkHandledRef = useRef('');
   const annIdFromUrl = searchParams.get('ann');
@@ -1609,6 +1619,7 @@ export default function StudentCoursesContent({
           studentId={studentInfo?.id || 'preview'}
           mode={startModal.mode}
           resolveExamTitle={resolveExamTitle}
+          backHref={examsBackHref}
         />
       )}
 
@@ -1629,6 +1640,7 @@ export default function StudentCoursesContent({
           examTitle={historyModal.title}
           attempts={historyModal.attempts ?? []}
           resultsPublished={historyModal.resultsPublished}
+          backHref={examsBackHref}
         />
       )}
     </div>

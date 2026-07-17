@@ -17,7 +17,10 @@ import {
 } from '@/utils/studentClientApi';
 import { ATTEMPT_SCORE_POLICY_OPTIONS } from '@/services/quizTypes';
 import { canStartExamTake } from '@/utils/examDraftStorage';
-import { openStudentExamReviewInNewTab } from '@/utils/examAttemptLabel';
+import {
+  buildStudentCourseExamsUrl,
+  openStudentExamReviewInNewTab,
+} from '@/utils/examAttemptLabel';
 import { showExamTakeBlockedAlert } from '@/utils/examTakeAlerts';
 
 type ExamListTab = 'active' | 'ended';
@@ -42,6 +45,11 @@ function ExamCard({
   const [historyOpen, setHistoryOpen] = useState(false);
 
   const isRetake = exam.submitted && exam.canRetake;
+  const examsBackHref =
+    exam.assignedCourses?.[0]?.courseId
+      ? buildStudentCourseExamsUrl(exam.assignedCourses[0].courseId)
+      : '/student/exam';
+  const fromOpt = { from: examsBackHref };
 
   const openHistory = () => {
     if (exam.attempts && exam.attempts.length > 0) {
@@ -49,10 +57,13 @@ function ExamCard({
       return;
     }
     if (exam.latestSubmissionId) {
-      openStudentExamReviewInNewTab(exam.quizCode, { submissionId: exam.latestSubmissionId });
+      openStudentExamReviewInNewTab(exam.quizCode, {
+        submissionId: exam.latestSubmissionId,
+        ...fromOpt,
+      });
       return;
     }
-    openStudentExamReviewInNewTab(exam.quizCode, { review: true });
+    openStudentExamReviewInNewTab(exam.quizCode, { review: true, ...fromOpt });
   };
 
   const openStartModal = async () => {
@@ -187,6 +198,7 @@ function ExamCard({
           examTitle={exam.title}
           attempts={exam.attempts ?? []}
           resultsPublished={exam.resultsPublished}
+          backHref={examsBackHref}
         />
       )}
 
@@ -198,6 +210,7 @@ function ExamCard({
           studentId={studentId}
           mode={isRetake ? 'retake' : 'start'}
           resolveExamTitle={resolveExamTitle}
+          backHref={examsBackHref}
         />
       )}
     </>

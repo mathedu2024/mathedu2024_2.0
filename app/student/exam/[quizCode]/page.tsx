@@ -1,7 +1,7 @@
 'use client';
 
-import React, { Suspense, useEffect, useState } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
 import PageLoadingArea from '@/components/ui/PageLoadingArea';
 import BackButton from '@/components/ui/BackButton';
 import ExamTakeView from '@/components/student-exam/ExamTakeView';
@@ -13,15 +13,16 @@ import type { QuizAnswerKey } from '@/services/quizStudentView';
 import { applyQuizAnswerKey } from '@/services/quizStudentView';
 import type { QuizSubmission } from '@/services/quizSubmissionTypes';
 import { fetchStudentExamByCode, type StudentExamAttemptSummary } from '@/utils/studentClientApi';
+import { resolveStudentExamExitHref } from '@/utils/examAttemptLabel';
 
 function StudentExamTakePageInner() {
   const params = useParams();
   const searchParams = useSearchParams();
-  const router = useRouter();
   const quizCode = typeof params.quizCode === 'string' ? params.quizCode : '';
   const submissionId = searchParams.get('submission') ?? undefined;
   const review = searchParams.get('review') === '1';
   const take = searchParams.get('take') === '1';
+  const fromParam = searchParams.get('from');
   const hydrated = useHydrated();
   const { studentInfo, loading: studentLoading } = useStudentInfo();
   const initExam = useQuizStore((s) => s.initExam);
@@ -37,6 +38,11 @@ function StudentExamTakePageInner() {
     viewingSubmissionId?: string;
     attempts: StudentExamAttemptSummary[];
   }>({ readOnly: false, resultsPublished: false, canRetake: false, attempts: [] });
+
+  const backHref = useMemo(
+    () => resolveStudentExamExitHref(fromParam, quiz),
+    [fromParam, quiz]
+  );
 
   useEffect(() => {
     return () => reset();
@@ -120,7 +126,7 @@ function StudentExamTakePageInner() {
     return (
       <div className="page-shell py-16 text-center space-y-4">
         <p className="text-gray-600">{error}</p>
-        <BackButton label="返回測驗列表" href="/student/exam" withSpacing={false} />
+        <BackButton label="返回線上測驗" href={backHref} withSpacing={false} />
       </div>
     );
   }
@@ -140,6 +146,7 @@ function StudentExamTakePageInner() {
       readOnly={viewMeta.readOnly}
       resultsPublished={viewMeta.resultsPublished}
       initialAttempts={viewMeta.readOnly ? viewMeta.attempts : undefined}
+      backHref={backHref}
     />
   );
 }

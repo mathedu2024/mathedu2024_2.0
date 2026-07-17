@@ -22,6 +22,8 @@ interface StudentExamAttemptPickerModalProps {
   /** 在檢視視窗內切換時改為同視窗導覽，預設仍於新分頁開啟 */
   openMode?: 'newTab' | 'sameWindow';
   currentSubmissionId?: string;
+  /** 檢視結束後回程（通常為課程線上測驗分頁） */
+  backHref?: string;
 }
 
 export default function StudentExamAttemptPickerModal({
@@ -33,6 +35,7 @@ export default function StudentExamAttemptPickerModal({
   resultsPublished,
   openMode = 'newTab',
   currentSubmissionId,
+  backHref,
 }: StudentExamAttemptPickerModalProps) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
@@ -55,12 +58,13 @@ export default function StudentExamAttemptPickerModal({
   if (!open || !mounted) return null;
 
   const handlePick = (submissionId: string) => {
+    const fromOpt = backHref ? { from: backHref } : undefined;
     if (openMode === 'sameWindow') {
       if (submissionId !== currentSubmissionId) {
-        router.push(buildStudentExamReviewUrl(quizCode, { submissionId }));
+        router.push(buildStudentExamReviewUrl(quizCode, { submissionId, ...fromOpt }));
       }
     } else {
-      openStudentExamReviewInNewTab(quizCode, { submissionId });
+      openStudentExamReviewInNewTab(quizCode, { submissionId, ...fromOpt });
     }
     onClose();
   };

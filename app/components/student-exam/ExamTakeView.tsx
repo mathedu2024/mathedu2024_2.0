@@ -41,6 +41,7 @@ import {
 } from '@/utils/studentClientApi';
 import { useExamSessionGuards } from '@/utils/useExamSessionGuards';
 import { useMobileExamLayout } from '@/utils/useMobileExamLayout';
+import { resolveStudentExamExitHref } from '@/utils/examAttemptLabel';
 
 function findQuestionLocation(
   sections: QuizSection[],
@@ -94,6 +95,8 @@ interface ExamTakeViewProps {
   readOnly?: boolean;
   resultsPublished?: boolean;
   initialAttempts?: StudentExamAttemptSummary[];
+  /** 離開作答／檢視後的回程（通常為課程線上測驗分頁） */
+  backHref?: string;
   /** 老師預覽：關閉時回呼（不導向學生列表） */
   onExitPreview?: () => void;
 }
@@ -103,6 +106,7 @@ export default function ExamTakeView({
   readOnly: readOnlyProp = false,
   resultsPublished: resultsPublishedProp,
   initialAttempts,
+  backHref,
   onExitPreview,
 }: ExamTakeViewProps) {
   const router = useRouter();
@@ -163,6 +167,8 @@ export default function ExamTakeView({
     };
   }, [readOnlyProp, quizCode, initialAttempts]);
 
+  const exitHref = resolveStudentExamExitHref(backHref, quiz);
+
   const handleExitToList = () => {
     if (previewMode) {
       onExitPreview?.();
@@ -170,10 +176,10 @@ export default function ExamTakeView({
     }
     if (readOnly) {
       window.close();
-      router.push('/student/exam');
+      router.push(exitHref);
       return;
     }
-    router.push('/student/exam');
+    router.push(exitHref);
   };
 
   const numbered = useMemo(
@@ -469,7 +475,7 @@ export default function ExamTakeView({
           </button>
         </div>
       ) : !examLock ? (
-        <BackButton label="返回測驗列表" href="/student/exam" />
+        <BackButton label="返回線上測驗" href={exitHref} />
       ) : null}
 
       <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start">
@@ -595,6 +601,7 @@ export default function ExamTakeView({
           resultsPublished={resultsPublished}
           openMode="sameWindow"
           currentSubmissionId={submission?.id}
+          backHref={exitHref}
         />
       )}
     </div>

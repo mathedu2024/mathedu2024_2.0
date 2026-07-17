@@ -21,6 +21,8 @@ interface StudentExamStartModalProps {
   studentId: string;
   mode?: 'start' | 'retake';
   resolveExamTitle?: (quizCode: string) => string | undefined;
+  /** 作答結束後回程（通常為課程線上測驗分頁） */
+  backHref?: string;
 }
 
 export default function StudentExamStartModal({
@@ -29,6 +31,7 @@ export default function StudentExamStartModal({
   exam,
   studentId,
   mode = 'start',
+  backHref,
 }: StudentExamStartModalProps) {
   const [mounted, setMounted] = useState(false);
 
@@ -68,7 +71,7 @@ export default function StudentExamStartModal({
       clearExamDraft(exam.quizCode, studentId);
     }
     invalidateStudentExamGet(exam.quizCode);
-    openStudentExamTakeInNewTab(exam.quizCode);
+    openStudentExamTakeInNewTab(exam.quizCode, backHref ? { from: backHref } : undefined);
     onClose();
   };
 
