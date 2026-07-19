@@ -11,17 +11,12 @@ import Dropdown from './ui/Dropdown';
 import Swal from 'sweetalert2';
 import { 
   PlusIcon, 
-  PencilIcon, 
-  TrashIcon, 
   MagnifyingGlassIcon, 
   UserIcon, 
   UserGroupIcon,
-  KeyIcon,
   PhoneIcon,
   EnvelopeIcon,
   MapPinIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
   XMarkIcon,
   CloudArrowUpIcon,
 } from '@heroicons/react/24/outline';
@@ -91,7 +86,6 @@ export default function StudentManager() {
   const [batchGrade, setBatchGrade] = useState<string>('不變更');
   const [batchCourses, setBatchCourses] = useState<string[]>([]);
   const [batchRemoveCourses, setBatchRemoveCourses] = useState<string[]>([]);
-  const [mobileBatchPanelOpen, setMobileBatchPanelOpen] = useState(false);
   const [formErrors, setFormErrors] = useState<{ studentId?: string; email?: string }>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -158,7 +152,7 @@ export default function StudentManager() {
       try {
         const coursesRaw = await fetchAdminCoursesList();
         const courses = (Array.isArray(coursesRaw) ? coursesRaw : [])
-          .map((c: any) => ({
+          .map((c: MinimalCourse & { id?: string }) => ({
             ...c,
             id: c.id || `${c.name}(${c.code})`
           }))

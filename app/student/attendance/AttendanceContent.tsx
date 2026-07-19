@@ -11,7 +11,7 @@ import { useInterval } from '@/utils/hooks';
 import Swal from '@/utils/swalTheme';
 import StudentCourseSelector, { isCourseArchived } from '@/components/StudentCourseSelector';
 import { ClockIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline';
-import AttendanceQrScanner from '@/components/AttendanceQrScanner';
+import AttendanceQrGuide from '@/components/AttendanceQrGuide';
 
 // ====================================================================
 // 1. Interfaces
@@ -206,6 +206,7 @@ function CheckInView({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasCheckedIn, _setHasCheckedIn] = useState(false);
   const [finalStatus, _setFinalStatus] = useState<string | null>(null);
+  const [awaitingQrAuto, setAwaitingQrAuto] = useState(() => Boolean(initialQrToken));
   const autoTokenTriedRef = React.useRef(false);
 
   const resolveReturnPath = () => {
@@ -297,7 +298,13 @@ function CheckInView({
       });
       
       setCheckInCode('');
-      autoTokenTriedRef.current = false;
+      setAwaitingQrAuto(false);
+      // 清掉失效 token，改顯示系統相機掃碼說明，請學生重新掃描
+      if (payload.qrToken && searchParams.get('token')) {
+        const next = new URLSearchParams(searchParams.toString());
+        next.delete('token');
+        router.replace(`/student/attendance?${next.toString()}`);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -309,6 +316,7 @@ function CheckInView({
       return;
     }
     autoTokenTriedRef.current = true;
+    setAwaitingQrAuto(true);
     void processCheckIn({ qrToken: initialQrToken });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activity, initialQrToken]);
@@ -393,11 +401,9 @@ function CheckInView({
 
               {activity.checkInMethod === 'qr' && (
                 <div className="mb-6">
-                  <AttendanceQrScanner
-                    disabled={isSubmitting}
-                    onToken={(token) => {
-                      if (!isSubmitting) processCheckIn({ qrToken: token });
-                    }}
+                  <AttendanceQrGuide
+                    isSubmitting={isSubmitting}
+                    hasToken={awaitingQrAuto}
                   />
                 </div>
               )}
@@ -411,9 +417,6 @@ function CheckInView({
                   >
                     {isSubmitting ? '驗證中...' : '確認簽到'}
                   </button>
-                )}
-                {activity.checkInMethod === 'qr' && isSubmitting && (
-                  <div className="w-full text-center text-indigo-600 font-medium py-2">驗證簽到中…</div>
                 )}
                 <button 
                   type="button"

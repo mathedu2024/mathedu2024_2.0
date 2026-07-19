@@ -1,6 +1,7 @@
 import type { GridCellAnswer, Question, Quiz, SubQuestion, QuizCourseRef } from './quizTypes';
 import {
   ensureQuizSections,
+  getFillInCellSubNumber,
   isChoiceQuestion,
   isFillInQuestion,
   isGroupQuestion,
@@ -72,7 +73,7 @@ export function getQuizForStudentExam(
 export interface QuizAnswerKeyEntry {
   correctAnswers?: string[];
   correctAnswer?: boolean;
-  cells?: Array<{ id: string; correctAnswer: GridCellAnswer }>;
+  cells?: Array<{ id: string; correctAnswer: GridCellAnswer; subNumber?: number }>;
   referenceAnswer?: string;
 }
 
@@ -89,7 +90,11 @@ function collectAnswerKeyEntry(q: Question | SubQuestion): QuizAnswerKeyEntry | 
   }
   if (isFillInQuestion(q)) {
     return {
-      cells: q.cells.map((c) => ({ id: c.id, correctAnswer: c.correctAnswer })),
+      cells: q.cells.map((c, i) => ({
+        id: c.id,
+        subNumber: getFillInCellSubNumber(c, i),
+        correctAnswer: c.correctAnswer,
+      })),
     };
   }
   if (isShortAnswerQuestion(q)) {
@@ -134,13 +139,21 @@ function mergeAnswerKeyIntoSubQuestion(
     return { ...q, correctAnswer: entry.correctAnswer };
   }
   if (isFillInQuestion(q) && entry.cells) {
-    const cellMap = new Map(entry.cells.map((c) => [c.id, c.correctAnswer]));
+    const byId = new Map(entry.cells.map((c) => [c.id, c.correctAnswer]));
+    const bySubNumber = new Map<number, GridCellAnswer>();
+    entry.cells.forEach((c, i) => {
+      const sub = c.subNumber ?? i + 1;
+      bySubNumber.set(sub, c.correctAnswer);
+    });
     return {
       ...q,
-      cells: q.cells.map((c) => ({
-        ...c,
-        correctAnswer: cellMap.get(c.id) ?? c.correctAnswer,
-      })),
+      cells: q.cells.map((c, i) => {
+        const sub = getFillInCellSubNumber(c, i);
+        return {
+          ...c,
+          correctAnswer: byId.get(c.id) ?? bySubNumber.get(sub) ?? c.correctAnswer,
+        };
+      }),
     };
   }
   if (isShortAnswerQuestion(q) && entry.referenceAnswer !== undefined) {

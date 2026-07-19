@@ -19,7 +19,9 @@ const formSchema = z.object({
 });
 
 interface MinimalCourse {
+  id?: string;
   name: string;
+  code?: string;
   status?: string;
   archived?: boolean | string;
 }
@@ -75,7 +77,7 @@ function PasswordManager({ onPasswordChangeSuccess, apiEndpoint = '/api/student/
 
           // 使用 enrolledCourses 補齊後端被過濾的已封存課程
           if (userInfo.enrolledCourses && userInfo.enrolledCourses.length > 0) {
-            const apiCourseIds = apiCourses.map(c => (c as any).id || `${c.name}(${(c as any).code || ''})`);
+            const apiCourseIds = apiCourses.map(c => c.id || `${c.name}(${c.code || ''})`);
             
             userInfo.enrolledCourses.forEach(courseStr => {
               if (!apiCourseIds.includes(courseStr)) {

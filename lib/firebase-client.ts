@@ -29,7 +29,7 @@ let db: Firestore;
 try {
   // 嘗試初始化 Firestore，若需要設定離線暫存等參數，請加在第二個參數的物件中
   db = initializeFirestore(app, {});
-} catch (error) {
+} catch {
   // 捕捉 HMR 造成的重複初始化錯誤，降級使用已存在的實例
   db = getFirestore(app);
 }

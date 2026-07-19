@@ -4,7 +4,7 @@ import { enrolledKeyMatchesCourse, type CourseRefTarget } from './courseId';
 import { normalizeAssignedCourses, type Quiz, type QuizCourseRef } from './quizTypes';
 import type { QuizRosterStudent } from './quizRosterService';
 
-export interface TeacherCourseRecord extends CourseRefTarget {}
+export type TeacherCourseRecord = CourseRefTarget;
 
 export interface QuizAccessContext {
   quiz: Quiz;

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { PlusIcon, PencilIcon, TrashIcon, UserIcon, MapPinIcon, ClockIcon, TagIcon, ChatBubbleLeftRightIcon, EnvelopeIcon, ClipboardIcon, ChevronDownIcon, CalendarIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, UserIcon, MapPinIcon, ClockIcon, TagIcon, ChatBubbleLeftRightIcon, EnvelopeIcon, ClipboardIcon, CalendarIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { format as formatFns, startOfWeek, addDays, isSameDay, parseISO, isPast, addWeeks, subWeeks, type Locale } from 'date-fns';
 import { zhTW } from 'date-fns/locale';
 import alerts from '@/utils/alerts';

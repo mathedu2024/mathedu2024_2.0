@@ -147,7 +147,7 @@ class TutoringService {
     });
   }
 
-  async getTeacherAppointments(teacherId: string): Promise<any[]> {
+  async getTeacherAppointments(teacherId: string): Promise<Appointment[]> {
     console.log(`Placeholder for getTeacherAppointments: ${teacherId}`);
     return Promise.resolve([]);
   }

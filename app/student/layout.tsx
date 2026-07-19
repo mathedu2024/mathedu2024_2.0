@@ -9,6 +9,7 @@ import { useStudentInfo, StudentInfoProvider } from './StudentInfoContext';
 import { BookOpenIcon, ChatBubbleLeftRightIcon, UserCircleIcon, CloudArrowDownIcon } from '@heroicons/react/24/outline';
 import { useCompactNav } from '../utils/useCompactNav';
 import { useExamFocusMode } from '@/utils/useExamFocusMode';
+import { buildStudentLoginUrl, rememberStudentLoginNext } from '@/utils/studentLoginRedirect';
 
 const studentFeatures = [
   { id: 'courses', title: '我的課程', icon: <BookOpenIcon className="h-6 w-6" /> },
@@ -47,13 +48,15 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
     setActiveTab(currentTabFromPath || currentTabFromSearch);
   }, [pathname, searchParams]);
 
-  // 新增：如果未登入且載入完成，自動導向登入頁面
+  // 未登入且載入完成：導向登入，並保留目前路徑（含 QR 簽到 token）
   useEffect(() => {
-    // 加入延遲檢查，避免在狀態切換瞬間誤判
     if (!loading && !studentInfo && !isLoggingOut) {
-      router.push('/login');
+      const search = searchParams.toString();
+      const nextPath = `${pathname}${search ? `?${search}` : ''}`;
+      rememberStudentLoginNext(nextPath);
+      router.push(buildStudentLoginUrl(nextPath));
     }
-  }, [loading, studentInfo, router, isLoggingOut]);
+  }, [loading, studentInfo, router, isLoggingOut, pathname, searchParams]);
 
   const handleTabChange = (tab: string | null) => {
     setActiveTab(tab);

@@ -495,7 +495,7 @@ export default function GradeManager({
         if (cancelled) return;
 
         let fetchedRegularColumns = data.regularColumns || 0;
-        let fetchedColumnDetails = data.columnDetails || {};
+        const fetchedColumnDetails = data.columnDetails || {};
 
         if (fetchedRegularColumns < 10) {
           for (let i = fetchedRegularColumns; i < 10; i++) {
@@ -693,7 +693,7 @@ export default function GradeManager({
 
       // 填入資料
       computedData.forEach((stu) => {
-        const rowData: Record<string, any> = {
+        const rowData: Record<string, string | number> = {
           studentId: stu.studentId,
           name: stu.name,
         };
@@ -947,7 +947,7 @@ export default function GradeManager({
           
 
           {/* 表格主體 (簡化邏輯呈現) */}
-          <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+          <div className="bg-white border-2 border-gray-200 rounded-2xl shadow-sm overflow-hidden">
             {isCourseLoading ? (
               <PageLoadingArea minHeight="min-h-[200px]" />
             ) : (

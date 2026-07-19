@@ -14,12 +14,14 @@ export default function Navigation() {
   const isCompactNav = useCompactNav();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [session, setSessionState] = useState<SessionData | null>(null);
-  const [sidebarData, setSidebarData] = useState<{
-    menuItems: any[];
+  type SidebarMenuItem = { id: string; title?: string; href?: string; disabled?: boolean };
+  type SidebarSyncDetail = {
+    menuItems: SidebarMenuItem[];
     dashboardHref?: string;
     activeTab?: string | null;
     boldNavLabels?: boolean;
-  } | null>(null);
+  };
+  const [sidebarData, setSidebarData] = useState<SidebarSyncDetail | null>(null);
 
   const refreshSession = useCallback(() => {
     const next = getSession();
@@ -61,7 +63,7 @@ export default function Navigation() {
   }, [refreshSession]);
 
   useEffect(() => {
-    const handleSidebarSync = (e: CustomEvent<{ menuItems: unknown[]; dashboardHref?: string; activeTab?: string | null; boldNavLabels?: boolean }>) => {
+    const handleSidebarSync = (e: CustomEvent<SidebarSyncDetail>) => {
       if (!getSession()) return;
       setSidebarData(e.detail);
     };
@@ -82,7 +84,7 @@ export default function Navigation() {
   const mobileNavFont = (isActiveItem: boolean) =>
     sidebarData?.boldNavLabels || isActiveItem ? 'font-bold' : 'font-medium';
 
-  const isManagementRole = (sessionData: any) => {
+  const isManagementRole = (sessionData: SessionData | null) => {
     if (!sessionData) return false;
     const role = sessionData.currentRole || sessionData.role;
     if (Array.isArray(role)) {
@@ -108,7 +110,7 @@ export default function Navigation() {
     return '/panel';
   };
 
-  const getUserRoleDisplay = (sessionData: any) => {
+  const getUserRoleDisplay = (sessionData: SessionData | null) => {
     if (!sessionData) return '學生';
     const role = sessionData.currentRole || sessionData.role;
     if (Array.isArray(role)) {
@@ -255,7 +257,7 @@ export default function Navigation() {
                     </button>
                   )}
                   
-                  {sidebarData.menuItems.map((item: any) => {
+                  {sidebarData.menuItems.map((item) => {
                     if (item.id.startsWith('divider')) {
                       return <div key={item.id} className="border-t border-gray-100 mx-4 my-2" />;
                     }

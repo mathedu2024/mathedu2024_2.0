@@ -10,7 +10,6 @@ import Dropdown from './ui/Dropdown';
 import RichTextEditor from '../../components/RichTextEditor';
 import { 
   PlusIcon, 
-  PencilIcon, 
   TrashIcon, 
   MagnifyingGlassIcon, 
   MegaphoneIcon, 

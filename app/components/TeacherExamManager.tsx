@@ -236,7 +236,7 @@ export default function TeacherExamManager({
     return () => {
       cancelled = true;
     };
-  }, [examSubView, quizCodeFromUrl, userInfo?.id, fetchQuizByCode, router, initialCourseId, courses]);
+  }, [examSubView, quizCodeFromUrl, userInfo?.id, fetchQuizByCode, router, initialCourseId, courses, examsHubReturnTo]);
 
   useEffect(() => {
     blockedBuilderRedirectRef.current = false;
@@ -256,7 +256,7 @@ export default function TeacherExamManager({
     }).then(() => {
       router.replace(withExamReturn(examDetailPath(editingQuiz.quizCode, 'grading')));
     });
-  }, [editingQuiz, userInfo?.id, examSubView, isQuizCreator, router]);
+  }, [editingQuiz, userInfo?.id, examSubView, isQuizCreator, router, withExamReturn]);
 
   const courseFilterOptions = useMemo(() => {
     const activeCourses = courses.filter((c) => c.status !== '已封存');

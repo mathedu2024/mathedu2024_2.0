@@ -291,6 +291,8 @@ export default function StudentGradeViewer({ studentInfo, courseCodeFromUrl, emb
       const merged = mergeCoursesFromEnrolledKeys(prev, enrolled);
       return merged.length === prev.length ? prev : merged;
     });
+    // Only re-merge when enrolled course keys change, not on every studentInfo identity change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentInfo?.enrolledCourses, loading]);
 
   const handleSelectCourse = (course: CourseInfo) => {
@@ -723,7 +725,7 @@ export default function StudentGradeViewer({ studentInfo, courseCodeFromUrl, emb
                         </div>
                     </div>
 
-                    <div>
+                    <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200 p-4 sm:p-6 md:p-8">
                         <div className="mb-6">
                             <h4 className="text-lg font-bold text-gray-800 flex items-center">
                                 <span className="w-1 h-6 bg-indigo-500 rounded-full mr-2"></span>
@@ -821,37 +823,37 @@ export default function StudentGradeViewer({ studentInfo, courseCodeFromUrl, emb
                                 ))}
                             </div>
                         )}
-                        
-                        <div className="mt-8 pt-8 border-t border-gray-100">
-                            <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                                <h5 className="font-bold text-gray-800 flex items-center shrink-0">
-                                    <ChartBarIcon className="w-5 h-5 mr-2 text-indigo-500" />
-                                    成績趨勢分析
-                                </h5>
-                                <nav className="inline-flex w-full sm:w-auto p-1 bg-gray-100 rounded-lg gap-0.5">
-                                    {([
-                                        { value: 'raw', label: '原始成績' },
-                                        { value: 'percentage', label: '百分制' },
-                                        { value: 'fiveMark', label: '五標' },
-                                    ] as const).map((mode) => (
-                                        <button
-                                            key={mode.value}
-                                            type="button"
-                                            onClick={() => setYAxisType(mode.value)}
-                                            className={`flex-1 sm:flex-none px-2.5 sm:px-3 py-1.5 text-xs font-bold rounded-md transition-all whitespace-nowrap ${
-                                                yAxisType === mode.value
-                                                    ? 'bg-white text-indigo-600 shadow-sm'
-                                                    : 'text-gray-500 hover:text-gray-700'
-                                            }`}
-                                        >
-                                            {mode.label}
-                                        </button>
-                                    ))}
-                                </nav>
-                            </div>
-                            <div className="bg-white p-3 sm:p-4 rounded-xl border border-gray-100 h-[240px] sm:h-[300px] min-w-0">
-                                <Bar data={chartData} options={chartOptions} />
-                            </div>
+                    </div>
+
+                    <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200 p-4 sm:p-6 md:p-8">
+                        <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <h4 className="text-lg font-bold text-gray-800 flex items-center shrink-0">
+                                <span className="w-1 h-6 bg-indigo-500 rounded-full mr-2"></span>
+                                成績趨勢分析
+                            </h4>
+                            <nav className="inline-flex w-full sm:w-auto p-1 bg-gray-100 rounded-lg gap-0.5">
+                                {([
+                                    { value: 'raw', label: '原始成績' },
+                                    { value: 'percentage', label: '百分制' },
+                                    { value: 'fiveMark', label: '五標' },
+                                ] as const).map((mode) => (
+                                    <button
+                                        key={mode.value}
+                                        type="button"
+                                        onClick={() => setYAxisType(mode.value)}
+                                        className={`flex-1 sm:flex-none px-2.5 sm:px-3 py-1.5 text-xs font-bold rounded-md transition-all whitespace-nowrap ${
+                                            yAxisType === mode.value
+                                                ? 'bg-white text-indigo-600 shadow-sm'
+                                                : 'text-gray-500 hover:text-gray-700'
+                                        }`}
+                                    >
+                                        {mode.label}
+                                    </button>
+                                ))}
+                            </nav>
+                        </div>
+                        <div className="bg-gray-50/50 p-3 sm:p-4 rounded-xl border border-gray-100 h-[240px] sm:h-[300px] min-w-0">
+                            <Bar data={chartData} options={chartOptions} />
                         </div>
                     </div>
                 </div>

@@ -97,7 +97,7 @@ export default function Sidebar({
           setCachedUserInfo(parsed);
           setPersistedUserInfo(parsed);
         }
-      } catch (e) {}
+      } catch {}
     }
   }, [userInfo]);
 
@@ -117,7 +117,7 @@ export default function Sidebar({
       if (typeof window !== 'undefined') {
         try {
           sessionStorage.setItem('sidebar_user_info', JSON.stringify(userInfo));
-        } catch (e) {}
+        } catch {}
       }
     }
   }, [userInfo]);

@@ -215,6 +215,21 @@ export function buildGridCellLabel(questionNumber: number, cellIndex: number): s
   return `${questionNumber}-${cellIndex + 1}`;
 }
 
+/** 選填格數字編號（標籤「題號-N」的 N；無效時退回 1-based index） */
+export function getFillInCellSubNumber(cell: Pick<GridCell, 'label'>, cellIndex: number): number {
+  const matched = /^(\d+)-(\d+)$/.exec(String(cell.label ?? '').trim());
+  if (matched) {
+    const n = parseInt(matched[2], 10);
+    if (!Number.isNaN(n) && n >= 1) return n;
+  }
+  return cellIndex + 1;
+}
+
+/** 選填作答穩定鍵（依格子數字編號；刪除後重建同號視為同一格） */
+export function fillInCellAnswerStableKey(subNumber: number): string {
+  return `#${subNumber}`;
+}
+
 /** 將各種儲存格式正規化為選填格答案符號 */
 export function normalizeGridCellAnswer(raw: unknown): GridCellAnswer {
   if (raw === '±' || raw === '\u00b1') return '±';
@@ -603,6 +618,7 @@ export function formatQuizDateTimeRange(
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
+      timeZone: 'Asia/Taipei',
     });
   };
   return `${fmt(startIso)} ~ ${fmt(endIso)}`;

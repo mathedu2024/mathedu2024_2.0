@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { quizService } from '@/services/quizService';
 import { quizSubmissionService } from '@/services/quizSubmissionService';
-import { isQuizAccessibleToStudent } from '@/services/quizStudentView';
-import { canStudentRetakeQuiz, getQuizMaxAttempts, isQuizResultsPublished, isValidQuizCode } from '@/services/quizTypes';
+import {
+  extractQuizAnswerKey,
+  isQuizAccessibleToStudent,
+  sanitizeSubmissionForStudent,
+} from '@/services/quizStudentView';
+import { getQuizMaxAttempts, isQuizResultsPublished, isValidQuizCode } from '@/services/quizTypes';
 import {
   gradeStudentSubmission,
   type StudentAnswers,
@@ -65,14 +69,16 @@ export async function POST(req: NextRequest) {
     });
 
     const resultsPublished = isQuizResultsPublished(quiz);
+    const safeSubmission = sanitizeSubmissionForStudent(submission, quiz);
 
     return NextResponse.json({
-      submission,
+      submission: safeSubmission,
       resultsPublished,
+      ...(resultsPublished ? { answerKey: extractQuizAnswerKey(quiz) } : {}),
       gradeResult: {
-        totalScore: gradeResult.totalScore,
-        maxScore: gradeResult.maxScore,
-        objectiveScore: gradeResult.objectiveScore,
+        totalScore: safeSubmission.totalScore,
+        maxScore: safeSubmission.maxScore,
+        objectiveScore: resultsPublished ? gradeResult.objectiveScore : 0,
         hasPendingManual: gradeResult.hasPendingManual,
         status: gradeResult.status,
       },

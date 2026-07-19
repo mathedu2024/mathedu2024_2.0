@@ -38,6 +38,8 @@ import {
   type QuizSection,
 } from './quizTypes';
 import { rewriteQuizImageCodeInQuiz, validateQuizImageCount } from '@/utils/quizImageHtml';
+import { fillInCorrectAnswersChanged } from './quizSubmissionTypes';
+import { quizSubmissionService } from './quizSubmissionService';
 
 async function safeQuizImageOperation(label: string, operation: () => Promise<void>): Promise<void> {
   try {
@@ -450,6 +452,16 @@ class QuizService {
     await safeQuizImageOperation('sync on update', async () => {
       await syncOrphanedQuizImages(nextQuiz);
     });
+
+    // 選填題答案變更時，依格子數字編號重批已繳交作答
+    if (
+      input.sections !== undefined &&
+      fillInCorrectAnswersChanged(existingQuiz, nextQuiz)
+    ) {
+      await quizSubmissionService.regradeAllForQuiz(quizId, teacherId, {
+        previousQuiz: existingQuiz,
+      });
+    }
   }
 
   /**

@@ -5,7 +5,6 @@ import { createPortal } from 'react-dom';
 import { format, parseISO, isFuture } from 'date-fns';
 import Swal from 'sweetalert2';
 import { 
-  XCircleIcon, 
   PencilIcon, 
   EyeIcon,
   CalendarIcon,

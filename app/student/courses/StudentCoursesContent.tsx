@@ -87,17 +87,6 @@ function buildCourseTabUrl(
 const PENDING_COURSE_SELECTION_KEY = 'student-courses-pending-selection';
 const ACTIVE_COURSE_COUNT_KEY = 'student-courses-active-count';
 
-function getCachedActiveCourseCount(): number {
-  if (typeof window === 'undefined') return 0;
-  try {
-    const raw = sessionStorage.getItem(ACTIVE_COURSE_COUNT_KEY);
-    const parsed = raw ? parseInt(raw, 10) : 0;
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
-  } catch {
-    return 0;
-  }
-}
-
 function setCachedActiveCourseCount(count: number) {
   if (typeof window === 'undefined') return;
   try {
@@ -210,7 +199,7 @@ function FeatureListCard({
       tabIndex={onClick ? 0 : undefined}
       onClick={onClick}
       onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
-      className={`w-full text-left bg-white border border-gray-100 rounded-xl p-4 sm:p-5 hover:shadow-md hover:border-indigo-200 transition-all duration-300 group ${onClick ? 'cursor-pointer' : ''}`}
+      className={`w-full text-left bg-white border-2 border-gray-200 rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all duration-300 group ${onClick ? 'cursor-pointer' : ''}`}
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 min-h-[2.5rem]">
         <div className="min-w-0 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
@@ -256,7 +245,7 @@ const featureSecondaryBtn =
 const featureDisabledBtn =
   'inline-flex items-center justify-center bg-gray-50 border-2 border-gray-100 text-gray-300 px-5 py-2.5 sm:py-2 rounded-xl text-sm font-bold cursor-not-allowed whitespace-nowrap';
 const featureEmptyState =
-  'text-center min-h-[220px] sm:min-h-[280px] flex flex-col items-center justify-center bg-gray-50 rounded-xl border border-dashed border-gray-200 px-4';
+  'text-center min-h-[220px] sm:min-h-[280px] flex flex-col items-center justify-center bg-white rounded-xl border-2 border-dashed border-gray-300 px-4 shadow-sm';
 
 function LessonDetail({
   lesson,
@@ -472,6 +461,8 @@ export default function StudentCoursesContent({
       const merged = mergeCoursesFromEnrolledKeys(prev, enrolled);
       return merged.length === prev.length ? prev : merged;
     });
+    // Only re-merge when enrolled course keys change, not on every studentInfo identity change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [studentInfo?.enrolledCourses, loadingCourses, previewMode]);
 
   useEffect(() => {
@@ -591,6 +582,8 @@ export default function StudentCoursesContent({
     };
     void fetchCourseDetails();
     return () => { isCurrent = false; };
+    // Key off course id — avoid re-fetch when resolvedCourse object identity changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedCourse?.id, isResolvedCourseArchived, activeCourseTab]);
 
   // 課程清單 tab：才載入課堂
@@ -642,6 +635,8 @@ export default function StudentCoursesContent({
     };
     void fetchLessons();
     return () => { cancelled = true; };
+    // Key off course id — avoid re-fetch when resolvedCourse object identity changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedCourse?.id, isResolvedCourseArchived, activeCourseTab, previewMode]);
 
   // 線上測驗：每個課程載入一次（切 tab 不重抓）
@@ -673,6 +668,8 @@ export default function StudentCoursesContent({
     };
     void fetchExams();
     return () => { cancelled = true; };
+    // Key off course fields already listed — avoid re-fetch on resolvedCourse object identity changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedCourse?.id, resolvedCourse?.name, resolvedCourse?.code, isResolvedCourseArchived, studentInfo?.id, courseCodeFromUrl, activeCourseTab, previewMode]);
 
   // 課程問卷：每個課程載入一次（切 tab 不重抓）
@@ -703,6 +700,8 @@ export default function StudentCoursesContent({
     };
     void fetchSurveys();
     return () => { cancelled = true; };
+    // Key off course fields already listed — avoid re-fetch on resolvedCourse object identity changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedCourse?.id, resolvedCourse?.name, resolvedCourse?.code, isResolvedCourseArchived, studentInfo?.id, courseCodeFromUrl, activeCourseTab, previewMode]);
 
   // 線上點名：切到 attendance tab 才載入
@@ -734,6 +733,8 @@ export default function StudentCoursesContent({
     };
     void fetchAttendance();
     return () => { cancelled = true; };
+    // Key off course id — avoid re-fetch when resolvedCourse object identity changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedCourse?.id, isResolvedCourseArchived, courseCodeFromUrl, activeCourseTab, previewMode]);
 
   // 進入詳情後，idle 預熱其他常用 tab（含 exams/surveys/attendance）
@@ -779,6 +780,8 @@ export default function StudentCoursesContent({
       }
       if (timeoutId) clearTimeout(timeoutId);
     };
+    // Key off course id/name/code via listed fields — avoid re-run on resolvedCourse object identity changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedCourse?.id, isResolvedCourseArchived, courseCodeFromUrl, studentInfo?.id, activeCourseTab, previewMode]);
 
   const setCourseTab = useCallback((tab: CourseTab) => {
@@ -1207,7 +1210,7 @@ export default function StudentCoursesContent({
               )}
 
               {activeCourseTab !== 'info' && activeCourseTab !== 'grades' && (
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6 md:p-8 mb-4">
+              <div className="mb-4">
                 {activeCourseTab === 'lessons' && (
                   <>
                     {loadingLessons ? (
@@ -1535,7 +1538,7 @@ export default function StudentCoursesContent({
               {/* 課程成績：進入課程即掛載預載，非成績 tab 時隱藏 */}
               {previewMode ? (
                 activeCourseTab === 'grades' ? (
-                  <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6 md:p-8 mb-4">
+                  <div className="mb-4">
                     <div className={featureEmptyState}>
                       <ClipboardDocumentListIcon className="w-12 h-12 mb-3 text-gray-300" />
                       <p className="text-gray-500 font-medium">預覽模式不顯示個人成績</p>
@@ -1547,7 +1550,7 @@ export default function StudentCoursesContent({
                 <div
                   className={
                     activeCourseTab === 'grades'
-                      ? 'bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6 md:p-8 mb-4 animate-fade-in min-h-[280px]'
+                      ? 'mb-4 animate-fade-in min-h-[280px]'
                       : 'hidden'
                   }
                   aria-hidden={activeCourseTab !== 'grades'}
@@ -1560,7 +1563,7 @@ export default function StudentCoursesContent({
                   />
                 </div>
               ) : activeCourseTab === 'grades' ? (
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6 md:p-8 mb-4">
+                <div className="mb-4">
                   <div className={featureEmptyState}>
                     <ClipboardDocumentListIcon className="w-12 h-12 mb-3 text-gray-300" />
                     <p className="text-gray-500 font-medium">找不到學生資料，請重新登入</p>

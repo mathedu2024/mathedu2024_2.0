@@ -87,7 +87,7 @@ export default function FaqPage() {
         customClass: { popup: 'rounded-2xl' },
         heightAuto: false
       });
-    } catch (err) {
+    } catch {
       Swal.fire({
         title: '複製失敗',
         text: '請手動複製信箱：mathedu2024.class@gmail.com',

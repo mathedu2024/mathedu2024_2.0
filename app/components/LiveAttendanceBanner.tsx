@@ -53,7 +53,7 @@ function methodHint(method: LiveAttendanceItem['checkInMethod'], audience: Audie
     if (method === 'numeric') return '數字點名 · 編輯點名';
     return '手動點名 · 編輯點名';
   }
-  if (method === 'qr') return '掃描 QR 簽到';
+  if (method === 'qr') return '用相機掃描 QR 簽到';
   return '輸入簽到碼';
 }
 

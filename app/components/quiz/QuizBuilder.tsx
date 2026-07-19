@@ -78,7 +78,7 @@ function quizEditSnapshot(quiz: Quiz, totalPoints: number): string {
 
 export default function QuizBuilder({
   quiz: initialQuiz,
-  onBack,
+  onBack: _onBack,
   onSaved,
   onToolbarChange,
 }: QuizBuilderProps) {
@@ -109,9 +109,9 @@ export default function QuizBuilder({
     return () => window.clearTimeout(id);
   }, [initialQuiz]);
 
-  const totalPoints = useMemo(() => calculateQuizTotalPoints(quiz), [quiz.sections]);
-  const totalQuestions = useMemo(() => countQuizQuestions(quiz), [quiz.sections]);
-  const imageCount = useMemo(() => countQuizImagesInQuiz(quiz), [quiz.sections, quiz.description, quiz.quizCode]);
+  const totalPoints = useMemo(() => calculateQuizTotalPoints(quiz), [quiz]);
+  const totalQuestions = useMemo(() => countQuizQuestions(quiz), [quiz]);
+  const imageCount = useMemo(() => countQuizImagesInQuiz(quiz), [quiz]);
   const imageCountRef = useRef(imageCount);
   imageCountRef.current = imageCount;
 

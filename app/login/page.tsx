@@ -1,11 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { setSession } from '../utils/session'; // 維持相對路徑
 import alerts from '../utils/alerts';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { signInWithSessionToken } from '../utils/firebaseSessionAuth';
+import {
+  STUDENT_LOGIN_NEXT_KEY,
+  consumeStudentLoginNext,
+  isSafeStudentNextPath,
+  rememberStudentLoginNext,
+  sanitizeStudentLoginNext,
+} from '../utils/studentLoginRedirect';
 
 export default function StudentLoginPage() {
   const [formData, setFormData] = useState({
@@ -14,6 +21,28 @@ export default function StudentLoginPage() {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // 有 next（例如相機掃 QR）則記住；直接開登入頁則清掉殘留路徑
+  useEffect(() => {
+    const fromQuery = new URLSearchParams(window.location.search).get('next');
+    if (isSafeStudentNextPath(fromQuery)) {
+      rememberStudentLoginNext(fromQuery as string);
+      return;
+    }
+    try {
+      sessionStorage.removeItem(STUDENT_LOGIN_NEXT_KEY);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const resolvePostLoginPath = () => {
+    if (typeof window === 'undefined') return '/student';
+    const fromQuery = new URLSearchParams(window.location.search).get('next');
+    const fromStorage = consumeStudentLoginNext();
+    const preferred = isSafeStudentNextPath(fromQuery) ? fromQuery : fromStorage;
+    return sanitizeStudentLoginNext(preferred, '/student');
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -53,8 +82,8 @@ export default function StudentLoginPage() {
         await signInWithSessionToken(data.token);
       }
 
-      // 3. 移除 SweetAlert 成功提示，直接導向至學生首頁
-      window.location.href = '/student';
+      // 3. 導回原頁（例如相機掃 QR 的簽到連結），否則進學生首頁
+      window.location.href = resolvePostLoginPath();
 
     } catch (err) {
       const message = (err as Error).message || '發生未知錯誤';

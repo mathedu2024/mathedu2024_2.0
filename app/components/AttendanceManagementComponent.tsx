@@ -14,9 +14,9 @@ import CreateAttendanceActivityForm from './CreateAttendanceActivityForm';
 import AttendanceQrDisplay from './AttendanceQrDisplay';
 import CourseFilter from './CourseFilter';
 import { 
-  CalendarDaysIcon, ArrowLeftIcon, PlusIcon, TrashIcon, 
+  CalendarDaysIcon, ArrowLeftIcon, PlusIcon, 
   XMarkIcon, ClipboardDocumentCheckIcon, CheckCircleIcon, 
-  CloudArrowUpIcon, FunnelIcon, 
+  CloudArrowUpIcon, 
   QrCodeIcon, ChevronDownIcon, UserGroupIcon, ChevronRightIcon,
   ArrowDownTrayIcon
 } from '@heroicons/react/24/outline';
@@ -430,7 +430,6 @@ const PresentButton = ({ currentStatus, onSetStatus, disabled = false }: { curre
   const selectedOption = PRESENT_OPTIONS.find(o => o.value === currentStatus);
   const displayLabel = selectedOption ? selectedOption.label : '出席';
   
-  let containerBorderBg = 'border-gray-200 bg-white';
   let radioBorder = 'border-gray-300';
   let dotBg = '';
   let textCls = 'text-gray-500';
@@ -438,25 +437,21 @@ const PresentButton = ({ currentStatus, onSetStatus, disabled = false }: { curre
 
   if (isPresentType) {
     if (currentStatus === 'present') {
-      containerBorderBg = 'border-emerald-200 bg-emerald-50/50';
       radioBorder = 'border-emerald-500';
       dotBg = 'bg-emerald-500';
       textCls = 'text-emerald-500';
       btnCls = 'text-emerald-500 hover:bg-emerald-100';
     } else if (currentStatus === 'late') {
-      containerBorderBg = 'border-amber-200 bg-amber-50/50';
       radioBorder = 'border-amber-500';
       dotBg = 'bg-amber-500';
       textCls = 'text-amber-500';
       btnCls = 'text-amber-500 hover:bg-amber-100';
     } else if (currentStatus === 'early_leave') {
-      containerBorderBg = 'border-orange-200 bg-orange-50/50';
       radioBorder = 'border-orange-500';
       dotBg = 'bg-orange-500';
       textCls = 'text-orange-500';
       btnCls = 'text-orange-500 hover:bg-orange-100';
     } else {
-      containerBorderBg = 'border-red-200 bg-red-50/50';
       radioBorder = 'border-red-500';
       dotBg = 'bg-red-500';
       textCls = 'text-red-500';
@@ -638,7 +633,7 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
   }
   
   function AttendanceRosterManager({ activityId, courseId, courseName, students = [], onClose, initialActivityData, isArchived = false, studentsLoading = false }: AttendanceRosterManagerProps) {
-    const safeStudents = Array.isArray(students) ? students : [];
+    const safeStudents = useMemo(() => (Array.isArray(students) ? students : []), [students]);
     
     const [records, setRecords] = useState<Record<string, { status: string; leaveType?: string }>>({});
     const [notes, setNotes] = useState<Record<string, string>>({});
@@ -1076,7 +1071,7 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
     embedded?: boolean;
   }
   
-  function AttendanceActivityList({ courseId, courseName, courseCode, onBack, onSelectActivity, isArchived = false, embedded = false }: AttendanceActivityListProps) {
+  function AttendanceActivityList({ courseId, courseName, courseCode: _courseCode, onBack, onSelectActivity, isArchived = false, embedded = false }: AttendanceActivityListProps) {
     const [activities, setActivities] = useState<AttendanceActivity[]>([]);
     const [loading, setLoading] = useState(true);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -1194,7 +1189,7 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
         let students: Student[] = [];
         if (stuRes.ok) {
           const roster = await stuRes.json();
-          students = (Array.isArray(roster) ? roster : []).map((s: any) => ({
+          students = (Array.isArray(roster) ? roster : []).map((s: { id?: string; studentId?: string; name?: string }) => ({
             id: String(s.id || s.studentId || ''),
             studentId: String(s.studentId || s.id || ''),
             name: String(s.name || ''),
@@ -1428,7 +1423,7 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
         {loading ? (
           <PageLoadingArea />
         ) : activities.length === 0 ? (
-             <div className="text-center min-h-[280px] flex flex-col items-center justify-center bg-gray-50 rounded-xl border border-dashed border-gray-200">
+             <div className="text-center min-h-[280px] flex flex-col items-center justify-center bg-white rounded-xl border-2 border-dashed border-gray-300 shadow-sm">
                  <ClipboardDocumentCheckIcon className="w-12 h-12 mb-3 text-gray-300" />
                  <p className="text-gray-500 font-medium">目前沒有點名活動</p>
              </div>
@@ -1437,7 +1432,7 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
                 {activities.map((activity) => (
                   <div
                     key={activity.id}
-                    className="w-full text-left bg-white border border-gray-100 rounded-xl p-5 hover:shadow-md hover:border-indigo-200 transition-shadow duration-200"
+                    className="w-full text-left bg-white border-2 border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md hover:border-indigo-300 transition-shadow duration-200"
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 min-h-[2.5rem]">
                       <div className="min-w-0 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
@@ -1549,6 +1544,8 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
 
     const filterCourses = useCallback(
       (courseList: Course[]) => filterCoursesForUser(courseList, userInfo),
+      // filterCoursesForUser only reads userInfo.id; avoid re-filtering on unrelated userInfo field changes
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       [userInfo?.id]
     );
 
@@ -1650,7 +1647,7 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
                 const newCounts: Record<string, number> = {};
                 coursesData.forEach(course => {
                   const courseKey = `${course.name}(${course.code})`;
-                  const count = allStudents.filter((s: any) => s.enrolledCourses && (s.enrolledCourses.includes(course.id) || s.enrolledCourses.includes(courseKey))).length;
+                  const count = allStudents.filter((s: { enrolledCourses?: string[] }) => s.enrolledCourses && (s.enrolledCourses.includes(course.id) || s.enrolledCourses.includes(courseKey))).length;
                   newCounts[course.id] = count;
                 });
                 setStudentCounts(newCounts);
@@ -1718,6 +1715,8 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
       return () => {
         cancelled = true;
       };
+      // Depend on selectedCourse.id only — full selectedCourse would re-fetch on object identity changes
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [decodedAttendanceCode, selectedCourse?.id, activityCache?.checkInCode, activityCache?.id]);
   
     useEffect(() => {

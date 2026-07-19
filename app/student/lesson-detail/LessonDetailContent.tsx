@@ -312,7 +312,7 @@ export default function LessonDetailPage({
     hasPendingAccessibleLessonQuizzes(videoLockQuizCodes, examsByCode);
 
   const pendingQuizTitles = assignedQuizItems
-    .filter(({ quizCode, requireBeforeVideo, exam }) => {
+    .filter(({ quizCode: _quizCode, requireBeforeVideo, exam }) => {
       if (!requireBeforeVideo) return false;
       if (!exam) return false;
       if (exam.submitted) return false;
@@ -341,10 +341,13 @@ export default function LessonDetailPage({
     );
   }
 
-  // 準備影片 URL
-  const currentEmbedUrl = (lesson.videos && lesson.videos.length > 0) 
-    ? getEmbedUrl(lesson.videos[currentVideoIndex]) 
-    : null;
+  // 準備影片 URL：空連結＝未上架；有連結但無法轉成 embed＝無法播放
+  const currentVideoUrl =
+    lesson.videos && lesson.videos.length > 0
+      ? (lesson.videos[currentVideoIndex] ?? '')
+      : '';
+  const currentVideoMissing = !currentVideoUrl.trim();
+  const currentEmbedUrl = currentVideoMissing ? null : getEmbedUrl(currentVideoUrl);
 
   const showHomework = !lesson.noHomework && !!lesson.homework?.trim();
   const showOnlineExam = hasLessonOnlineExam(lesson);
@@ -417,9 +420,21 @@ export default function LessonDetailPage({
                           allowFullScreen
                         />
                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center text-white">
-                          <div className="text-center">
-                            <p className="text-lg">無法播放此影片</p>
+                        <div className="absolute inset-0 flex items-center justify-center text-white p-6">
+                          <div className="text-center max-w-sm">
+                            {currentVideoMissing ? (
+                              <>
+                                <svg className="w-12 h-12 mx-auto mb-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                                <p className="text-lg font-semibold mb-1">影片未上架</p>
+                                <p className="text-sm text-gray-400">此影片尚未提供連結，請稍後再查看。</p>
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-12 h-12 mx-auto mb-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+                                <p className="text-lg font-semibold mb-1">無法播放此影片</p>
+                                <p className="text-sm text-gray-400">影片連結無效或格式不正確，請聯絡老師確認。</p>
+                              </>
+                            )}
                           </div>
                         </div>
                      )}

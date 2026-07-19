@@ -41,7 +41,6 @@ import {
 } from '@/services/quizTypes';
 import QuestionPreviewPanel from './QuestionPreviewPanel';
 import { makeFillInBlankToken, removeFillInBlankTokenByCellIndex } from '@/utils/fillInContent';
-import { useQuizImageContext } from './QuizImageContext';
 
 const inputClass =
   'w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-transparent transition-shadow text-sm';
@@ -578,7 +577,7 @@ function SubQuestionFields({
 
 export default function QuestionEditor({
   question,
-  index,
+  index: _index,
   questionNumber,
   totalInQuiz,
   optionLabelStyle = 'letter_paren',
@@ -594,7 +593,6 @@ export default function QuestionEditor({
   defaultExpanded = false,
   isDragging = false,
 }: QuestionEditorProps) {
-  const quizImageContext = useQuizImageContext();
   const questionRef = React.useRef(question);
   const onChangeRef = React.useRef(onChange);
   const contentEditorRef = React.useRef<RichTextEditorHandle>(null);
@@ -629,6 +627,8 @@ export default function QuestionEditor({
 
   React.useEffect(() => {
     if (expanded) setPreviewQuestion(question);
+    // Sync preview on expand / question id change only — full question edits are debounced above
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [expanded, question.id]);
 
   const setExpanded = (value: boolean) => {

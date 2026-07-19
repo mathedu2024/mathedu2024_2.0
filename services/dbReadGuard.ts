@@ -11,7 +11,7 @@ type ReadLimitEvent = {
 };
 
 declare global {
-  // eslint-disable-next-line no-var
+   
   var _dbReadGuardState: {
     dayKey: string;
     readCount: number;

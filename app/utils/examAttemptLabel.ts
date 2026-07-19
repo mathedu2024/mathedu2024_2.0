@@ -1,20 +1,17 @@
 import type { StudentExamAttemptSummary } from '@/utils/studentClientApi';
 import type { Quiz } from '@/services/quizTypes';
 import { normalizeAssignedCourses } from '@/services/quizTypes';
+import { formatDateTimeZhTw } from '@/utils/dateTimeFormat';
 
 export function formatExamAttemptDateTime(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString('zh-TW', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    });
-  } catch {
-    return iso;
-  }
+  const formatted = formatDateTimeZhTw(iso, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  return formatted || iso;
 }
 
 export function formatExamAttemptLabel(attemptIndex: number, submittedAt: string): string {

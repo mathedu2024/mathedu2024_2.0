@@ -17,7 +17,6 @@ import {
   invalidateAdminCoursesList,
   invalidateStudentList,
 } from '@/utils/teacherClientApi';
-import RichTextEditor from '../../components/RichTextEditor';
 import { courseListTableStyles, getCourseStatusColor } from './studentCourseListShared';
 
 const customLinkIconOptions = [
@@ -30,7 +29,6 @@ const customLinkIconOptions = [
 
 // Heroicons
 import { 
-  PencilSquareIcon, 
   UserGroupIcon, 
   ArchiveBoxIcon, 
   TrashIcon, 
@@ -42,12 +40,6 @@ import {
   CalendarIcon,
   ArrowPathIcon,
   XMarkIcon,
-  EyeIcon,
-  LinkIcon,
-  DocumentTextIcon,
-  FolderIcon,
-  ChatBubbleLeftRightIcon,
-  VideoCameraIcon
 } from '@heroicons/react/24/outline';
 
 interface CourseManagerProps {
@@ -285,7 +277,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
     };
 
     const handleEdit = async (course: Course) => {
-        let fullCourse = { ...course };
+        const fullCourse = { ...course };
         try {
             const res = await fetch(`/api/courses/classdata?courseId=${course.id}`);
             if (res.ok) {
@@ -295,7 +287,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                 fullCourse.liveStreamURL = data.liveStreamURL ?? fullCourse.liveStreamURL;
                 fullCourse.customLinks = data.customLinks ?? fullCourse.customLinks ?? [];
             }
-        } catch (e) { }
+        } catch { }
 
         const courseWithDefaults: Course = {
             ...fullCourse,

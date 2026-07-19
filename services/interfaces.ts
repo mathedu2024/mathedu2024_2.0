@@ -18,7 +18,12 @@ export interface TutoringSlot {
   method?: string;
   locationType?: string;
   locationDetails?: string;
-  qualifications?: any;
+  qualifications?: {
+    type: 'grades_subjects' | 'classes';
+    grades?: string[];
+    subjects?: string[];
+    classes?: string[];
+  };
   remarks?: string;
   mode?: string;
   isFull?: boolean;

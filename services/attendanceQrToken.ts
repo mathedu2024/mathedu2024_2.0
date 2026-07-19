@@ -9,6 +9,29 @@ export const QR_ROTATE_MAX_SECONDS = 40;
 /** 換碼後舊 token 仍可短暫使用，避免掃碼當下剛好換碼 */
 const QR_PREVIOUS_GRACE_MS = 8000;
 
+/**
+ * 近期換過的 token 仍可簽到的時間窗。
+ * 讓學生「先用系統相機掃碼 → 登入」時，登入過程中 QR 雖已輪換仍能完成簽到。
+ */
+const QR_RECENT_VALID_MS = 5 * 60 * 1000;
+const QR_RECENT_MAX_ENTRIES = 24;
+
+type QrRecentEntry = { token: string; validUntil: number };
+
+function readRecentTokens(activityData: Record<string, unknown>, nowMs: number): QrRecentEntry[] {
+  const raw = activityData.qrRecentTokens;
+  if (!Array.isArray(raw)) return [];
+  const out: QrRecentEntry[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const token = typeof (item as { token?: unknown }).token === 'string' ? (item as { token: string }).token : '';
+    const validUntil = toMillis((item as { validUntil?: unknown }).validUntil);
+    if (!token || validUntil === null || validUntil < nowMs) continue;
+    out.push({ token, validUntil });
+  }
+  return out.slice(-QR_RECENT_MAX_ENTRIES);
+}
+
 function getQrSecret(): string {
   return (
     process.env.ATTENDANCE_QR_SECRET ||
@@ -83,11 +106,20 @@ export async function issueOrRefreshQrSession(
   const rotateSeconds = randomQrRotateSeconds();
   const token = createRandomQrToken(courseId, activityId);
   const expiresAt = nowMs + rotateSeconds * 1000;
+  const recentTokens = readRecentTokens(activityData, nowMs);
+
+  if (currentToken) {
+    recentTokens.push({
+      token: currentToken,
+      validUntil: nowMs + QR_RECENT_VALID_MS,
+    });
+  }
 
   const update: Record<string, unknown> = {
     qrCurrentToken: token,
     qrTokenExpiresAt: admin.firestore.Timestamp.fromMillis(expiresAt),
     qrRotateSeconds: rotateSeconds,
+    qrRecentTokens: recentTokens.slice(-QR_RECENT_MAX_ENTRIES),
   };
 
   if (currentToken) {
@@ -120,6 +152,11 @@ export function verifyStoredQrToken(
     return true;
   }
 
+  // 近期輪換過的 token（支援先掃碼再登入）
+  for (const entry of readRecentTokens(activityData, nowMs)) {
+    if (safeEqual(entry.token, token)) return true;
+  }
+
   return false;
 }
 
@@ -145,5 +182,6 @@ export async function clearQrSession(db: Firestore, courseId: string, activityId
     qrPreviousToken: admin.firestore.FieldValue.delete(),
     qrPreviousExpiresAt: admin.firestore.FieldValue.delete(),
     qrRotateSeconds: admin.firestore.FieldValue.delete(),
+    qrRecentTokens: admin.firestore.FieldValue.delete(),
   });
 }

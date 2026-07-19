@@ -59,7 +59,7 @@ export default function GradeRegistrationMobile({
   periodicColumnDetails = {},
   onUpdateRegularScore,
   _onUpdatePeriodicScore,
-  onUpdateFinalScore,
+  onUpdateFinalScore: _onUpdateFinalScore,
   isArchived = false,
   onEditColumn,
 }: Props) {

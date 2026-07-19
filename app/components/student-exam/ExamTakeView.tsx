@@ -42,6 +42,7 @@ import {
 import { useExamSessionGuards } from '@/utils/useExamSessionGuards';
 import { useMobileExamLayout } from '@/utils/useMobileExamLayout';
 import { resolveStudentExamExitHref } from '@/utils/examAttemptLabel';
+import { applyQuizAnswerKey, type QuizAnswerKey } from '@/services/quizStudentView';
 
 function findQuestionLocation(
   sections: QuizSection[],
@@ -283,7 +284,12 @@ export default function ExamTakeView({
         throw new Error(data.error || '提交失敗');
       }
       clearDraft();
-      setSubmission(data.submission as QuizSubmission);
+      const answerKey = data.answerKey as QuizAnswerKey | undefined;
+      const quizWithAnswers =
+        answerKey && quiz ? applyQuizAnswerKey(quiz, answerKey) : undefined;
+      setSubmission(data.submission as QuizSubmission, {
+        ...(quizWithAnswers ? { quiz: quizWithAnswers } : {}),
+      });
       setSubmitResult(data.gradeResult);
       if (studentId) invalidateStudentExamList(studentId);
       invalidateStudentExamGet(quizCode);

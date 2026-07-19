@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import "react-datepicker/dist/react-datepicker.css";
 import Swal from '@/utils/swalTheme';
-import { LoadingSpinner, PageLoadingArea, BackButton, btnStyles, btnWithIconStyle, btnIcon, btnIconGap, tableActionStyles, tableActionRowWrap, TabNav } from './ui';
+import { LoadingSpinner, PageLoadingArea, BackButton, btnStyles, btnWithIconStyle, tableActionStyles, tableActionRowWrap, TabNav } from './ui';
 import { DragDropContext, Droppable, Draggable, DropResult, DroppableProvided, DraggableProvided } from '@hello-pangea/dnd';
 import { fixDraggableStyle } from '@/utils/dndStyle';
 import { 
@@ -21,11 +21,8 @@ import {
   VideoCameraIcon,
   ClockIcon,
   EyeIcon,
-  EyeSlashIcon,
   MegaphoneIcon,
   DocumentTextIcon,
-  FolderIcon,
-  ChatBubbleLeftRightIcon,
   ClipboardDocumentCheckIcon,
   ClipboardDocumentListIcon,
   DocumentDuplicateIcon,
@@ -616,7 +613,7 @@ function LessonManager({
           {(provided: DroppableProvided) => (
             <div className="grid grid-cols-1 gap-4" ref={provided.innerRef} {...provided.droppableProps}>
               {lessons.length === 0 ? (
-                <div className="text-center min-h-[280px] flex flex-col items-center justify-center bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                <div className="text-center min-h-[280px] flex flex-col items-center justify-center bg-white rounded-xl border-2 border-dashed border-gray-300 shadow-sm">
                   <BookOpenIcon className="w-12 h-12 mb-3 text-gray-300" />
                   <p className="text-gray-500 font-medium">目前沒有課堂資料</p>
                 </div>
@@ -628,8 +625,8 @@ function LessonManager({
                         ref={provided.innerRef}
                         {...provided.draggableProps}
                         style={fixDraggableStyle(provided.draggableProps.style)}
-                        className={`bg-white border border-gray-100 rounded-xl p-5 hover:shadow-md hover:border-indigo-200 transition-shadow duration-200 ${
-                          snapshot.isDragging ? 'shadow-lg border-indigo-200' : ''
+                        className={`bg-white border-2 border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md hover:border-indigo-300 transition-shadow duration-200 ${
+                          snapshot.isDragging ? 'shadow-lg border-indigo-300' : ''
                         }`}
                       >
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1436,6 +1433,8 @@ export default function TeacherCourseManager({
         if (!cancelled) setCourseQuizzesLoading(false);
       });
     return () => { cancelled = true; };
+    // Key off course id only — avoid re-fetch when resolvedCourseFromUrl object identity changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedCourseFromUrl?.id, activeCourseTab, userInfo?.id]);
 
   useEffect(() => {
@@ -1463,6 +1462,8 @@ export default function TeacherCourseManager({
         if (!cancelled) setCourseSurveysLoading(false);
       });
     return () => { cancelled = true; };
+    // Key off course id only — avoid re-fetch when resolvedCourseFromUrl object identity changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedCourseFromUrl?.id, activeCourseTab, userInfo?.id]);
 
   const handleDeleteCourseSurvey = useCallback(async (survey: Survey) => {
@@ -1726,7 +1727,7 @@ export default function TeacherCourseManager({
                   return prev;
               });
           }
-      } catch (e) {}
+      } catch {}
   };
 
   useEffect(() => {
@@ -1769,7 +1770,7 @@ export default function TeacherCourseManager({
         } else {
             Swal.fire('錯誤', '更新失敗', 'error');
         }
-    } catch (e) {
+    } catch {
         Swal.fire('錯誤', '更新失敗', 'error');
     } finally {
         setIsSavingCourse(false);
@@ -1850,7 +1851,7 @@ export default function TeacherCourseManager({
   useEffect(() => { fetchTeachers(); }, [fetchTeachers]);
 
   const handleShowCourseDetail = async (course: Course) => {
-    let fullCourse = courses.find((c) => c.id === course.id) ?? course;
+    const fullCourse = courses.find((c) => c.id === course.id) ?? course;
     setShowCourseDetail(fullCourse);
 
     try {
@@ -1931,7 +1932,7 @@ export default function TeacherCourseManager({
       } else {
         throw new Error('Update failed');
       }
-    } catch (e) {
+    } catch {
       Swal.fire('錯誤', '儲存失敗', 'error');
     } finally {
       setAnnIsSubmitting(false);
@@ -2030,7 +2031,7 @@ export default function TeacherCourseManager({
           </div>
         )}
         {(showAnnouncementManager.announcements || []).length === 0 ? (
-          <div className="text-center min-h-[280px] flex flex-col items-center justify-center bg-gray-50 rounded-xl border border-dashed border-gray-200">
+          <div className="text-center min-h-[280px] flex flex-col items-center justify-center bg-white rounded-xl border-2 border-dashed border-gray-300 shadow-sm">
             <MegaphoneIcon className="w-12 h-12 mb-3 text-gray-300" />
             <p className="text-gray-500 font-medium">目前沒有課程公告</p>
           </div>
@@ -2042,7 +2043,7 @@ export default function TeacherCourseManager({
               .map(ann => (
                 <div
                   key={ann.id}
-                  className="w-full text-left bg-white border border-gray-100 rounded-xl p-5 hover:shadow-md hover:border-indigo-200 transition-all duration-300 group"
+                  className="w-full text-left bg-white border-2 border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all duration-300 group"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 min-h-[2.5rem]">
                     <div className="min-w-0 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
@@ -2135,7 +2136,7 @@ export default function TeacherCourseManager({
 
     const course = resolvedCourseFromUrl;
     const featureEmptyState =
-      'text-center min-h-[280px] flex flex-col items-center justify-center bg-gray-50 rounded-xl border border-dashed border-gray-200';
+      'text-center min-h-[280px] flex flex-col items-center justify-center bg-white rounded-xl border-2 border-dashed border-gray-300 shadow-sm';
 
     return (
       <>
@@ -2201,7 +2202,7 @@ export default function TeacherCourseManager({
             />
           </div>
 
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-6 md:p-8">
+          <div className="mb-4">
           {activeCourseTab === 'lessons' && (
             <LessonManager
               courseId={course.id}
@@ -2272,12 +2273,12 @@ export default function TeacherCourseManager({
                                   ref={dragProvided.innerRef}
                                   {...dragProvided.draggableProps}
                                   style={fixDraggableStyle(dragProvided.draggableProps.style)}
-                                  className={`w-full text-left bg-white border rounded-xl p-5 hover:shadow-md transition-shadow duration-200 group ${
+                                  className={`w-full text-left bg-white border-2 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow duration-200 group ${
                                     snapshot.isDragging ? 'shadow-lg' : ''
                                   } ${
                                     isPublished
-                                      ? 'border-gray-100 hover:border-indigo-200'
-                                      : 'border-amber-100 hover:border-amber-200'
+                                      ? 'border-gray-200 hover:border-indigo-300'
+                                      : 'border-amber-200 hover:border-amber-300'
                                   }`}
                                 >
                                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 min-h-[2.5rem]">
@@ -2424,12 +2425,12 @@ export default function TeacherCourseManager({
                                   ref={dragProvided.innerRef}
                                   {...dragProvided.draggableProps}
                                   style={fixDraggableStyle(dragProvided.draggableProps.style)}
-                                  className={`w-full text-left bg-white border rounded-xl p-5 hover:shadow-md transition-shadow duration-200 group ${
+                                  className={`w-full text-left bg-white border-2 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow duration-200 group ${
                                     snapshot.isDragging ? 'shadow-lg' : ''
                                   } ${
                                     isPublished
-                                      ? 'border-gray-100 hover:border-indigo-200'
-                                      : 'border-amber-100 hover:border-amber-200'
+                                      ? 'border-gray-200 hover:border-indigo-300'
+                                      : 'border-amber-200 hover:border-amber-300'
                                   }`}
                                 >
                                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 min-h-[2.5rem]">

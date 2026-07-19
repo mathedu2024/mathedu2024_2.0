@@ -5,7 +5,7 @@ import { CheckCircleIcon } from '@heroicons/react/24/outline';
 import Swal from '@/utils/swalTheme';
 import RichHtmlContent from '@/components/RichHtmlContent';
 import FillInQuestionContent from '@/components/quiz/FillInQuestionContent';
-import type { GridCellAnswer, OptionLabelStyle, Question, Quiz, SubQuestion } from '@/services/quizTypes';
+import type { OptionLabelStyle, Question, Quiz, SubQuestion } from '@/services/quizTypes';
 import {
   QUESTION_TYPE_LABELS,
   GRID_CELL_ANSWER_LABELS,
@@ -15,10 +15,14 @@ import {
   isContinuousQuestionNumbers,
   isFillInQuestion,
   isShortAnswerQuestion,
+  isTrueFalseQuestion,
 } from '@/services/quizTypes';
-import type { QuizSubmission, QuestionAnswerRecord } from '@/services/quizSubmissionTypes';
+import type { QuestionAnswerRecord } from '@/services/quizSubmissionTypes';
+import { readFillInCellAnswer } from '@/services/quizSubmissionTypes';
 import type { QuizGradingOverview } from '@/services/quizSubmissionService';
 import { buildGradingStudentRows, type GradingStudentRow } from '@/utils/gradingStudentRows';
+import { formatDateTimeZhTw } from '@/utils/dateTimeFormat';
+import { choiceListIncludes, isChoiceOptionEqual } from '@/utils/quizChoiceMatch';
 import { fetchQuizGradingOverview } from '@/utils/teacherClientApi';
 import PageLoadingArea from '@/components/ui/PageLoadingArea';
 import QuizCourseScopeBar from './QuizCourseScopeBar';
@@ -181,7 +185,9 @@ export default function QuizGradingPanel({
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <div>
             <span className="text-sm font-bold text-gray-800">第 {answer.questionNumber} 題</span>
-            <span className="ml-2 text-xs text-gray-500">{QUESTION_TYPE_LABELS[answer.questionType as keyof typeof QUESTION_TYPE_LABELS]}</span>
+            <span className="ml-2 text-xs text-gray-500">
+              {QUESTION_TYPE_LABELS[answer.questionType as keyof typeof QUESTION_TYPE_LABELS]}
+            </span>
           </div>
           <div className="text-sm">
             <span className={answer.isCorrect ? 'text-emerald-600 font-semibold' : 'text-gray-600'}>
@@ -301,7 +307,7 @@ export default function QuizGradingPanel({
           </p>
         )}
         <p className="text-sm text-gray-500">
-          簡答題與待批改題目會以黃色標示，可手動給分與評語。
+          客觀題以綠色／紅色與右側勾叉標示對錯；簡答題與待批改題目以黃色標示，可手動給分與評語。
           {overview && overview.enrolledCount > 0 && (
             <span className="ml-2">
               應繳 {overview.enrolledCount} 人 · 已繳 {overview.submittedStudentCount} 人 · 未繳{' '}
@@ -405,12 +411,11 @@ export default function QuizGradingPanel({
                     {selectedRow.allSubmissions.map((sub) => {
                       const attemptLabel = sub.attemptIndex
                         ? `第 ${sub.attemptIndex} 次`
-                        : new Date(sub.submittedAt).toLocaleString('zh-TW', {
+                        : formatDateTimeZhTw(sub.submittedAt, {
                             month: 'numeric',
                             day: 'numeric',
                             hour: '2-digit',
                             minute: '2-digit',
-                            hour12: false,
                           });
                       return (
                         <button
@@ -454,6 +459,42 @@ function isHtmlEmpty(html: string): boolean {
   return !html || html.replace(/<[^>]*>/g, '').trim() === '';
 }
 
+function AnswerVerdictMark({ correct }: { correct: boolean }) {
+  return (
+    <span
+      className={`shrink-0 text-lg font-bold leading-none select-none ${
+        correct ? 'text-emerald-600' : 'text-red-600'
+      }`}
+      title={correct ? '正確' : '錯誤'}
+      aria-label={correct ? '正確' : '錯誤'}
+    >
+      {correct ? '✓' : '✗'}
+    </span>
+  );
+}
+
+function AnswerResultRow({
+  correct,
+  children,
+}: {
+  correct: boolean | null;
+  children: React.ReactNode;
+}) {
+  const tone =
+    correct === true
+      ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+      : correct === false
+        ? 'bg-red-50 border-red-200 text-red-900'
+        : 'bg-gray-50 border-gray-200 text-gray-800';
+
+  return (
+    <div className={`flex items-center gap-3 rounded-lg border px-3 py-2 text-sm ${tone}`}>
+      <div className="min-w-0 flex-1">{children}</div>
+      {correct !== null && <AnswerVerdictMark correct={correct} />}
+    </div>
+  );
+}
+
 function StudentAnswerDisplay({
   answer,
   question,
@@ -466,43 +507,68 @@ function StudentAnswerDisplay({
   const r = answer.response;
 
   if (r === null || r === undefined) {
-    return <p className="text-sm text-gray-400">（未作答）</p>;
+    return (
+      <AnswerResultRow correct={answer.gradingStatus === 'pending' ? null : false}>
+        <span className="text-gray-400">（未作答）</span>
+      </AnswerResultRow>
+    );
   }
 
   if (answer.questionType === 'short_answer') {
     const text = String(r).trim();
+    const correct =
+      answer.gradingStatus === 'pending'
+        ? null
+        : answer.isCorrect === true
+          ? true
+          : answer.isCorrect === false
+            ? false
+            : null;
     return (
-      <div className="bg-white rounded-lg border border-gray-200 p-3 text-sm text-gray-800 whitespace-pre-wrap min-h-[4rem]">
-        {text || '（未作答）'}
-      </div>
+      <AnswerResultRow correct={correct}>
+        <div className="whitespace-pre-wrap min-h-[2.5rem]">{text || '（未作答）'}</div>
+      </AnswerResultRow>
     );
   }
 
   if (answer.questionType === 'tf') {
+    const label = r === true ? '是' : r === false ? '否' : String(r);
+    const correct =
+      question && isTrueFalseQuestion(question)
+        ? r === question.correctAnswer
+        : answer.isCorrect ?? null;
     return (
-      <p className="text-sm text-gray-800 bg-gray-50 rounded-lg border border-gray-200 px-3 py-2">
-        {r === true ? '是' : r === false ? '否' : String(r)}
-      </p>
+      <AnswerResultRow correct={correct}>
+        <span className="font-medium">{label}</span>
+      </AnswerResultRow>
     );
   }
 
   if (answer.questionType === 'fill_in' && question && isFillInQuestion(question)) {
-    const record =
-      typeof r === 'object' && !Array.isArray(r) ? (r as Record<string, GridCellAnswer>) : {};
     return (
       <div className="space-y-2">
-        {question.cells.map((cell) => {
-          const val = record[cell.id];
+        {question.cells.map((cell, i) => {
+          const val = readFillInCellAnswer(r, cell, i);
+          const filled = val !== undefined && val !== null && val in GRID_CELL_ANSWER_LABELS;
+          const correct = filled ? val === cell.correctAnswer : false;
           return (
-            <div
-              key={cell.id}
-              className="flex flex-wrap items-center gap-3 text-sm bg-gray-50 rounded-lg border border-gray-200 px-3 py-2"
-            >
-              <span className="font-semibold text-gray-700 shrink-0">{cell.label}</span>
-              <span className="font-mono text-gray-800">
-                {val ? GRID_CELL_ANSWER_LABELS[val] : <span className="text-gray-400">（未填）</span>}
-              </span>
-            </div>
+            <AnswerResultRow key={cell.id} correct={correct}>
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="font-semibold shrink-0">{cell.label}</span>
+                <span className="font-mono">
+                  {filled ? (
+                    GRID_CELL_ANSWER_LABELS[val]
+                  ) : (
+                    <span className="text-gray-400">（未填）</span>
+                  )}
+                </span>
+                {!correct && filled && (
+                  <span className="text-xs text-gray-500">
+                    正解 {GRID_CELL_ANSWER_LABELS[cell.correctAnswer]}
+                  </span>
+                )}
+              </div>
+            </AnswerResultRow>
           );
         })}
       </div>
@@ -510,7 +576,13 @@ function StudentAnswerDisplay({
   }
 
   if (answer.questionType === 'multiple' && Array.isArray(r)) {
-    if (r.length === 0) return <p className="text-sm text-gray-400">（未作答）</p>;
+    if (r.length === 0) {
+      return (
+        <AnswerResultRow correct={false}>
+          <span className="text-gray-400">（未作答）</span>
+        </AnswerResultRow>
+      );
+    }
     return (
       <div className="space-y-2">
         {r.map((optHtml, i) => (
@@ -527,7 +599,13 @@ function StudentAnswerDisplay({
 
   if (answer.questionType === 'single' || typeof r === 'string') {
     const html = String(r);
-    if (isHtmlEmpty(html)) return <p className="text-sm text-gray-400">（未作答）</p>;
+    if (isHtmlEmpty(html)) {
+      return (
+        <AnswerResultRow correct={false}>
+          <span className="text-gray-400">（未作答）</span>
+        </AnswerResultRow>
+      );
+    }
     return (
       <ChoiceAnswerItem
         optHtml={html}
@@ -538,9 +616,9 @@ function StudentAnswerDisplay({
   }
 
   return (
-    <p className="text-sm text-gray-700 bg-gray-50 rounded-lg border border-gray-200 px-3 py-2">
-      {String(r)}
-    </p>
+    <AnswerResultRow correct={answer.isCorrect ?? null}>
+      <span>{String(r)}</span>
+    </AnswerResultRow>
   );
 }
 
@@ -554,17 +632,24 @@ function ChoiceAnswerItem({
   optionLabelStyle: OptionLabelStyle;
 }) {
   const optionIndex =
-    question && isChoiceQuestion(question) ? question.options.indexOf(optHtml) : -1;
-  const label = optionIndex >= 0 ? formatOptionLabel(optionIndex, optionLabelStyle) : null;
+    question && isChoiceQuestion(question)
+      ? question.options.findIndex((opt) => isChoiceOptionEqual(opt, optHtml))
+      : -1;
+  const label =
+    optionIndex >= 0 ? formatOptionLabel(optionIndex, optionLabelStyle) : null;
+  const isCorrectOption =
+    question && isChoiceQuestion(question)
+      ? choiceListIncludes(question.correctAnswers, optHtml)
+      : null;
 
   return (
-    <div className="flex items-start gap-2 bg-gray-50 rounded-lg border border-gray-200 p-3 text-sm text-gray-800">
-      {label ? (
-        <span className="font-semibold text-gray-800 shrink-0">{label}</span>
-      ) : null}
-      <div className="min-w-0 flex-1">
-        <RichHtmlContent html={optHtml} />
+    <AnswerResultRow correct={isCorrectOption}>
+      <div className="flex items-start gap-2">
+        {label ? <span className="font-semibold shrink-0">{label}</span> : null}
+        <div className="min-w-0 flex-1">
+          <RichHtmlContent html={optHtml} />
+        </div>
       </div>
-    </div>
+    </AnswerResultRow>
   );
 }

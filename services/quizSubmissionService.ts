@@ -23,6 +23,7 @@ import {
   clampManualAnswerScore,
   gradeSubmission,
   isShortAnswerFullCredit,
+  remapSubmissionFillInResponses,
   type QuizAnalytics,
   type QuizSubmission,
   type QuestionAnswerRecord,
@@ -298,6 +299,50 @@ class QuizSubmissionService {
 
     const updated = await this.getById(submissionId);
     return updated!;
+  }
+
+  /**
+   * 老師變更選填等客觀題答案後，依目前考卷重批所有已繳交作答。
+   * 選填格以數字編號對應；簡答題手動分數保留。
+   */
+  async regradeAllForQuiz(
+    quizId: string,
+    teacherId: string,
+    options?: { previousQuiz?: Quiz }
+  ): Promise<number> {
+    const quiz = await quizService.getById(quizId);
+    if (!quiz) throw new Error('Quiz not found');
+
+    const access = await buildQuizAccessContext(quiz, teacherId);
+    if (!access) throw new Error('Unauthorized');
+
+    const submissions = await this.listAllByQuizId(quizId);
+    let updatedCount = 0;
+
+    for (const submission of submissions) {
+      const remapped = remapSubmissionFillInResponses(
+        submission.answers,
+        options?.previousQuiz,
+        quiz
+      );
+      const graded = gradeSubmission(quiz, remapped);
+      const totals = calculateSubmissionTotal(graded);
+      const hasPending = graded.some((a) => a.gradingStatus === 'pending');
+
+      const doc = await this.findSubmissionDoc(submission.id);
+      if (!doc) continue;
+
+      await doc.ref.update({
+        answers: graded,
+        totalScore: totals.total,
+        maxScore: totals.max,
+        status: hasPending ? 'grading' : 'graded',
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      updatedCount += 1;
+    }
+
+    return updatedCount;
   }
 
   async getAnalytics(

@@ -69,7 +69,7 @@ const ResourceManagement = dynamic(() => import('@/components/ResourceManagement
 const TutoringManager = dynamic(() => import('@/components/TutoringManager'), { ssr: false, ...loadingFallback });
 const TeacherExamManager = dynamic(() => import('@/components/TeacherExamManager'), { ssr: false, ...loadingFallback });
 const TeacherSurveyManager = dynamic(() => import('@/components/TeacherSurveyManager'), { ssr: false, ...loadingFallback });
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 const AttendanceManagementComponent = dynamic<{
   courses: Course[];
   courseCodeFromUrl?: string;
@@ -77,7 +77,16 @@ const AttendanceManagementComponent = dynamic<{
   embedded?: boolean;
   returnTo?: string;
   userInfo?: { id: string; name?: string; role?: string | string[] } | null;
-}>(() => import('@/components/AttendanceManagementComponent') as any, { ssr: false, ...loadingFallback });
+}>(() => import('@/components/AttendanceManagementComponent') as Promise<{
+  default: React.ComponentType<{
+    courses: Course[];
+    courseCodeFromUrl?: string;
+    attendanceCodeFromUrl?: string;
+    embedded?: boolean;
+    returnTo?: string;
+    userInfo?: { id: string; name?: string; role?: string | string[] } | null;
+  }>;
+}>, { ssr: false, ...loadingFallback });
 
 // ============================================================================
 // 類型定義

@@ -74,7 +74,7 @@ function extractLatexFromSelectedText(raw: string): { latex: string; displayMode
   text = text.replace(/\n+$/g, '').trim();
   if (!text) return { latex: '', displayMode: false };
 
-  let displayMode = false;
+  const displayMode = false;
 
   // 僅在「整段選取剛好是一組」分隔符時才剝除，避免 $$a$$ … $$b$$ 被貪心吃成一大塊
   const blockDollar = /^\$\$([\s\S]*?)\$\$$/.exec(text);
@@ -789,7 +789,7 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
     }
 
     const saved = selectionRef.current;
-    let index = saved?.index ?? Math.max(0, quill.getLength() - 1);
+    const index = saved?.index ?? Math.max(0, quill.getLength() - 1);
     const length = saved?.length ?? 0;
 
     // 有選取文字時：刪除原文後插入公式（LaTeX → 網站方程式樣式）

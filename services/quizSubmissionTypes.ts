@@ -1,6 +1,17 @@
-import type { GridCellAnswer, McScoringMethod, Question, SubQuestion, ChoiceQuestion, AttemptScorePolicy } from './quizTypes';
+import type {
+  GridCell,
+  GridCellAnswer,
+  McScoringMethod,
+  Question,
+  SubQuestion,
+  ChoiceQuestion,
+  AttemptScorePolicy,
+  TaiwanFillInQuestion,
+} from './quizTypes';
 import {
   buildQuizQuestionNumberList,
+  fillInCellAnswerStableKey,
+  getFillInCellSubNumber,
   isContinuousQuestionNumbers,
   getQuizAttemptScorePolicy,
   isChoiceQuestion,
@@ -145,19 +156,144 @@ function countMultipleChoiceErrors(question: ChoiceQuestion, selected: string[])
   return n;
 }
 
-function readFillInCellAnswer(
+/**
+ * 讀取選填格作答：優先 cell.id，其次數字編號穩定鍵（#N / N），最後陣列 index。
+ * 格子刪除後重建但編號相同時，仍可對到同一格答案。
+ */
+export function readFillInCellAnswer(
   response: unknown,
-  cellId: string,
+  cell: Pick<GridCell, 'id' | 'label'> | string,
   cellIndex: number
 ): GridCellAnswer | undefined {
+  const cellId = typeof cell === 'string' ? cell : cell.id;
+  const subNumber =
+    typeof cell === 'string' ? cellIndex + 1 : getFillInCellSubNumber(cell, cellIndex);
+
   if (response && typeof response === 'object' && !Array.isArray(response)) {
-    const val = (response as Record<string, string>)[cellId];
+    const record = response as Record<string, string>;
+    const stableKey = fillInCellAnswerStableKey(subNumber);
+    const val =
+      record[cellId] ?? record[stableKey] ?? record[String(subNumber)];
     return val as GridCellAnswer | undefined;
   }
   if (Array.isArray(response)) {
     return response[cellIndex] as GridCellAnswer | undefined;
   }
   return undefined;
+}
+
+/** 寫入選填作答：同時存 cell.id 與數字編號鍵，利於日後格子重建後重批 */
+export function writeFillInCellAnswer(
+  current: Record<string, GridCellAnswer>,
+  cell: Pick<GridCell, 'id' | 'label'>,
+  cellIndex: number,
+  answer: GridCellAnswer
+): Record<string, GridCellAnswer> {
+  const subNumber = getFillInCellSubNumber(cell, cellIndex);
+  return {
+    ...current,
+    [cell.id]: answer,
+    [fillInCellAnswerStableKey(subNumber)]: answer,
+  };
+}
+
+/** 依舊題→新題的格子數字編號，重寫選填作答鍵（供老師改答案後重批） */
+export function remapFillInResponseByCellNumber(
+  response: unknown,
+  previousQuestion: TaiwanFillInQuestion | undefined,
+  nextQuestion: TaiwanFillInQuestion
+): unknown {
+  if (!response || typeof response !== 'object' || Array.isArray(response)) {
+    return response;
+  }
+
+  const record = { ...(response as Record<string, GridCellAnswer>) };
+  const subNumberToAnswer = new Map<number, GridCellAnswer>();
+
+  const remember = (n: number, val: GridCellAnswer | undefined) => {
+    if (Number.isNaN(n) || n < 1 || val === undefined) return;
+    subNumberToAnswer.set(n, val);
+  };
+
+  if (previousQuestion) {
+    previousQuestion.cells.forEach((c, i) => {
+      remember(getFillInCellSubNumber(c, i), record[c.id]);
+    });
+  }
+
+  for (const [key, val] of Object.entries(record)) {
+    if (key.startsWith('#')) {
+      remember(parseInt(key.slice(1), 10), val);
+      continue;
+    }
+    if (/^\d+$/.test(key)) {
+      remember(parseInt(key, 10), val);
+    }
+  }
+
+  const out: Record<string, GridCellAnswer> = { ...record };
+  nextQuestion.cells.forEach((cell, i) => {
+    const n = getFillInCellSubNumber(cell, i);
+    const ans = subNumberToAnswer.get(n);
+    if (ans === undefined) return;
+    out[cell.id] = ans;
+    out[fillInCellAnswerStableKey(n)] = ans;
+  });
+  return out;
+}
+
+function findFillInQuestionInQuiz(
+  quiz: Quiz | undefined,
+  questionId: string
+): TaiwanFillInQuestion | undefined {
+  if (!quiz) return undefined;
+  for (const q of flattenGradableQuestions(quiz)) {
+    if (q.id === questionId && isFillInQuestion(q)) return q;
+  }
+  return undefined;
+}
+
+/** 重批前：將各選填題作答鍵依數字編號對到新題格子 */
+export function remapSubmissionFillInResponses(
+  answers: QuestionAnswerRecord[],
+  previousQuiz: Quiz | undefined,
+  nextQuiz: Quiz
+): QuestionAnswerRecord[] {
+  return answers.map((a) => {
+    if (a.questionType !== 'fill_in') return a;
+    const nextQ = findFillInQuestionInQuiz(nextQuiz, a.questionId);
+    if (!nextQ) return a;
+    const prevQ = findFillInQuestionInQuiz(previousQuiz, a.questionId);
+    return {
+      ...a,
+      response: remapFillInResponseByCellNumber(a.response, prevQ, nextQ),
+    };
+  });
+}
+
+/** 選填題正確答案（依數字編號）是否有變更 */
+export function fillInCorrectAnswersChanged(previous: Quiz, next: Quiz): boolean {
+  const prevMap = new Map<string, string>();
+  for (const q of flattenGradableQuestions(previous)) {
+    if (!isFillInQuestion(q)) continue;
+    const parts = q.cells.map((c, i) => {
+      const n = getFillInCellSubNumber(c, i);
+      return `${n}:${c.correctAnswer}`;
+    });
+    prevMap.set(q.id, parts.sort().join('|'));
+  }
+
+  for (const q of flattenGradableQuestions(next)) {
+    if (!isFillInQuestion(q)) continue;
+    const parts = q.cells.map((c, i) => {
+      const n = getFillInCellSubNumber(c, i);
+      return `${n}:${c.correctAnswer}`;
+    });
+    const sig = parts.sort().join('|');
+    if ((prevMap.get(q.id) ?? '') !== sig) return true;
+    prevMap.delete(q.id);
+  }
+  return prevMap.size > 0;
 }
 
 export function autoGradeAnswer(
@@ -200,11 +336,11 @@ export function autoGradeAnswer(
       return { score: 0, isCorrect: false, gradingStatus: 'auto' };
     }
     const allMatch = question.cells.every((cell, i) => {
-      const studentAns = readFillInCellAnswer(response, cell.id, i);
+      const studentAns = readFillInCellAnswer(response, cell, i);
       return studentAns === cell.correctAnswer;
     });
     const allFilled = question.cells.every((cell, i) => {
-      const studentAns = readFillInCellAnswer(response, cell.id, i);
+      const studentAns = readFillInCellAnswer(response, cell, i);
       return studentAns !== undefined && studentAns !== null;
     });
     const isCorrect = allMatch && allFilled;

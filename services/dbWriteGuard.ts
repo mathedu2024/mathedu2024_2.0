@@ -11,7 +11,7 @@ type WriteLimitEvent = {
 };
 
 declare global {
-  // eslint-disable-next-line no-var
+   
   var _dbWriteGuardState: {
     dayKey: string;
     writeCount: number;

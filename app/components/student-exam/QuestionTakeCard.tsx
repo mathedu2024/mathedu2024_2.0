@@ -22,7 +22,11 @@ import {
   isShortAnswerQuestion,
 } from '@/services/quizTypes';
 import type { StudentAnswers, QuestionAnswerRecord } from '@/services/quizSubmissionTypes';
-import { shortAnswerCorrectnessLabel } from '@/services/quizSubmissionTypes';
+import {
+  readFillInCellAnswer,
+  shortAnswerCorrectnessLabel,
+  writeFillInCellAnswer,
+} from '@/services/quizSubmissionTypes';
 
 function resolveTrueFalseCorrectAnswer(
   question: Extract<Question | SubQuestion, { type: 'tf' }>,
@@ -204,8 +208,8 @@ function CorrectAnswerReveal({
   gradingRecord?: QuestionAnswerRecord;
 }) {
   return (
-    <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/60 px-4 py-3 space-y-2">
-      <p className="text-xs font-semibold text-emerald-800">正確答案</p>
+    <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 space-y-2">
+      <p className="text-xs font-semibold text-gray-500">正確答案</p>
 
       {isChoiceQuestion(question) && (
         <div className="space-y-2 w-full">
@@ -223,13 +227,13 @@ function CorrectAnswerReveal({
                       optionIndex={optionIndex}
                       labelStyle={labelStyle}
                       html={question.options[optionIndex]}
-                      labelClassName="font-semibold text-emerald-800 shrink-0"
+                      labelClassName="font-semibold text-gray-700 shrink-0"
                       contentClassName="choice-option-content correct-answer-content"
                     />
                   );
                 }
                 return (
-                  <div key={i} className="text-sm text-gray-800 w-full">
+                  <div key={i} className="text-sm text-gray-700 w-full">
                     <RichHtmlContent
                       html={answerHtml}
                       className="choice-option-content correct-answer-content"
@@ -242,7 +246,7 @@ function CorrectAnswerReveal({
       )}
 
       {isTrueFalseQuestion(question) && (
-        <p className="text-sm text-gray-800 font-medium">
+        <p className="text-sm text-gray-700 font-medium">
           {resolveTrueFalseCorrectAnswer(question, gradingRecord) ? '是' : '否'}
         </p>
       )}
@@ -250,7 +254,7 @@ function CorrectAnswerReveal({
       {isFillInQuestion(question) && (
         <div className="space-y-2">
           {question.cells.map((cell, i) => (
-            <p key={cell.id} className="text-sm text-gray-800">
+            <p key={cell.id} className="text-sm text-gray-700">
               <span className="font-semibold">{buildGridCellLabel(questionNumber, i)}</span>
               {' · '}
               {GRID_CELL_ANSWER_LABELS[cell.correctAnswer]}
@@ -260,7 +264,7 @@ function CorrectAnswerReveal({
       )}
 
       {isShortAnswerQuestion(question) && question.referenceAnswer?.trim() && (
-        <div className="text-sm text-gray-800">
+        <div className="text-sm text-gray-700">
           <RichHtmlContent html={toEditorHtml(question.referenceAnswer)} />
         </div>
       )}
@@ -310,7 +314,9 @@ function ChoiceTake({
       {question.options.map((opt, i) => {
         if (isHtmlEmpty(opt)) return null;
         const checked = selectedArr.some((s) => isChoiceOptionEqual(s, opt));
-        const isCorrectOption = showCorrectAnswers && isOptionMarkedCorrect(question, i);
+        const isCorrectOption = isOptionMarkedCorrect(question, i);
+        // 答錯時：以紅色標在正確選項上（不對正確答案文字上綠色）
+        const markCorrectInRed = showCorrectAnswers && isCorrectOption && !checked;
         const inputType = question.type === 'single' ? 'radio' : 'checkbox';
         return (
           <label
@@ -318,10 +324,10 @@ function ChoiceTake({
             className={`block cursor-pointer rounded-lg px-3 py-2.5 border transition-colors max-w-full ${
               forceVerticalLayout ? 'text-base' : 'text-sm'
             } ${
-              checked
-                ? 'border-indigo-400 bg-indigo-50/80'
-                : isCorrectOption
-                  ? 'border-emerald-400 bg-emerald-50/50'
+              markCorrectInRed
+                ? 'border-red-300 bg-red-50'
+                : checked
+                  ? 'border-indigo-400 bg-indigo-50/80'
                   : 'border-transparent hover:bg-gray-50 hover:border-gray-200'
             } ${readOnly ? 'cursor-default' : ''}`}
           >
@@ -364,9 +370,9 @@ function FillInTake({
 }) {
   const current = value ?? {};
 
-  const pick = (cellId: string, ans: GridCellAnswer) => {
+  const pick = (cell: (typeof question.cells)[number], cellIndex: number, ans: GridCellAnswer) => {
     if (readOnly) return;
-    onChange({ ...current, [cellId]: ans });
+    onChange(writeFillInCellAnswer(current, cell, cellIndex, ans));
   };
 
   return (
@@ -381,24 +387,27 @@ function FillInTake({
           </span>
           <div className="flex flex-wrap items-end gap-5">
             {GRID_CELL_ANSWERS.map((ans) => {
-              const isCorrect = showCorrectAnswers && cell.correctAnswer === ans;
+              const selected = readFillInCellAnswer(current, cell, i) === ans;
+              const cellWrong =
+                showCorrectAnswers && readFillInCellAnswer(current, cell, i) !== cell.correctAnswer;
+              const markCorrectInRed = cellWrong && ans === cell.correctAnswer;
               return (
               <label
                 key={ans}
-                className={`flex flex-col items-center gap-1.5 cursor-pointer min-w-[2rem] ${
-                  readOnly ? 'cursor-default' : ''
-                }`}
+                className={`flex flex-col items-center gap-1.5 cursor-pointer min-w-[2rem] rounded-md px-1.5 py-1 ${
+                  markCorrectInRed ? 'bg-red-50 ring-1 ring-red-300' : ''
+                } ${readOnly ? 'cursor-default' : ''}`}
               >
-                <span className={`text-sm font-mono ${isCorrect ? 'text-emerald-700 font-bold' : 'text-gray-800'}`}>
+                <span className="text-sm font-mono text-gray-800">
                   {GRID_CELL_ANSWER_LABELS[ans]}
                 </span>
                 <input
                   type="radio"
                   name={`take-${cell.id}`}
-                  checked={current[cell.id] === ans}
+                  checked={selected}
                   disabled={readOnly}
-                  onChange={() => pick(cell.id, ans)}
-                  className={`w-4 h-4 ${isCorrect ? 'accent-emerald-600' : 'accent-indigo-600'}`}
+                  onChange={() => pick(cell, i, ans)}
+                  className="w-4 h-4 accent-indigo-600"
                 />
               </label>
             );
@@ -547,17 +556,24 @@ function SubQuestionTake({
             { value: false, label: '否' },
           ].map((opt) => {
             const tfCorrect = resolveTrueFalseCorrectAnswer(sub, gradingByQuestionId?.get(sub.id));
-            const isCorrect = showCorrectAnswers && tfCorrect === opt.value;
+            const selected = answers[sub.id] === opt.value;
+            const markCorrectInRed =
+              showCorrectAnswers && answers[sub.id] !== tfCorrect && opt.value === tfCorrect;
             return (
-            <label key={String(opt.value)} className="flex items-center gap-2 cursor-pointer">
+            <label
+              key={String(opt.value)}
+              className={`flex items-center gap-2 cursor-pointer rounded-md px-2 py-1 ${
+                markCorrectInRed ? 'bg-red-50 ring-1 ring-red-300' : ''
+              }`}
+            >
               <input
                 type="radio"
-                checked={answers[sub.id] === opt.value}
+                checked={selected}
                 disabled={readOnly}
                 onChange={() => onAnswer(sub.id, opt.value)}
-                className={isCorrect ? 'accent-emerald-600' : 'accent-indigo-600'}
+                className="accent-indigo-600"
               />
-              <span className={isCorrect ? 'font-bold text-emerald-700' : ''}>{opt.label}</span>
+              <span>{opt.label}</span>
             </label>
           );
           })}
@@ -725,17 +741,24 @@ export default function QuestionTakeCard({
               question,
               gradingByQuestionId?.get(question.id)
             );
-            const isCorrect = showCorrectAnswers && tfCorrect === opt.value;
+            const selected = answers[question.id] === opt.value;
+            const markCorrectInRed =
+              showCorrectAnswers && answers[question.id] !== tfCorrect && opt.value === tfCorrect;
             return (
-            <label key={String(opt.value)} className="flex items-center gap-2 cursor-pointer">
+            <label
+              key={String(opt.value)}
+              className={`flex items-center gap-2 cursor-pointer rounded-md px-2 py-1 ${
+                markCorrectInRed ? 'bg-red-50 ring-1 ring-red-300' : ''
+              }`}
+            >
               <input
                 type="radio"
-                checked={answers[question.id] === opt.value}
+                checked={selected}
                 disabled={readOnly}
                 onChange={() => onAnswer(question.id, opt.value)}
-                className={isCorrect ? 'accent-emerald-600' : 'accent-indigo-600'}
+                className="accent-indigo-600"
               />
-              <span className={isCorrect ? 'font-bold text-emerald-700' : ''}>{opt.label}</span>
+              <span>{opt.label}</span>
             </label>
           );
           })}

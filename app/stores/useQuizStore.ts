@@ -38,7 +38,7 @@ interface QuizStoreState {
   abandonVoluntaryExit: () => void;
   reset: () => void;
   setSubmitting: (v: boolean) => void;
-  setSubmission: (submission: QuizSubmission) => void;
+  setSubmission: (submission: QuizSubmission, options?: { quiz?: Quiz }) => void;
 }
 
 export const useQuizStore = create<QuizStoreState>((set, get) => ({
@@ -257,7 +257,13 @@ export const useQuizStore = create<QuizStoreState>((set, get) => ({
   },
 
   setSubmitting: (submitting) => set({ submitting }),
-  setSubmission: (submission) => set({ submission, readOnly: true, previewMode: false }),
+  setSubmission: (submission, options) =>
+    set({
+      submission,
+      readOnly: true,
+      previewMode: false,
+      ...(options?.quiz ? { quiz: options.quiz } : {}),
+    }),
 }));
 
 export function countAnsweredQuestions(

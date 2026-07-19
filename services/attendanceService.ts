@@ -113,7 +113,7 @@ export async function updateAttendanceRoster(courseId: string, activityId: strin
 
     roster.forEach(student => {
       const studentRef = rosterRef.doc(student.id);
-      const updatePayload: { [key: string]: any } = {
+      const updatePayload: Record<string, string | admin.firestore.FieldValue> = {
         studentId: student.studentId,
         name: student.name,
         status: student.status,
@@ -148,8 +148,8 @@ export async function updateAttendanceActivity(courseId: string, activityId: str
   try {
     const activityRef = db.collection('courses').doc(courseId).collection('attendance').doc(activityId);
 
-    const { creationMode, ...updateData } = data;
-    const payload: { [key: string]: any } = { ...updateData };
+    const { creationMode: _creationMode, ...updateData } = data;
+    const payload: Record<string, unknown> = { ...updateData };
 
     if (updateData.startTime) {
       payload.startTime = admin.firestore.Timestamp.fromDate(new Date(updateData.startTime));
@@ -247,14 +247,6 @@ export async function getCourseAttendanceSummary(courseId: string): Promise<Cour
     ]);
 
     const studentSummary: StudentSummary[] = students.map(s => ({ id: s.id, name: s.name, studentId: s.studentId }));
-    const activitySummary: ActivitySummary[] = activitiesSnapshot.docs.map(doc => ({
-      id: doc.id,
-      title: doc.data().title,
-      date: new Date(doc.data().startTime.toMillis()).toLocaleDateString(),
-      presentCount: 0, // Will be calculated later
-      absentCount: 0,  // Will be calculated later
-      leaveCount: 0,    // Will be calculated later
-    }));
 
     const summary: CourseAttendanceSummary['summary'] = {};
     for (const student of studentSummary) {
@@ -320,7 +312,7 @@ interface AttendanceActivityData {
   endTime: Date;
   gracePeriodMinutes: number;
   creationMode?: 'instant' | 'scheduled';
-  roster?: any[]; // Add optional roster
+  roster?: RosterStudent[]; // Add optional roster
 }
 
 interface CheckInData {
@@ -368,12 +360,13 @@ export async function createAttendanceActivity(data: AttendanceActivityData): Pr
         console.warn(`Skipping student with missing studentId: ${student.name}`);
         return;
       }
+      const rosterStudent = student as Student & Partial<RosterStudent>;
       const studentRef = rosterRef.doc(studentDocId);
       batch.set(studentRef, {
-        studentId: student.studentId, // This is the school-specific student number
-        name: student.name,
-        status: student.status || 'absent', // Use status from roster or default to 'absent'
-        remarks: student.remarks || '',
+        studentId: rosterStudent.studentId, // This is the school-specific student number
+        name: rosterStudent.name,
+        status: rosterStudent.status || 'absent', // Use status from roster or default to 'absent'
+        remarks: rosterStudent.remarks || '',
       });
     });
     await batch.commit();
@@ -385,44 +378,6 @@ export async function createAttendanceActivity(data: AttendanceActivityData): Pr
     console.error('Error creating attendance activity:', error);
     throw new Error('Failed to create attendance activity.');
   }
-}
-
-/**
- * Starts an attendance activity, setting its status to 'active' and generating a check-in code.
- * @param courseId The ID of the course.
- * @param activityId The ID of the activity to start.
- * @returns The generated 6-digit check-in code.
- */
-export async function startAttendanceActivity(courseId: string, activityId: string): Promise<string> {
-    try {
-        const activityRef = db.collection('courses').doc(courseId).collection('attendance').doc(activityId);
-        const activityDoc = await activityRef.get();
-        if (!activityDoc.exists) {
-            throw new Error('點名活動不存在。');
-        }
-
-        const existingCode = activityDoc.data()?.checkInCode;
-        const method = activityDoc.data()?.checkInMethod || 'numeric';
-        let checkInCode = typeof existingCode === 'string' && existingCode.length > 0
-          ? existingCode
-          : null;
-
-        if (!checkInCode) {
-          checkInCode = await assignUniqueCheckInCode(db, courseId, method, activityId);
-        }
-
-        await activityRef.update({
-            status: 'active',
-            checkInCode,
-            startedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-
-        console.log(`Activity ${activityId} in course ${courseId} started with code ${checkInCode}`);
-        return checkInCode;
-    } catch (error) {
-        console.error('Error starting attendance activity:', error);
-        throw new Error('Failed to start attendance activity.');
-    }
 }
 
 /**
@@ -458,15 +413,29 @@ export async function submitCheckIn(data: CheckInData): Promise<string> {
             }
 
             // 3. Get data from docs
-            const activityData = activityDoc.data() as any;
+            const activityData = activityDoc.data() as {
+              startTime?: admin.firestore.Timestamp | Date | string;
+              endTime?: admin.firestore.Timestamp | Date | string;
+              status?: string;
+              checkInMethod?: string;
+              checkInCode?: string;
+              gracePeriodMinutes?: number;
+              [key: string]: unknown;
+            };
             const studentData = studentDoc.data();
             const studentName = studentData?.name || '未知學生';
             const studentActualId = studentData?.studentId || studentId;
 
             const now = new Date();
-            const startTime = (activityData.startTime as admin.firestore.Timestamp).toDate();
-            const endTime = (activityData.endTime as admin.firestore.Timestamp | undefined)?.toDate?.()
-              ?? (activityData.endTime ? new Date(activityData.endTime) : null);
+            const toDate = (value: admin.firestore.Timestamp | Date | string | undefined): Date | null => {
+              if (!value) return null;
+              if (value instanceof admin.firestore.Timestamp) return value.toDate();
+              if (value instanceof Date) return value;
+              const parsed = new Date(value);
+              return Number.isNaN(parsed.getTime()) ? null : parsed;
+            };
+            const startTime = toDate(activityData.startTime) ?? new Date(0);
+            const endTime = toDate(activityData.endTime);
 
             if (endTime && !Number.isNaN(endTime.getTime()) && now > endTime) {
                 throw new Error('點名活動尚未開始或已結束。');
@@ -570,7 +539,7 @@ export async function getActiveActivityForCourse(courseId: string): Promise<{ id
         }
 
         const activityDoc = querySnapshot.docs[0];
-        const activityData = activityDoc.data() as any;
+        const activityData = activityDoc.data() as { title?: string; checkInMethod?: string };
 
         return {
             id: activityDoc.id,
