@@ -1,7 +1,7 @@
 'use client';
 
 import React, { Suspense, useEffect, useMemo, useState } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import PageLoadingArea from '@/components/ui/PageLoadingArea';
 import BackButton from '@/components/ui/BackButton';
 import ExamTakeView from '@/components/student-exam/ExamTakeView';
@@ -13,15 +13,10 @@ import type { QuizAnswerKey } from '@/services/quizStudentView';
 import { applyQuizAnswerKey } from '@/services/quizStudentView';
 import type { QuizSubmission } from '@/services/quizSubmissionTypes';
 import { fetchStudentExamByCode, type StudentExamAttemptSummary } from '@/utils/studentClientApi';
-import {
-  buildStudentCourseExamsUrl,
-  buildStudentExamStartUrl,
-  resolveStudentExamExitHref,
-} from '@/utils/examAttemptLabel';
+import { resolveStudentExamExitHref } from '@/utils/examAttemptLabel';
 
 function StudentExamTakePageInner() {
   const params = useParams();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const quizCode = typeof params.quizCode === 'string' ? params.quizCode : '';
   const submissionId = searchParams.get('submission') ?? undefined;
@@ -95,36 +90,26 @@ function StudentExamTakePageInner() {
           setReady(true);
         }
       } catch (err) {
-        if (cancelled) return;
-        const e = err as Error & {
-          requireConfirm?: boolean;
-          assignedCourses?: Array<{ courseId?: string }>;
-        };
-        // 未經確認視窗：導向開始作答頁
-        if (e.requireConfirm && !take && !review && !submissionId) {
-          const courseKey = e.assignedCourses?.[0]?.courseId;
-          const from = courseKey ? buildStudentCourseExamsUrl(courseKey) : undefined;
-          router.replace(buildStudentExamStartUrl(quizCode, { from }));
-          return;
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : '載入失敗');
         }
-        setError(err instanceof Error ? err.message : '載入失敗');
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [quizCode, submissionId, review, take, studentInfo?.id, initExam, reset, router]);
+  }, [quizCode, submissionId, review, take, studentInfo?.id, initExam, reset]);
 
   if (!quizCode) {
     return (
-      <div className="page-shell py-16 text-center text-on-surfaceVariant">無效的測驗連結</div>
+      <div className="page-shell py-16 text-center text-gray-500">無效的測驗連結</div>
     );
   }
 
   const header = (
-    <div className="border-l-4 border-primary pl-4 mb-6 sm:mb-8">
-      <h1 className="font-display text-2xl font-extrabold text-on-surface">{quiz?.title ?? pageTitle}</h1>
+    <div className="border-l-4 border-indigo-500 pl-4 mb-6 sm:mb-8">
+      <h1 className="text-2xl font-bold text-gray-800">{quiz?.title ?? pageTitle}</h1>
     </div>
   );
 
@@ -140,7 +125,7 @@ function StudentExamTakePageInner() {
   if (error) {
     return (
       <div className="page-shell py-16 text-center space-y-4">
-        <p className="text-on-surfaceVariant">{error}</p>
+        <p className="text-gray-600">{error}</p>
         <BackButton label="返回線上測驗" href={backHref} withSpacing={false} />
       </div>
     );

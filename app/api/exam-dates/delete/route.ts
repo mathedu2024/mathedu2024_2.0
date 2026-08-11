@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
-import { contentWriteCollection } from '@/services/contentDbSplit';
-import { requireAuthFromRequest, authGuard } from '@/services/apiAuth';
+import { adminDb } from '@/services/firebase-admin';
 
 export async function DELETE(req: NextRequest) {
-  const denied = authGuard(requireAuthFromRequest(req, 'admin', 'teacher'));
-  if (denied) return denied;
-
   try {
     const { id } = await req.json();
 
@@ -14,12 +10,13 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ message: 'Exam ID is required' }, { status: 400 });
     }
 
+    // Prevent deletion of main exams (學測, 統測, 會考, 分科測驗)
     const MAIN_EXAM_IDS = ['gsat', 'tcat', 'bcat', 'ast'];
     if (MAIN_EXAM_IDS.includes(id)) {
       return NextResponse.json({ message: 'Cannot delete main exam dates' }, { status: 403 });
     }
 
-    await contentWriteCollection('exam_dates').doc(id).delete();
+    await adminDb.collection('exam_dates').doc(id).delete();
 
     return NextResponse.json({ message: 'Exam date deleted successfully' });
   } catch (error) {

@@ -1,16 +1,8 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { trySiteErrorResponse } from '@/utils/apiErrorResponse';
 import { quizService } from '@/services/quizService';
-import {
-  requireAuthFromRequest,
-  requireCourseStaffAccess,
-  authGuard,
-} from '@/services/apiAuth';
 
 export async function POST(req: NextRequest) {
-  const auth = requireAuthFromRequest(req, 'admin', 'teacher');
-  if (auth.ok === false) return auth.response;
-
   try {
     const body = (await req.json()) as {
       teacherId?: string;
@@ -20,19 +12,13 @@ export async function POST(req: NextRequest) {
       title?: string;
     };
 
-    if (!body.sourceQuizCode?.trim()) {
+    if (!body.teacherId || !body.sourceQuizCode?.trim()) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
-
-    const teacherId = auth.session.id;
-    if (body.courseId?.trim()) {
-      const courseDenied = authGuard(await requireCourseStaffAccess(auth.session, body.courseId));
-      if (courseDenied) return courseDenied;
     }
 
     const { quizId, quizCode } = await quizService.duplicate(
       body.sourceQuizCode.trim(),
-      teacherId,
+      body.teacherId,
       {
         courseId: body.courseId?.trim() || undefined,
         courseName: body.courseName?.trim() || undefined,

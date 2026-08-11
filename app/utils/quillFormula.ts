@@ -22,8 +22,7 @@ function decodeHtmlEntities(value: string): string {
   return textarea.value;
 }
 
-/** 以 Quill 建構函式本身當 key，避免 Turbopack 重複模組實例時漏註冊 */
-const registeredQuills = new WeakSet<object>();
+let registered = false;
 
 /** 大型運算符：行內模式也將上下界顯示在符號上下方 */
 const LIMIT_OPERATORS = [
@@ -166,19 +165,10 @@ export function readFormulaLatexFromElement(formulaEl: HTMLElement): string {
   return '';
 }
 
-/**
- * 必須對「react-quill-new 實際使用的同一個 Quill」註冊。
- * 若改用獨立 `import('quill')`，Turbopack 可能產生另一份實例，formats 會對不上。
- */
-export async function registerQuillFormula(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  QuillFromEditor?: any
-): Promise<void> {
+export async function registerQuillFormula(): Promise<void> {
   if (typeof window === 'undefined') return;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const Quill: any =
-    QuillFromEditor ?? (await import('react-quill-new')).Quill;
+  const { default: Quill } = await import('quill');
 
   // Quill 預設 Image.sanitize 只允許 http/https/data，會把 blob: 換成 //:0（破圖）。
   // 每次呼叫都重套，避免 HMR 後仍沿用舊 sanitize。
@@ -194,8 +184,8 @@ export async function registerQuillFormula(
   };
   Quill.register(ImageBlot, true);
 
-  if (registeredQuills.has(Quill)) return;
-  registeredQuills.add(Quill);
+  if (registered) return;
+  registered = true;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const Embed = Quill.import('blots/embed') as any;

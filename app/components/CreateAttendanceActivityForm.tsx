@@ -83,7 +83,7 @@ const Dropdown = ({
         type="button"
         onClick={handleToggle}
         disabled={disabled}
-        className={`flex items-center justify-between w-full px-4 py-2.5 text-left border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all sm:text-sm shadow-sm ${disabled ? 'opacity-60 cursor-not-allowed bg-gray-50' : 'cursor-pointer'}`}
+        className={`flex items-center justify-between w-full px-4 py-2.5 text-left border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all sm:text-sm shadow-sm ${disabled ? 'opacity-60 cursor-not-allowed bg-gray-50' : 'cursor-pointer'}`}
       >
         <span className={`truncate ${selectedOption ? 'text-gray-900' : 'text-gray-500'}`}>
           {selectedOption ? selectedOption.label : placeholder}
@@ -98,12 +98,12 @@ const Dropdown = ({
           {options.map((opt) => (
             <li
               key={opt.value}
-              className={`cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-primary/10 transition-colors ${opt.value === value ? 'text-on-surface font-semibold bg-primary/10' : 'text-gray-900'}`}
+              className={`cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-indigo-50 transition-colors ${opt.value === value ? 'text-indigo-900 font-semibold bg-indigo-50' : 'text-gray-900'}`}
               onClick={() => handleSelect(opt.value)}
             >
               <span className="block truncate">{opt.label}</span>
               {opt.value === value && (
-                <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-primary">
+                <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-indigo-600">
                   <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                   </svg>
@@ -328,7 +328,7 @@ export default function CreateAttendanceActivityForm({
           title: '活動已更新！',
           showConfirmButton: true,
           confirmButtonText: '確定',
-          confirmButtonColor: '#2D6DF6',
+          confirmButtonColor: '#4f46e5',
           customClass: { popup: 'rounded-2xl' },
         });
 
@@ -421,7 +421,7 @@ export default function CreateAttendanceActivityForm({
           }
 
           const codeDisplayHtml = finalCheckInCode
-            ? `<div class="mt-2 text-4xl font-mono font-bold text-primary tracking-[0.25em] bg-primary/10 py-3 rounded-xl border border-primary/20">${finalCheckInCode}</div>`
+            ? `<div class="mt-2 text-4xl font-mono font-bold text-indigo-600 tracking-[0.25em] bg-indigo-50 py-3 rounded-xl border border-indigo-100">${finalCheckInCode}</div>`
             : `<div class="mt-2 text-xl text-red-500 py-3">無法取得簽到碼，請至活動查看</div>`;
 
           await Swal.fire({
@@ -430,7 +430,7 @@ export default function CreateAttendanceActivityForm({
             html: `<div class="mt-4"><span class="text-gray-500 font-medium">請將此簽到碼提供給學生：</span><br>${codeDisplayHtml}</div>`,
             showConfirmButton: true,
             confirmButtonText: '確定',
-            confirmButtonColor: '#2D6DF6',
+            confirmButtonColor: '#4f46e5',
             customClass: { popup: 'rounded-2xl' },
             allowOutsideClick: false,
           });
@@ -441,7 +441,7 @@ export default function CreateAttendanceActivityForm({
             html: '<p class="text-gray-600 text-sm mt-2">開始時間到後才會開放數字簽到；開始前可先登錄請假。</p>',
             showConfirmButton: true,
             confirmButtonText: '確定',
-            confirmButtonColor: '#2D6DF6',
+            confirmButtonColor: '#4f46e5',
             customClass: { popup: 'rounded-2xl' }
           });
         }
@@ -454,7 +454,7 @@ export default function CreateAttendanceActivityForm({
             : '<p class="text-gray-600 text-sm mt-2">進入活動後即可顯示簽到 QR Code，供學生掃描。</p>',
           showConfirmButton: true,
           confirmButtonText: '確定',
-          confirmButtonColor: '#2D6DF6',
+          confirmButtonColor: '#4f46e5',
           customClass: { popup: 'rounded-2xl' }
         });
       } else {
@@ -463,7 +463,7 @@ export default function CreateAttendanceActivityForm({
           title: createdTitle,
           showConfirmButton: true,
           confirmButtonText: '確定',
-          confirmButtonColor: '#2D6DF6',
+          confirmButtonColor: '#4f46e5',
           customClass: { popup: 'rounded-2xl' }
         });
       }
@@ -548,7 +548,7 @@ export default function CreateAttendanceActivityForm({
                     id="startTime"
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all sm:text-sm shadow-sm"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all sm:text-sm shadow-sm"
                     required
                   />
                 </div>
@@ -561,7 +561,7 @@ export default function CreateAttendanceActivityForm({
                     id="endTime"
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all sm:text-sm shadow-sm"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all sm:text-sm shadow-sm"
                   />
                 </div>
               </div>
@@ -576,7 +576,7 @@ export default function CreateAttendanceActivityForm({
                       id="gracePeriodMinutes"
                       value={gracePeriodMinutes}
                       onChange={(e) => setGracePeriodMinutes(parseInt(e.target.value, 10) || 0)}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all sm:text-sm shadow-sm"
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all sm:text-sm shadow-sm"
                       min="0"
                       required
                     />
@@ -610,7 +610,7 @@ export default function CreateAttendanceActivityForm({
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 bg-primary text-white rounded-xl hover:bg-primary-hover shadow-sm font-medium transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex items-center"
+              className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 shadow-sm font-medium transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex items-center"
               disabled={isLoading}
             >
               {isLoading && <LoadingSpinner size={16} color="white" className="mr-2" />}

@@ -228,7 +228,7 @@ export default function GradeImportModal({
         icon: 'warning',
         title: '無可匯入成績',
         text: '沒有任何學生的測驗成績可對應到此課程學號。',
-        confirmButtonColor: '#2D6DF6',
+        confirmButtonColor: '#4f46e5',
         customClass: { popup: 'rounded-2xl' },
       });
       return;
@@ -245,11 +245,11 @@ export default function GradeImportModal({
 
     if (importTarget === 'regular') {
       if (!regularName.trim()) {
-        Swal.fire({ icon: 'warning', title: '請輸入項目名稱', confirmButtonColor: '#2D6DF6' });
+        Swal.fire({ icon: 'warning', title: '請輸入項目名稱', confirmButtonColor: '#4f46e5' });
         return;
       }
       if (!regularDate.trim()) {
-        Swal.fire({ icon: 'warning', title: '請設定日期', confirmButtonColor: '#2D6DF6' });
+        Swal.fire({ icon: 'warning', title: '請設定日期', confirmButtonColor: '#4f46e5' });
         return;
       }
 
@@ -265,11 +265,11 @@ export default function GradeImportModal({
       });
     } else {
       if (!periodicKey) {
-        Swal.fire({ icon: 'warning', title: '請選擇要匯入的定期評量', confirmButtonColor: '#2D6DF6' });
+        Swal.fire({ icon: 'warning', title: '請選擇要匯入的定期評量', confirmButtonColor: '#4f46e5' });
         return;
       }
       if (!periodicDate.trim()) {
-        Swal.fire({ icon: 'warning', title: '請設定日期', confirmButtonColor: '#2D6DF6' });
+        Swal.fire({ icon: 'warning', title: '請設定日期', confirmButtonColor: '#4f46e5' });
         return;
       }
 
@@ -300,7 +300,7 @@ export default function GradeImportModal({
           ? `<br><span class="text-sm text-gray-500">（${skippedCount} 位學生無測驗紀錄，已略過）</span>`
           : ''
       }`,
-      confirmButtonColor: '#2D6DF6',
+      confirmButtonColor: '#4f46e5',
       customClass: { popup: 'rounded-2xl' },
     });
     onClose();
@@ -312,7 +312,7 @@ export default function GradeImportModal({
     <div className="fixed inset-0 z-[99999] flex justify-center items-center p-4">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-full sm:max-h-[90vh] flex flex-col overflow-hidden">
-        <div className="bg-gradient-to-r from-primary to-tertiary p-4 flex justify-between items-center text-white shrink-0">
+        <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white shrink-0">
           <h3 className="font-bold flex items-center gap-2">
             <ArrowDownTrayIcon className="w-5 h-5 rotate-180" />
             匯入線上測驗成績
@@ -337,8 +337,8 @@ export default function GradeImportModal({
                   onClick={() => setImportTarget(value)}
                   className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition-colors ${
                     importTarget === value
-                      ? 'bg-primary text-white border-primary shadow-sm'
-                      : 'bg-white text-gray-600 border-gray-200 hover:border-primary/40'
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                      : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'
                   }`}
                 >
                   {label}
@@ -485,12 +485,12 @@ export default function GradeImportModal({
                   {/* 預覽 */}
                   {preview && (
                     <div className="rounded-xl border border-gray-200 overflow-hidden">
-                      <div className="bg-primary/10 px-4 py-3 flex flex-wrap gap-4 text-sm">
+                      <div className="bg-indigo-50 px-4 py-3 flex flex-wrap gap-4 text-sm">
                         <span>
-                          可匯入：<b className="text-primary">{importableCount}</b> 人
+                          可匯入：<b className="text-indigo-700">{importableCount}</b> 人
                         </span>
                         {preview.matchedCount > 0 && (
-                          <span className="text-primary">
+                          <span className="text-indigo-700">
                             已繳交：{preview.matchedCount} 人
                           </span>
                         )}
@@ -507,7 +507,7 @@ export default function GradeImportModal({
                         <label className="flex items-start gap-2 px-4 py-3 bg-amber-50 border-b border-amber-100 text-sm cursor-pointer">
                           <input
                             type="checkbox"
-                            className="mt-0.5 rounded border-gray-300 text-primary focus:ring-primary"
+                            className="mt-0.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                             checked={markNoSubmissionAsZero}
                             onChange={(e) => setMarkNoSubmissionAsZero(e.target.checked)}
                           />
@@ -555,7 +555,7 @@ export default function GradeImportModal({
                                     className={`px-4 py-2 text-right font-mono font-semibold ${
                                       row.status === 'no_submission'
                                         ? 'text-amber-700'
-                                        : 'text-primary'
+                                        : 'text-indigo-600'
                                     }`}
                                   >
                                     {row.gradeScore}
@@ -588,7 +588,7 @@ export default function GradeImportModal({
             type="button"
             onClick={handleImport}
             disabled={!selectedQuiz || submissionsLoading || !preview || importableCount === 0}
-            className="flex-1 py-2.5 bg-primary text-white rounded-xl font-medium hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 py-2.5 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             確認匯入
           </button>

@@ -17,12 +17,12 @@ interface AttendanceQrGuideProps {
 export default function AttendanceQrGuide({ isSubmitting, hasToken }: AttendanceQrGuideProps) {
   if (hasToken || isSubmitting) {
     return (
-      <div className="rounded-2xl border border-primary/20 bg-primary/10 p-6 text-center space-y-3">
-        <div className="w-12 h-12 mx-auto rounded-full bg-primary/10 text-primary flex items-center justify-center">
+      <div className="rounded-2xl border border-indigo-100 bg-indigo-50/60 p-6 text-center space-y-3">
+        <div className="w-12 h-12 mx-auto rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
           <QrCodeIcon className="w-7 h-7 animate-pulse" />
         </div>
-        <p className="text-primary font-bold">正在完成簽到…</p>
-        <p className="text-sm text-primary/80">已辨識掃碼結果，請稍候</p>
+        <p className="text-indigo-800 font-bold">正在完成簽到…</p>
+        <p className="text-sm text-indigo-700/80">已辨識掃碼結果，請稍候</p>
       </div>
     );
   }
@@ -36,26 +36,26 @@ export default function AttendanceQrGuide({ isSubmitting, hasToken }: Attendance
         </p>
       </div>
 
-      <div className="rounded-2xl border border-dashed border-primary/30 bg-primary/10 p-5 text-center space-y-4">
-        <div className="w-14 h-14 mx-auto rounded-full bg-white border border-primary/20 text-primary flex items-center justify-center shadow-sm">
+      <div className="rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/50 p-5 text-center space-y-4">
+        <div className="w-14 h-14 mx-auto rounded-full bg-white border border-indigo-100 text-indigo-600 flex items-center justify-center shadow-sm">
           <CameraIcon className="w-8 h-8" />
         </div>
 
         <ol className="text-left text-sm text-gray-700 space-y-2.5 max-w-xs mx-auto">
           <li className="flex gap-2">
-            <span className="shrink-0 w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">
+            <span className="shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">
               1
             </span>
             <span>打開手機內建「相機」App（不要用其他掃碼 App）</span>
           </li>
           <li className="flex gap-2">
-            <span className="shrink-0 w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">
+            <span className="shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">
               2
             </span>
             <span>對準老師螢幕上的簽到 QR Code</span>
           </li>
           <li className="flex gap-2">
-            <span className="shrink-0 w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex items-center justify-center">
+            <span className="shrink-0 w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">
               3
             </span>
             <span>點擊畫面提示的連結；若尚未登入，輸入帳密後會自動完成簽到</span>

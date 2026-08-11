@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useRef, useEffect, useState, useCallback } from "react";
-import type ReactQuill from "react-quill-new";
+import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
 import LatexInsertModal from "./LatexInsertModal";
 import {
@@ -18,9 +18,6 @@ import { createLocalQuizImagePreview } from "@/utils/quizImageUpload";
 import { QUIZ_MAX_IMAGES_PER_QUIZ } from "@/utils/quizImageLimits";
 import { renderLatexInElement } from "@/utils/quillFormula";
 
-/** Quill 會在模組載入時存取 document，不可靜態 import（SSR 會炸） */
-type ReactQuillComponent = typeof import("react-quill-new").default;
-
 type Props = {
   value?: string;
   onChange?: (content: string) => void;
@@ -34,12 +31,6 @@ type Props = {
   enableLatex?: boolean;
   /** 是否顯示字體大小選項（測驗編輯建議關閉） */
   enableFontSize?: boolean;
-  /** 是否啟用插入圖片（非測驗情境；測驗仍走 QuizImageContext） */
-  enableImage?: boolean;
-  /** 內容圖片上限（含既有圖片） */
-  maxImages?: number;
-  /** 上傳圖片並回傳可嵌入的 URL（部落格等立即上傳） */
-  uploadImage?: (file: File) => Promise<string>;
   /** 僅顯示 LaTeX 公式編輯器（適用選項欄位） */
   latexOnly?: boolean;
   /** 選填題：公式編輯器可插入 [[-N]] 占位符 */
@@ -118,8 +109,6 @@ function richTextEditorPropsEqual(prev: Props, next: Props): boolean {
     prev.className === next.className &&
     prev.enableLatex === next.enableLatex &&
     prev.enableFontSize === next.enableFontSize &&
-    prev.enableImage === next.enableImage &&
-    prev.maxImages === next.maxImages &&
     prev.latexOnly === next.latexOnly &&
     prev.fillInQuestionNumber === next.fillInQuestionNumber &&
     prev.instanceKey === next.instanceKey &&
@@ -139,11 +128,10 @@ function isFormulaOrBlankEmbed(blot: QuillLeaf | null | undefined): boolean {
   const name = blot.statics?.blotName;
   if (name === 'formula' || name === 'formula-block' || name === 'fill-in-blank') return true;
   const node = blot.domNode;
-  if (!(node instanceof HTMLElement)) return false;
-  return (
-    node.classList.contains('ql-formula') ||
-    node.classList.contains('ql-formula-block') ||
-    node.classList.contains('fill-in-blank-embed')
+  return !!(
+    node?.classList.contains('ql-formula') ||
+    node?.classList.contains('ql-formula-block') ||
+    node?.classList.contains('fill-in-blank-embed')
   );
 }
 
@@ -184,60 +172,6 @@ function cursorFollowsFormulaEmbed(
   return false;
 }
 
-/** Quill 相鄰 embed 需有文字 blot 才能放游標；用零寬字元，畫面上看不到分隔 */
-const FORMULA_SEP = '\u200B';
-
-/** 在 index 插入行內公式，前後補零寬字元，支援同一行連續多個方程式 */
-function insertInlineFormulaEmbed(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  quill: any,
-  index: number,
-  latex: string
-): void {
-  let pos = Math.max(0, index);
-
-  const leafAtResult = quill.getLeaf?.(pos) as [QuillLeaf | null, number] | null | undefined;
-  const leafAt = Array.isArray(leafAtResult) ? leafAtResult[0] : null;
-  const offsetAt = Array.isArray(leafAtResult) ? leafAtResult[1] : 0;
-  const atStartOfLeaf = !leafAt || offsetAt === 0;
-
-  const prevLeaf = (at: number): QuillLeaf | null => {
-    if (at < 0) return null;
-    const result = quill.getLeaf?.(at) as [QuillLeaf | null, number] | null | undefined;
-    return Array.isArray(result) ? result[0] : null;
-  };
-
-  if (pos > 0 && atStartOfLeaf) {
-    if (isFormulaOrBlankEmbed(prevLeaf(pos - 1))) {
-      quill.insertText(pos, FORMULA_SEP, 'user');
-      pos += 1;
-    }
-  } else if (leafAt?.statics?.blotName === 'text' && offsetAt > 0) {
-    // 已在文字中，不必前置分隔
-  } else if (pos > 0 && isFormulaOrBlankEmbed(prevLeaf(pos - 1))) {
-    quill.insertText(pos, FORMULA_SEP, 'user');
-    pos += 1;
-  }
-
-  quill.insertEmbed(pos, 'formula', latex, 'user');
-  pos += 1;
-
-  const nextResult = quill.getLeaf?.(pos) as [QuillLeaf | null, number] | null | undefined;
-  const nextLeaf = Array.isArray(nextResult) ? nextResult[0] : null;
-  const nextOffset = Array.isArray(nextResult) ? nextResult[1] : 0;
-  const nextIsEmbed = nextOffset === 0 && isFormulaOrBlankEmbed(nextLeaf);
-  const nextChar =
-    nextLeaf?.statics?.blotName === 'text'
-      ? String(nextLeaf.value?.() ?? '').charAt(nextOffset)
-      : '';
-  if (nextIsEmbed || nextChar !== FORMULA_SEP) {
-    quill.insertText(pos, FORMULA_SEP, 'user');
-    pos += 1;
-  }
-
-  quill.setSelection(pos, 0, 'user');
-}
-
 const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
   {
     value = "",
@@ -248,9 +182,6 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
     className = "",
     enableLatex = true,
     enableFontSize = true,
-    enableImage = false,
-    maxImages,
-    uploadImage,
     latexOnly = false,
     fillInCellLabels = [],
     fillInQuestionNumber,
@@ -271,18 +202,10 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
   const [latexInitial, setLatexInitial] = useState<{ latex: string; displayMode: boolean } | null>(null);
   const [formulaReady, setFormulaReady] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [ReactQuillEditor, setReactQuillEditor] = useState<ReactQuillComponent | null>(null);
   const [imageUploading, setImageUploading] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const quizImageContext = useQuizImageContext();
-  const enableContentImage = Boolean(quizImageContext) || enableImage;
-  const imageLimit = quizImageContext
-    ? QUIZ_MAX_IMAGES_PER_QUIZ
-    : maxImages != null && maxImages > 0
-      ? maxImages
-      : undefined;
-  const uploadImageRef = useRef(uploadImage);
-  uploadImageRef.current = uploadImage;
+  const enableQuizImage = Boolean(quizImageContext);
   const isFillInEditor = fillInQuestionNumber !== undefined;
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
@@ -290,8 +213,6 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
   const openImagePickerRef = useRef<() => void>(() => {});
   const isComposingRef = useRef(false);
   const isFocusedRef = useRef(false);
-  /** 工具列操作中：避免 blur／外部 value 回寫造成畫面跳動與格式失效 */
-  const toolbarInteractingRef = useRef(false);
   const lastEmittedRef = useRef(value);
 
   const equivalentEditorHtml = useCallback((a: string, b: string) => {
@@ -331,7 +252,7 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
   }, [instanceKey, value, toDisplayHtml]);
 
   useEffect(() => {
-    if (isComposingRef.current || isFocusedRef.current || toolbarInteractingRef.current) return;
+    if (isComposingRef.current || isFocusedRef.current) return;
     if (value === lastEmittedRef.current) return;
     const display = toDisplayHtml(value ?? '');
     if (equivalentEditorHtml(display, localHtmlRef.current)) {
@@ -347,19 +268,8 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
   }, [value, toDisplayHtml, equivalentEditorHtml]);
 
   useEffect(() => {
-    let cancelled = false;
     setMounted(true);
-    void (async () => {
-      const { default: RQ, Quill } = await import("react-quill-new");
-      // 必須先對同一份 Quill 註冊 formats，再掛載編輯器
-      await registerQuillFormula(Quill);
-      if (cancelled) return;
-      setReactQuillEditor(() => RQ);
-      setFormulaReady(true);
-    })();
-    return () => {
-      cancelled = true;
-    };
+    void registerQuillFormula().then(() => setFormulaReady(true));
   }, []);
 
   const decorateToolbarLabels = useCallback(() => {
@@ -410,52 +320,61 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
     decorateToolbarLabels();
     const timer = window.setTimeout(decorateToolbarLabels, 50);
     return () => window.clearTimeout(timer);
-  }, [mounted, formulaReady, decorateToolbarLabels, compact, latexOnly, enableContentImage]);
+  }, [mounted, formulaReady, decorateToolbarLabels, compact, latexOnly, enableQuizImage]);
 
-  // 顏色／背景下拉改用 fixed 定位，避免改寫 main 等捲動層 overflow 造成整頁跳動
+  // Quill 字級／顏色下拉會被 modal、overflow-hidden 父層裁切；展開時暫時解除祖先 overflow
   useEffect(() => {
     if (!mounted || !formulaReady) return;
     const root = containerRef.current;
     if (!root) return;
 
-    const clearOptionsPosition = (options: HTMLElement) => {
-      options.style.removeProperty('position');
-      options.style.removeProperty('top');
-      options.style.removeProperty('left');
-      options.style.removeProperty('right');
-      options.style.removeProperty('min-width');
-      options.style.removeProperty('max-width');
-      options.style.removeProperty('z-index');
+    type OverflowBackup = {
+      el: HTMLElement;
+      overflow: string;
+      overflowX: string;
+      overflowY: string;
+    };
+    let backups: OverflowBackup[] = [];
+
+    const restoreOverflow = () => {
+      for (const b of backups) {
+        b.el.style.overflow = b.overflow;
+        b.el.style.overflowX = b.overflowX;
+        b.el.style.overflowY = b.overflowY;
+      }
+      backups = [];
+      root.classList.remove('picker-open');
     };
 
-    const placeExpandedOptions = (picker: Element) => {
-      const options = picker.querySelector('.ql-picker-options') as HTMLElement | null;
-      const label = picker.querySelector('.ql-picker-label') as HTMLElement | null;
-      if (!options || !label) return;
-      if (!picker.classList.contains('ql-expanded')) {
-        clearOptionsPosition(options);
-        return;
+    const unlockOverflowAncestors = () => {
+      restoreOverflow();
+      root.classList.add('picker-open');
+      let el: HTMLElement | null = root.parentElement;
+      while (el && el !== document.documentElement) {
+        const cs = window.getComputedStyle(el);
+        const clips =
+          cs.overflow !== 'visible' ||
+          cs.overflowX !== 'visible' ||
+          cs.overflowY !== 'visible';
+        if (clips) {
+          backups.push({
+            el,
+            overflow: el.style.overflow,
+            overflowX: el.style.overflowX,
+            overflowY: el.style.overflowY,
+          });
+          el.style.overflow = 'visible';
+          el.style.overflowX = 'visible';
+          el.style.overflowY = 'visible';
+        }
+        el = el.parentElement;
       }
-      const rect = label.getBoundingClientRect();
-      const minWidth = Math.max(rect.width, picker.classList.contains('ql-color-picker') ? 152 : 120);
-      let left = rect.left;
-      const maxLeft = window.innerWidth - minWidth - 8;
-      if (left > maxLeft) left = Math.max(8, maxLeft);
-      const top = Math.min(rect.bottom + 4, window.innerHeight - 24);
-      options.style.setProperty('position', 'fixed', 'important');
-      options.style.setProperty('top', `${top}px`, 'important');
-      options.style.setProperty('left', `${left}px`, 'important');
-      options.style.setProperty('right', 'auto', 'important');
-      options.style.setProperty('min-width', `${minWidth}px`, 'important');
-      options.style.setProperty('max-width', 'min(320px, calc(100vw - 16px))', 'important');
-      options.style.setProperty('z-index', '10000', 'important');
     };
 
     const syncPickerState = () => {
-      const pickers = root.querySelectorAll('.ql-picker');
-      pickers.forEach(placeExpandedOptions);
-      if (root.querySelector('.ql-picker.ql-expanded')) root.classList.add('picker-open');
-      else root.classList.remove('picker-open');
+      const expanded = root.querySelector('.ql-picker.ql-expanded');
+      if (expanded) unlockOverflowAncestors();
+      else restoreOverflow();
     };
 
     const observer = new MutationObserver(syncPickerState);
@@ -463,13 +382,12 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
       root.querySelectorAll('.ql-picker').forEach((picker) => {
         observer.observe(picker, { attributes: true, attributeFilter: ['class'] });
       });
-      syncPickerState();
     };
     observePickers();
     const readyTimer = window.setTimeout(observePickers, 80);
 
     const onScrollOrResize = () => {
-      if (root.querySelector('.ql-picker.ql-expanded')) syncPickerState();
+      if (root.querySelector('.ql-picker.ql-expanded')) unlockOverflowAncestors();
     };
     window.addEventListener('scroll', onScrollOrResize, true);
     window.addEventListener('resize', onScrollOrResize);
@@ -479,65 +397,10 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
       observer.disconnect();
       window.removeEventListener('scroll', onScrollOrResize, true);
       window.removeEventListener('resize', onScrollOrResize);
-      root.querySelectorAll('.ql-picker-options').forEach((node) => {
-        if (node instanceof HTMLElement) clearOptionsPosition(node);
-      });
-      root.classList.remove('picker-open');
+      restoreOverflow();
     };
-  }, [mounted, formulaReady, compact, latexOnly, enableFontSize, enableContentImage]);
+  }, [mounted, formulaReady, compact, latexOnly, enableFontSize, enableQuizImage]);
 
-  // 點工具列時保留選取、不要讓編輯區被當成失焦而回寫／重設
-  useEffect(() => {
-    if (!mounted || !formulaReady) return;
-    const root = containerRef.current;
-    if (!root) return;
-
-    const endToolbarInteraction = () => {
-      window.setTimeout(() => {
-        // 顏色／背景下拉仍開著時保持 interacting，避免選色失效
-        if (root.querySelector('.ql-picker.ql-expanded')) return;
-        toolbarInteractingRef.current = false;
-      }, 50);
-    };
-
-    const onToolbarMouseDown = (e: Event) => {
-      toolbarInteractingRef.current = true;
-      isFocusedRef.current = true;
-      const quill = safeGetQuill(editorRef);
-      if (quill) {
-        const sel = quill.getSelection(false);
-        if (sel) {
-          selectionRef.current = { index: sel.index, length: sel.length };
-        }
-      }
-      const target = e.target as HTMLElement | null;
-      // 下拉選項本身不要 preventDefault，否則顏色／背景點選會失效
-      if (target?.closest('.ql-picker-options')) return;
-      // 保留 Quill 選取範圍，否則粗體／清單／連結等會對「空選取」無效
-      if (e.cancelable) e.preventDefault();
-    };
-
-    const bind = () => {
-      const toolbar = root.querySelector('.ql-toolbar');
-      if (!toolbar) return null;
-      toolbar.addEventListener('mousedown', onToolbarMouseDown);
-      return toolbar;
-    };
-
-    let toolbar = bind();
-    const retry = window.setTimeout(() => {
-      toolbar = bind() || toolbar;
-    }, 80);
-
-    document.addEventListener('mouseup', endToolbarInteraction);
-
-    return () => {
-      window.clearTimeout(retry);
-      toolbar?.removeEventListener('mousedown', onToolbarMouseDown);
-      document.removeEventListener('mouseup', endToolbarInteraction);
-      toolbarInteractingRef.current = false;
-    };
-  }, [mounted, formulaReady, compact, latexOnly, enableFontSize, enableContentImage, ReactQuillEditor]);
   useEffect(
     () => () => {
       if (debounceTimerRef.current) {
@@ -597,9 +460,7 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
       const sel = quill.getSelection(false);
       const safeSel = sel
         ? { index: sel.index, length: sel.length }
-        : selectionRef.current
-          ? selectionRef.current
-          : { index: Math.max(0, quill.getLength() - 1), length: 0 };
+        : { index: Math.max(0, quill.getLength() - 1), length: 0 };
       selectionRef.current = safeSel;
 
       // 游標落在已插入的公式上 → 直接進入編輯
@@ -749,32 +610,16 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
     [decorateFillInEditor, emitChange, isFillInEditor]
   );
 
-  const countImagesInEditor = useCallback(() => {
-    const quill = safeGetQuill(editorRef);
-    if (quill?.root) {
-      return (quill.root as HTMLElement).querySelectorAll('img').length;
-    }
-    return (localHtmlRef.current.match(/<img\b/gi) || []).length;
-  }, []);
-
-  const handleContentImageUpload = useCallback(async (file: File) => {
-    if (!enableContentImage) return;
-
-    if (quizImageContext) {
-      if (quizImageContext.getImageCount() >= QUIZ_MAX_IMAGES_PER_QUIZ) {
-        window.alert(`每份測驗卷最多 ${QUIZ_MAX_IMAGES_PER_QUIZ} 張圖片`);
-        return;
-      }
-    } else if (imageLimit != null && countImagesInEditor() >= imageLimit) {
-      window.alert(`文章內容最多 ${imageLimit} 張圖片`);
+  const handleQuizImageUpload = useCallback(async (file: File) => {
+    if (!quizImageContext) return;
+    if (quizImageContext.getImageCount() >= QUIZ_MAX_IMAGES_PER_QUIZ) {
+      window.alert(`每份測驗卷最多 ${QUIZ_MAX_IMAGES_PER_QUIZ} 張圖片`);
       return;
     }
 
     const quill = safeGetQuill(editorRef);
     if (quill) {
-      const sel = quill.getSelection(false) ?? (selectionRef.current
-        ? { index: selectionRef.current.index, length: selectionRef.current.length }
-        : null);
+      const sel = quill.getSelection();
       selectionRef.current = sel
         ? { index: sel.index, length: sel.length }
         : { index: Math.max(0, quill.getLength() - 1), length: 0 };
@@ -784,25 +629,14 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
 
     setImageUploading(true);
     try {
-      if (quizImageContext) {
-        const localUrl = await createLocalQuizImagePreview(file);
-        insertImageAtSelection(localUrl);
-        return;
-      }
-
-      const uploader = uploadImageRef.current;
-      if (!uploader) {
-        window.alert('尚未設定圖片上傳');
-        return;
-      }
-      const url = await uploader(file);
-      insertImageAtSelection(url);
+      const localUrl = await createLocalQuizImagePreview(file);
+      insertImageAtSelection(localUrl);
     } catch (error) {
       window.alert(error instanceof Error ? error.message : '圖片加入失敗');
     } finally {
       setImageUploading(false);
     }
-  }, [enableContentImage, imageLimit, countImagesInEditor, quizImageContext, insertImageAtSelection]);
+  }, [quizImageContext, insertImageAtSelection]);
 
   const openImagePicker = useCallback(() => {
     if (imageUploading) return;
@@ -842,7 +676,7 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
     let onCompositionStart: (() => void) | null = null;
     let onCompositionEnd: (() => void) | null = null;
     let onFocus: (() => void) | null = null;
-    let onBlur: ((e: FocusEvent) => void) | null = null;
+    let onBlur: (() => void) | null = null;
 
     const attach = () => {
       if (cancelled) return;
@@ -866,10 +700,7 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
       onFocus = () => {
         isFocusedRef.current = true;
       };
-      onBlur = (e: FocusEvent) => {
-        if (toolbarInteractingRef.current) return;
-        const related = e.relatedTarget as Node | null;
-        if (related && containerRef.current?.contains(related)) return;
+      onBlur = () => {
         isFocusedRef.current = false;
         if (!isComposingRef.current) flushPendingChange();
         const html = root!.innerHTML;
@@ -977,7 +808,8 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
       quill.insertEmbed(index, "formula-block", normalized, "user");
       quill.setSelection(index + 1, 0, "user");
     } else {
-      insertInlineFormulaEmbed(quill, index, normalized);
+      quill.insertEmbed(index, "formula", normalized, "user");
+      quill.setSelection(index + 1, 0, "user");
     }
 
     const html = quill.root.innerHTML;
@@ -1025,7 +857,7 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
   const fullToolbar = useMemo(() => {
     const sizeRow = enableFontSize ? [[{ size: ["small", false, "large", "huge"] }]] : [];
     const trailingTools = [
-      ...(enableContentImage ? ["image"] : []),
+      ...(enableQuizImage ? ["image"] : []),
       ...(enableLatex ? ["latex"] : []),
       "clean",
     ];
@@ -1036,32 +868,32 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
       ["link", ...trailingTools],
     ];
     return [...sizeRow, ...formatRows];
-  }, [enableFontSize, enableLatex, enableContentImage]);
+  }, [enableFontSize, enableLatex, enableQuizImage]);
 
   const compactToolbar = useMemo(() => {
     const trailingTools = [
-      ...(enableContentImage ? ["image"] : []),
+      ...(enableQuizImage ? ["image"] : []),
       ...(enableLatex ? ["latex"] : []),
       "clean",
     ];
     return [["bold", "italic", "underline"], trailingTools];
-  }, [enableLatex, enableContentImage]);
+  }, [enableLatex, enableQuizImage]);
 
   const latexOnlyToolbar = useMemo(() => {
     const trailingTools = [
-      ...(enableContentImage ? ["image"] : []),
+      ...(enableQuizImage ? ["image"] : []),
       ...(enableLatex ? ["latex"] : []),
       "clean",
     ];
     return [trailingTools];
-  }, [enableLatex, enableContentImage]);
+  }, [enableLatex, enableQuizImage]);
 
   const toolbarHandlers = useMemo(() => {
     const handlers: Record<string, () => void> = {};
     if (enableLatex) handlers.latex = () => openLatexModalRef.current();
-    if (enableContentImage) handlers.image = () => openImagePickerRef.current();
+    if (enableQuizImage) handlers.image = () => openImagePickerRef.current();
     return Object.keys(handlers).length > 0 ? handlers : undefined;
-  }, [enableLatex, enableContentImage]);
+  }, [enableLatex, enableQuizImage]);
 
   const modules = useMemo(
     () => ({
@@ -1087,16 +919,16 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
     if (latexOnly) {
       const base = enableLatex ? ["formula", "formula-block"] : [];
       if (fillInQuestionNumber !== undefined) base.push("fill-in-blank");
-      if (enableContentImage) base.push("image");
+      if (enableQuizImage) base.push("image");
       return base;
     }
     const base = ["bold", "italic", "underline", "color", "background", "list", "link"];
     if (enableFontSize) base.unshift("size");
     if (enableLatex) base.push("formula", "formula-block");
     if (fillInQuestionNumber !== undefined) base.push("fill-in-blank");
-    if (enableContentImage) base.push("image");
+    if (enableQuizImage) base.push("image");
     return base;
-  }, [enableFontSize, enableLatex, latexOnly, fillInQuestionNumber, enableContentImage]);
+  }, [enableFontSize, enableLatex, latexOnly, fillInQuestionNumber, enableQuizImage]);
 
   const editorMinHeight = minHeight ?? (compact ? "72px" : "120px");
 
@@ -1106,8 +938,8 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
       className={`rich-text-editor rounded-xl border border-gray-300 overflow-visible bg-white shadow-sm transition-shadow focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-transparent ${compact ? "compact" : ""} ${className}`}
       style={{ "--editor-min-height": editorMinHeight } as React.CSSProperties}
     >
-      {mounted && formulaReady && ReactQuillEditor ? (
-        <ReactQuillEditor
+      {mounted && formulaReady ? (
+        <ReactQuill
           key={instanceKey ?? "default"}
           ref={editorRef}
           theme="snow"
@@ -1140,7 +972,7 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
           fillInQuestionNumber={fillInQuestionNumber}
         />
       )}
-      {enableContentImage && (
+      {enableQuizImage && (
         <input
           ref={imageInputRef}
           type="file"
@@ -1149,7 +981,7 @@ const RichTextEditor = React.forwardRef<RichTextEditorHandle, Props>(function Ri
           onChange={(e) => {
             const file = e.target.files?.[0];
             e.target.value = '';
-            if (file) void handleContentImageUpload(file);
+            if (file) void handleQuizImageUpload(file);
           }}
         />
       )}

@@ -36,7 +36,7 @@ export const SITE_ERROR_CODES = {
 export type SiteErrorCode = (typeof SITE_ERROR_CODES)[keyof typeof SITE_ERROR_CODES];
 
 /** 回傳給一般使用者的統一訊息（不含額度／基礎設施細節） */
-export const PUBLIC_UNAVAILABLE_MESSAGE = '系統忙碌中，請洽管理人員';
+export const PUBLIC_UNAVAILABLE_MESSAGE = '系統暫時無法處理您的請求，請稍後再試';
 
 export class SiteDbReadLimitError extends Error {
   readonly siteErrorCode: SiteErrorCode;

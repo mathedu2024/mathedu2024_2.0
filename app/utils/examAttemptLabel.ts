@@ -81,18 +81,6 @@ export function openStudentExamReviewInNewTab(
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 
-export function buildStudentExamStartUrl(
-  quizCode: string,
-  options?: { from?: string; mode?: 'start' | 'retake' }
-): string {
-  const path = `/student/exam/${encodeURIComponent(quizCode)}/start`;
-  const params = new URLSearchParams();
-  if (options?.mode === 'retake') params.set('mode', 'retake');
-  appendFromParam(params, options?.from);
-  const qs = params.toString();
-  return qs ? `${path}?${qs}` : path;
-}
-
 export function buildStudentExamTakeUrl(
   quizCode: string,
   options?: { from?: string }

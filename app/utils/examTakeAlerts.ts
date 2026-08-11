@@ -37,7 +37,7 @@ export async function showExamTakeBlockedAlert(
     title,
     html: lines.map((line) => `<p class="text-sm leading-relaxed">${line}</p>`).join(''),
     showCancelButton: canDiscardDraft,
-    confirmButtonColor: '#2D6DF6',
+    confirmButtonColor: '#4f46e5',
     cancelButtonColor: '#9ca3af',
     confirmButtonText: canDiscardDraft ? '放棄暫存並繼續' : '我知道了',
     cancelButtonText: '取消',

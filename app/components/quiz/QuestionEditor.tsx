@@ -43,7 +43,7 @@ import QuestionPreviewPanel from './QuestionPreviewPanel';
 import { makeFillInBlankToken, removeFillInBlankTokenByCellIndex } from '@/utils/fillInContent';
 
 const inputClass =
-  'w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-transparent transition-shadow text-sm';
+  'w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-transparent transition-shadow text-sm';
 const labelClass = 'text-gray-700 text-sm font-bold mb-2 block';
 
 function RequiredLabel({ children }: { children: React.ReactNode }) {
@@ -158,7 +158,7 @@ function TrueFalseEditor({
               type="radio"
               checked={correctAnswer === opt.value}
               onChange={() => onChange(opt.value)}
-              className="accent-[#2D6DF6]"
+              className="accent-indigo-600"
             />
             <span className="text-sm text-gray-700">{opt.label}</span>
           </label>
@@ -217,7 +217,7 @@ function ShortAnswerReferenceEditor({
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
         placeholder="可輸入參考答案或評分要點，僅供批改時參考…"
-        className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-primary/40 resize-y min-h-[6rem]"
+        className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-y min-h-[6rem]"
       />
       <p className="text-xs text-gray-400">
         簡答題一律由老師手動批改；系統不會比對此參考答案，學生也看不到。
@@ -293,7 +293,7 @@ function GsatGridAnswerEditor({
                     next[cellIdx] = { ...cell, correctAnswer: ans };
                     onChange(next);
                   }}
-                  className="accent-[#2D6DF6] w-4 h-4"
+                  className="accent-indigo-600 w-4 h-4"
                 />
               </label>
             ))}
@@ -321,7 +321,7 @@ function GsatGridAnswerEditor({
       <button
         type="button"
         onClick={() => onChange([...cells, createEmptyGridCell(cells.length, questionNumber)])}
-        className="text-primary hover:text-primary text-sm font-medium flex items-center gap-1"
+        className="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center gap-1"
       >
         <PlusIcon className="w-4 h-4" /> 新增格子
       </button>
@@ -394,7 +394,7 @@ function ChoiceOptionsEditor({
             name={multiple ? undefined : 'correct-answer'}
             checked={correctAnswers.includes(opt) && !isHtmlEmpty(opt)}
             onChange={() => toggleCorrect(opt)}
-            className="w-4 h-4 text-primary accent-[#2D6DF6] flex-shrink-0"
+            className="w-4 h-4 text-indigo-600 accent-indigo-600 flex-shrink-0"
             disabled={isHtmlEmpty(opt)}
           />
           <span className="text-sm font-semibold text-gray-600 shrink-0 leading-none">
@@ -424,7 +424,7 @@ function ChoiceOptionsEditor({
       <button
         type="button"
         onClick={() => onOptionsChangeRef.current([...optionsRef.current, ''])}
-        className="text-primary hover:text-primary text-sm font-medium flex items-center gap-1"
+        className="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center gap-1"
       >
         <PlusIcon className="w-4 h-4" /> 新增選項
       </button>
@@ -637,7 +637,7 @@ export default function QuestionEditor({
   };
 
   const typeBadgeColor: Record<QuestionType, string> = {
-    single: 'bg-primary/10 text-primary',
+    single: 'bg-indigo-100 text-indigo-700',
     multiple: 'bg-purple-100 text-purple-700',
     fill_in: 'bg-emerald-100 text-emerald-700',
     tf: 'bg-amber-100 text-amber-700',
@@ -740,7 +740,7 @@ export default function QuestionEditor({
       {...draggableProps}
       style={fixDraggableStyle(draggableProps?.style)}
       className={`bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden ${
-        isDragging ? 'ring-2 ring-primary/50 shadow-lg' : ''
+        isDragging ? 'ring-2 ring-indigo-400 shadow-lg' : ''
       }`}
     >
       <div
@@ -801,7 +801,7 @@ export default function QuestionEditor({
             e.stopPropagation();
             setExpanded(!expanded);
           }}
-          className="text-gray-400 hover:text-primary p-1"
+          className="text-gray-400 hover:text-indigo-600 p-1"
         >
           {expanded ? <ChevronUpIcon className="w-5 h-5" /> : <ChevronDownIcon className="w-5 h-5" />}
         </button>
@@ -841,7 +841,7 @@ export default function QuestionEditor({
               )}
             </div>
 
-            <div className={isGroupQuestion(question) ? 'rounded-xl border border-primary/20 bg-primary/10 p-4' : ''}>
+            <div className={isGroupQuestion(question) ? 'rounded-xl border border-indigo-100 bg-indigo-50/40 p-4' : ''}>
               <RequiredLabel>{isGroupQuestion(question) ? '題組題幹' : '題目'}</RequiredLabel>
               <RichTextEditor
                 ref={contentEditorRef}
@@ -903,18 +903,18 @@ export default function QuestionEditor({
 
             {isGroupQuestion(question) && (
               <div className="space-y-3">
-                <div className="rounded-xl border border-primary/20 bg-primary/10 px-4 py-3 space-y-2">
-                  <p className="text-sm font-bold text-on-surface">題組打亂設定</p>
+                <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 px-4 py-3 space-y-2">
+                  <p className="text-sm font-bold text-indigo-900">題組打亂設定</p>
                   <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={!!question.shuffleSubQuestions}
                       onChange={(e) => patchQuestion({ shuffleSubQuestions: e.target.checked })}
-                      className="w-4 h-4 text-primary accent-[#2D6DF6]"
+                      className="w-4 h-4 text-indigo-600 accent-indigo-600"
                     />
                     打亂此題組的子題順序
                   </label>
-                  <p className="text-xs text-primary/70">
+                  <p className="text-xs text-indigo-700/70">
                     僅影響此題組內部子題順序。大題打亂時題組整組移動，不拆開子題。作答紀錄與批改為原稿順序。
                   </p>
                 </div>

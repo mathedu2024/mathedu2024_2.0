@@ -122,12 +122,12 @@ export default function MultiSelectDropdown({
               key={option.value}
               onClick={() => handleToggleOption(option.value)}
               className={`${MULTISELECT_OPTION_BASE_CLASS} ${
-                isSelected ? 'bg-primary/10 text-primary font-semibold' : 'text-gray-800 hover:bg-gray-50'
+                isSelected ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-gray-800 hover:bg-gray-50'
               }`}
             >
               <span className="block truncate">{option.label}</span>
               {isSelected && (
-                <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-primary">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-indigo-600">
                   <CheckIcon className="h-4 w-4" aria-hidden="true" />
                 </span>
               )}

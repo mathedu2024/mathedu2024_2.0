@@ -28,7 +28,7 @@ export default function LoadingSpinner({
   text = '',
 }: LoadingSpinnerProps) {
   const colorMap = {
-    blue: '#2D6DF6',
+    blue: '#4f46e5',
     white: '#FFFFFF',
     gray: '#6B7280',
   };
@@ -41,7 +41,7 @@ export default function LoadingSpinner({
       {text ? (
         <span
           className={`mt-3 text-sm font-medium ${
-            color === 'white' ? 'text-white' : 'text-on-surfaceVariant'
+            color === 'white' ? 'text-white' : 'text-gray-500'
           }`}
         >
           {text}

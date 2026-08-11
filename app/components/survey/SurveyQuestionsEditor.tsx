@@ -94,7 +94,7 @@ export default function SurveyQuestionsEditor({
           <button
             type="button"
             onClick={() => addQuestion('single')}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-dashed border-gray-300 text-sm text-gray-600 hover:border-primary/50 hover:text-primary hover:bg-primary/10 transition-colors"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-dashed border-gray-300 text-sm text-gray-600 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/50 transition-colors"
           >
             <PlusIcon className="w-4 h-4" />
             新增新題目
@@ -183,7 +183,7 @@ function QuestionEditor({
       {...draggableProps}
       style={fixDraggableStyle(draggableProps?.style)}
       className={`rounded-xl border border-gray-100 bg-gray-50/80 p-4 space-y-3 ${
-        isDragging ? 'ring-2 ring-primary/50 shadow-lg' : ''
+        isDragging ? 'ring-2 ring-indigo-400 shadow-lg' : ''
       }`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -195,7 +195,7 @@ function QuestionEditor({
           >
             <Bars3Icon className="w-4 h-4" />
           </div>
-          <span className="text-xs font-bold text-primary shrink-0">Q{index + 1}</span>
+          <span className="text-xs font-bold text-indigo-600 shrink-0">Q{index + 1}</span>
         </div>
         <button type="button" onClick={onRemove} className="text-gray-400 hover:text-red-500" title="刪除題目">
           <TrashIcon className="w-4 h-4" />
@@ -215,7 +215,7 @@ function QuestionEditor({
       <textarea
         value={question.content}
         onChange={(e) => onChange({ ...question, content: e.target.value })}
-        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary"
+        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
         rows={2}
         placeholder={
           question.type === 'matrix'
@@ -229,7 +229,7 @@ function QuestionEditor({
           type="checkbox"
           checked={question.required !== false}
           onChange={(e) => onChange({ ...question, required: e.target.checked })}
-          className="rounded border-gray-300 text-primary focus:ring-primary"
+          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
         />
         必填
       </label>
@@ -265,7 +265,7 @@ function ChoiceFields({
             type="text"
             value={opt}
             onChange={(e) => updateOption(i, e.target.value)}
-            className="flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary"
+            className="flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
             placeholder={`選項 ${i + 1}`}
           />
           {question.options.length > 2 && (
@@ -292,7 +292,7 @@ function ChoiceFields({
             options: [...question.options, `選項 ${question.options.length + 1}`],
           })
         }
-        className="text-sm text-primary hover:text-primary font-medium"
+        className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
       >
         + 新增選項
       </button>
@@ -302,7 +302,7 @@ function ChoiceFields({
             type="checkbox"
             checked={!!question.allowOther}
             onChange={(e) => onChange({ ...question, allowOther: e.target.checked })}
-            className="rounded border-gray-300 text-primary focus:ring-primary"
+            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
           />
           最後一格加入「其他」自由填寫
         </label>
@@ -495,7 +495,7 @@ function MatrixFields({
               rows: [...question.rows, { id: generateSurveyId(), label: '' }],
             })
           }
-          className="text-sm text-primary hover:text-primary font-medium"
+          className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
         >
           + 新增列
         </button>

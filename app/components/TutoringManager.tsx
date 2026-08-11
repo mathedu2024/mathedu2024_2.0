@@ -248,7 +248,7 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
           title: '建立成功！',
           text: '輔導時段已成功建立。',
           confirmButtonText: '確定',
-          confirmButtonColor: '#2D6DF6', // primary
+          confirmButtonColor: '#4f46e5', // indigo-600
           customClass: { popup: 'rounded-2xl' }
         });
         setIsModalOpen(false);
@@ -296,7 +296,7 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
           title: '刪除成功！',
           text: '輔導時段已成功移除。',
           confirmButtonText: '確定',
-          confirmButtonColor: '#2D6DF6', // primary
+          confirmButtonColor: '#4f46e5', // indigo-600
           customClass: { popup: 'rounded-2xl' }
         });
         fetchSlots();
@@ -358,7 +358,7 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
       <button onClick={() => setCurrentWeekStart(subWeeks(currentWeekStart, 1))} className="p-2 rounded-full hover:bg-gray-100 text-gray-600">
         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
       </button>
-      <h2 className="font-display text-xl font-bold text-on-surface">
+      <h2 className="text-xl font-bold text-gray-800">
         {/* 使用 safeFormat */}
         {safeFormat(currentWeekStart, 'yyyy年 M月 d日', { locale: zhTW })} - {safeFormat(addDays(currentWeekStart, 6), 'yyyy年 M月 d日', { locale: zhTW })}
       </h2>
@@ -380,19 +380,19 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
       days.push(
         <div
           className={`p-2 h-48 border rounded-xl flex flex-col overflow-hidden transition-all cursor-pointer ${
-            isSameDay(day, selectedDate) ? 'border-primary ring-2 ring-primary/30 bg-primary/5' : 'border-gray-200 hover:border-primary/40'
+            isSameDay(day, selectedDate) ? 'border-indigo-500 ring-2 ring-indigo-200 bg-indigo-50/30' : 'border-gray-200 hover:border-indigo-300'
           }`}
           key={day.toISOString()}
           onClick={() => setSelectedDate(day)}
         >
           <div className="flex justify-between items-center mb-1">
-             <span className={`text-sm font-medium ${isSameDay(day, new Date()) ? 'text-primary bg-primary/10 px-2 py-0.5 rounded-full' : 'text-gray-500'}`}>
+             <span className={`text-sm font-medium ${isSameDay(day, new Date()) ? 'text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full' : 'text-gray-500'}`}>
                 {/* 使用 safeFormat */}
                 {safeFormat(day, 'd日 (EEE)', { locale: zhTW })}
              </span>
              {(!isPast(day) || isSameDay(day, new Date())) && (
                 <button
-                  className="text-primary hover:bg-primary/10 rounded-full p-1"
+                  className="text-indigo-600 hover:bg-indigo-100 rounded-full p-1"
                   onClick={(e) => {
                     e.stopPropagation();
                     openCreateModal(day);
@@ -410,12 +410,12 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
                 key={slot.id}
                 className={`text-xs p-1.5 rounded-lg border transition-colors ${
                   canEditSlot(slot.date) 
-                    ? 'cursor-pointer ' + (slot.bookedCount === slot.participantLimit ? 'hover:bg-red-100' : 'hover:bg-primary/10 hover:border-primary/30')
+                    ? 'cursor-pointer ' + (slot.bookedCount === slot.participantLimit ? 'hover:bg-red-100' : 'hover:bg-indigo-50 hover:border-indigo-200')
                     : 'cursor-default opacity-80'
                 } ${
                   slot.bookedCount === slot.participantLimit 
                     ? 'bg-red-50 text-red-700 border-red-100' 
-                    : 'bg-white text-primary border-primary/20 shadow-sm'
+                    : 'bg-white text-indigo-700 border-indigo-100 shadow-sm'
                 }`}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -448,12 +448,12 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
     <div className="page-shell w-full min-w-0 flex flex-col h-full animate-fade-in">
         {/* Header Area */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
-          <div className="border-l-4 border-primary pl-4">
-            <h1 className="font-display text-2xl font-bold text-on-surface flex items-center gap-3">
-              <CalendarIcon className="h-8 w-8 text-primary" />
+          <div className="border-l-4 border-indigo-500 pl-4">
+            <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+              <CalendarIcon className="h-8 w-8 text-indigo-600" />
               課程輔導
             </h1>
-            <p className="text-on-surfaceVariant text-sm mt-1">管理老師與學生的輔導排程</p>
+            <p className="text-gray-500 text-sm mt-1">管理老師與學生的輔導排程</p>
           </div>
         </div>
 
@@ -462,14 +462,14 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
         ) : (
         <>
 
-        <div className="bg-surface-containerLowest rounded-2xl shadow-sm border border-outline-variant/40 p-6 mb-8">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8">
           <div className="flex flex-col md:flex-row justify-between items-center mb-6">
-            <h2 className="font-display text-xl font-bold text-on-surface flex items-center">
-                <CalendarIcon className="w-6 h-6 mr-2 text-primary" /> 輔導時段日曆
+            <h2 className="text-xl font-bold text-gray-800 flex items-center">
+                <CalendarIcon className="w-6 h-6 mr-2 text-indigo-500" /> 輔導時段日曆
             </h2>
             <button
               onClick={() => openCreateModal(selectedDate)}
-              className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-xl hover:bg-primary-hover transition-colors shadow-sm font-medium mt-4 md:mt-0"
+              className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors shadow-sm font-medium mt-4 md:mt-0"
             >
               <PlusIcon className="w-5 h-5 mr-2" />新增輔導時段
             </button>
@@ -478,8 +478,8 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
           {renderDays()}
         </div>
 
-        <div className="bg-surface-containerLowest rounded-2xl shadow-sm border border-outline-variant/40 p-6">
-          <h2 className="font-display text-xl font-bold text-on-surface mb-4 border-l-4 border-primary pl-3">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <h2 className="text-xl font-bold text-gray-800 mb-4 border-l-4 border-indigo-500 pl-3">
             {/* 使用 safeFormat */}
             {safeFormat(selectedDate, 'yyyy年 M月 d日', { locale: zhTW })} 的輔導時段
           </h2>
@@ -496,7 +496,7 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
               {filteredSlots.map(slot => (
                 <div key={slot.id} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow relative group">
                   <div className="flex justify-between items-start mb-3">
-                    <h3 className="font-display text-lg font-bold text-on-surface line-clamp-1">{slot.title}</h3>
+                    <h3 className="text-lg font-bold text-gray-800 line-clamp-1">{slot.title}</h3>
                     <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${
                         slot.bookedCount >= Number(slot.participantLimit) ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
                     }`}>
@@ -505,11 +505,11 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
                   </div>
                   
                   <div className="space-y-2 text-sm text-gray-600 mb-4">
-                    <p className="flex items-center"><ClockIcon className="w-4 h-4 mr-2 text-primary/70" />{slot.startTime} - {slot.endTime}</p>
-                    <p className="flex items-center"><ChatBubbleLeftRightIcon className="w-4 h-4 mr-2 text-primary/70" />{slot.method}</p>
-                    <p className="flex items-center"><MapPinIcon className="w-4 h-4 mr-2 text-primary/70" />{slot.locationType}: {slot.locationDetails || '-'}</p>
+                    <p className="flex items-center"><ClockIcon className="w-4 h-4 mr-2 text-indigo-400" />{slot.startTime} - {slot.endTime}</p>
+                    <p className="flex items-center"><ChatBubbleLeftRightIcon className="w-4 h-4 mr-2 text-indigo-400" />{slot.method}</p>
+                    <p className="flex items-center"><MapPinIcon className="w-4 h-4 mr-2 text-indigo-400" />{slot.locationType}: {slot.locationDetails || '-'}</p>
                     <p className="flex items-start">
-                        <TagIcon className="w-4 h-4 mr-2 text-primary/70 mt-0.5 flex-shrink-0" />
+                        <TagIcon className="w-4 h-4 mr-2 text-indigo-400 mt-0.5 flex-shrink-0" />
                         <span className="line-clamp-2">
                             {slot.qualifications.type === 'grades_subjects'
                                 ? `${slot.qualifications.grades.join(', ')} / ${slot.qualifications.subjects.join(', ')}`
@@ -526,7 +526,7 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
                             setCurrentSlotTitle(slot.title || '預約學生');
                             setShowBookingsModal(true);
                         }}
-                        className="flex-1 py-1.5 bg-primary/10 text-primary rounded-lg text-sm font-medium hover:bg-primary/10 transition-colors"
+                        className="flex-1 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-sm font-medium hover:bg-indigo-100 transition-colors"
                         disabled={!slot.bookedStudents || slot.bookedStudents.length === 0}
                     >
                         名單 ({slot.bookedStudents?.length || 0})
@@ -553,7 +553,7 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
       {showBookingsModal && createPortal(
         <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-[9999] p-4 animate-fade-in">
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-full sm:max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in transform scale-100">
-            <div className="bg-gradient-to-r from-primary to-tertiary p-4 flex justify-between items-center text-white flex-shrink-0">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
               <h2 className="text-xl font-bold flex items-center">{currentSlotTitle} - 預約名單</h2>
               <button 
                 onClick={() => setShowBookingsModal(false)} 
@@ -566,10 +566,10 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
               {currentBookedStudents.length > 0 ? (
                 <div className="space-y-3">
                   {currentBookedStudents.map((student, index) => (
-                    <div key={index} className="p-4 bg-gray-50 rounded-xl border border-outline-variant/40 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div key={index} className="p-4 bg-gray-50 rounded-xl border border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                       <div className="flex-1">
                         <p className="font-bold text-gray-900 flex items-center">
-                            <UserIcon className="w-4 h-4 mr-2 text-primary" />
+                            <UserIcon className="w-4 h-4 mr-2 text-indigo-500" />
                             {student.studentName} <span className="text-gray-500 font-normal ml-2 text-sm">({student.studentDisplayId})</span>
                         </p>
                         <p className="text-sm text-gray-600 flex items-center mt-1">
@@ -602,8 +602,8 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
                 <div className="text-center py-8 text-gray-500">目前沒有學生預約此時段。</div>
               )}
             </div>
-            <div className="p-4 bg-surface-containerLow border-t border-outline-variant/40 flex justify-end gap-2 flex-shrink-0">
-              <button className="px-6 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover shadow-sm transition-colors" onClick={() => setShowBookingsModal(false)}>
+            <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-2 flex-shrink-0">
+              <button className="px-6 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm transition-colors" onClick={() => setShowBookingsModal(false)}>
                 關閉
               </button>
             </div>
@@ -615,7 +615,7 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
       {isModalOpen && createPortal(
         <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-[9999] p-4 animate-fade-in">
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-full sm:max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in transform scale-100">
-            <div className="bg-gradient-to-r from-primary to-tertiary p-4 flex justify-between items-center text-white flex-shrink-0">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
               <h2 className="text-xl font-bold flex items-center">
                   {selectedSlot ? '編輯輔導時段' : '新增輔導時段'}
               </h2>
@@ -631,7 +631,7 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
               <div>
                 <label htmlFor="title" className="block text-sm font-bold text-gray-700 mb-1">標題</label>
                 <input type="text" id="title" name="title" value={form.title} onChange={handleFormChange} required 
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-shadow" 
+                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow" 
                     placeholder="例如：數學輔導"
                 />
               </div>
@@ -639,7 +639,7 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
                 <div>
                   <label htmlFor="date" className="block text-sm font-bold text-gray-700 mb-1">日期</label>
                   <input type="date" id="date" name="date" value={form.date} onChange={handleFormChange} required 
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent" 
+                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent" 
                     max="9999-12-31"
                   />
                 </div>
@@ -647,13 +647,13 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
                     <div>
                         <label htmlFor="startTime" className="block text-sm font-bold text-gray-700 mb-1">開始</label>
                         <input type="time" id="startTime" name="startTime" lang="en-GB" value={form.startTime} onChange={handleFormChange} required 
-                            className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent" 
+                            className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent" 
                         />
                     </div>
                     <div>
                         <label htmlFor="endTime" className="block text-sm font-bold text-gray-700 mb-1">結束</label>
                         <input type="time" id="endTime" name="endTime" lang="en-GB" value={form.endTime} onChange={handleFormChange} required 
-                            className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent" 
+                            className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent" 
                         />
                     </div>
                 </div>
@@ -689,7 +689,7 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
                       onChange={handleFormChange}
                       required
                       min="1"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     />
                   </div>
                 )}
@@ -716,7 +716,7 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
                             {form.locationType === '實體輔導' ? '地點 (地址/教室)' : '會議室網址'}
                         </label>
                         <input type="text" id="locationDetails" name="locationDetails" value={form.locationDetails} onChange={handleFormChange} 
-                            className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent" 
+                            className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent" 
                         />
                     </div>
                   )}
@@ -728,7 +728,7 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
                   <label className="inline-flex items-center cursor-pointer">
                     <input
                       type="radio"
-                  className="form-radio text-primary focus:ring-primary accent-[#2D6DF6]"
+                  className="form-radio text-indigo-600 focus:ring-indigo-500 accent-indigo-600"
                       name="qualificationType"
                       value="grades_subjects"
                       checked={form.qualifications.type === 'grades_subjects'}
@@ -742,7 +742,7 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
                   <label className="inline-flex items-center cursor-pointer">
                     <input
                       type="radio"
-                  className="form-radio text-primary focus:ring-primary accent-[#2D6DF6]"
+                  className="form-radio text-indigo-600 focus:ring-indigo-500 accent-indigo-600"
                       name="qualificationType"
                       value="classes"
                       checked={form.qualifications.type === 'classes'}
@@ -804,17 +804,17 @@ export function TutoringManager({ userInfo, courses }: TutoringManagerProps) {
               <div>
                 <label htmlFor="remarks" className="block text-sm font-bold text-gray-700 mb-1">備註說明</label>
                 <textarea id="remarks" name="remarks" value={form.remarks} onChange={handleFormChange} rows={3} 
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     placeholder="選填，提供更多資訊..."
                 ></textarea>
               </div>
               </div>
 
-              <div className="p-4 bg-surface-containerLow border-t border-outline-variant/40 flex gap-2 flex-shrink-0">
+              <div className="p-4 bg-gray-50 border-t border-gray-100 flex gap-2 flex-shrink-0">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 bg-white border border-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
                     取消
                 </button>
-                <button type="submit" className="flex-1 bg-primary text-white py-2 rounded-lg text-sm font-medium hover:bg-primary-hover shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled={loading}>
+                <button type="submit" className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled={loading}>
                   {loading ? <LoadingSpinner size={20} color="white" /> : (selectedSlot ? '儲存變更' : '新增時段')}
                 </button>
               </div>

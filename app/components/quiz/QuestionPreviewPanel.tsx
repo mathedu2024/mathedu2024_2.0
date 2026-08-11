@@ -117,7 +117,7 @@ function SubQuestionPreviewCard({
                     <div
                       className={`w-3.5 h-3.5 rounded-full border-2 ${
                         cell.correctAnswer === ans
-                          ? 'border-primary bg-primary'
+                          ? 'border-indigo-600 bg-indigo-600'
                           : 'border-gray-400 bg-white'
                       }`}
                     />
@@ -159,7 +159,7 @@ export default function QuestionPreviewPanel({
         <p className="text-sm text-gray-500 mb-4">題目數：{totalInQuiz} 題</p>
         <div className="flex-1 space-y-4">
           <div className={PREVIEW_CARD_CLASS}>
-            <p className="text-xs font-semibold text-primary mb-3">題組題幹</p>
+            <p className="text-xs font-semibold text-indigo-700 mb-3">題組題幹</p>
             <div className="text-gray-800">
               {isHtmlEmpty(question.content) ? (
                 <span className="text-gray-400 italic">暫無題目內容</span>
@@ -234,7 +234,7 @@ export default function QuestionPreviewPanel({
                       <div
                         className={`w-4 h-4 rounded-full border-2 ${
                           cell.correctAnswer === ans
-                            ? 'border-primary bg-primary'
+                            ? 'border-indigo-600 bg-indigo-600'
                             : 'border-gray-400 bg-white'
                         }`}
                       />

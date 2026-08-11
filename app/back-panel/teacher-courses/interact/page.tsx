@@ -92,7 +92,7 @@ function TeacherCourseInteractInner() {
         <button
           type="button"
           onClick={handleClose}
-          className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary"
+          className="px-4 py-2 rounded-lg bg-indigo-500 text-white text-sm font-medium hover:bg-indigo-400"
         >
           關閉
         </button>

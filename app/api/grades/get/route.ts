@@ -9,12 +9,7 @@ import {
   mergePeriodicColumnDetails,
   normalizeGradeDocStudents,
 } from '@/services/gradeShape';
-import {
-  requireAuthFromRequest,
-  requireCourseStaffAccess,
-  authGuard,
-  getSessionFromRequest,
-} from '@/services/apiAuth';
+import { requireAuthFromRequest, authGuard } from '@/services/apiAuth';
 
 async function resolveExistingCourseDocId(ids: string[]): Promise<string | null> {
   for (const docId of ids) {
@@ -63,12 +58,6 @@ export async function POST(req: NextRequest) {
     }
 
     const resolvedCourseDocId = await resolveExistingCourseDocId(idsToTry);
-    const session = getSessionFromRequest(req)!;
-    const courseDenied = authGuard(
-      await requireCourseStaffAccess(session, resolvedCourseDocId || idsToTry[0])
-    );
-    if (courseDenied) return courseDenied;
-
     const roster = resolvedCourseDocId ? await fetchCourseRoster(resolvedCourseDocId) : [];
 
     let data: Record<string, unknown> | null = null;

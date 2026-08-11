@@ -43,7 +43,7 @@ export default function AutoLogout() {
     }
 
     const session = getSession();
-    const redirectTo = '/login';
+    const redirectTo = isTeacherOrAdminRole(session?.role) ? '/panel' : '/login';
 
     await logoutClient();
 
@@ -52,7 +52,7 @@ export default function AutoLogout() {
       text: '由於您長時間未操作，系統已自動登出。',
       icon: 'info',
       confirmButtonText: '重新登入',
-      confirmButtonColor: '#2D6DF6',
+      confirmButtonColor: '#4f46e5',
       allowOutsideClick: false,
       allowEscapeKey: false,
     }).then(() => {

@@ -133,7 +133,7 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
           title: '已取消',
           text: '您的預約已成功取消。',
           icon: 'success',
-          confirmButtonColor: '#2D6DF6',
+          confirmButtonColor: '#4f46e5',
           customClass: {
             popup: 'rounded-2xl',
           }
@@ -195,7 +195,7 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
           title: '已更新',
           text: '您的預約資訊已更新。',
           icon: 'success',
-          confirmButtonColor: '#2D6DF6',
+          confirmButtonColor: '#4f46e5',
           customClass: {
             popup: 'rounded-2xl',
           }
@@ -412,7 +412,7 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
                   value={editForm.problemDescription}
                   onChange={(e) => setEditForm({ problemDescription: e.target.value })}
                   rows={5}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-shadow resize-none"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow resize-none"
                   required
                   placeholder="請描述您想請教老師的問題..."
                 ></textarea>
@@ -429,7 +429,7 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
                 </button>
                 <button 
                   type="submit" 
-                  className="px-6 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover shadow-sm transition-colors disabled:opacity-70 flex items-center" 
+                  className="px-6 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm transition-colors disabled:opacity-70 flex items-center" 
                   disabled={loading}
                 >
                   {loading ? <LoadingSpinner size={20} color="white" /> : '儲存變更'}
@@ -445,7 +445,7 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
         <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-[99999] p-4 animate-fade-in">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-full sm:max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in">
             {/* Header */}
-            <div className="bg-gradient-to-r from-primary to-tertiary p-4 flex justify-between items-center text-white flex-shrink-0">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
                 <h3 className="font-bold flex items-center text-lg">
                     <EyeIcon className="w-5 h-5 mr-2" /> 預約詳情
                 </h3>
@@ -466,21 +466,21 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
                 <div>
                     <span className="block text-xs font-bold text-gray-400 uppercase mb-1">日期</span>
                     <p className="text-gray-900 font-medium flex items-center">
-                        <CalendarIcon className="w-4 h-4 mr-1 text-primary" />
+                        <CalendarIcon className="w-4 h-4 mr-1 text-indigo-500" />
                         {detailsAppointment.slotDetails ? format(parseISO(detailsAppointment.slotDetails.date), 'yyyy-MM-dd') : 'N/A'}
                     </p>
                 </div>
                 <div>
                     <span className="block text-xs font-bold text-gray-400 uppercase mb-1">時間</span>
                     <p className="text-gray-900 font-medium flex items-center">
-                        <ClockIcon className="w-4 h-4 mr-1 text-primary" />
+                        <ClockIcon className="w-4 h-4 mr-1 text-indigo-500" />
                         {detailsAppointment.slotDetails ? `${detailsAppointment.slotDetails.startTime} - ${detailsAppointment.slotDetails.endTime}` : 'N/A'}
                     </p>
                 </div>
                 <div>
                     <span className="block text-xs font-bold text-gray-400 uppercase mb-1">授課老師</span>
                     <p className="text-gray-900 font-medium flex items-center">
-                        <UserIcon className="w-4 h-4 mr-1 text-primary" />
+                        <UserIcon className="w-4 h-4 mr-1 text-indigo-500" />
                         {detailsAppointment.slotDetails?.teacherName || 'N/A'}
                     </p>
                 </div>
@@ -495,15 +495,15 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
               <div>
                 <span className="block text-xs font-bold text-gray-400 uppercase mb-1">地點 / 連結</span>
                 <p className="text-gray-900 font-medium bg-gray-50 p-3 rounded-lg border border-gray-100 flex items-start">
-                    <MapPinIcon className="w-4 h-4 mr-2 text-primary mt-0.5 flex-shrink-0" />
+                    <MapPinIcon className="w-4 h-4 mr-2 text-indigo-500 mt-0.5 flex-shrink-0" />
                     <span className="break-all">{detailsAppointment.slotDetails?.locationDetails || '無詳細資訊'}</span>
                 </p>
               </div>
 
               <div>
                 <span className="block text-xs font-bold text-gray-400 uppercase mb-1">問題描述</span>
-                <p className="text-gray-700 bg-primary/10 p-3 rounded-lg border border-primary/20 flex items-start">
-                    <ChatBubbleBottomCenterTextIcon className="w-4 h-4 mr-2 text-primary mt-0.5 flex-shrink-0" />
+                <p className="text-gray-700 bg-indigo-50/50 p-3 rounded-lg border border-indigo-100 flex items-start">
+                    <ChatBubbleBottomCenterTextIcon className="w-4 h-4 mr-2 text-indigo-500 mt-0.5 flex-shrink-0" />
                     {detailsAppointment.problemDescription || '無'}
                 </p>
               </div>
@@ -520,7 +520,7 @@ const StudentTutoringHistory: React.FC<StudentTutoringHistoryProps> = ({ userInf
               <button 
                 type="button" 
                 onClick={() => setIsDetailsModalOpen(false)} 
-                className="w-full sm:w-auto px-6 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover shadow-sm transition-colors"
+                className="w-full sm:w-auto px-6 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm transition-colors"
               >
                 關閉
               </button>

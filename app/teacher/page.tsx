@@ -1,507 +1,282 @@
 'use client';
 
 import Image from 'next/image';
-import Link from 'next/link';
-import React, { Suspense, useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import {
-  SITE_TEACHERS,
-  findSiteTeacherByAuthorName,
-  normalizeTeacherName,
-  siteTeacherProfileHref,
-  type SiteTeacher,
-} from '@/data/siteTeachers';
-import SiteFooter from '@/components/site/SiteFooter';
+import React, { useState, Suspense } from 'react';
+import { motion } from 'framer-motion';
 
-type Teacher = SiteTeacher;
-
-type PublicCourse = {
-  id: string;
-  name: string;
-  code: string;
-  description?: string;
-  coverImageURL?: string;
-  subjectTag?: string;
-  status?: string;
-  teachers?: unknown;
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0,
+    },
+  },
 };
 
-type ApiTeacher = { id?: string; name?: string; uid?: string; _id?: string };
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: {
+      duration: 0.5,
+    },
+  },
+};
 
-function teacherBlurb(teacher: Teacher) {
-  if (teacher.introduction?.trim()) return teacher.introduction.trim();
-  if (teacher.expertise?.[0]) return teacher.expertise[0];
-  if (teacher.experience?.[0]) return teacher.experience[0];
-  return '點擊查看完整學經歷與授課資訊。';
-}
-
-function teacherTags(teacher: Teacher) {
-  const fromExpertise = teacher.expertise?.slice(0, 3) || [];
-  if (fromExpertise.length > 0) return fromExpertise;
-  return teacher.courses?.slice(0, 3) || [];
-}
-
-function resolveTeacher(nameParam: string | null): Teacher | null {
-  if (!nameParam) return null;
-  return (
-    findSiteTeacherByAuthorName(nameParam) ||
-    SITE_TEACHERS.find((t) => normalizeTeacherName(t.name) === normalizeTeacherName(nameParam)) ||
-    null
-  );
-}
-
-function courseMatchesTeacher(
-  course: PublicCourse,
-  teacher: Teacher,
-  teacherMap: Record<string, string>
-): boolean {
-  const target = normalizeTeacherName(teacher.name);
-  const teacherData = course.teachers;
-  let items: (string | ApiTeacher)[] = [];
-  if (Array.isArray(teacherData)) items = teacherData as (string | ApiTeacher)[];
-  else if (typeof teacherData === 'object' && teacherData !== null) items = Object.keys(teacherData);
-  else if (typeof teacherData === 'string') items = [teacherData];
-
-  const names = items
-    .map((item) => {
-      if (typeof item === 'object' && item !== null && item.name) return item.name;
-      const id = String(item);
-      return teacherMap[id] || id;
-    })
-    .filter(Boolean);
-
-  if (
-    names.some((n) => {
-      const key = normalizeTeacherName(n);
-      return key === target || key.includes(target) || target.includes(key);
-    })
-  ) {
-    return true;
+const teachers = [
+  {
+    name: '吳其恩 老師',
+    subject: '數學科',
+    photo: '/老師介紹/吳其恩.png',
+    education: [
+      '新北市 信義國小 (2013/08~2019/06)',
+      '新北市 中山國中 (2019/08~2022/06)',
+      '光仁高中 普通科 (2022/08~2025/06)',
+      '東吳大學 數學系 (2025/09~)'
+    ],
+    experience: [
+      '2018年 亞東技術院 彈指翻轉程式競賽',
+      '2019年 北區四城市中小學學生專題寫作比賽',
+      '2024年 ARML Local',
+      '2024年 TI-Nspire學生數學競賽',
+      '2024年 數學競賽校內培訓',
+      '2025年 新北市高中計算器檢定',
+      '2025年~ 光仁高中數學競賽校內培訓課程助教',
+      '2026年~ 三民高中數學競賽校內培訓課程助教'
+    ],
+    expertise: [
+      '國高中數學成績增強',
+      '高中數學計算器教育',
+      '數位與智慧教育研究'
+    ],
+    courses: [
+      '國中數學課程',
+      '高中數學課程',
+    ]
   }
+  // 可擴充更多老師
+];
 
-  return (teacher.courses || []).some((label) => {
-    const a = normalizeTeacherName(label);
-    const b = normalizeTeacherName(course.name);
-    return Boolean(a && b && (a.includes(b) || b.includes(a)));
-  });
-}
-
-function TeacherProfile({ teacher }: { teacher: Teacher }) {
-  const affiliation = teacher.education?.[teacher.education.length - 1] || teacher.subject;
-  const introduction = teacher.introduction?.trim() || '';
-  const shortName = teacher.name.replace(/\s*老師\s*$/, '');
-
-  const [relatedCourses, setRelatedCourses] = useState<PublicCourse[]>([]);
-  const [coursesLoading, setCoursesLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setCoursesLoading(true);
-      try {
-        const [coursesRes, teachersRes] = await Promise.all([
-          fetch('/api/courses/list', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-          }),
-          fetch('/api/teacher/list'),
-        ]);
-
-        const teacherMap: Record<string, string> = {};
-        if (teachersRes.ok) {
-          const data = await teachersRes.json();
-          const list: ApiTeacher[] = Array.isArray(data)
-            ? data
-            : data.data || data.teachers || data.users || [];
-          list.forEach((t) => {
-            if (t.id && t.name) teacherMap[t.id] = t.name;
-            if (t.uid && t.name) teacherMap[t.uid] = t.name;
-            if (t._id && t.name) teacherMap[t._id] = t.name;
-          });
-        }
-
-        if (!coursesRes.ok) {
-          if (!cancelled) setRelatedCourses([]);
-          return;
-        }
-
-        const data = await coursesRes.json();
-        const list: PublicCourse[] = Array.isArray(data) ? data : data.data || data.courses || [];
-        const matched = list.filter((c) => courseMatchesTeacher(c, teacher, teacherMap));
-        if (!cancelled) setRelatedCourses(matched);
-      } catch {
-        if (!cancelled) setRelatedCourses([]);
-      } finally {
-        if (!cancelled) setCoursesLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [teacher]);
-
-  return (
-    <main className="page-shell flex-grow w-full py-8 md:py-12">
-      <Link
-        href="/teacher"
-        className="inline-flex items-center gap-2 text-sm text-on-surfaceVariant hover:text-primary mb-6 transition-colors"
-      >
-        <i className="fas fa-arrow-left" aria-hidden />
-        返回老師介紹
-      </Link>
-
-      <div className="grid grid-cols-1 gap-8 mb-10">
-        <div className="bg-surface-containerLowest rounded-2xl p-8 md:p-12 shadow-sm border border-outline-variant/30 relative overflow-hidden group flex flex-col md:flex-row gap-10 md:gap-12 items-center md:items-start">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary-fixed/20 to-transparent opacity-50 z-0 pointer-events-none" />
-
-          <div className="flex flex-col items-center flex-shrink-0 z-10 w-full md:w-1/3">
-            <div className="relative w-40 h-40 md:w-48 md:h-48 rounded-full overflow-hidden mb-6 border-4 border-surface-containerLowest shadow-lg bg-surface-container">
-              {teacher.photo ? (
-                <Image
-                  src={teacher.photo}
-                  alt={teacher.name}
-                  fill
-                  className="object-cover object-top transition-transform duration-500 group-hover:scale-105"
-                  sizes="192px"
-                  priority
-                />
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center text-outline-variant text-5xl">
-                  <i className="fas fa-user" aria-hidden />
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="flex flex-col flex-1 z-10 min-w-0 w-full">
-            <h1 className="font-display text-2xl md:text-3xl font-extrabold text-on-surface mb-2 tracking-tight">
-              {teacher.name}
-            </h1>
-            <p className="font-display text-lg md:text-xl font-bold text-primary mb-2">{teacher.subject}</p>
-            <p className="text-on-surfaceVariant mb-8 flex items-start gap-2 leading-relaxed">
-              <i className="fas fa-graduation-cap text-outline mt-1" aria-hidden />
-              <span>{affiliation}</span>
-            </p>
-
-            <h2 className="font-display text-xl font-bold mb-4 flex items-center gap-2">
-              <i className="fas fa-user text-primary" aria-hidden />
-              關於 {shortName}
-            </h2>
-            {introduction ? (
-              <p className="text-on-surfaceVariant leading-relaxed whitespace-pre-line">{introduction}</p>
-            ) : (
-              <p className="text-on-surfaceVariant/70 italic leading-relaxed">老師尚未填寫自我介紹。</p>
-            )}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-          <div className="bg-primary-container text-on-primary rounded-2xl p-6 md:p-8 shadow-sm flex flex-col">
-            <h3 className="font-display text-xl md:text-2xl font-bold mb-5 flex items-center gap-2">
-              <i className="fas fa-lightbulb" aria-hidden />
-              教學專長
-            </h3>
-            {(teacher.expertise?.length || 0) > 0 ? (
-              <ul className="flex flex-col gap-3">
-                {teacher.expertise.map((item) => (
-                  <li key={item} className="flex items-start gap-3 text-base md:text-lg leading-relaxed">
-                    <i className="fas fa-check-circle mt-1 shrink-0 opacity-90" aria-hidden />
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-base opacity-90 italic">尚未填寫</p>
-            )}
-          </div>
-
-          <div className="bg-surface-containerLowest rounded-2xl p-8 shadow-sm border border-outline-variant/30 flex items-center justify-around gap-4">
-            <div className="text-center">
-              <p className="font-mono text-4xl md:text-5xl font-bold text-primary mb-2 tabular-nums">
-                {coursesLoading
-                  ? '—'
-                  : relatedCourses.length > 0
-                    ? relatedCourses.length
-                    : teacher.courses?.length || 0}
-              </p>
-              <p className="text-sm text-on-surfaceVariant">授課課程</p>
-            </div>
-            <div className="w-px h-20 md:h-24 bg-outline-variant/50" />
-            <div className="text-center">
-              <p className="font-mono text-4xl md:text-5xl font-bold text-primary mb-2 tabular-nums">
-                {teacher.experience?.length || 0}
-              </p>
-              <p className="text-sm text-on-surfaceVariant">經歷項目</p>
-            </div>
-          </div>
-        </div>
-
-        {(teacher.education?.length > 0 || teacher.experience?.length > 0) && (
-          <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-surface-containerLowest rounded-2xl p-6 md:p-8 border border-outline-variant/30 shadow-sm">
-              <h3 className="font-display text-lg font-bold text-on-surface mb-4 flex items-center gap-2">
-                <i className="fas fa-graduation-cap text-primary" aria-hidden />
-                學歷
-              </h3>
-              {teacher.education?.length ? (
-                <ul className="space-y-2">
-                  {teacher.education.map((edu) => (
-                    <li key={edu} className="flex items-start text-sm text-on-surfaceVariant">
-                      <span className="w-1.5 h-1.5 bg-primary rounded-full mt-1.5 mr-2 shrink-0" />
-                      {edu}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-on-surfaceVariant">尚未填寫</p>
-              )}
-            </div>
-
-            <div className="bg-surface-containerLowest rounded-2xl p-6 md:p-8 border border-outline-variant/30 shadow-sm">
-              <h3 className="font-display text-lg font-bold text-on-surface mb-4 flex items-center gap-2">
-                <i className="fas fa-briefcase text-secondary" aria-hidden />
-                經歷
-              </h3>
-              {teacher.experience?.length ? (
-                <ul className="space-y-2">
-                  {teacher.experience.map((exp) => (
-                    <li key={exp} className="flex items-start text-sm text-on-surfaceVariant">
-                      <span className="w-1.5 h-1.5 bg-secondary rounded-full mt-1.5 mr-2 shrink-0" />
-                      {exp}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-on-surfaceVariant">尚未填寫</p>
-              )}
-            </div>
-          </section>
-        )}
-      </div>
-
-      <section className="mb-4">
-        <div className="flex justify-between items-end gap-4 mb-8">
-          <h2 className="font-display text-xl md:text-2xl font-bold text-on-surface">
-            {shortName} 的課程
-          </h2>
-          <Link
-            href="/courses"
-            className="font-mono text-[11px] font-semibold tracking-wider uppercase text-primary hover:underline inline-flex items-center gap-1 shrink-0"
-          >
-            查看全部 <i className="fas fa-arrow-right text-[10px]" aria-hidden />
-          </Link>
-        </div>
-
-        {coursesLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {Array.from({ length: 2 }).map((_, i) => (
-              <div key={i} className="h-72 rounded-2xl bg-surface-container animate-pulse" />
-            ))}
-          </div>
-        ) : relatedCourses.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-            {relatedCourses.map((course) => (
-              <Link
-                key={course.id || course.code}
-                href={`/courses/${encodeURIComponent(course.code)}`}
-                className="bg-surface-containerLowest rounded-2xl overflow-hidden shadow-sm border border-outline-variant/30 hover:shadow-elevate transition-all duration-300 group flex flex-col"
-              >
-                <div className="h-40 bg-surface-container relative overflow-hidden flex-shrink-0">
-                  {course.coverImageURL ? (
-                    <Image
-                      src={course.coverImageURL}
-                      alt={course.name}
-                      fill
-                      className="object-cover transition-transform duration-700 group-hover:scale-110"
-                      sizes="(max-width: 768px) 100vw, 33vw"
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-surface-container to-primary-container/30">
-                      <i className="fas fa-book-open text-4xl text-primary/40" aria-hidden />
-                    </div>
-                  )}
-                  {course.status && (
-                    <div className="absolute top-4 right-4 bg-primary text-on-primary font-mono text-[10px] font-semibold tracking-wider px-3 py-1 rounded-full shadow-sm">
-                      {course.status}
-                    </div>
-                  )}
-                </div>
-                <div className="p-6 flex flex-col flex-1">
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {course.subjectTag && (
-                      <span className="text-[11px] font-mono font-semibold bg-surface-container text-on-surface px-2 py-1 rounded">
-                        {course.subjectTag}
-                      </span>
-                    )}
-                    <span className="text-[11px] font-mono font-semibold bg-surface-container text-on-surfaceVariant px-2 py-1 rounded">
-                      {course.code}
-                    </span>
-                  </div>
-                  <h3 className="font-display text-lg font-bold mb-3 group-hover:text-primary transition-colors line-clamp-2">
-                    {course.name}
-                  </h3>
-                  {course.description?.trim() ? (
-                    <p className="text-sm text-on-surfaceVariant mb-6 line-clamp-3 flex-1 leading-relaxed">
-                      {course.description}
-                    </p>
-                  ) : (
-                    <div className="flex-1 mb-6" />
-                  )}
-                  <span className="block w-full text-center border border-primary text-primary group-hover:bg-primary/5 text-sm font-bold py-3 rounded-lg transition-colors mt-auto">
-                    查看課程介紹
-                  </span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        ) : (teacher.courses?.length || 0) > 0 ? (
-          <div className="bg-surface-containerLowest rounded-2xl border border-outline-variant/30 p-6 md:p-8">
-            <p className="text-sm text-on-surfaceVariant mb-4">
-              目前公開課表尚無對應課程，以下為授課方向：
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {teacher.courses.map((c) => (
-                <span
-                  key={c}
-                  className="px-3 py-1.5 rounded-full bg-surface-container text-on-surface text-sm font-medium"
-                >
-                  {c}
-                </span>
-              ))}
-            </div>
-            <Link href="/courses" className="inline-flex mt-6 text-sm font-medium text-primary hover:underline">
-              前往課程介紹
-            </Link>
-          </div>
-        ) : (
-          <div className="rounded-2xl border border-dashed border-outline-variant bg-surface-containerLowest p-10 text-center text-on-surfaceVariant">
-            目前尚未公布授課課程
-          </div>
-        )}
-      </section>
-    </main>
-  );
-}
-
-function TeacherList({ onOpen }: { onOpen: (teacher: Teacher) => void }) {
-  return (
-    <main className="page-shell flex-grow flex flex-col w-full py-12 md:py-16">
-      <div className="text-center mb-12 md:mb-16">
-        <h1 className="font-display text-3xl md:text-4xl font-extrabold text-primary mb-4 tracking-tight">
-          老師介紹
-        </h1>
-        <p className="text-lg text-on-surfaceVariant max-w-2xl mx-auto leading-relaxed">
-          認識我們的教學團隊，了解專長領域與授課方向。
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {SITE_TEACHERS.map((teacher) => {
-          const tags = teacherTags(teacher).slice(0, 2);
-          return (
-            <article
-              key={teacher.name}
-              id={`teacher-${normalizeTeacherName(teacher.name)}`}
-              className="bg-surface-containerLowest rounded-xl shadow-card hover:shadow-elevate hover:-translate-y-1 transition-all duration-300 flex flex-col overflow-hidden border border-outline-variant/30 scroll-mt-24"
-            >
-              <div className="relative w-full aspect-[4/3] bg-surface-container overflow-hidden">
-                {teacher.photo ? (
-                  <Image
-                    src={teacher.photo}
-                    alt={teacher.name}
-                    fill
-                    className="object-cover object-top"
-                    sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                  />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-outline-variant">
-                    <i className="fas fa-user text-5xl" aria-hidden />
-                  </div>
-                )}
-              </div>
-
-              <div className="p-6 flex-grow flex flex-col">
-                <h2 className="font-display text-xl font-bold text-on-surface mb-1">{teacher.name}</h2>
-                <p className="text-primary mb-4">{teacher.subject}</p>
-
-                {tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="bg-surface-containerHighest text-on-surface px-3 py-1.5 rounded-full text-sm font-semibold"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                <p className="text-on-surfaceVariant mb-6 flex-grow leading-relaxed line-clamp-3">
-                  {teacherBlurb(teacher)}
-                </p>
-
-                <button
-                  type="button"
-                  onClick={() => onOpen(teacher)}
-                  className="w-full border-2 border-primary text-primary hover:bg-primary/5 font-bold py-3 rounded-lg transition-colors mt-auto"
-                >
-                  查看詳細資料
-                </button>
-              </div>
-            </article>
-          );
-        })}
-      </div>
-    </main>
-  );
-}
+type Teacher = typeof teachers[number];
 
 export default function TeacherPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-surface" />}>
+    <Suspense fallback={<div className="min-h-screen bg-gray-50" />}>
       <TeacherPageContent />
     </Suspense>
   );
 }
 
 function TeacherPageContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const nameParam = searchParams.get('name');
-  const profileTeacher = resolveTeacher(nameParam);
+  const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
+  const [showModal, setShowModal] = useState(false);
 
-  const openTeacher = (teacher: Teacher) => {
-    router.push(siteTeacherProfileHref(teacher));
+  const handleShowDetails = (teacher: Teacher) => {
+    setSelectedTeacher(teacher);
+    setShowModal(true);
+    document.body.style.overflow = 'hidden';
   };
 
-  if (nameParam && !profileTeacher) {
-    return (
-      <div className="min-h-full flex flex-col bg-surface text-on-surface">
-        <main className="page-shell flex-grow py-20 text-center">
-          <h1 className="font-display text-2xl font-bold mb-2">找不到這位老師</h1>
-          <p className="text-on-surfaceVariant mb-6">請返回老師介紹列表再試一次。</p>
-          <Link
-            href="/teacher"
-            className="inline-flex px-6 py-3 bg-primary text-on-primary rounded-lg font-bold hover:bg-primary-hover transition-colors"
-          >
-            返回老師介紹
-          </Link>
-        </main>
-        <SiteFooter />
-      </div>
-    );
-  }
+  const handleCloseModal = () => {
+    setShowModal(false);
+    document.body.style.overflow = 'unset';
+  };
 
   return (
-    <div className="min-h-full flex flex-col bg-surface text-on-surface">
-      {profileTeacher ? (
-        <TeacherProfile teacher={profileTeacher} />
-      ) : (
-        <TeacherList onOpen={openTeacher} />
+    <div className="container mx-auto page-shell py-6 sm:py-8 md:py-12 max-w-7xl min-w-0">
+      
+      {/* 頁面標題 */}
+      <div className="text-center mb-10 md:mb-16">
+        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4 tracking-tight">
+          老師介紹
+        </h1>
+        <p className="text-gray-500 text-lg">
+          優秀的教學團隊，引領學生邁向卓越
+        </p>
+      </div>
+
+      <motion.div 
+        className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        {teachers.map((teacher) => (
+          <motion.div
+            key={teacher.name}
+            className="group bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col sm:flex-row overflow-hidden h-full"
+            variants={itemVariants}
+          >
+            {/* 圖片區塊 (1:1 比例) */}
+            <div className="relative w-full pt-[100%] sm:pt-0 sm:w-72 sm:h-72 shrink-0 overflow-hidden bg-white border-b sm:border-b-0 sm:border-r border-gray-100">
+              {teacher.photo ? (
+                <Image
+                  src={teacher.photo}
+                  alt={teacher.name}
+                  fill
+                  className="object-contain p-2 group-hover:scale-105 transition-transform duration-500"
+                  sizes="(max-width: 768px) 100vw, 288px"
+                />
+              ) : (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-300 bg-indigo-50">
+                  <i className="fas fa-user text-4xl mb-2"></i>
+                </div>
+              )}
+            </div>
+
+            {/* 內容區塊 */}
+            <div className="flex-1 p-5 sm:p-6 flex flex-col justify-between">
+              <div>
+                <div className="flex justify-between items-start mb-2">
+                  <h2 className="text-xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">
+                    {teacher.name}
+                  </h2>
+                  <span className="px-2.5 py-1 bg-indigo-50 text-indigo-700 text-xs font-semibold rounded-full border border-indigo-100">
+                    {teacher.subject}
+                  </span>
+                </div>
+                
+                <div className="space-y-3 mb-4">
+                  {teacher.courses && teacher.courses.length > 0 && (
+                    <div className="text-sm text-gray-600 flex items-start">
+                      <i className="fas fa-book-open w-5 text-indigo-400 mt-0.5 shrink-0"></i>
+                      <div className="flex flex-col">
+                        {teacher.courses.map((course, index) => (
+                          <span key={index}>{course}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {teacher.expertise && teacher.expertise.length > 0 && (
+                    <div className="text-sm text-gray-600 flex items-start">
+                      <i className="fas fa-star w-5 text-amber-400 mt-0.5 shrink-0"></i>
+                      <div className="flex flex-col">
+                        {teacher.expertise.map((exp, index) => (
+                          <span key={index}>{exp}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <button
+                onClick={() => handleShowDetails(teacher)}
+                className="w-full py-2.5 rounded-xl bg-gray-50 text-indigo-600 font-semibold text-sm hover:bg-indigo-600 hover:text-white transition-all duration-300 flex items-center justify-center group-hover:shadow-md mt-2"
+              >
+                詳細介紹 <i className="fas fa-arrow-right ml-2 text-xs opacity-50 group-hover:opacity-100"></i>
+              </button>
+            </div>
+          </motion.div>
+        ))}
+      </motion.div>
+
+      {/* Detail Modal */}
+      {showModal && selectedTeacher && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/60 transition-opacity" 
+            onClick={handleCloseModal}
+          ></div>
+          
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-full sm:h-[90vh] overflow-hidden flex flex-col animate-bounce-in">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div>
+                  <h2 className="text-xl font-bold">{selectedTeacher.name}</h2>
+                  <p className="text-xs text-indigo-100 font-medium">{selectedTeacher.subject}</p>
+                </div>
+              </div>
+              <button 
+                onClick={handleCloseModal}
+                className="text-white/80 hover:text-white transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20"
+              >
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
+              <div className="space-y-8">
+                
+                {/* 學歷 */}
+                <div className="bg-gray-50 rounded-xl p-5 border border-gray-100">
+                  <h4 className="flex items-center text-lg font-bold text-gray-800 mb-3">
+                    <i className="fas fa-graduation-cap text-indigo-500 mr-2"></i> 學歷
+                  </h4>
+                  <ul className="space-y-2">
+                    {selectedTeacher.education.map((edu, i) => (
+                      <li key={i} className="flex items-start text-gray-700 text-sm">
+                        <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full mt-1.5 mr-2 shrink-0"></span>
+                        {edu}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* 經歷 */}
+                <div>
+                  <h4 className="flex items-center text-lg font-bold text-gray-800 mb-3 border-l-4 border-indigo-500 pl-3">
+                    經歷
+                  </h4>
+                  <ul className="space-y-3">
+                    {selectedTeacher.experience.map((exp, i) => (
+                      <li key={i} className="text-gray-700 text-sm leading-relaxed border-b border-gray-100 pb-2 last:border-0 last:pb-0">
+                        {exp}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* 雙欄資訊：專長 & 課程 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="flex items-center text-lg font-bold text-gray-800 mb-3 border-l-4 border-amber-400 pl-3">
+                      專長
+                    </h4>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedTeacher.expertise.map((item, i) => (
+                        <span key={i} className="px-3 py-1 bg-amber-50 text-amber-700 text-sm rounded-lg border border-amber-100">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h4 className="flex items-center text-lg font-bold text-gray-800 mb-3 border-l-4 border-emerald-400 pl-3">
+                      授課課程
+                    </h4>
+                    <ul className="space-y-1">
+                      {selectedTeacher.courses.map((course, i) => (
+                        <li key={i} className="flex items-center text-gray-700 text-sm">
+                          <i className="fas fa-check text-emerald-500 mr-2 text-xs"></i>
+                          {course}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-gray-100 flex justify-end bg-gray-50/50 flex-shrink-0">
+              <button
+                onClick={handleCloseModal}
+                className="px-6 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-100 font-medium transition-colors shadow-sm"
+              >
+                關閉視窗
+              </button>
+            </div>
+          </div>
+        </div>
       )}
-      <SiteFooter />
     </div>
   );
 }

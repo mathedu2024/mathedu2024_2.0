@@ -39,7 +39,7 @@ export interface TeacherSurveyResponseRow {
   submitted: boolean;
 }
 
-const CONTROL_CLASS = 'size-4 accent-[#2D6DF6] shrink-0';
+const CONTROL_CLASS = 'size-4 accent-indigo-600 shrink-0';
 
 function formatSubmittedAt(iso: string): string {
   if (!iso) return '—';
@@ -214,7 +214,7 @@ function StatsTab({ analytics }: { analytics: SurveyAnalytics }) {
       {analytics.questions.map((q, index) => (
         <div key={q.questionId} className="bg-white rounded-2xl border border-gray-200 p-5 space-y-3">
           <div>
-            <p className="text-xs font-bold text-primary">Q{index + 1}</p>
+            <p className="text-xs font-bold text-indigo-600">Q{index + 1}</p>
             <h4 className="font-semibold text-gray-900 mt-0.5 whitespace-pre-wrap">
               {q.content || '（未命名題目）'}
             </h4>
@@ -237,7 +237,7 @@ function StatsTab({ analytics }: { analytics: SurveyAnalytics }) {
                     </div>
                     <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
                       <div
-                        className="h-full bg-primary rounded-full"
+                        className="h-full bg-indigo-500 rounded-full"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
@@ -249,7 +249,7 @@ function StatsTab({ analytics }: { analytics: SurveyAnalytics }) {
 
           {q.scaleAverage !== undefined && (
             <p className="text-sm text-gray-700">
-              平均分：<span className="font-bold text-primary">{q.scaleAverage}</span>
+              平均分：<span className="font-bold text-indigo-600">{q.scaleAverage}</span>
             </p>
           )}
 
@@ -280,7 +280,7 @@ function StatsTab({ analytics }: { analytics: SurveyAnalytics }) {
                   {q.matrixRows.map((row) => (
                     <tr key={row.rowId} className="border-b border-gray-50 align-top">
                       <td className="py-2 pr-3 text-gray-800">{row.label}</td>
-                      <td className="py-2 pr-3 font-semibold text-primary">{row.average}</td>
+                      <td className="py-2 pr-3 font-semibold text-indigo-600">{row.average}</td>
                       <td className="py-2 text-gray-500">
                         {row.distribution.map((d) => `${d.label}:${d.count}`).join(' · ')}
                       </td>
@@ -357,8 +357,8 @@ function IndividualTab({
                 <button
                   type="button"
                   onClick={() => onSelect(row.id)}
-                  className={`w-full text-left px-4 py-3 hover:bg-primary/10 transition-colors ${
-                    active ? 'bg-primary/10 border-l-4 border-primary' : ''
+                  className={`w-full text-left px-4 py-3 hover:bg-indigo-50 transition-colors ${
+                    active ? 'bg-indigo-50 border-l-4 border-indigo-500' : ''
                   } ${!row.submitted ? 'opacity-90' : ''}`}
                 >
                   <p className="font-medium text-gray-800 text-sm">{row.studentName}</p>
@@ -433,7 +433,7 @@ function AnswerDisplay({
   return (
     <div className="space-y-3">
       <p className="font-medium text-gray-900 text-base leading-relaxed">
-        <span className="text-primary mr-2 font-bold">Q{index + 1}</span>
+        <span className="text-indigo-600 mr-2 font-bold">Q{index + 1}</span>
         {question.content || '（未命名題目）'}
       </p>
 

@@ -18,14 +18,6 @@ service cloud.firestore {
       return isSignedIn() && request.auth.token.role == 'student';
     }
 
-    function isAuthor() {
-      return isSignedIn() && request.auth.token.role == 'author';
-    }
-
-    function isBlogEditor() {
-      return isAdmin() || isAuthor();
-    }
-
     function isResourceOwner() {
       return isSignedIn() && resource.data.teacherId == request.auth.uid;
     }
@@ -94,33 +86,6 @@ service cloud.firestore {
     match /exam_dates/{examId} {
       allow read: if true;
       allow create, update, delete: if request.auth != null && request.auth.token.role == 'admin';
-    }
-
-    match /blog_posts/{postId} {
-      allow read: if true;
-      allow create, update, delete: if isBlogEditor();
-    }
-
-    match /blog_categories/{categoryId} {
-      allow read: if true;
-      allow create, update, delete: if isBlogEditor();
-    }
-
-    match /blog_tags/{tagId} {
-      allow read: if true;
-      allow create, update, delete: if isBlogEditor();
-    }
-
-    match /blog_comments/{commentId} {
-      allow read: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isBlogEditor();
-    }
-
-    match /blog_favorites/{favoriteId} {
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     match /time-slots/{slotId} {

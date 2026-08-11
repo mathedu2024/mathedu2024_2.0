@@ -4,20 +4,20 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 單選／複選框全站統一主題藍（Academic Precision primary） */
+/* 單選／複選框全站統一主題紫色（indigo-600） */
 @layer base {
   input[type='radio'],
   input[type='checkbox'] {
-    accent-color: #2D6DF6;
+    accent-color: #4f46e5;
   }
 }
 
 /* 文字層次與排版 */
 .text-main {
-  color: #111c2d;
+  color: #1A1A1A;
 }
 .text-secondary {
-  color: #424655;
+  color: #555555;
 }
 .heading-1 {
   @apply text-3xl font-extrabold text-main mb-6;
@@ -114,7 +114,7 @@ html, body {
 /* 全站頁面容器：統一手機版邊距與防溢出 */
 @layer components {
   .page-shell {
-    @apply w-full min-w-0 max-w-container-max mx-auto px-4 sm:px-6 md:px-8 lg:px-10;
+    @apply w-full min-w-0 max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8;
   }
   .page-shell-padded {
     @apply page-shell pt-4 sm:pt-6 md:pt-8 pb-10 sm:pb-12;
@@ -137,13 +137,6 @@ html, body {
     scrollbar-width: none;
   }
   .course-hub-tabs::-webkit-scrollbar {
-    display: none;
-  }
-  .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-  .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
 }
@@ -940,7 +933,7 @@ body.swal2-shown {
   min-height: var(--editor-min-height, 120px);
   line-height: 1.7;
   color: #111827;
-  padding: 0.75rem 1rem 2.5rem !important;
+  padding: 0.75rem 1rem !important;
 }
 
 .rich-text-editor .ql-editor.ql-blank::before {
@@ -1032,11 +1025,10 @@ body.swal2-shown {
 }
 
 .rich-text-editor .ql-toolbar .ql-picker.ql-expanded .ql-picker-options {
-  z-index: 10000 !important;
-  /* 預設 absolute；JS 展開時改 fixed，避免被 main 捲動層裁切／改 overflow 造成跳動 */
-  position: absolute;
-  top: 100%;
-  left: 0;
+  z-index: 302 !important;
+  position: absolute !important;
+  top: 100% !important;
+  left: 0 !important;
   background-color: #ffffff !important;
   opacity: 1 !important;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14) !important;

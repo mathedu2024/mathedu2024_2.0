@@ -1,12 +1,14 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   ClipboardDocumentCheckIcon,
+  ArrowRightIcon,
 } from '@heroicons/react/24/outline';
 import PageLoadingArea from '@/components/ui/PageLoadingArea';
 import TabNav from '@/components/ui/TabNav';
+import StudentExamAttemptPickerModal from '@/components/student-exam/StudentExamAttemptPickerModal';
+import StudentExamStartModal from '@/components/student-exam/StudentExamStartModal';
 import { useStudentInfo } from '../StudentInfoContext';
 import { useHydrated } from '@/utils/useHydrated';
 import {
@@ -17,10 +19,9 @@ import { ATTEMPT_SCORE_POLICY_OPTIONS } from '@/services/quizTypes';
 import { canStartExamTake } from '@/utils/examDraftStorage';
 import {
   buildStudentCourseExamsUrl,
-  buildStudentExamStartUrl,
+  openStudentExamReviewInNewTab,
 } from '@/utils/examAttemptLabel';
 import { showExamTakeBlockedAlert } from '@/utils/examTakeAlerts';
-import { courseHubFeatureListStyles } from '@/components/CourseHubTabNav';
 
 type ExamListTab = 'active' | 'ended';
 
@@ -40,15 +41,32 @@ function ExamCard({
   studentId: string;
   resolveExamTitle: (quizCode: string) => string | undefined;
 }) {
-  const router = useRouter();
+  const [startOpen, setStartOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const isRetake = exam.submitted && exam.canRetake;
   const examsBackHref =
     exam.assignedCourses?.[0]?.courseId
       ? buildStudentCourseExamsUrl(exam.assignedCourses[0].courseId)
       : '/student/exam';
+  const fromOpt = { from: examsBackHref };
 
-  const openStartPage = async () => {
+  const openHistory = () => {
+    if (exam.attempts && exam.attempts.length > 0) {
+      setHistoryOpen(true);
+      return;
+    }
+    if (exam.latestSubmissionId) {
+      openStudentExamReviewInNewTab(exam.quizCode, {
+        submissionId: exam.latestSubmissionId,
+        ...fromOpt,
+      });
+      return;
+    }
+    openStudentExamReviewInNewTab(exam.quizCode, { review: true, ...fromOpt });
+  };
+
+  const openStartModal = async () => {
     const check = canStartExamTake(studentId, exam.quizCode);
     if (!check.allowed) {
       const alertResult = await showExamTakeBlockedAlert(check, {
@@ -60,93 +78,142 @@ function ExamCard({
       });
       if (alertResult !== 'retry-allowed') return;
     }
-    router.push(
-      buildStudentExamStartUrl(exam.quizCode, {
-        mode: isRetake ? 'retake' : 'start',
-        from: examsBackHref,
-      })
-    );
+    setStartOpen(true);
   };
 
+  const canStart =
+    isActiveTab && exam.accessible && (!exam.submitted || exam.canRetake);
+
   return (
-    <button
-      type="button"
-      onClick={() => void openStartPage()}
-      className={courseHubFeatureListStyles.row}
-    >
-      <h2 className="font-bold text-on-surface truncate group-hover:text-primary transition-colors">
-        {exam.title}
-      </h2>
-      {isActiveTab ? (
-        <>
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-on-surfaceVariant mt-1">
-            <span>作答期間 {exam.answerWindowLabel}</span>
-            <span>作答次數 {exam.attemptLimitLabel}</span>
-          </div>
+    <>
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <h2 className="font-bold text-gray-900 truncate">{exam.title}</h2>
+          {isActiveTab ? (
+            <>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500 mt-1">
+                <span>作答期間 {exam.answerWindowLabel}</span>
+                <span>作答次數 {exam.attemptLimitLabel}</span>
+              </div>
+              {exam.submitted && (
+                <p className="text-sm text-emerald-700 mt-2 font-medium">
+                  {exam.multipleAttempts && (exam.submissionCount ?? 0) > 1 ? '採計成績' : '最近提交'}
+                  {exam.resultsPublished ? (
+                    <>
+                      {' '}
+                      · 得分 {exam.submissionScore ?? '—'} 分
+                      {exam.submissionStatus === 'grading' && '（含待批改簡答）'}
+                    </>
+                  ) : (
+                    <span className="text-gray-500 font-normal"> · 成績尚未公布</span>
+                  )}
+                  {!exam.attemptUnlimited && exam.maxAttempts != null && exam.maxAttempts > 1 && (
+                    <span className="text-gray-500 font-normal">
+                      {' '}
+                      （已作答 {exam.submissionCount ?? 0} / {exam.maxAttempts} 次）
+                    </span>
+                  )}
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500 mt-1">
+                <span>總分 {exam.totalPoints}</span>
+                <span>{exam.timeLimitLabel}</span>
+                <span>作答期間 {exam.answerWindowLabel}</span>
+                <span>作答次數 {exam.attemptLimitLabel}</span>
+              </div>
+              {exam.submitted && (
+                <p className="text-sm text-emerald-700 mt-2 font-medium">
+                  {exam.multipleAttempts && (exam.submissionCount ?? 0) > 1 ? '採計成績' : '最近提交'}
+                  {exam.resultsPublished ? (
+                    <>
+                      {' '}
+                      · 得分 {exam.submissionScore ?? '—'} 分
+                      {exam.submissionStatus === 'grading' && '（含待批改簡答）'}
+                    </>
+                  ) : (
+                    <span className="text-gray-500 font-normal"> · 成績尚未公布</span>
+                  )}
+                  {exam.multipleAttempts && (exam.submissionCount ?? 0) > 1 && (
+                    <span className="text-gray-500 font-normal">
+                      {' '}
+                      · 採計：{formatScorePolicyLabel(exam.scorePolicy)}
+                    </span>
+                  )}
+                  {!exam.attemptUnlimited && exam.maxAttempts != null && exam.maxAttempts > 1 && (
+                    <span className="text-gray-500 font-normal">
+                      {' '}
+                      （已作答 {exam.submissionCount ?? 0} / {exam.maxAttempts} 次）
+                    </span>
+                  )}
+                </p>
+              )}
+              {exam.windowEnded && !exam.submitted && (
+                <p className="text-sm text-gray-500 mt-2">作答期間已截止，尚未提交</p>
+              )}
+            </>
+          )}
+          {isActiveTab && !exam.accessible && !exam.submitted && exam.inaccessibleReason && (
+            <p className="text-sm text-amber-700 mt-2">{exam.inaccessibleReason}</p>
+          )}
+        </div>
+        <div className="flex flex-col gap-2 shrink-0 w-full sm:w-auto sm:min-w-[12rem]">
           {exam.submitted && (
-            <p className="text-sm text-emerald-700 mt-2 font-medium">
-              {exam.multipleAttempts && (exam.submissionCount ?? 0) > 1 ? '採計成績' : '最近提交'}
-              {exam.resultsPublished ? (
-                <>
-                  {' '}
-                  · 得分 {exam.submissionScore ?? '—'} 分
-                  {exam.submissionStatus === 'grading' && '（含待批改簡答）'}
-                </>
-              ) : (
-                <span className="text-on-surfaceVariant font-normal"> · 成績尚未公布</span>
-              )}
-              {!exam.attemptUnlimited && exam.maxAttempts != null && exam.maxAttempts > 1 && (
-                <span className="text-on-surfaceVariant font-normal">
-                  {' '}
-                  （已作答 {exam.submissionCount ?? 0} / {exam.maxAttempts} 次）
-                </span>
-              )}
-            </p>
+            <button
+              type="button"
+              onClick={openHistory}
+              className="inline-flex items-center justify-center px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50"
+            >
+              查看作答紀錄
+            </button>
           )}
-        </>
-      ) : (
-        <>
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-on-surfaceVariant mt-1">
-            <span>總分 {exam.totalPoints}</span>
-            <span>{exam.timeLimitLabel}</span>
-            <span>作答期間 {exam.answerWindowLabel}</span>
-            <span>作答次數 {exam.attemptLimitLabel}</span>
-          </div>
-          {exam.submitted && (
-            <p className="text-sm text-emerald-700 mt-2 font-medium">
-              {exam.multipleAttempts && (exam.submissionCount ?? 0) > 1 ? '採計成績' : '最近提交'}
-              {exam.resultsPublished ? (
-                <>
-                  {' '}
-                  · 得分 {exam.submissionScore ?? '—'} 分
-                  {exam.submissionStatus === 'grading' && '（含待批改簡答）'}
-                </>
-              ) : (
-                <span className="text-on-surfaceVariant font-normal"> · 成績尚未公布</span>
-              )}
-              {exam.multipleAttempts && (exam.submissionCount ?? 0) > 1 && (
-                <span className="text-on-surfaceVariant font-normal">
-                  {' '}
-                  · 採計：{formatScorePolicyLabel(exam.scorePolicy)}
-                </span>
-              )}
-              {!exam.attemptUnlimited && exam.maxAttempts != null && exam.maxAttempts > 1 && (
-                <span className="text-on-surfaceVariant font-normal">
-                  {' '}
-                  （已作答 {exam.submissionCount ?? 0} / {exam.maxAttempts} 次）
-                </span>
-              )}
-            </p>
-          )}
-          {exam.windowEnded && !exam.submitted && (
-            <p className="text-sm text-on-surfaceVariant mt-2">作答期間已截止，尚未提交</p>
-          )}
-        </>
+          {canStart ? (
+            <button
+              type="button"
+              onClick={() => void openStartModal()}
+              className="inline-flex items-center justify-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700"
+            >
+              {isRetake ? '再次作答' : '開始作答'}
+              <ArrowRightIcon className="w-4 h-4 ml-1.5" />
+            </button>
+          ) : isActiveTab && !exam.submitted ? (
+            <button
+              type="button"
+              disabled
+              className="inline-flex items-center justify-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg opacity-50 cursor-not-allowed"
+            >
+              無法作答
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      {exam.submitted && (
+        <StudentExamAttemptPickerModal
+          open={historyOpen}
+          onClose={() => setHistoryOpen(false)}
+          quizCode={exam.quizCode}
+          examTitle={exam.title}
+          attempts={exam.attempts ?? []}
+          resultsPublished={exam.resultsPublished}
+          backHref={examsBackHref}
+        />
       )}
-      {isActiveTab && !exam.accessible && !exam.submitted && exam.inaccessibleReason && (
-        <p className="text-sm text-amber-700 mt-2">{exam.inaccessibleReason}</p>
+
+      {isActiveTab && (
+        <StudentExamStartModal
+          open={startOpen}
+          onClose={() => setStartOpen(false)}
+          exam={exam}
+          studentId={studentId}
+          mode={isRetake ? 'retake' : 'start'}
+          resolveExamTitle={resolveExamTitle}
+          backHref={examsBackHref}
+        />
       )}
-    </button>
+    </>
   );
 }
 
@@ -209,13 +276,13 @@ export default function StudentExamListPage() {
 
   return (
     <div className="page-shell w-full min-w-0 py-4 sm:py-6 md:py-8">
-      <div className="border-l-4 border-primary pl-4 mb-8">
-        <h1 className="font-display text-2xl font-extrabold text-on-surface flex items-center gap-3">
-          <ClipboardDocumentCheckIcon className="h-8 w-8 text-primary" />
+      <div className="border-l-4 border-indigo-500 pl-4 mb-8">
+        <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+          <ClipboardDocumentCheckIcon className="h-8 w-8 text-indigo-600" />
           線上測驗
         </h1>
-        <p className="text-on-surfaceVariant text-sm mt-1">
-          查看適用於您班級的測驗；點擊標題進入測驗資訊頁。
+        <p className="text-gray-500 text-sm mt-1">
+          查看適用於您班級的測驗；開始作答將於新分頁開啟。
         </p>
       </div>
 
@@ -230,7 +297,7 @@ export default function StudentExamListPage() {
                 label: (
                   <>
                     進行中
-                    <span className="ml-2 text-xs font-bold text-primary">({activeExams.length})</span>
+                    <span className="ml-2 text-xs font-bold text-indigo-500">({activeExams.length})</span>
                   </>
                 ),
               },
@@ -239,7 +306,7 @@ export default function StudentExamListPage() {
                 label: (
                   <>
                     已截止
-                    <span className="ml-2 text-xs font-bold text-primary">({endedExams.length})</span>
+                    <span className="ml-2 text-xs font-bold text-indigo-500">({endedExams.length})</span>
                   </>
                 ),
               },
@@ -248,19 +315,19 @@ export default function StudentExamListPage() {
             onChange={(id) => setTab(id as 'active' | 'ended')}
           />
 
-          <p className="text-sm text-on-surfaceVariant mb-4">
+          <p className="text-sm text-gray-500 mb-4">
             {tab === 'active'
               ? '尚未截止的測驗，可開始或繼續作答。'
               : '作答期間已結束的測驗。'}
           </p>
 
           {visibleExams.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-outline-variant/40">
-              <ClipboardDocumentCheckIcon className="w-10 h-10 mx-auto text-outline mb-3" />
-              <p className="text-sm text-on-surfaceVariant">{emptyText}</p>
+            <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-gray-200">
+              <ClipboardDocumentCheckIcon className="w-10 h-10 mx-auto text-gray-300 mb-3" />
+              <p className="text-sm text-gray-400">{emptyText}</p>
             </div>
           ) : (
-            <div className={courseHubFeatureListStyles.shell}>
+            <div className="space-y-4">
               {visibleExams.map((exam) => (
                 <ExamCard
                   key={exam.id}

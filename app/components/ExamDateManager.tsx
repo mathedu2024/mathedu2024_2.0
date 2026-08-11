@@ -90,7 +90,7 @@ export default function ExamDateManager() {
       Swal.fire({
         icon: 'success',
         title: '儲存成功',
-        confirmButtonColor: '#2D6DF6',
+        confirmButtonColor: '#4f46e5',
         customClass: { popup: 'rounded-2xl' }
       });
     } catch (e) {
@@ -139,7 +139,7 @@ export default function ExamDateManager() {
           icon: 'success',
           title: '已刪除',
           text: '考試日期資訊已成功移除',
-          confirmButtonColor: '#2D6DF6',
+          confirmButtonColor: '#4f46e5',
           customClass: { popup: 'rounded-2xl' }
         });
       } catch {
@@ -162,12 +162,12 @@ export default function ExamDateManager() {
     <div className="page-shell max-w-7xl mx-auto w-full min-w-0 flex flex-col h-full animate-fade-in">
       {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
-        <div className="border-l-4 border-primary pl-4">
-          <h1 className="font-display text-2xl font-bold text-on-surface flex items-center gap-3">
-            <CalendarDaysIcon className="h-8 w-8 text-primary" />
+        <div className="border-l-4 border-indigo-500 pl-4">
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+            <CalendarDaysIcon className="h-8 w-8 text-indigo-600" />
             考試日期管理
           </h1>
-          <p className="text-on-surfaceVariant text-sm mt-1">管理考試時程與重要日期</p>
+          <p className="text-gray-500 text-sm mt-1">管理考試時程與重要日期</p>
         </div>
       </div>
 
@@ -176,7 +176,7 @@ export default function ExamDateManager() {
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 animate-fade-in">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden transform scale-100 flex flex-col">
             {/* Header */}
-            <div className="bg-gradient-to-r from-primary to-tertiary p-4 flex justify-between items-center text-white shrink-0">
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white shrink-0">
               <h3 className="font-bold flex items-center gap-2">
                 <CalendarDaysIcon className="w-5 h-5" />
                 編輯考試資訊
@@ -198,7 +198,7 @@ export default function ExamDateManager() {
                 <input
                   id="examName"
                   type="text"
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                   value={form.name}
                   onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                   placeholder="例如：第一次段考"
@@ -210,7 +210,7 @@ export default function ExamDateManager() {
                   <input
                     id="startDate"
                     type="date"
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                     value={form.startDate}
                     onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))}
                   />
@@ -220,7 +220,7 @@ export default function ExamDateManager() {
                   <input
                     id="endDate"
                     type="date"
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                     value={form.endDate}
                     onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))}
                   />
@@ -229,7 +229,7 @@ export default function ExamDateManager() {
             </div>
 
             {/* Footer */}
-            <div className="p-4 bg-surface-containerLow border-t border-outline-variant/40 flex gap-2 shrink-0">
+            <div className="p-4 bg-gray-50 border-t border-gray-100 flex gap-2 shrink-0">
               <button
                 type="button"
                 onClick={handleCancel}
@@ -241,7 +241,7 @@ export default function ExamDateManager() {
               <button
                 type="button"
                 onClick={handleSave}
-                className="flex-1 bg-primary text-white py-2 rounded-lg text-sm font-medium hover:bg-primary-hover shadow-sm flex items-center justify-center disabled:opacity-70"
+                className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm flex items-center justify-center disabled:opacity-70"
                 disabled={saving}
               >
                 {saving ? <LoadingSpinner size={16} color="white" className="mr-2" /> : <CheckIcon className="w-5 h-5 mr-2" />}
@@ -269,8 +269,8 @@ export default function ExamDateManager() {
                 </div>
                 
                 <div className="space-y-2 text-sm text-gray-600 mb-4 bg-gray-50 p-3 rounded-lg">
-                    <div className="flex justify-between"><span>開始:</span> <span className="font-mono text-primary">{exams[exam.id]?.startDate || '-'}</span></div>
-                    <div className="flex justify-between"><span>結束:</span> <span className="font-mono text-primary">{exams[exam.id]?.endDate || '-'}</span></div>
+                    <div className="flex justify-between"><span>開始:</span> <span className="font-mono text-indigo-700">{exams[exam.id]?.startDate || '-'}</span></div>
+                    <div className="flex justify-between"><span>結束:</span> <span className="font-mono text-indigo-700">{exams[exam.id]?.endDate || '-'}</span></div>
                 </div>
 
                 <div className={`${tableActionRow} border-t border-gray-100 pt-3`}>

@@ -1,21 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
-import { contentWriteCollection } from '@/services/contentDbSplit';
-import { requireAuthFromRequest, authGuard } from '@/services/apiAuth';
+import { adminDb } from '../../../../services/firebase-admin';
 
 export async function POST(req: NextRequest) {
-  const denied = authGuard(requireAuthFromRequest(req, 'admin'));
-  if (denied) return denied;
-
   try {
     const { id, ...data } = await req.json();
     if (!id) {
       return NextResponse.json({ error: 'Missing id' }, { status: 400 });
     }
 
-    await contentWriteCollection('announcements').doc(id).update({
+    await adminDb.collection('announcements').doc(id).update({
       ...data,
-      updatedAt: new Date(),
+      updatedAt: new Date()
     });
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -25,4 +21,4 @@ export async function POST(req: NextRequest) {
     console.error('Error updating announcement:', error);
     return NextResponse.json({ error: '更新失敗' }, { status: 500 });
   }
-}
+} 

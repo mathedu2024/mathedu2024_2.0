@@ -16,14 +16,14 @@ export function getDashboardColorClasses(color: string): DashboardColorClasses {
   switch (color) {
     case 'indigo':
       return {
-        border: 'border-primary/20',
-        iconBg: 'bg-primary/10',
-        iconText: 'text-primary',
-        ring: 'ring-primary/30',
-        iconHover: 'group-hover:bg-primary group-hover:text-white',
-        titleHover: 'group-hover:text-primary',
-        cardHover: 'hover:border-primary/40',
-        activeCard: 'bg-primary/10 border-primary/40 ring-2 ring-primary/30',
+        border: 'border-indigo-100',
+        iconBg: 'bg-indigo-50',
+        iconText: 'text-indigo-600',
+        ring: 'ring-indigo-200',
+        iconHover: 'group-hover:bg-indigo-600 group-hover:text-white',
+        titleHover: 'group-hover:text-indigo-700',
+        cardHover: 'hover:border-indigo-300',
+        activeCard: 'bg-indigo-50 border-indigo-300 ring-2 ring-indigo-200',
       };
     case 'emerald':
       return {
@@ -60,14 +60,14 @@ export function getDashboardColorClasses(color: string): DashboardColorClasses {
       };
     case 'purple':
       return {
-        border: 'border-tertiary/20',
-        iconBg: 'bg-tertiary/10',
-        iconText: 'text-tertiary',
-        ring: 'ring-tertiary/30',
-        iconHover: 'group-hover:bg-tertiary group-hover:text-white',
-        titleHover: 'group-hover:text-tertiary',
-        cardHover: 'hover:border-tertiary/40',
-        activeCard: 'bg-tertiary/10 border-tertiary/40 ring-2 ring-tertiary/30',
+        border: 'border-purple-100',
+        iconBg: 'bg-purple-50',
+        iconText: 'text-purple-600',
+        ring: 'ring-purple-200',
+        iconHover: 'group-hover:bg-purple-600 group-hover:text-white',
+        titleHover: 'group-hover:text-purple-700',
+        cardHover: 'hover:border-purple-300',
+        activeCard: 'bg-purple-50 border-purple-300 ring-2 ring-purple-200',
       };
     case 'rose':
       return {

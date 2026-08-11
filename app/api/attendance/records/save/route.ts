@@ -1,12 +1,7 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { db } from '@/lib/db';
 import * as admin from 'firebase-admin';
-import {
-  requireAuthFromRequest,
-  requireCourseStaffAccess,
-  authGuard,
-} from '@/services/apiAuth';
 
 interface IncomingRecord {
   /** 帳號 id（roster doc id） */
@@ -19,9 +14,6 @@ interface IncomingRecord {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = requireAuthFromRequest(req, 'admin', 'teacher');
-  if (auth.ok === false) return auth.response;
-
   try {
     const { courseId, activityId, records } = await req.json();
 
@@ -31,9 +23,6 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-
-    const courseDenied = authGuard(await requireCourseStaffAccess(auth.session, courseId));
-    if (courseDenied) return courseDenied;
 
     const activityRef = db
       .collection('courses')

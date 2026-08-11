@@ -70,10 +70,10 @@ function SectionHeader({
   sectionIndex: number;
 }) {
   return (
-    <div className="border-l-4 border-primary pl-3">
-      <h2 className="font-bold text-on-surface">{section.title || `第 ${sectionIndex + 1} 大題`}</h2>
+    <div className="border-l-4 border-indigo-500 pl-3">
+      <h2 className="font-bold text-gray-800">{section.title || `第 ${sectionIndex + 1} 大題`}</h2>
       {!isHtmlEmpty(section.description) && (
-        <div className="text-sm text-on-surfaceVariant mt-1">
+        <div className="text-sm text-gray-600 mt-1">
           <RichHtmlContent html={section.description!} />
         </div>
       )}
@@ -265,7 +265,7 @@ export default function ExamTakeView({
           icon: 'info',
           title: '預覽模式',
           text: '學生版預覽不會儲存或送出答案。',
-          confirmButtonColor: '#2D6DF6',
+          confirmButtonColor: '#4f46e5',
         });
       }
       return;
@@ -309,7 +309,7 @@ export default function ExamTakeView({
             : retakeHint
               ? `您的答案已成功送出。${retakeHint}`
               : '您的答案已成功送出。',
-          confirmButtonColor: '#2D6DF6',
+          confirmButtonColor: '#4f46e5',
         });
       }
     } catch (err) {
@@ -318,7 +318,7 @@ export default function ExamTakeView({
         icon: 'error',
         title: '提交失敗',
         text: err instanceof Error ? err.message : '請稍後再試',
-        confirmButtonColor: '#2D6DF6',
+        confirmButtonColor: '#4f46e5',
       });
     } finally {
       setSubmitting(false);
@@ -353,10 +353,10 @@ export default function ExamTakeView({
 
     const result = await Swal.fire({
       title: '確定要提交測驗？',
-      html: `${buildSubmitSummaryHtml(overviewItems)}<p class="text-on-surfaceVariant text-sm mt-3">${retakeNote}</p>`,
+      html: `${buildSubmitSummaryHtml(overviewItems)}<p class="text-gray-500 text-sm mt-3">${retakeNote}</p>`,
       icon: stats.unanswered > 0 || stats.skipped > 0 ? 'warning' : 'question',
       showCancelButton: true,
-      confirmButtonColor: '#2D6DF6',
+      confirmButtonColor: '#4f46e5',
       cancelButtonColor: '#9ca3af',
       confirmButtonText: '確認提交',
       cancelButtonText: '再檢查一下',
@@ -439,9 +439,9 @@ export default function ExamTakeView({
         </div>
       )}
 
-      <div className="border-l-4 border-primary pl-4 mb-0">
-        <h1 className="font-display text-2xl font-extrabold text-on-surface">{quiz.title}</h1>
-        <p className="text-on-surfaceVariant text-sm mt-1">
+      <div className="border-l-4 border-indigo-500 pl-4 mb-0">
+        <h1 className="text-2xl font-bold text-gray-800">{quiz.title}</h1>
+        <p className="text-gray-500 text-sm mt-1">
           {previewMode
             ? `預覽作答 ${answeredCount} / ${totalQuestions} 題`
             : readOnly
@@ -456,7 +456,7 @@ export default function ExamTakeView({
           <button
             type="button"
             onClick={handleExitToList}
-            className="inline-flex items-center px-4 py-2 bg-white border border-outline-variant/40 text-on-surface text-sm font-medium rounded-lg hover:bg-surface"
+            className="inline-flex items-center px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50"
           >
             關閉視窗
           </button>
@@ -464,7 +464,7 @@ export default function ExamTakeView({
             <button
               type="button"
               onClick={() => setAttemptPickerOpen(true)}
-              className="inline-flex items-center px-4 py-2 bg-white border border-outline-variant/40 text-on-surface text-sm font-medium rounded-lg hover:bg-surface"
+              className="inline-flex items-center px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50"
             >
               {attempts.length > 1 ? '選擇其他作答紀錄' : '選擇作答紀錄'}
             </button>
@@ -475,7 +475,7 @@ export default function ExamTakeView({
           <button
             type="button"
             onClick={handleExitToList}
-            className="inline-flex items-center px-4 py-2 bg-white border border-outline-variant/40 text-on-surface text-sm font-medium rounded-lg hover:bg-surface"
+            className="inline-flex items-center px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50"
           >
             關閉預覽
           </button>
@@ -498,7 +498,7 @@ export default function ExamTakeView({
 
         <div className="flex-1 min-w-0 space-y-8 w-full order-2 lg:order-1">
           {!isHtmlEmpty(quiz.description) && (
-            <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 text-sm text-on-surface">
+            <div className="bg-indigo-50/60 border border-indigo-100 rounded-xl p-4 text-sm text-gray-700">
               <RichHtmlContent html={quiz.description!} />
             </div>
           )}
@@ -511,12 +511,12 @@ export default function ExamTakeView({
 
           {showResult && (
             <div className="bg-white rounded-2xl border border-emerald-200 p-6 shadow-sm">
-              <h2 className="text-lg font-bold text-on-surface mb-2">提交結果</h2>
+              <h2 className="text-lg font-bold text-gray-900 mb-2">提交結果</h2>
               {showScoreInResult ? (
                 <>
-                  <p className="text-2xl font-bold text-primary">
+                  <p className="text-2xl font-bold text-indigo-700">
                     {submitResult?.totalScore ?? submission?.totalScore ?? 0}
-                    <span className="text-base font-normal text-on-surfaceVariant">
+                    <span className="text-base font-normal text-gray-500">
                       {' '}
                       / {submitResult?.maxScore ?? submission?.maxScore ?? quiz.totalPoints} 分
                     </span>
@@ -526,7 +526,7 @@ export default function ExamTakeView({
                   )}
                 </>
               ) : (
-                <p className="text-sm text-on-surfaceVariant">已提交，成績尚未公布。</p>
+                <p className="text-sm text-gray-600">已提交，成績尚未公布。</p>
               )}
             </div>
           )}
@@ -540,19 +540,19 @@ export default function ExamTakeView({
                     type="button"
                     onClick={goToPreviousQuestion}
                     disabled={currentQuestionIndex <= 0}
-                    className="inline-flex items-center gap-1 px-4 py-2.5 rounded-xl border border-outline-variant/40 bg-white text-sm font-medium text-on-surface hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="inline-flex items-center gap-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <ChevronLeftIcon className="w-5 h-5" />
                     上一題
                   </button>
-                  <span className="text-sm text-on-surfaceVariant tabular-nums shrink-0">
+                  <span className="text-sm text-gray-500 tabular-nums shrink-0">
                     第 {currentEntry?.number ?? 0} 題
                   </span>
                   <button
                     type="button"
                     onClick={goToNextQuestion}
                     disabled={currentQuestionIndex >= numbered.length - 1}
-                    className="inline-flex items-center gap-1 px-4 py-2.5 rounded-xl border border-outline-variant/40 bg-white text-sm font-medium text-on-surface hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="inline-flex items-center gap-1 px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     下一題
                     <ChevronRightIcon className="w-5 h-5" />
@@ -587,7 +587,7 @@ export default function ExamTakeView({
                 type="button"
                 onClick={() => void handleSubmit()}
                 disabled={submitting}
-                className="inline-flex items-center px-8 py-3 bg-primary text-white font-medium rounded-xl hover:bg-primary-hover disabled:opacity-50 shadow-md"
+                className="inline-flex items-center px-8 py-3 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 disabled:opacity-50 shadow-md"
               >
                 <PaperAirplaneIcon className="w-5 h-5 mr-2" />
                 {previewMode ? '模擬提交（不會送出）' : '提交測驗'}

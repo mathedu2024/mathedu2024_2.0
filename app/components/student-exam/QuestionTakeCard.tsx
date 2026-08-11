@@ -76,7 +76,7 @@ function QuestionStemContent({
   const textAlign = centerText ? 'center' : 'left';
 
   if (isHtmlEmpty(question.content)) {
-    return <span className="text-on-surfaceVariant italic">（無題目敘述）</span>;
+    return <span className="text-gray-400 italic">（無題目敘述）</span>;
   }
 
   if (isFillInQuestion(question)) {
@@ -96,7 +96,7 @@ function QuestionStemContent({
 function AnswerGradingFeedback({ record }: { record: QuestionAnswerRecord }) {
   if (record.gradingStatus === 'pending') {
     return (
-      <div className="mt-3 pt-3 border-t border-outline-variant/40">
+      <div className="mt-3 pt-3 border-t border-gray-100">
         <p className="text-sm text-amber-700 font-medium">待老師批改</p>
       </div>
     );
@@ -118,16 +118,16 @@ function AnswerGradingFeedback({ record }: { record: QuestionAnswerRecord }) {
     tone = 'text-red-700';
   } else {
     label = '已批改';
-    tone = 'text-on-surface';
+    tone = 'text-gray-700';
   }
 
   return (
-    <div className="mt-3 pt-3 border-t border-outline-variant/40 space-y-1">
+    <div className="mt-3 pt-3 border-t border-gray-100 space-y-1">
       <p className={`text-sm font-medium ${tone}`}>
         {label} · {record.score} / {record.maxScore} 分
       </p>
       {record.teacherComment && (
-        <div className="text-sm text-on-surfaceVariant">
+        <div className="text-sm text-gray-600">
           老師評語：
           <RichHtmlContent html={toEditorHtml(record.teacherComment)} />
         </div>
@@ -140,10 +140,10 @@ function ShortAnswerDisplay({ value, mobile = false }: { value: string | undefin
   const textClass = mobile ? 'text-base' : 'text-sm';
   const html = toEditorHtml(value ?? '');
   if (isHtmlEmpty(html)) {
-    return <p className={`${textClass} text-on-surfaceVariant italic`}>（未作答）</p>;
+    return <p className={`${textClass} text-gray-400 italic`}>（未作答）</p>;
   }
   return (
-    <div className={`rounded-xl border border-outline-variant/40 bg-surface/80 px-4 py-3 ${textClass} text-on-surface min-h-[6rem]`}>
+    <div className={`rounded-xl border border-gray-200 bg-gray-50/80 px-4 py-3 ${textClass} text-gray-800 min-h-[6rem]`}>
       <RichHtmlContent html={html} className={mobile ? 'exam-mobile-stem' : ''} />
     </div>
   );
@@ -171,7 +171,7 @@ function ChoiceOptionContent({
   labelStyle,
   html,
   forceVerticalLayout = false,
-  labelClassName = 'font-semibold text-on-surface shrink-0',
+  labelClassName = 'font-semibold text-gray-800 shrink-0',
   leading,
   contentClassName = 'choice-option-content',
 }: {
@@ -189,7 +189,7 @@ function ChoiceOptionContent({
     <div className={`flex items-center gap-2 min-w-0 w-full ${textSize}`}>
       {leading}
       <span className={labelClassName}>{formatOptionLabel(optionIndex, labelStyle)}</span>
-      <div className="min-w-0 flex-1 overflow-visible text-on-surface w-full">
+      <div className="min-w-0 flex-1 overflow-visible text-gray-800 w-full">
         <RichHtmlContent html={html} className={contentClassName} />
       </div>
     </div>
@@ -208,13 +208,13 @@ function CorrectAnswerReveal({
   gradingRecord?: QuestionAnswerRecord;
 }) {
   return (
-    <div className="mt-3 rounded-xl border border-outline-variant/40 bg-surface px-4 py-3 space-y-2">
-      <p className="text-xs font-semibold text-on-surfaceVariant">正確答案</p>
+    <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 space-y-2">
+      <p className="text-xs font-semibold text-gray-500">正確答案</p>
 
       {isChoiceQuestion(question) && (
         <div className="space-y-2 w-full">
           {question.correctAnswers.filter((a) => !isHtmlEmpty(a)).length === 0 ? (
-            <p className="text-sm text-on-surfaceVariant italic">（尚未設定正確答案）</p>
+            <p className="text-sm text-gray-500 italic">（尚未設定正確答案）</p>
           ) : (
             question.correctAnswers
               .filter((a) => !isHtmlEmpty(a))
@@ -227,13 +227,13 @@ function CorrectAnswerReveal({
                       optionIndex={optionIndex}
                       labelStyle={labelStyle}
                       html={question.options[optionIndex]}
-                      labelClassName="font-semibold text-on-surface shrink-0"
+                      labelClassName="font-semibold text-gray-700 shrink-0"
                       contentClassName="choice-option-content correct-answer-content"
                     />
                   );
                 }
                 return (
-                  <div key={i} className="text-sm text-on-surface w-full">
+                  <div key={i} className="text-sm text-gray-700 w-full">
                     <RichHtmlContent
                       html={answerHtml}
                       className="choice-option-content correct-answer-content"
@@ -246,7 +246,7 @@ function CorrectAnswerReveal({
       )}
 
       {isTrueFalseQuestion(question) && (
-        <p className="text-sm text-on-surface font-medium">
+        <p className="text-sm text-gray-700 font-medium">
           {resolveTrueFalseCorrectAnswer(question, gradingRecord) ? '是' : '否'}
         </p>
       )}
@@ -254,7 +254,7 @@ function CorrectAnswerReveal({
       {isFillInQuestion(question) && (
         <div className="space-y-2">
           {question.cells.map((cell, i) => (
-            <p key={cell.id} className="text-sm text-on-surface">
+            <p key={cell.id} className="text-sm text-gray-700">
               <span className="font-semibold">{buildGridCellLabel(questionNumber, i)}</span>
               {' · '}
               {GRID_CELL_ANSWER_LABELS[cell.correctAnswer]}
@@ -264,7 +264,7 @@ function CorrectAnswerReveal({
       )}
 
       {isShortAnswerQuestion(question) && question.referenceAnswer?.trim() && (
-        <div className="text-sm text-on-surface">
+        <div className="text-sm text-gray-700">
           <RichHtmlContent html={toEditorHtml(question.referenceAnswer)} />
         </div>
       )}
@@ -327,8 +327,8 @@ function ChoiceTake({
               markCorrectInRed
                 ? 'border-red-300 bg-red-50'
                 : checked
-                  ? 'border-primary/50 bg-primary/20'
-                  : 'border-transparent hover:bg-surface hover:border-outline-variant/40'
+                  ? 'border-indigo-400 bg-indigo-50/80'
+                  : 'border-transparent hover:bg-gray-50 hover:border-gray-200'
             } ${readOnly ? 'cursor-default' : ''}`}
           >
             <ChoiceOptionContent
@@ -342,7 +342,7 @@ function ChoiceTake({
                   checked={checked}
                   disabled={readOnly}
                   onChange={() => toggle(opt)}
-                  className="size-4 accent-[#2D6DF6] shrink-0"
+                  className="size-4 accent-indigo-600 shrink-0"
                 />
               }
             />
@@ -380,9 +380,9 @@ function FillInTake({
       {question.cells.map((cell, i) => (
         <div
           key={cell.id}
-          className="flex flex-wrap items-center gap-x-8 gap-y-3 bg-surface/80 rounded-xl border border-outline-variant/40 px-4 py-3"
+          className="flex flex-wrap items-center gap-x-8 gap-y-3 bg-gray-50/80 rounded-xl border border-gray-200 px-4 py-3"
         >
-          <span className="text-sm font-semibold text-on-surface shrink-0 min-w-[3rem]">
+          <span className="text-sm font-semibold text-gray-800 shrink-0 min-w-[3rem]">
             {buildGridCellLabel(questionNumber, i)}
           </span>
           <div className="flex flex-wrap items-end gap-5">
@@ -398,7 +398,7 @@ function FillInTake({
                   markCorrectInRed ? 'bg-red-50 ring-1 ring-red-300' : ''
                 } ${readOnly ? 'cursor-default' : ''}`}
               >
-                <span className="text-sm font-mono text-on-surface">
+                <span className="text-sm font-mono text-gray-800">
                   {GRID_CELL_ANSWER_LABELS[ans]}
                 </span>
                 <input
@@ -407,7 +407,7 @@ function FillInTake({
                   checked={selected}
                   disabled={readOnly}
                   onChange={() => pick(cell, i, ans)}
-                  className="w-4 h-4 accent-[#2D6DF6]"
+                  className="w-4 h-4 accent-indigo-600"
                 />
               </label>
             );
@@ -430,13 +430,13 @@ function GroupStemCard({
   const textClass = forceVerticalLayout ? 'text-base leading-relaxed' : 'text-sm sm:text-base';
 
   return (
-    <article className={`bg-white rounded-2xl border border-outline-variant/40 shadow-sm ${padding}`}>
-      <p className={`text-primary font-semibold mb-3 ${forceVerticalLayout ? 'text-sm' : 'text-xs'}`}>
+    <article className={`bg-white rounded-2xl border border-gray-200 shadow-sm ${padding}`}>
+      <p className={`text-indigo-700 font-semibold mb-3 ${forceVerticalLayout ? 'text-sm' : 'text-xs'}`}>
         題組題幹
       </p>
-      <div className={`text-on-surface ${textClass}`}>
+      <div className={`text-gray-900 ${textClass}`}>
         {isHtmlEmpty(question.content) ? (
-          <span className="text-on-surfaceVariant italic">（無題目敘述）</span>
+          <span className="text-gray-400 italic">（無題目敘述）</span>
         ) : (
           <QuestionStemContent
             question={question}
@@ -469,7 +469,7 @@ function SkipButton({
       className={`text-xs font-medium shrink-0 px-2 py-1 rounded-md border transition-colors ${
         skipped
           ? 'text-red-700 border-red-200 bg-red-50 hover:bg-red-100'
-          : 'text-on-surfaceVariant border-outline-variant/40 hover:bg-surface hover:text-on-surface'
+          : 'text-gray-500 border-gray-200 hover:bg-gray-50 hover:text-gray-700'
       }`}
     >
       {skipped ? '取消略過' : '標記略過'}
@@ -511,11 +511,11 @@ function SubQuestionTake({
   return (
     <article
       id={`question-${sub.id}`}
-      className={`bg-white rounded-2xl border border-outline-variant/40 shadow-sm scroll-mt-28 ${padding}`}
+      className={`bg-white rounded-2xl border border-gray-200 shadow-sm scroll-mt-28 ${padding}`}
     >
       <div className="flex items-start gap-2 mb-4">
-        <span className="text-on-surface font-bold shrink-0 text-base leading-[1.7]">{subNumber}.</span>
-        <div className={`flex-1 min-w-0 text-on-surface leading-[1.7] ${textClass}`}>
+        <span className="text-gray-900 font-bold shrink-0 text-base leading-[1.7]">{subNumber}.</span>
+        <div className={`flex-1 min-w-0 text-gray-900 leading-[1.7] ${textClass}`}>
           {!isHtmlEmpty(sub.content) ? (
             <QuestionStemContent
               question={sub}
@@ -524,7 +524,7 @@ function SubQuestionTake({
               className={forceVerticalLayout ? 'exam-mobile-stem' : ''}
             />
           ) : (
-            <span className="text-on-surfaceVariant italic">（無題目敘述）</span>
+            <span className="text-gray-400 italic">（無題目敘述）</span>
           )}
         </div>
         <SkipButton
@@ -534,7 +534,7 @@ function SubQuestionTake({
           onToggleSkip={onToggleSkip}
         />
       </div>
-      <p className={`text-on-surfaceVariant mb-4 ${forceVerticalLayout ? 'text-sm' : 'text-xs'}`}>
+      <p className={`text-gray-500 mb-4 ${forceVerticalLayout ? 'text-sm' : 'text-xs'}`}>
         {QUESTION_TYPE_LABELS[sub.type]}
         <span className="ml-2 text-amber-700 font-medium">· {sub.points} 分</span>
       </p>
@@ -571,7 +571,7 @@ function SubQuestionTake({
                 checked={selected}
                 disabled={readOnly}
                 onChange={() => onAnswer(sub.id, opt.value)}
-                className="accent-[#2D6DF6]"
+                className="accent-indigo-600"
               />
               <span>{opt.label}</span>
             </label>
@@ -598,7 +598,7 @@ function SubQuestionTake({
             value={(answers[sub.id] as string) ?? ''}
             onChange={(e) => onAnswer(sub.id, e.target.value)}
             placeholder="請在此輸入答案..."
-            className={`w-full px-4 py-3 border border-outline-variant/50 rounded-xl text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 resize-y min-h-[6rem] ${
+            className={`w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-y min-h-[6rem] ${
               forceVerticalLayout ? 'text-base' : 'text-sm'
             }`}
           />
@@ -673,14 +673,14 @@ export default function QuestionTakeCard({
   return (
     <article
       id={`question-${question.id}`}
-      className={`bg-white rounded-2xl border border-outline-variant/40 shadow-sm scroll-mt-28 ${
+      className={`bg-white rounded-2xl border border-gray-200 shadow-sm scroll-mt-28 ${
         forceVerticalLayout ? 'p-4' : 'p-5 sm:p-6'
       }`}
     >
       {forceVerticalLayout ? (
         <div className="flex items-start gap-2 mb-4">
-          <span className="text-on-surface font-bold shrink-0 text-base leading-[1.75]">{questionNumber}.</span>
-          <div className="flex-1 min-w-0 text-on-surface text-base leading-[1.75]">
+          <span className="text-gray-900 font-bold shrink-0 text-base leading-[1.75]">{questionNumber}.</span>
+          <div className="flex-1 min-w-0 text-gray-900 text-base leading-[1.75]">
             <QuestionStemContent
               question={question}
               questionNumber={questionNumber}
@@ -697,8 +697,8 @@ export default function QuestionTakeCard({
         </div>
       ) : (
         <div className="flex items-start gap-2 mb-4">
-          <span className="text-on-surface font-bold shrink-0 text-base leading-[1.7]">{questionNumber}.</span>
-          <div className="flex-1 min-w-0 text-on-surface text-sm sm:text-base leading-[1.7]">
+          <span className="text-gray-900 font-bold shrink-0 text-base leading-[1.7]">{questionNumber}.</span>
+          <div className="flex-1 min-w-0 text-gray-900 text-sm sm:text-base leading-[1.7]">
             <QuestionStemContent
               question={question}
               questionNumber={questionNumber}
@@ -714,7 +714,7 @@ export default function QuestionTakeCard({
         </div>
       )}
 
-      <p className={`text-on-surfaceVariant mb-4 ${forceVerticalLayout ? 'text-sm' : 'text-xs'}`}>
+      <p className={`text-gray-500 mb-4 ${forceVerticalLayout ? 'text-sm' : 'text-xs'}`}>
         {QUESTION_TYPE_LABELS[question.type]}
         <span className="ml-2 text-amber-700 font-medium">· {question.points} 分</span>
       </p>
@@ -756,7 +756,7 @@ export default function QuestionTakeCard({
                 checked={selected}
                 disabled={readOnly}
                 onChange={() => onAnswer(question.id, opt.value)}
-                className="accent-[#2D6DF6]"
+                className="accent-indigo-600"
               />
               <span>{opt.label}</span>
             </label>
@@ -785,7 +785,7 @@ export default function QuestionTakeCard({
             value={(answers[question.id] as string) ?? ''}
             onChange={(e) => onAnswer(question.id, e.target.value)}
             placeholder="請在此輸入答案..."
-            className={`w-full px-4 py-3 border border-outline-variant/50 rounded-xl text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/40 resize-y min-h-[8rem] ${
+            className={`w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-y min-h-[8rem] ${
               forceVerticalLayout ? 'text-base' : 'text-sm'
             }`}
           />

@@ -21,7 +21,7 @@ export default function Error({
       showCancelButton: true,
       confirmButtonText: '重新整理頁面',
       cancelButtonText: '返回首頁',
-      confirmButtonColor: '#2D6DF6', 
+      confirmButtonColor: '#4f46e5', 
       cancelButtonColor: '#9ca3af', 
       allowOutsideClick: false,
       allowEscapeKey: false,

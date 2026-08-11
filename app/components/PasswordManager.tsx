@@ -5,14 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import Swal from '@/utils/swalTheme';
-import {
-  KeyIcon,
-  LockClosedIcon,
-  CheckCircleIcon,
-  IdentificationIcon,
-  UserCircleIcon,
-  ShieldCheckIcon,
-} from '@heroicons/react/24/outline';
+import { KeyIcon, LockClosedIcon, CheckCircleIcon, IdentificationIcon, UserCircleIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
 import LoadingSpinner from './LoadingSpinner';
 import { isCourseArchived } from './StudentCourseSelector';
 
@@ -37,7 +30,6 @@ type PasswordManagerProps = {
   onPasswordChangeSuccess?: () => void;
   apiEndpoint?: string;
   userInfo?: {
-    id?: string;
     name?: string;
     account?: string;
     role?: string;
@@ -45,11 +37,7 @@ type PasswordManagerProps = {
   };
 };
 
-function PasswordManager({
-  onPasswordChangeSuccess,
-  apiEndpoint = '/api/student/change-password',
-  userInfo,
-}: PasswordManagerProps) {
+function PasswordManager({ onPasswordChangeSuccess, apiEndpoint = '/api/student/change-password', userInfo }: PasswordManagerProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [userCourses, setUserCourses] = useState<MinimalCourse[]>([]);
   const [showPassword, setShowPassword] = useState<{ current: boolean; new: boolean; confirm: boolean }>({
@@ -73,7 +61,7 @@ function PasswordManager({
   });
 
   const toggleShowPassword = (field: 'current' | 'new' | 'confirm') => {
-    setShowPassword((prev) => ({ ...prev, [field]: !prev[field] }));
+    setShowPassword(prev => ({ ...prev, [field]: !prev[field] }));
   };
 
   useEffect(() => {
@@ -87,15 +75,16 @@ function PasswordManager({
             apiCourses = Array.isArray(data) ? [...data] : [];
           }
 
+          // 使用 enrolledCourses 補齊後端被過濾的已封存課程
           if (userInfo.enrolledCourses && userInfo.enrolledCourses.length > 0) {
-            const apiCourseIds = apiCourses.map((c) => c.id || `${c.name}(${c.code || ''})`);
-
-            userInfo.enrolledCourses.forEach((courseStr) => {
+            const apiCourseIds = apiCourses.map(c => c.id || `${c.name}(${c.code || ''})`);
+            
+            userInfo.enrolledCourses.forEach(courseStr => {
               if (!apiCourseIds.includes(courseStr)) {
                 const match = courseStr.match(/^(.*)\(([^)]+)\)$/);
                 apiCourses.push({
                   name: match ? match[1] : courseStr,
-                  archived: true,
+                  archived: true
                 });
               }
             });
@@ -128,7 +117,7 @@ function PasswordManager({
           text: '密碼修改成功',
           icon: 'success',
           confirmButtonText: '確定',
-          confirmButtonColor: '#2D6DF6',
+          confirmButtonColor: '#4f46e5', // indigo-600
         });
         reset();
         onPasswordChangeSuccess?.();
@@ -138,7 +127,7 @@ function PasswordManager({
           text: data.message || '請檢查您輸入的密碼是否正確。',
           icon: 'error',
           confirmButtonText: '好',
-          confirmButtonColor: '#ef4444',
+          confirmButtonColor: '#ef4444', // red-500
         });
       }
     } catch (error) {
@@ -155,31 +144,26 @@ function PasswordManager({
     }
   }
 
-  const roleBadgeClass =
-    userInfo?.role === '管理員'
-      ? 'bg-tertiary/10 text-tertiary border-tertiary/30'
-      : userInfo?.role === '作者'
-        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-        : 'bg-blue-50 text-blue-700 border-blue-200';
-
   return (
     <div className="page-shell w-full min-w-0 flex flex-col h-full animate-fade-in">
+      {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
-        <div className="border-l-4 border-primary pl-4">
-          <h1 className="font-display text-2xl font-bold text-on-surface flex items-center gap-3">
-            <UserCircleIcon className="w-8 h-8 text-primary" />
+        <div className="border-l-4 border-indigo-500 pl-4">
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+            <UserCircleIcon className="w-8 h-8 text-indigo-600" />
             個人資料
           </h1>
-          <p className="text-on-surfaceVariant text-sm mt-1">檢視與修改個人資料與密碼</p>
+          <p className="text-gray-500 text-sm mt-1">檢視與修改個人資料與密碼</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column: Basic Info */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-surface-containerLowest rounded-2xl shadow-sm border border-outline-variant/40 overflow-hidden">
-            <div className="px-6 py-4 border-b border-outline-variant/40 bg-surface-containerLow/60 flex items-center">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center">
               <IdentificationIcon className="w-5 h-5 text-gray-500 mr-2" />
-              <h3 className="font-display text-lg font-bold text-on-surface">基本資料</h3>
+              <h3 className="text-lg font-bold text-gray-800">基本資料</h3>
             </div>
 
             <div className="p-6">
@@ -189,7 +173,7 @@ function PasswordManager({
                     姓名
                   </label>
                   <div className="flex items-center p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-700 font-medium">
-                    <span className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-3 text-sm font-bold">
+                    <span className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center mr-3 text-sm font-bold">
                       {userInfo?.name?.[0] || '使'}
                     </span>
                     {userInfo?.name || '—'}
@@ -204,7 +188,11 @@ function PasswordManager({
                     <UserCircleIcon className="w-5 h-5 text-gray-400 mr-3" />
                     <span className="mr-2">{userInfo?.role || '—'}</span>
                     {userInfo?.role && (
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${roleBadgeClass}`}>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${
+                        userInfo.role === '管理員'
+                          ? 'bg-purple-50 text-purple-700 border-purple-200'
+                          : 'bg-blue-50 text-blue-700 border-blue-200'
+                      }`}>
                         {userInfo.role}
                       </span>
                     )}
@@ -216,7 +204,7 @@ function PasswordManager({
                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex justify-between items-center">
                       <span>所有選修課程 (含歷史紀錄)</span>
                       {userCourses.length > 0 && (
-                        <span className="text-primary bg-primary/10 px-2 py-0.5 rounded-lg text-[10px] font-bold border border-primary/20">
+                        <span className="text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg text-[10px] font-bold border border-indigo-100">
                           共 {userCourses.length} 門
                         </span>
                       )}
@@ -224,10 +212,7 @@ function PasswordManager({
                     <div className="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-xl border border-gray-200 min-h-[46px]">
                       {userCourses.length > 0 ? (
                         userCourses.map((course, idx) => (
-                          <span
-                            key={idx}
-                            className={`px-3 py-1 bg-white border text-xs font-bold rounded-lg shadow-sm ${isCourseArchived(course) ? 'border-gray-200 text-gray-500 bg-gray-50' : 'border-primary/20 text-primary'}`}
-                          >
+                          <span key={idx} className={`px-3 py-1 bg-white border text-xs font-bold rounded-lg shadow-sm ${isCourseArchived(course) ? 'border-gray-200 text-gray-500 bg-gray-50' : 'border-indigo-100 text-indigo-700'}`}>
                             {course.name} {isCourseArchived(course) && '[已封存]'}
                           </span>
                         ))
@@ -259,132 +244,136 @@ function PasswordManager({
               </p>
             </div>
           </div>
-
         </div>
 
+        {/* Right Column: Change Password */}
         <div className="lg:col-span-1">
-          <div className="bg-surface-containerLowest rounded-2xl shadow-sm border border-outline-variant/40 overflow-hidden md:sticky md:top-8">
-            <div className="px-6 py-4 border-b border-outline-variant/40 bg-surface-containerLow/60 flex items-center">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden md:sticky md:top-8">
+            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center">
               <KeyIcon className="w-5 h-5 text-gray-500 mr-2" />
-              <h3 className="font-display text-lg font-bold text-on-surface">修改密碼</h3>
+              <h3 className="text-lg font-bold text-gray-800">修改密碼</h3>
             </div>
 
             <div className="p-6">
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">目前密碼</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <LockClosedIcon className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <input
-                      type={showPassword.current ? 'text' : 'password'}
-                      {...register('currentPassword')}
-                      className={`w-full pl-10 pr-10 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all ${errors.currentPassword ? 'border-red-300 focus:ring-red-200 focus:border-red-400' : 'border-gray-200'}`}
-                      placeholder="請輸入目前使用的密碼"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => toggleShowPassword('current')}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-primary focus:outline-none"
-                    >
-                      {showPassword.current ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12.001C3.226 16.273 7.24 19.5 12 19.5c1.658 0 3.237-.336 4.646-.94M21 12.001c-.362-1.007-.893-1.957-1.573-2.803M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
-                        </svg>
-                      ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12s3.75-7.5 9.75-7.5 9.75 7.5 9.75 7.5-3.75 7.5-9.75 7.5S2.25 12 2.25 12z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                  {errors.currentPassword && <p className="text-red-500 text-xs mt-1 ml-1">{errors.currentPassword.message}</p>}
+            
+            {/* Current Password */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">目前密碼</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <LockClosedIcon className="h-5 w-5 text-gray-400" />
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">新密碼</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <KeyIcon className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <input
-                      type={showPassword.new ? 'text' : 'password'}
-                      {...register('newPassword')}
-                      className={`w-full pl-10 pr-10 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all ${errors.newPassword ? 'border-red-300 focus:ring-red-200 focus:border-red-400' : 'border-gray-200'}`}
-                      placeholder="至少 6 個字元"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => toggleShowPassword('new')}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-primary focus:outline-none"
-                    >
-                      {showPassword.new ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12.001C3.226 16.273 7.24 19.5 12 19.5c1.658 0 3.237-.336 4.646-.94M21 12.001c-.362-1.007-.893-1.957-1.573-2.803M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
-                        </svg>
-                      ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12s3.75-7.5 9.75-7.5 9.75 7.5 9.75 7.5-3.75 7.5-9.75 7.5S2.25 12 2.25 12z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                  {errors.newPassword && <p className="text-red-500 text-xs mt-1 ml-1">{errors.newPassword.message}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">確認新密碼</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <CheckCircleIcon className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <input
-                      type={showPassword.confirm ? 'text' : 'password'}
-                      {...register('confirmNewPassword')}
-                      className={`w-full pl-10 pr-10 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all ${errors.confirmNewPassword ? 'border-red-300 focus:ring-red-200 focus:border-red-400' : 'border-gray-200'}`}
-                      placeholder="請再次輸入新密碼"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => toggleShowPassword('confirm')}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-primary focus:outline-none"
-                    >
-                      {showPassword.confirm ? (
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12.001C3.226 16.273 7.24 19.5 12 19.5c1.658 0 3.237-.336 4.646-.94M21 12.001c-.362-1.007-.893-1.957-1.573-2.803M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
-                        </svg>
-                      ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12s3.75-7.5 9.75-7.5 9.75 7.5 9.75 7.5-3.75 7.5-9.75 7.5S2.25 12 2.25 12z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                  {errors.confirmNewPassword && <p className="text-red-500 text-xs mt-1 ml-1">{errors.confirmNewPassword.message}</p>}
-                </div>
-
+                <input
+                  type={showPassword.current ? 'text' : 'password'}
+                  {...register('currentPassword')}
+                  className={`w-full pl-10 pr-10 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 transition-all ${errors.currentPassword ? 'border-red-300 focus:ring-red-200 focus:border-red-400' : 'border-gray-200'}`}
+                  placeholder="請輸入目前使用的密碼"
+                />
                 <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full bg-primary text-white font-bold py-2.5 rounded-xl hover:bg-primary-hover transition-colors shadow-sm shadow-primary/20 disabled:bg-gray-300 disabled:shadow-none mt-2 flex items-center justify-center"
+                  type="button"
+                  onClick={() => toggleShowPassword('current')}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-indigo-600 focus:outline-none"
                 >
-                  {isLoading ? (
-                    <>
-                      <LoadingSpinner size={20} color="white" />
-                      <span className="ml-2">處理中...</span>
-                    </>
+                  {showPassword.current ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12.001C3.226 16.273 7.24 19.5 12 19.5c1.658 0 3.237-.336 4.646-.94M21 12.001c-.362-1.007-.893-1.957-1.573-2.803M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
+                    </svg>
                   ) : (
-                    '確認修改'
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12s3.75-7.5 9.75-7.5 9.75 7.5 9.75 7.5-3.75 7.5-9.75 7.5S2.25 12 2.25 12z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
                   )}
                 </button>
-              </form>
+              </div>
+              {errors.currentPassword && <p className="text-red-500 text-xs mt-1 ml-1">{errors.currentPassword.message}</p>}
+            </div>
+
+            {/* New Password */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">新密碼</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <KeyIcon className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type={showPassword.new ? 'text' : 'password'}
+                  {...register('newPassword')}
+                  className={`w-full pl-10 pr-10 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 transition-all ${errors.newPassword ? 'border-red-300 focus:ring-red-200 focus:border-red-400' : 'border-gray-200'}`}
+                  placeholder="至少 6 個字元"
+                />
+                <button
+                  type="button"
+                  onClick={() => toggleShowPassword('new')}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-indigo-600 focus:outline-none"
+                >
+                  {showPassword.new ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12.001C3.226 16.273 7.24 19.5 12 19.5c1.658 0 3.237-.336 4.646-.94M21 12.001c-.362-1.007-.893-1.957-1.573-2.803M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12s3.75-7.5 9.75-7.5 9.75 7.5 9.75 7.5-3.75 7.5-9.75 7.5S2.25 12 2.25 12z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+              {errors.newPassword && <p className="text-red-500 text-xs mt-1 ml-1">{errors.newPassword.message}</p>}
+            </div>
+
+            {/* Confirm New Password */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">確認新密碼</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <CheckCircleIcon className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type={showPassword.confirm ? 'text' : 'password'}
+                  {...register('confirmNewPassword')}
+                  className={`w-full pl-10 pr-10 py-2 rounded-xl border focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-500 transition-all ${errors.confirmNewPassword ? 'border-red-300 focus:ring-red-200 focus:border-red-400' : 'border-gray-200'}`}
+                  placeholder="請再次輸入新密碼"
+                />
+                <button
+                  type="button"
+                  onClick={() => toggleShowPassword('confirm')}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-indigo-600 focus:outline-none"
+                >
+                  {showPassword.confirm ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12.001C3.226 16.273 7.24 19.5 12 19.5c1.658 0 3.237-.336 4.646-.94M21 12.001c-.362-1.007-.893-1.957-1.573-2.803M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12s3.75-7.5 9.75-7.5 9.75 7.5 9.75 7.5-3.75 7.5-9.75 7.5S2.25 12 2.25 12z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+              {errors.confirmNewPassword && <p className="text-red-500 text-xs mt-1 ml-1">{errors.confirmNewPassword.message}</p>}
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-indigo-600 text-white font-bold py-2.5 rounded-xl hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-200 disabled:bg-gray-300 disabled:shadow-none mt-2 flex items-center justify-center"
+            >
+              {isLoading ? (
+                <>
+                  <LoadingSpinner size={20} color="white" />
+                  <span className="ml-2">處理中...</span>
+                </>
+              ) : (
+                '確認修改'
+              )}
+            </button>
+          </form>
             </div>
           </div>
         </div>

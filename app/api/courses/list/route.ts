@@ -61,10 +61,7 @@ async function listCourses(req: NextRequest, teacherId = '') {
         if (isStaff) return true;
         const archived = course.archived === true;
         const showIntro = course.showInIntroduction !== false;
-        const name = String(course.name || '').trim();
-        const code = String(course.code || '').trim();
-        // 公開列表不回傳未完成建檔的空殼課程
-        return showIntro && !archived && Boolean(name) && Boolean(code);
+        return showIntro && !archived;
       });
 
     return NextResponse.json(courses);

@@ -42,25 +42,19 @@ export async function POST(req: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : '簽到時發生未知錯誤。';
     console.error(`[API/check-in] Error for student ${session.id}:`, errorMessage);
 
-    if (errorMessage.includes('已經簽到') || errorMessage.includes('無需重複掃描')) {
-        return NextResponse.json({ error: errorMessage, code: 'ALREADY_CHECKED_IN' }, { status: 409 });
+    if (errorMessage.includes('已經簽到過了')) {
+        return NextResponse.json({ error: errorMessage }, { status: 409 }); // 409 Conflict
     }
     if (errorMessage.includes('不存在') || errorMessage.includes('尚未開始或已結束')) {
-        return NextResponse.json({ error: errorMessage }, { status: 404 });
+        return NextResponse.json({ error: errorMessage }, { status: 404 }); // 404 Not Found or Gone
     }
     if (
       errorMessage.includes('簽到碼錯誤') ||
       errorMessage.includes('時間已過') ||
-      errorMessage.includes('QR') ||
+      errorMessage.includes('QR 已過期') ||
       errorMessage.includes('不支援學生自行簽到')
     ) {
-        return NextResponse.json(
-          {
-            error: errorMessage,
-            code: errorMessage.includes('QR') ? 'QR_EXPIRED' : undefined,
-          },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: errorMessage }, { status: 400 }); // 400 Bad Request
     }
 
     return NextResponse.json({ error: '伺服器內部錯誤，請稍後再試。' }, { status: 500 });

@@ -77,7 +77,7 @@ export default function StudentExamAttemptPickerModal({
         aria-labelledby="exam-attempt-picker-title"
         className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col"
       >
-        <div className="bg-gradient-to-r from-primary to-tertiary px-5 py-4 flex justify-between items-center text-white shrink-0">
+        <div className="bg-gradient-to-r from-indigo-500 to-purple-500 px-5 py-4 flex justify-between items-center text-white shrink-0">
           <h2 id="exam-attempt-picker-title" className="font-bold text-lg flex items-center gap-2 min-w-0">
             <ClipboardDocumentListIcon className="w-5 h-5 shrink-0" />
             <span className="truncate">查看作答紀錄</span>
@@ -93,15 +93,15 @@ export default function StudentExamAttemptPickerModal({
         </div>
 
         <div className="p-5 overflow-y-auto flex-1">
-          <h3 className="font-bold text-on-surface text-lg mb-1">{examTitle}</h3>
-          <p className="text-sm text-on-surfaceVariant mb-4">
+          <h3 className="font-bold text-gray-900 text-lg mb-1">{examTitle}</h3>
+          <p className="text-sm text-gray-500 mb-4">
             {openMode === 'sameWindow'
               ? '選擇要檢視的作答紀錄。'
               : '選擇要檢視的作答紀錄，將於新分頁開啟。'}
           </p>
 
           {sortedAttempts.length === 0 ? (
-            <p className="text-sm text-on-surfaceVariant text-center py-8">尚無作答紀錄</p>
+            <p className="text-sm text-gray-400 text-center py-8">尚無作答紀錄</p>
           ) : (
             <ul className="space-y-2">
               {sortedAttempts.map((attempt) => {
@@ -115,11 +115,11 @@ export default function StudentExamAttemptPickerModal({
                     disabled={isCurrent}
                     className={`w-full text-left px-4 py-3 rounded-xl border transition-colors ${
                       isCurrent
-                        ? 'border-primary/40 bg-primary/20 cursor-default'
-                        : 'border-outline-variant/40 hover:border-primary/40 hover:bg-primary/10'
+                        ? 'border-indigo-300 bg-indigo-50/70 cursor-default'
+                        : 'border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/50'
                     }`}
                   >
-                    <p className="font-medium text-on-surface">
+                    <p className="font-medium text-gray-900">
                       {formatExamAttemptLabel(attempt.attemptIndex, attempt.submittedAt)}
                     </p>
                     {resultsPublished ? (
@@ -128,10 +128,10 @@ export default function StudentExamAttemptPickerModal({
                         {attempt.status === 'grading' && '（含待批改簡答）'}
                       </p>
                     ) : (
-                      <p className="text-sm text-on-surfaceVariant mt-0.5">成績尚未公布</p>
+                      <p className="text-sm text-gray-500 mt-0.5">成績尚未公布</p>
                     )}
                     {isCurrent && (
-                      <p className="text-xs text-primary mt-1">目前檢視中</p>
+                      <p className="text-xs text-indigo-600 mt-1">目前檢視中</p>
                     )}
                   </button>
                 </li>
@@ -141,11 +141,11 @@ export default function StudentExamAttemptPickerModal({
           )}
         </div>
 
-        <div className="px-5 py-4 bg-surface border-t border-outline-variant/40 shrink-0">
+        <div className="px-5 py-4 bg-gray-50 border-t border-gray-100 shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="w-full bg-white border border-outline-variant/40 text-on-surface py-2.5 rounded-lg text-sm font-medium hover:bg-surface"
+            className="w-full bg-white border border-gray-200 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50"
           >
             取消
           </button>

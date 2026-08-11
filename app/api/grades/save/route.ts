@@ -1,19 +1,15 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { adminDb } from '@/services/firebase-admin';
 import { settingsToTotalSetting } from '@/services/gradeShape';
-import {
-  requireAuthFromRequest,
-  requireCourseStaffAccess,
-  authGuard,
-} from '@/services/apiAuth';
+import { requireAuthFromRequest, authGuard } from '@/services/apiAuth';
 
 /**
- * 寫入 `courses/{課程DocId}/grades/data`
+ * ?? `courses/{??DocId}/grades/data`
  */
 export async function POST(req: NextRequest) {
-  const auth = requireAuthFromRequest(req, 'admin', 'teacher');
-  if (auth.ok === false) return auth.response;
+  const denied = authGuard(requireAuthFromRequest(req, 'admin', 'teacher'));
+  if (denied) return denied;
 
   try {
     const body = await req.json();
@@ -37,13 +33,10 @@ export async function POST(req: NextRequest) {
 
     if (!courseDocId || !gradeData) {
       return NextResponse.json(
-        { error: '缺少 courseId 或 courseName、courseCode 與成績資料' },
+        { error: '???????courseId ? courseName?courseCode??????' },
         { status: 400 }
       );
     }
-
-    const courseDenied = authGuard(await requireCourseStaffAccess(auth.session, courseDocId));
-    if (courseDenied) return courseDenied;
 
     let grades: Record<string, unknown> = {};
     if (Array.isArray(gradeData.students)) {
@@ -77,7 +70,7 @@ export async function POST(req: NextRequest) {
     const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
     if (siteReadErrorResponse) return siteReadErrorResponse;
 
-    const message = error instanceof Error ? error.message : '儲存失敗';
+    const message = error instanceof Error ? error.message : '????';
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -29,7 +29,7 @@ import {
   saveSurveyDraft,
 } from '@/utils/surveyDraftStorage';
 
-const CONTROL_CLASS = 'size-4 accent-[#2D6DF6] shrink-0';
+const CONTROL_CLASS = 'size-4 accent-indigo-600 shrink-0';
 
 interface SurveyTakeViewProps {
   surveyCode: string;
@@ -148,7 +148,7 @@ export default function SurveyTakeView({
         await Swal.fire({
           icon: 'error',
           title: err instanceof Error ? err.message : '載入失敗',
-          confirmButtonColor: '#2D6DF6',
+          confirmButtonColor: '#4f46e5',
         });
         router.push(backHref);
       })
@@ -219,7 +219,7 @@ export default function SurveyTakeView({
         icon: 'info',
         title: '這是學生版預覽',
         text: '預覽模式不會真正送出問卷。',
-        confirmButtonColor: '#2D6DF6',
+        confirmButtonColor: '#4f46e5',
       });
       return;
     }
@@ -243,7 +243,7 @@ export default function SurveyTakeView({
       const result = await Swal.fire({
         icon: 'success',
         title: '已送出問卷',
-        confirmButtonColor: '#2D6DF6',
+        confirmButtonColor: '#4f46e5',
         confirmButtonText: '關閉視窗',
       });
       if (result.isConfirmed) {
@@ -254,7 +254,7 @@ export default function SurveyTakeView({
       await Swal.fire({
         icon: 'error',
         title: error instanceof Error ? error.message : '提交失敗',
-        confirmButtonColor: '#2D6DF6',
+        confirmButtonColor: '#4f46e5',
       });
     } finally {
       setSubmitting(false);
@@ -304,9 +304,9 @@ export default function SurveyTakeView({
           </div>
         )}
 
-        <div className="border-l-4 border-primary pl-4 mb-0">
-          <h1 className="font-display text-2xl font-extrabold text-on-surface">{survey.title}</h1>
-          <p className="text-on-surfaceVariant text-sm mt-1">
+        <div className="border-l-4 border-indigo-500 pl-4 mb-0">
+          <h1 className="text-2xl font-bold text-gray-800">{survey.title}</h1>
+          <p className="text-gray-500 text-sm mt-1">
             {isPreview
               ? `預覽填寫 ${answeredCount} / ${questions.length} 題`
               : readOnly || done
@@ -326,7 +326,7 @@ export default function SurveyTakeView({
             <button
               type="button"
               onClick={handleExit}
-              className="inline-flex items-center px-4 py-2 bg-white border border-outline-variant/40 text-on-surface text-sm font-medium rounded-lg hover:bg-surface"
+              className="inline-flex items-center px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50"
             >
               {isPreview ? '關閉預覽' : '關閉視窗'}
             </button>
@@ -335,15 +335,15 @@ export default function SurveyTakeView({
 
         <div className="mt-6 space-y-6">
           {survey.description ? (
-            <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 text-sm text-on-surface whitespace-pre-wrap">
+            <div className="bg-indigo-50/60 border border-indigo-100 rounded-xl p-4 text-sm text-gray-700 whitespace-pre-wrap">
               {survey.description}
             </div>
           ) : null}
 
           {done && !readOnly && (
             <div className="bg-white rounded-2xl border border-emerald-200 p-6 shadow-sm">
-              <h2 className="text-lg font-bold text-on-surface mb-2">已送出</h2>
-              <p className="text-sm text-on-surfaceVariant">感謝您完成本問卷。</p>
+              <h2 className="text-lg font-bold text-gray-900 mb-2">已送出</h2>
+              <p className="text-sm text-gray-600">感謝您完成本問卷。</p>
             </div>
           )}
 
@@ -364,7 +364,7 @@ export default function SurveyTakeView({
               <div
                 key={q.id}
                 id={`survey-q-${q.id}`}
-                className="bg-white rounded-2xl border border-outline-variant/40 shadow-sm p-5 sm:p-6"
+                className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 sm:p-6"
               >
                 <QuestionField
                   question={q}
@@ -386,7 +386,7 @@ export default function SurveyTakeView({
                 type="button"
                 disabled={submitting}
                 onClick={() => void handleSubmit()}
-                className="inline-flex items-center px-8 py-3 bg-primary text-white font-medium rounded-xl hover:bg-primary-hover disabled:opacity-50 shadow-md"
+                className="inline-flex items-center px-8 py-3 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 disabled:opacity-50 shadow-md"
               >
                 <PaperAirplaneIcon className="w-5 h-5 mr-2" />
                 {submitting ? '送出中…' : isPreview ? '模擬送出（不會送出）' : '送出問卷'}
@@ -418,8 +418,8 @@ function QuestionField({
 }) {
   return (
     <div className="space-y-4">
-      <p className="font-medium text-on-surface text-base leading-relaxed">
-        <span className="text-primary mr-2 font-bold">Q{index + 1}</span>
+      <p className="font-medium text-gray-900 text-base leading-relaxed">
+        <span className="text-indigo-600 mr-2 font-bold">Q{index + 1}</span>
         {question.content || '（未命名題目）'}
         {question.required !== false && <span className="text-red-500 ml-1">*</span>}
       </p>
@@ -427,7 +427,7 @@ function QuestionField({
       {question.type === 'single' && (
         <div className="space-y-2">
           {question.options.map((opt) => (
-            <label key={opt} className="flex items-center gap-2 text-sm text-on-surface">
+            <label key={opt} className="flex items-center gap-2 text-sm text-gray-700">
               <input
                 type="radio"
                 name={question.id}
@@ -459,7 +459,7 @@ function QuestionField({
           value={typeof value === 'string' ? value : ''}
           onChange={(e) => onChange(e.target.value)}
           rows={3}
-          className="w-full rounded-xl border border-outline-variant/40 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-surface"
+          className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-gray-50"
           placeholder="請輸入回答"
         />
       )}
@@ -516,7 +516,7 @@ function MultipleField({
   return (
     <div className="space-y-2">
       {question.options.map((opt) => (
-        <label key={opt} className="flex items-center gap-2 text-sm text-on-surface">
+        <label key={opt} className="flex items-center gap-2 text-sm text-gray-700">
           <input
             type="checkbox"
             disabled={disabled}
@@ -529,7 +529,7 @@ function MultipleField({
       ))}
       {question.allowOther && (
         <div className="space-y-2">
-          <label className="flex items-center gap-2 text-sm text-on-surface">
+          <label className="flex items-center gap-2 text-sm text-gray-700">
             <input
               type="checkbox"
               disabled={disabled}
@@ -545,7 +545,7 @@ function MultipleField({
               disabled={disabled}
               value={otherText}
               onChange={(e) => onOtherTextChange(e.target.value)}
-              className="w-full rounded-lg border border-outline-variant/40 px-3 py-1.5 text-sm"
+              className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm"
               placeholder="請說明"
             />
           )}
@@ -569,16 +569,16 @@ function ScaleField({
   const scores = Array.from({ length: question.maxScore }, (_, i) => i + 1);
   return (
     <div className="flex w-full items-center gap-2 sm:gap-3">
-      <span className="shrink-0 text-xs text-on-surfaceVariant text-right min-w-[2rem]">
+      <span className="shrink-0 text-xs text-gray-500 text-right min-w-[2rem]">
         {question.minLabel || '低'}
       </span>
       <div className="flex min-w-0 flex-1 items-end">
         {scores.map((score) => (
           <label
             key={score}
-            className="flex flex-1 flex-col items-center gap-1 text-sm text-on-surface"
+            className="flex flex-1 flex-col items-center gap-1 text-sm text-gray-700"
           >
-            <span className="text-xs text-on-surfaceVariant">{score}</span>
+            <span className="text-xs text-gray-500">{score}</span>
             <input
               type="radio"
               name={question.id}
@@ -590,7 +590,7 @@ function ScaleField({
           </label>
         ))}
       </div>
-      <span className="shrink-0 text-xs text-on-surfaceVariant text-left min-w-[2rem]">
+      <span className="shrink-0 text-xs text-gray-500 text-left min-w-[2rem]">
         {question.maxLabel || '高'}
       </span>
     </div>
@@ -616,9 +616,9 @@ function MatrixField({
       <table className="min-w-full text-sm border-collapse">
         <thead>
           <tr>
-            <th className="text-left py-2 pr-3 font-medium text-on-surfaceVariant">問題</th>
+            <th className="text-left py-2 pr-3 font-medium text-gray-500">問題</th>
             {scores.map((s) => (
-              <th key={s} className="px-1 py-2 text-center font-medium text-on-surfaceVariant w-10">
+              <th key={s} className="px-1 py-2 text-center font-medium text-gray-500 w-10">
                 {s}
               </th>
             ))}
@@ -626,8 +626,8 @@ function MatrixField({
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.id} className="border-t border-outline-variant/40">
-              <td className="py-2.5 pr-3 text-on-surface">{row.label}</td>
+            <tr key={row.id} className="border-t border-gray-100">
+              <td className="py-2.5 pr-3 text-gray-800">{row.label}</td>
               {scores.map((score) => (
                 <td key={score} className="px-1 py-2 text-center">
                   <input

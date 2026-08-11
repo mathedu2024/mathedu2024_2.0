@@ -1,16 +1,8 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { adminDb } from '@/services/firebase-admin';
-import { requireAuthFromRequest, sessionHasRole } from '@/services/apiAuth';
 
 export async function POST(req: NextRequest) {
-  const auth = requireAuthFromRequest(req, 'admin', 'teacher');
-  if (auth.ok === false) return auth.response;
-
-  if (!sessionHasRole(auth.session, 'admin')) {
-    return NextResponse.json({ error: '僅管理員可建立課程' }, { status: 403 });
-  }
-
   try {
     const data = await req.json();
     const id = data.id || Date.now().toString();

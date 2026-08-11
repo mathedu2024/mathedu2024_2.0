@@ -8,27 +8,19 @@ import Link from 'next/link';
 // UI Icons & Components
 import Sidebar from '@/components/Sidebar';
 import PageLoadingArea from '@/components/ui/PageLoadingArea';
-import { dashboardSectionTitle } from '@/components/ui/dashboardChrome';
-import AdminDashboard from '@/components/admin/AdminDashboard';
-import AdminSystemSettings from '@/components/admin/AdminSystemSettings';
-import TeacherDashboard from '@/components/teacher/TeacherDashboard';
-import ConsoleContainer from '@/components/console/ConsoleContainer';
-import type { AdminStatsPayload } from '@/utils/adminStatsTypes';
-import { EMPTY_ADMIN_STATS } from '@/utils/adminStatsTypes';
 import {
   CalendarIcon,
   CalendarDaysIcon,
+  AcademicCapIcon,
   UserGroupIcon,
+  ChartBarIcon,
   ClockIcon,
+  Cog6ToothIcon,
   UserCircleIcon,
   CloudArrowDownIcon,
   MegaphoneIcon,
   ShieldCheckIcon,
   BookOpenIcon,
-  DocumentTextIcon,
-  TagIcon,
-  ChatBubbleLeftRightIcon,
-  Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
 
 // Utils & Types
@@ -47,15 +39,15 @@ import {
   fetchAdminCoursesList,
   fetchCoursesByTeacherId,
 } from '@/utils/teacherClientApi';
-import { parseTeacherCourseTab, parseCourseCodeFromReturnTo } from '@/utils/teacherCourseHub';
-import type { CourseWorkspaceSidebar } from '@/components/Sidebar';
+import CourseActivityFeed from '@/components/CourseActivityFeed';
+import LiveAttendanceBanner from '@/components/LiveAttendanceBanner';
 
 function BackPanelModulePlaceholder() {
   return (
     <div className="page-shell w-full min-w-0 py-6 space-y-4 animate-pulse" aria-hidden>
-      <div className="h-8 bg-surface-containerHigh/80 rounded-lg w-48" />
-      <div className="h-32 bg-surface-container rounded-2xl border border-outline-variant/40" />
-      <div className="h-24 bg-surface-container rounded-2xl border border-outline-variant/40" />
+      <div className="h-8 bg-gray-200/80 rounded-lg w-48" />
+      <div className="h-32 bg-gray-100 rounded-2xl border border-gray-100" />
+      <div className="h-24 bg-gray-100 rounded-2xl border border-gray-100" />
     </div>
   );
 }
@@ -77,9 +69,6 @@ const ResourceManagement = dynamic(() => import('@/components/ResourceManagement
 const TutoringManager = dynamic(() => import('@/components/TutoringManager'), { ssr: false, ...loadingFallback });
 const TeacherExamManager = dynamic(() => import('@/components/TeacherExamManager'), { ssr: false, ...loadingFallback });
 const TeacherSurveyManager = dynamic(() => import('@/components/TeacherSurveyManager'), { ssr: false, ...loadingFallback });
-const BlogPostManager = dynamic(() => import('@/components/BlogPostManager'), { ssr: false, ...loadingFallback });
-const BlogCategoryManager = dynamic(() => import('@/components/BlogCategoryManager'), { ssr: false, ...loadingFallback });
-const BlogCommentManager = dynamic(() => import('@/components/BlogCommentManager'), { ssr: false, ...loadingFallback });
  
 const AttendanceManagementComponent = dynamic<{
   courses: Course[];
@@ -103,21 +92,12 @@ const AttendanceManagementComponent = dynamic<{
 // 類型定義
 // ============================================================================
 
-type AdminTab =
-  | 'announcements'
-  | 'exam-dates'
-  | 'students'
-  | 'courses'
-  | 'admin-teachers'
-  | 'system-settings'
-  | 'resources';
+type AdminTab = 'announcements' | 'exam-dates' | 'students' | 'courses' | 'admin-teachers' | 'resources';
 type TeacherTab = 'teacher-courses' | 'teacher-exams' | 'teacher-surveys' | 'tutoring' | 'teacher-attendance' | 'resources';
-type AuthorTab = 'blog' | 'blog-categories' | 'blog-comments';
 type ExamSubView = '' | 'new' | 'builder' | 'grading' | 'analytics';
 type SurveySubView = '' | 'new' | 'builder' | 'analytics';
 type CommonTab = 'password';
-type Tab = AdminTab | TeacherTab | AuthorTab | CommonTab | null;
-/** 傳給既有老師元件的角色型別（作者儀表板另用 isAuthor） */
+type Tab = AdminTab | TeacherTab | CommonTab | null;
 type UserRole = '管理員' | '老師' | '學生';
 
 interface BackPanelUserInfo {
@@ -151,23 +131,15 @@ const ADMIN_MENU_CONFIG: MenuConfigItem[] = [
   { id: 'students', title: '學生管理', description: '管理學生資訊與註冊狀態', icon: <UserGroupIcon className="h-6 w-6" />, color: 'amber', href: '/back-panel/students' },
   { id: 'exam-dates', title: '考試日期管理', description: '管理考試時程與重要日期', icon: <CalendarDaysIcon className="h-6 w-6" />, color: 'emerald', href: '/back-panel/exam-dates' },
   { id: 'resources', title: '線上資源管理', description: '管理教學影片連結、PDF 教材與外部網頁', icon: <CloudArrowDownIcon className="h-6 w-6" />, color: 'indigo', href: '/back-panel/resources' },
-  { id: 'admin-teachers', title: '用戶與權限', description: '教師、管理員與作者帳號', icon: <ShieldCheckIcon className="h-6 w-6" />, color: 'orange', href: '/back-panel/admin-teachers' },
-  { id: 'system-settings', title: '系統設定', description: 'SEO、金鑰與全站公告文字', icon: <Cog6ToothIcon className="h-6 w-6" />, color: 'rose', href: '/back-panel/system-settings' },
-  { id: 'password', title: '個人設定', description: '檢視與修改個人資料與密碼', icon: <UserCircleIcon className="h-6 w-6" />, color: 'rose', href: '/back-panel/password' },
+  { id: 'admin-teachers', title: '老師/管理員管理', description: '管理教師與管理員帳號', icon: <ShieldCheckIcon className="h-6 w-6" />, color: 'orange', href: '/back-panel/admin-teachers' },
+  { id: 'password', title: '個人資料', description: '檢視與修改個人資料與密碼', icon: <UserCircleIcon className="h-6 w-6" />, color: 'rose', href: '/back-panel/password' },
 ];
 
 const TEACHER_MENU_CONFIG: MenuConfigItem[] = [
   { id: 'teacher-courses', title: '授課管理', description: '管理您的授課課程、學生與內容', icon: <BookOpenIcon className="h-6 w-6" />, color: 'indigo', href: '/back-panel/teacher-courses' },
   { id: 'resources', title: '線上資源管理', description: '管理教學影片連結、PDF 教材與外部網頁', icon: <CloudArrowDownIcon className="h-6 w-6" />, color: 'indigo', href: '/back-panel/resources' },
   { id: 'tutoring', title: '課程輔導', description: '管理老師與學生的輔導排程', icon: <CalendarIcon className="h-6 w-6" />, color: 'purple', href: '/back-panel/tutoring' },
-  { id: 'password', title: '個人設定', description: '檢視與修改個人資料與密碼', icon: <UserCircleIcon className="h-6 w-6" />, color: 'rose', href: '/back-panel/password' },
-];
-
-const AUTHOR_MENU_CONFIG: MenuConfigItem[] = [
-  { id: 'blog', title: '我的文章', description: '撰寫、排程與發佈線上文章', icon: <DocumentTextIcon className="h-6 w-6" />, color: 'indigo', href: '/back-panel/blog' },
-  { id: 'blog-categories', title: '主題管理', description: '新增與管理文章主題', icon: <TagIcon className="h-6 w-6" />, color: 'purple', href: '/back-panel/blog-categories' },
-  { id: 'blog-comments', title: '留言審核', description: '審核與回覆文章留言', icon: <ChatBubbleLeftRightIcon className="h-6 w-6" />, color: 'amber', href: '/back-panel/blog-comments' },
-  { id: 'password', title: '個人設定', description: '檢視與修改個人資料與密碼', icon: <UserCircleIcon className="h-6 w-6" />, color: 'rose', href: '/back-panel/password' },
+  { id: 'password', title: '個人資料', description: '檢視與修改個人資料與密碼', icon: <UserCircleIcon className="h-6 w-6" />, color: 'rose', href: '/back-panel/password' },
 ];
 
 function getBackPanelSegments(pathname: string): string[] {
@@ -185,8 +157,7 @@ function BackPanel() {
   const [userInfo, setUserInfo] = useState<BackPanelUserInfo | null>(null);
   const authRedirectRef = useRef(false);
   const [courses, setCourses] = useState<Course[]>([]);
-  const [adminStats, setAdminStats] = useState<AdminStatsPayload>(EMPTY_ADMIN_STATS);
-  const [teacherCourseSearch, setTeacherCourseSearch] = useState('');
+  const [adminStats, setAdminStats] = useState({ studentCount: 0, teacherCount: 0, courseCount: 0 });
   const [error, setError] = useState<string | null>(null);
   const isCompactNav = useCompactNav();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -200,7 +171,7 @@ function BackPanel() {
 
   const handleLogout = useCallback(async () => {
     setIsLoggingOut(true);
-    await logoutClient('/login');
+    await logoutClient('/panel');
   }, []);
 
   useEffect(() => {
@@ -209,7 +180,7 @@ function BackPanel() {
     if (!session) {
       if (!isLoggingOut && !authRedirectRef.current) {
         authRedirectRef.current = true;
-        router.replace('/login');
+        router.replace('/panel');
       }
       return;
     }
@@ -225,23 +196,23 @@ function BackPanel() {
 
     setUserInfo(buildBackPanelUserFromSession(session));
 
-    const fetchStaffProfile = async () => {
+    const fetchTeacher = async () => {
       try {
         const data = await fetchTeacherProfile(session.account);
         setUserInfo({
           id: String(data.id),
           name: String(data.name || session.name || ''),
           account: session.account,
-          role: getBackPanelRole(session),
+          role: '老師',
         });
       } catch (err) {
-        console.error('Error fetching staff profile:', err);
+        console.error('Error fetching teacher profile:', err);
         setError('連線發生錯誤，請檢查網路連線。');
       }
     };
 
-    if (userRole === '老師' || userRole === '作者') {
-      void fetchStaffProfile();
+    if (userRole === '老師') {
+      void fetchTeacher();
     }
   }, [handleLogout, isLoggingOut, router]);
 
@@ -274,40 +245,7 @@ function BackPanel() {
     if (Array.isArray(userInfo.role)) return userInfo.role.includes('teacher') || userInfo.role.includes('老師');
     return userInfo.role === 'teacher' || userInfo.role === '老師';
   }, [userInfo]);
-  const isAuthor = useMemo(() => {
-    if (!userInfo) return false;
-    // 以目前登入身分為準（老師／管理員即使兼有 author 也不算作者工作台）
-    if (userInfo.role === '作者' || userInfo.role === 'author') return true;
-    const session = getSession();
-    if (session?.currentRole === 'author') return true;
-    return false;
-  }, [userInfo]);
 
-  const processedQuickActions = useMemo(() => {
-    if (!userInfo) return [];
-
-    let config: MenuConfigItem[] = [];
-    if (isAdmin) {
-      // 管理員不承擔線上文章業務
-      config = ADMIN_MENU_CONFIG;
-    } else if (isTeacher) {
-      // 老師不承擔線上文章業務；即使兼有 author，老師身分也不顯示線上文章選單
-      config = TEACHER_MENU_CONFIG;
-    } else if (isAuthor) {
-      config = AUTHOR_MENU_CONFIG;
-    }
-
-    return config.map(item => {
-      const style = getDashboardColorClasses(item.color);
-      let iconEl = item.icon;
-      if (React.isValidElement(item.icon)) {
-        iconEl = React.cloneElement(item.icon as React.ReactElement<React.SVGProps<SVGSVGElement>>, {
-          className: 'h-6 w-6',
-        });
-      }
-      return { ...item, ...style, icon: iconEl };
-    });
-  }, [isAdmin, isAuthor, isTeacher, userInfo]);
   const teacherCoursesCourseCode = useMemo(() => {
     if (pathSegments[0] !== 'teacher-courses' || !pathSegments[1]) return '';
     const codeSeg = decodeURIComponent(pathSegments[1]);
@@ -315,105 +253,25 @@ function BackPanel() {
     return codeSeg;
   }, [pathSegments]);
 
-  const teacherCoursesTab = useMemo(() => {
-    if (pathSegments[0] !== 'teacher-courses') return '';
-    // 課堂／公告編輯深連結時不套用 hub tab
-    if (pathSegments[2] === 'lessons' || pathSegments[2] === 'announcements') return '';
-    return searchParams.get('tab') || '';
-  }, [pathSegments, searchParams]);
-
-  // 進入單一課程後（含測驗／問卷／點名深頁）：側欄改為課程管理選單
+  // 進入單一課程後：課程 Hub、測驗／問卷編輯、點名明細都收合側選單
   const isTeacherCourseWorkspace = useMemo(() => {
     const [root, seg1, seg2] = pathSegments;
     if (root === 'teacher-courses' && seg1 && seg1 !== 'preview' && seg1 !== 'interact') return true;
-    if (root === 'teacher-exams' && seg1 && seg1 !== 'preview') return true;
-    if (root === 'teacher-surveys' && seg1 && seg1 !== 'preview') return true;
+    if (root === 'teacher-exams' && seg1) return true;
+    if (root === 'teacher-surveys' && seg1) return true;
     if (root === 'teacher-attendance' && seg1 && seg2) return true;
     return false;
   }, [pathSegments]);
 
-  const workspaceCourseCode = useMemo(() => {
-    if (teacherCoursesCourseCode) return teacherCoursesCourseCode;
-
-    const fromReturnTo = parseCourseCodeFromReturnTo(searchParams.get('returnTo'));
-    if (fromReturnTo) return fromReturnTo;
-
-    if (pathSegments[0] === 'teacher-exams') {
-      const courseId = searchParams.get('courseId') || '';
-      if (courseId) {
-        const matched = courses.find((c) => c.id === courseId);
-        if (matched?.code) return matched.code;
-      }
-    }
-    if (pathSegments[0] === 'teacher-surveys') {
-      const courseId = searchParams.get('courseId') || '';
-      if (courseId) {
-        const matched = courses.find((c) => c.id === courseId);
-        if (matched?.code) return matched.code;
-      }
-    }
-    if (pathSegments[0] === 'teacher-attendance' && pathSegments[1]) {
-      return decodeURIComponent(pathSegments[1]);
-    }
-    return '';
-  }, [teacherCoursesCourseCode, searchParams, pathSegments, courses]);
-
-  const courseWorkspace = useMemo((): CourseWorkspaceSidebar | null => {
-    if (!workspaceCourseCode) return null;
-    const course =
-      courses.find(
-        (c) => c.code === workspaceCourseCode || c.id === workspaceCourseCode
-      ) ?? null;
-
-    let activeTab = parseTeacherCourseTab(teacherCoursesTab);
-    if (pathSegments[0] === 'teacher-courses') {
-      if (pathSegments[2] === 'lessons') activeTab = 'lessons';
-      if (pathSegments[2] === 'announcements') activeTab = 'announcements';
-    } else if (pathSegments[0] === 'teacher-exams') {
-      activeTab = 'exams';
-    } else if (pathSegments[0] === 'teacher-surveys') {
-      activeTab = 'surveys';
-    } else if (pathSegments[0] === 'teacher-attendance') {
-      activeTab = 'attendance';
-    }
-
-    return {
-      courseCode: course?.code || workspaceCourseCode,
-      courseName: course?.name || workspaceCourseCode,
-      subjectLabel: course?.subjectTag || course?.code || workspaceCourseCode,
-      activeTab,
-    };
-  }, [workspaceCourseCode, teacherCoursesTab, courses, pathSegments]);
-
   useEffect(() => {
-    if (isCompactNav) {
-      setSidebarOpen(false);
-      return;
-    }
-    // 課程 Hub（含測驗／問卷編輯深頁）：側欄展開並換成課程選單
-    if (courseWorkspace) {
-      setSidebarOpen(true);
-      return;
-    }
-    setSidebarOpen(!isTeacherCourseWorkspace);
-  }, [isCompactNav, isTeacherCourseWorkspace, courseWorkspace]);
+    // 桌面：列表展開；進入課程相關頁面後收合。窄螢幕維持收合。
+    setSidebarOpen(!isCompactNav && !isTeacherCourseWorkspace);
+  }, [isCompactNav, isTeacherCourseWorkspace]);
 
-  const teacherLessonIdFromUrl = useMemo(() => {
+  const teacherCoursesTab = useMemo(() => {
     if (pathSegments[0] !== 'teacher-courses') return '';
-    if (pathSegments[2] !== 'lessons' || !pathSegments[3]) return '';
-    return decodeURIComponent(pathSegments[3]);
-  }, [pathSegments]);
-
-  const teacherAnnouncementIdFromUrl = useMemo(() => {
-    if (pathSegments[0] !== 'teacher-courses') return '';
-    if (pathSegments[2] !== 'announcements' || !pathSegments[3]) return '';
-    return decodeURIComponent(pathSegments[3]);
-  }, [pathSegments]);
-
-  const teacherCourseDeepReturnTo = useMemo(() => {
-    if (!teacherLessonIdFromUrl && !teacherAnnouncementIdFromUrl) return '';
-    return searchParams.get('returnTo') || '';
-  }, [teacherLessonIdFromUrl, teacherAnnouncementIdFromUrl, searchParams]);
+    return searchParams.get('tab') || '';
+  }, [pathSegments, searchParams]);
 
   const teacherExamInitialCourseId = useMemo(() => {
     if (pathSegments[0] !== 'teacher-exams') return '';
@@ -484,7 +342,7 @@ function BackPanel() {
         const stats = await fetchAdminStatsApi();
         setAdminStats(stats);
       } catch (error) {
-        setAdminStats(EMPTY_ADMIN_STATS);
+        setAdminStats({ studentCount: 0, teacherCount: 0, courseCount: 0 });
         // 權限／session 問題時不洗版；其餘才留下診斷訊息
         const message = error instanceof Error ? error.message : String(error);
         if (!message.includes('(401)') && !message.includes('(403)')) {
@@ -520,49 +378,55 @@ function BackPanel() {
     }
   }, [userInfo?.id, userInfo?.role, fetchAdminCourses]);
 
+  const processedQuickActions = useMemo(() => {
+    if (!userInfo) return [];
+    const config = isAdmin ? ADMIN_MENU_CONFIG : TEACHER_MENU_CONFIG;
+
+    return config.map(item => {
+      const style = getDashboardColorClasses(item.color);
+      let iconEl = item.icon;
+      if (React.isValidElement(item.icon)) {
+        iconEl = React.cloneElement(item.icon as React.ReactElement<React.SVGProps<SVGSVGElement>>, {
+          className: 'h-6 w-6',
+        });
+      }
+      return { ...item, ...style, icon: iconEl };
+    });
+  }, [isAdmin, userInfo]);
+
   const renderDashboard = () => {
-    if (isAdmin) {
-      return (
-        <AdminDashboard
-          stats={adminStats}
-          activeCourseCount={adminStats.activeCourseCount}
-          userName={userInfo?.name}
-        />
-      );
-    }
-
-    if (isTeacher) {
-      return (
-        <TeacherDashboard
-          userName={userInfo?.name}
-          courses={courses}
-        />
-      );
-    }
-
-    if (isAuthor) {
-      const statsCards = [
-        { title: '作者工作台', value: '文章／留言', color: 'indigo', icon: <DocumentTextIcon className="h-6 w-6 text-primary" /> },
-        { title: '知識庫', value: '可發佈', color: 'purple', icon: <BookOpenIcon className="h-6 w-6 text-tertiary" /> },
-        { title: '主題管理', value: '可編輯', color: 'amber', icon: <TagIcon className="h-6 w-6 text-amber-600" /> },
+    if (isAdmin || isTeacher) {
+      const isAdminPanel = isAdmin;
+      
+      const statsCards = isAdminPanel ? [
+        { title: '學生總數', value: adminStats.studentCount, color: 'indigo', icon: <UserGroupIcon className="h-6 w-6 text-indigo-600" /> },
+        { title: '教師總數', value: adminStats.teacherCount, color: 'emerald', icon: <AcademicCapIcon className="h-6 w-6 text-emerald-600" /> },
+        { title: '開設課程', value: courses.filter(c => !c.archived && c.status !== '已封存').length || adminStats.courseCount, color: 'amber', icon: <ChartBarIcon className="h-6 w-6 text-amber-600" /> },
+        { title: '系統設定', value: '可修改', color: 'purple', icon: <Cog6ToothIcon className="h-6 w-6 text-purple-600" /> },
+      ] : [
+        { title: '授課課程', value: courses.filter(c => !c.archived && c.status !== '已封存').length, color: 'indigo', icon: <AcademicCapIcon className="h-6 w-6 text-indigo-600" /> },
+        { title: '輔導預約', value: '可預約', color: 'amber', icon: <ClockIcon className="h-6 w-6 text-amber-600" /> },
+        { title: '線上資源', value: '可管理', color: 'purple', icon: <CloudArrowDownIcon className="h-6 w-6 text-purple-600" /> },
       ];
-
-      const roleLabel = '作者';
 
       return (
         <div className="page-shell w-full min-w-0 mt-6 animate-fade-in">
-          <div className="bg-gradient-to-br from-primary to-tertiary rounded-2xl shadow-elevate p-6 md:p-8 text-white mb-8 relative overflow-hidden">
+          {/* 歡迎區塊 - 升級為 Indigo 漸層與圓角 */}
+          <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 rounded-2xl shadow-lg p-6 md:p-8 text-white mb-8 relative overflow-hidden">
+            {/* 裝飾性背景圓 */}
             <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 rounded-full bg-white opacity-10 blur-xl"></div>
             
             <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
               <div className="flex-1">
-                <h1 className="font-display text-2xl md:text-3xl font-extrabold mb-2 tracking-tight">
-                    你好，{userInfo && userInfo.name} {roleLabel}
+                <div className="flex items-center gap-2 mb-2">
+                </div>
+                <h1 className="text-2xl md:text-3xl font-bold mb-2 tracking-tight">
+                    你好，{userInfo && userInfo.name} {isAdminPanel ? '管理員' : '老師'}
                 </h1>
-                <p className="text-primary-fixed text-sm md:text-base font-medium">
+                <p className="text-indigo-100 text-sm md:text-base font-medium">
                     帳號：{userInfo && userInfo.account}
                 </p>
-                <p className="text-primary-fixed mt-4 text-sm font-light flex items-center">
+                <p className="text-indigo-200 mt-4 text-sm font-light flex items-center">
                     <CalendarIcon className="w-4 h-4 mr-1" />
                     {new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
                 </p>
@@ -570,25 +434,27 @@ function BackPanel() {
             </div>
           </div>
 
-          <div className="grid gap-2 sm:gap-4 md:gap-6 mb-8 sm:mb-10 grid-cols-3">
+          {/* 統計卡片：固定列數（管理員 1×4／教師 1×3），不隨視窗改列 */}
+          <div className={`grid gap-2 sm:gap-4 md:gap-6 mb-8 sm:mb-10 ${isAdminPanel ? 'grid-cols-4' : 'grid-cols-3'}`}>
             {statsCards.map(card => {
                 const colors = getDashboardColorClasses(card.color);
                 return (
-                  <div key={card.title} className="bg-surface-containerLowest rounded-xl shadow-sm border border-outline-variant/40 p-2.5 sm:p-4 md:p-6 flex flex-col sm:flex-row sm:items-center hover:shadow-md transition-shadow min-w-0">
+                  <div key={card.title} className="bg-white rounded-xl shadow-sm border border-gray-100 p-2.5 sm:p-4 md:p-6 flex flex-col sm:flex-row sm:items-center hover:shadow-md transition-shadow min-w-0">
                     <div className={`hidden sm:flex p-2.5 md:p-3 rounded-lg ${colors.iconBg} sm:mr-4 flex-shrink-0`}>
                         {card.icon}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[10px] sm:text-sm font-medium text-on-surfaceVariant mb-0.5 sm:mb-1 leading-tight">{card.title}</p>
-                      <p className="text-base sm:text-2xl font-bold text-on-surface truncate tabular-nums">{card.value}</p>
+                      <p className="text-[10px] sm:text-sm font-medium text-gray-500 mb-0.5 sm:mb-1 leading-tight">{card.title}</p>
+                      <p className="text-base sm:text-2xl font-bold text-gray-800 truncate tabular-nums">{card.value}</p>
                     </div>
                   </div>
                 );
             })}
           </div>
 
+          {/* 快速操作 — 彩色卡片（側選單與功能頁標題維持 indigo 統一） */}
           <div>
-            <h2 className={dashboardSectionTitle}>快速操作</h2>
+            <h2 className="text-xl font-bold text-gray-800 border-l-4 border-indigo-500 pl-4 mb-6">快速操作</h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {processedQuickActions.map(action => {
@@ -601,10 +467,10 @@ function BackPanel() {
                     className={`
                       text-left p-6 rounded-2xl border transition-all duration-300 flex items-center group
                       ${action.disabled
-                        ? 'bg-surface-containerLow cursor-not-allowed opacity-60 border-outline-variant/40'
+                        ? 'bg-gray-50 cursor-not-allowed opacity-60 border-gray-100'
                         : isActive
                           ? action.activeCard
-                          : `bg-surface-containerLowest border-outline-variant/40 ${action.cardHover} hover:shadow-lg hover:-translate-y-1 cursor-pointer`
+                          : `bg-white border-gray-200 ${action.cardHover} hover:shadow-lg hover:-translate-y-1 cursor-pointer`
                       }
                     `}
                     href={action.href}
@@ -631,6 +497,11 @@ function BackPanel() {
               })}
             </div>
           </div>
+
+          <div className="mt-8 sm:mt-10">
+            {!isAdminPanel && <LiveAttendanceBanner audience="teacher" />}
+            <CourseActivityFeed audience={isAdminPanel ? 'admin' : 'teacher'} />
+          </div>
         </div>
       );
     }
@@ -647,16 +518,11 @@ function BackPanel() {
     // 已經是中文角色就直接使用
     if (rawRole === '管理員' || rawRole === '老師' || rawRole === '學生') {
       mappedRole = rawRole;
-    } else if (rawRole === '作者') {
-      // 作者不進入授課元件；此映射僅滿足共用 UserInfo 型別
-      mappedRole = '老師';
     } else if (Array.isArray(rawRole)) {
       // 陣列情況，判斷是否包含英文 role
       if (rawRole.map(r => r.toLowerCase()).includes('admin')) {
         mappedRole = '管理員';
       } else if (rawRole.map(r => r.toLowerCase()).includes('teacher')) {
-        mappedRole = '老師';
-      } else if (rawRole.map(r => r.toLowerCase()).includes('author')) {
         mappedRole = '老師';
       } else {
         mappedRole = '學生';
@@ -666,7 +532,6 @@ function BackPanel() {
       const lower = rawRole?.toLowerCase();
       if (lower === 'admin') mappedRole = '管理員';
       else if (lower === 'teacher') mappedRole = '老師';
-      else if (lower === 'author') mappedRole = '老師';
       else mappedRole = '學生';
     }
 
@@ -683,7 +548,7 @@ function BackPanel() {
           <div className="text-xl mb-4 text-red-500">{error}</div>
           <button 
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-hover transition-colors"
+            className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
           >
             重新整理
           </button>
@@ -713,32 +578,7 @@ function BackPanel() {
         case 'students': return <StudentManager />;
         case 'courses': return <CourseManager onProcessingStateChange={handleProcessingStateChange} />;
         case 'admin-teachers': return <TeacherAdminManager />;
-        case 'system-settings':
-          return <AdminSystemSettings />;
-        case 'password':
-          return (
-            <PasswordManager
-              apiEndpoint="/api/auth/change-password"
-              userInfo={
-                userInfo
-                  ? {
-                      id: userInfo.id,
-                      name: userInfo.name,
-                      account: userInfo.account,
-                      role: Array.isArray(userInfo.role)
-                        ? getBackPanelRole({
-                            id: userInfo.id,
-                            account: userInfo.account,
-                            name: userInfo.name || '',
-                            role: userInfo.role,
-                            currentRole: userInfo.currentRole,
-                          })
-                        : String(userInfo.role),
-                    }
-                  : undefined
-              }
-            />
-          );
+        case 'password': return <PasswordManager apiEndpoint='/api/auth/change-password' userInfo={normalizedUserInfo || undefined} />;
         case 'teacher-courses':
           return (
             <TeacherCourseManager
@@ -746,11 +586,6 @@ function BackPanel() {
               courses={courses}
               courseCodeFromUrl={teacherCoursesCourseCode}
               tabFromUrl={teacherCoursesTab}
-              lessonIdFromUrl={teacherLessonIdFromUrl}
-              announcementIdFromUrl={teacherAnnouncementIdFromUrl}
-              returnToFromUrl={teacherCourseDeepReturnTo}
-              listSearchTerm={teacherCourseSearch}
-              onListSearchChange={setTeacherCourseSearch}
             />
           );
         case 'teacher-exams':
@@ -789,72 +624,25 @@ function BackPanel() {
             />
           );
         case 'resources': return <ResourceManagement />;
-        case 'blog':
-          return isAuthor || isAdmin ? <BlogPostManager /> : null;
-        case 'blog-categories':
-          return isAuthor || isAdmin ? <BlogCategoryManager /> : null;
-        case 'blog-comments':
-          return isAuthor || isAdmin ? <BlogCommentManager /> : null;
         default: return null;
       }
     })();
 
     return (
-      <div className="animate-fade-in flex flex-col min-w-0">
-        <div className="flex flex-col gap-6">{componentToRender}</div>
+      <div className="animate-fade-in flex flex-col bg-gray-50/50 p-3 sm:p-4 md:p-6 min-w-0">
+        <div className="flex flex-col gap-6">
+          {componentToRender}
+        </div>
       </div>
     );
   };
-
-  const consoleMeta = useMemo(() => {
-    const roleLabel = isAdmin ? '管理員' : isTeacher ? '老師' : isAuthor ? '作者' : '後台';
-    // 管理員／老師儀表板自帶標題，避免雙重標題
-    if (!activeTab && isAdmin) {
-      return {
-        title: '營運總覽',
-        breadcrumbs: [roleLabel, '營運總覽'] as string[],
-        hideTopBar: true,
-      };
-    }
-    if (!activeTab && isTeacher) {
-      return {
-        title: '教學總覽',
-        breadcrumbs: [roleLabel, '教學總覽'] as string[],
-        hideTopBar: false,
-      };
-    }
-    if (!activeTab) {
-      return {
-        title: isAuthor ? '創作中心' : '儀表板',
-        breadcrumbs: [roleLabel, '儀表板'] as string[],
-        hideTopBar: false,
-      };
-    }
-    const item = processedQuickActions.find((a) => a.id === activeTab);
-    const title = item?.title || '功能頁';
-    return {
-      title,
-      breadcrumbs: [roleLabel, title] as string[],
-      hideTopBar: false,
-    };
-  }, [activeTab, isAdmin, isTeacher, isAuthor, processedQuickActions]);
-
-  const handleTeacherCourseSearch = useCallback(
-    (value: string) => {
-      setTeacherCourseSearch(value);
-      if (activeTab !== 'teacher-courses' && value.trim()) {
-        router.push('/back-panel/teacher-courses');
-      }
-    },
-    [activeTab, router]
-  );
 
   const allSidebarMenuItems = useMemo(() => {
     return processedQuickActions.map(({ id, title, icon, disabled, href }) => ({ id, title, icon, disabled: !!disabled, href }));
   }, [processedQuickActions]);
 
   return (
-    <div className="flex h-full min-w-0 bg-surface overflow-x-hidden">
+    <div className="flex h-full min-w-0 bg-gray-50 overflow-x-hidden">
       <Sidebar
         sidebarOpen={sidebarOpen}
         onToggleSidebar={onToggleSidebar}
@@ -864,30 +652,15 @@ function BackPanel() {
         onTabChange={handleTabChange}
         onLogout={handleLogout}
         dashboardHref="/back-panel"
-        courseWorkspace={courseWorkspace}
       />
 
+      {/* 手機版不預留側欄寬度（避免 SSR/hydration 誤判寬度造成左側空白、內容右移）；md 以上再隨收合狀態留白 */}
       <div
-        className={`flex-1 flex flex-col min-h-0 min-w-0 bg-surface transition-[padding] duration-300 ease-in-out pl-0 ${
+        className={`flex-1 flex flex-col min-h-0 min-w-0 bg-gray-50 transition-[padding] duration-300 ease-in-out pl-0 ${
           isCompactNav ? '' : sidebarOpen ? 'md:pl-64' : 'md:pl-20'
         }`}
       >
-        <ConsoleContainer
-          title={consoleMeta.title}
-          breadcrumbs={consoleMeta.breadcrumbs}
-          hideTopBar={consoleMeta.hideTopBar}
-          variant={isTeacher ? 'teacher' : 'default'}
-          searchValue={teacherCourseSearch}
-          onSearchChange={isTeacher ? handleTeacherCourseSearch : undefined}
-          searchPlaceholder="搜尋課程..."
-          userName={userInfo?.name}
-          userAccount={userInfo?.account}
-          userRole="老師"
-          onLogout={handleLogout}
-          contentMaxWidthClassName={courseWorkspace ? 'max-w-[1600px]' : 'max-w-[1280px]'}
-        >
-          {renderContent()}
-        </ConsoleContainer>
+        {renderContent()}
       </div>
     </div>
   );
