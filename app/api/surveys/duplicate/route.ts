@@ -1,8 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { trySiteErrorResponse } from '@/utils/apiErrorResponse';
 import { surveyService } from '@/services/surveyService';
+import {
+  requireAuthFromRequest,
+  requireCourseStaffAccess,
+  authGuard,
+} from '@/services/apiAuth';
 
 export async function POST(req: NextRequest) {
+  const auth = requireAuthFromRequest(req, 'admin', 'teacher');
+  if (auth.ok === false) return auth.response;
+
   try {
     const body = (await req.json()) as {
       teacherId?: string;
@@ -15,15 +23,17 @@ export async function POST(req: NextRequest) {
       targetCourse?: { courseId?: string; courseName?: string };
     };
 
-    if (!body.teacherId) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
-
     const courseId = body.courseId?.trim() || body.targetCourse?.courseId?.trim() || undefined;
     const courseName = body.courseName?.trim() || body.targetCourse?.courseName?.trim() || undefined;
+    const teacherId = auth.session.id;
+
+    if (courseId) {
+      const courseDenied = authGuard(await requireCourseStaffAccess(auth.session, courseId));
+      if (courseDenied) return courseDenied;
+    }
 
     const result = await surveyService.duplicate({
-      teacherId: body.teacherId,
+      teacherId,
       sourceSurveyCode: body.sourceSurveyCode?.trim() || undefined,
       surveyId: body.surveyId?.trim() || undefined,
       courseId,
@@ -42,9 +52,6 @@ export async function POST(req: NextRequest) {
       }
       if (error.message === 'Unauthorized') {
         return NextResponse.json({ error: error.message }, { status: 403 });
-      }
-      if (error.message === 'Missing required fields') {
-        return NextResponse.json({ error: error.message }, { status: 400 });
       }
       return NextResponse.json({ error: error.message }, { status: 400 });
     }

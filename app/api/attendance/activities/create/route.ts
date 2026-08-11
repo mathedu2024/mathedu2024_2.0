@@ -1,22 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
 import { adminDb } from '@/firebaseAdmin';
 import { assignUniqueCheckInCode } from '@/services/attendanceCode';
-import { getSessionFromCookie } from '@/utils/session';
+import {
+  requireAuthFromRequest,
+  requireCourseStaffAccess,
+  authGuard,
+} from '@/services/apiAuth';
 
 export async function POST(req: NextRequest) {
+  const auth = requireAuthFromRequest(req, 'admin', 'teacher');
+  if (auth.ok === false) return auth.response;
+
   try {
-    const cookie = req.headers.get('cookie');
-    const session = cookie ? getSessionFromCookie(cookie) : null;
-
-    const role = session?.role;
-    const isTeacher = role === 'teacher' || role === '老師' || (Array.isArray(role) && (role.includes('teacher') || role.includes('老師')));
-    const isAdmin = role === 'admin' || role === '管理員' || (Array.isArray(role) && (role.includes('admin') || role.includes('管理員')));
-
-    if (!session || (!isTeacher && !isAdmin)) {
-      return NextResponse.json({ error: '權限不足' }, { status: 403 });
-    }
-
     const body = await req.json();
     const {
       courseId,
@@ -32,6 +28,9 @@ export async function POST(req: NextRequest) {
     if (!courseId || !title || !startTime || !endTime) {
       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
     }
+
+    const courseDenied = authGuard(await requireCourseStaffAccess(auth.session, courseId));
+    if (courseDenied) return courseDenied;
 
     const method = checkInMethod === 'qr' || checkInMethod === 'numeric' || checkInMethod === 'manual'
       ? checkInMethod
@@ -49,11 +48,10 @@ export async function POST(req: NextRequest) {
       status: status || 'scheduled',
       courseId,
       createdAt: new Date(),
-      createdBy: session.id || session.account,
+      createdBy: auth.session.id || auth.session.account,
       visibleToStudents: true,
     };
 
-    // 僅手動點名可指定名冊預設；數字／QR 先不填（結束後再把未紀錄改缺席）
     if (method === 'manual') {
       activityData.defaultRosterStatus =
         defaultRosterStatus === 'present' ? 'present' : 'absent';
@@ -72,7 +70,7 @@ export async function POST(req: NextRequest) {
         const initialStatus =
           method === 'manual'
             ? (defaultRosterStatus === 'present' ? 'present' : 'absent')
-            : ''; // 未紀錄
+            : '';
 
         studentsSnap.docs.forEach((studentDoc) => {
           const s = studentDoc.data();
@@ -99,7 +97,6 @@ export async function POST(req: NextRequest) {
       routingCode: checkInCode,
       message: '點名活動建立成功',
     });
-
   } catch (error) {
     const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
     if (siteReadErrorResponse) return siteReadErrorResponse;

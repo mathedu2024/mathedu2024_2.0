@@ -5,6 +5,7 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { logoutClient } from '../utils/logoutClient';
 import Sidebar from '../components/Sidebar';
 import PageLoadingArea from '../components/ui/PageLoadingArea';
+import StudentEmailVerifyBanner from '../components/StudentEmailVerifyBanner';
 import { useStudentInfo, StudentInfoProvider } from './StudentInfoContext';
 import { BookOpenIcon, ChatBubbleLeftRightIcon, UserCircleIcon, CloudArrowDownIcon } from '@heroicons/react/24/outline';
 import { useCompactNav } from '../utils/useCompactNav';
@@ -30,11 +31,13 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
   const examFocusMode = useExamFocusMode();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // /student/courses/[courseCode]、課堂詳情、觀課：進入課程內容時收合側選單
+  // /student/courses/[courseCode]、課堂詳情、觀課、測驗／問卷開始頁：進入內容時收合側選單
   const isCourseContentView =
     (pathname.startsWith('/student/courses/') && pathname !== '/student/courses/') ||
     pathname.startsWith('/student/lesson-detail') ||
-    pathname.startsWith('/student/watch');
+    pathname.startsWith('/student/watch') ||
+    /^\/student\/exam\/[^/]+\/start\/?$/.test(pathname) ||
+    /^\/student\/survey\/[^/]+\/start\/?$/.test(pathname);
 
   useEffect(() => {
     // 桌面：列表展開；進入課程內容後收合。窄螢幕維持收合。
@@ -99,10 +102,11 @@ function StudentLayoutContent({ children }: { children: React.ReactNode }) {
         )}
 
         <main
-          className={`flex-1 min-w-0 transition-[padding] duration-300 relative bg-gray-50 pl-0 ${
+          className={`flex-1 min-w-0 transition-[padding] duration-300 relative bg-surface pl-0 ${
             examFocusMode ? '' : isCompactNav ? '' : sidebarOpen ? 'md:pl-64' : 'md:pl-20'
           }`}
         >
+          {!examFocusMode ? <StudentEmailVerifyBanner /> : null}
           {children}
         </main>
       </div>

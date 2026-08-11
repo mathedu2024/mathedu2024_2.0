@@ -56,6 +56,16 @@ export async function POST(req: NextRequest) {
         const maxAttempts = getSurveyMaxAttempts(survey);
         const hasAttemptsLeft = submissionCount < maxAttempts;
         const windowPhase = getSurveyAnswerWindowPhase(survey);
+        const attempts =
+          submissionCount > 0
+            ? [...submissions]
+                .sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime())
+                .map((sub, index) => ({
+                  id: sub.id,
+                  attemptIndex: sub.attemptIndex ?? index + 1,
+                  submittedAt: sub.submittedAt,
+                }))
+            : [];
 
         return {
           id: survey.id,
@@ -77,6 +87,7 @@ export async function POST(req: NextRequest) {
           responsesVisibleToStudents: isSurveyResponsesVisibleToStudents(survey),
           windowPhase,
           windowEnded: windowPhase === 'ended',
+          attempts,
           assignedCourses: normalizeAssignedCourses(survey),
           order: typeof survey.order === 'number' ? survey.order : undefined,
           createdAt: survey.createdAt,

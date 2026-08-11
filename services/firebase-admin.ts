@@ -13,6 +13,7 @@ declare global {
   var _firebaseAdmin: {
     db: admin.firestore.Firestore;
     quizDb: admin.firestore.Firestore;
+    contentDb: admin.firestore.Firestore;
     auth: admin.auth.Auth;
     initError?: string;
   } | undefined;
@@ -130,6 +131,7 @@ function shouldInitFirebaseAdmin(): boolean {
   if (!global._firebaseAdmin) return true;
   if (global._firebaseAdmin.initError) return true;
   if (!global._firebaseAdmin.quizDb) return true;
+  if (!global._firebaseAdmin.contentDb) return true;
   return false;
 }
 
@@ -176,6 +178,9 @@ if (shouldInitFirebaseAdmin()) {
       );
     }
 
+    // 部落格／公告／考試日期固定使用 core（與課程同庫；測驗仍可獨立 quizDb）
+    console.log('Firebase Admin content collections use core DB (blog / announcements / exam_dates).');
+
     console.log('Firebase Admin SDK initialized successfully.');
   } catch (error) {
     initError = error instanceof Error ? error.message : String(error);
@@ -185,6 +190,7 @@ if (shouldInitFirebaseAdmin()) {
   global._firebaseAdmin = {
     db: db ?? unavailableDb(initError),
     quizDb: quizDbInstance ?? unavailableDb(initError),
+    contentDb: db ?? unavailableDb(initError),
     auth: firebaseAuth ?? unavailableAuth(initError),
     initError,
   };
@@ -203,6 +209,15 @@ export const adminDb: admin.firestore.Firestore = new Proxy({} as admin.firestor
 export const quizDb: admin.firestore.Firestore = new Proxy({} as admin.firestore.Firestore, {
   get(_target, prop, receiver) {
     const db = global._firebaseAdmin!.quizDb;
+    const value = Reflect.get(db as object, prop, receiver);
+    return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(db) : value;
+  },
+});
+
+/** 非測驗內容 Firestore（部落格、網站公告、考試日期）— 固定與 adminDb（core）相同 */
+export const contentDb: admin.firestore.Firestore = new Proxy({} as admin.firestore.Firestore, {
+  get(_target, prop, receiver) {
+    const db = global._firebaseAdmin!.contentDb;
     const value = Reflect.get(db as object, prop, receiver);
     return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(db) : value;
   },

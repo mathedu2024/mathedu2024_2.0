@@ -176,6 +176,12 @@ export async function fetchStudentExamList(
   );
 }
 
+export interface StudentSurveyAttemptSummary {
+  id: string;
+  attemptIndex: number;
+  submittedAt: string;
+}
+
 export interface StudentSurveyListItem {
   id: string;
   surveyCode: string;
@@ -195,6 +201,8 @@ export interface StudentSurveyListItem {
   responsesVisibleToStudents?: boolean;
   windowPhase?: 'open' | 'upcoming' | 'ended' | 'unlimited';
   windowEnded?: boolean;
+  attempts?: StudentSurveyAttemptSummary[];
+  assignedCourses?: { courseId: string; courseName: string }[];
   order?: number;
   createdAt?: string;
 }
@@ -267,8 +275,16 @@ export async function fetchStudentExamByCode(
       });
       const data = await res.json();
       if (!res.ok) {
-        const err = new Error(String(data.error || 'exam fetch failed')) as Error & { status?: number };
+        const err = new Error(String(data.error || 'exam fetch failed')) as Error & {
+          status?: number;
+          requireConfirm?: boolean;
+          assignedCourses?: Array<{ courseId?: string; courseName?: string }>;
+          quizCode?: string;
+        };
         err.status = res.status;
+        err.requireConfirm = !!data.requireConfirm;
+        err.assignedCourses = Array.isArray(data.assignedCourses) ? data.assignedCourses : [];
+        err.quizCode = typeof data.quizCode === 'string' ? data.quizCode : quizCode;
         throw err;
       }
       return data;

@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server';
 import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
-import { adminDb } from '../../../../services/firebase-admin';
+import { listContentDocs } from '@/services/contentDbSplit';
 
 export async function GET() {
   try {
-    const snapshot = await adminDb.collection('exam_dates').get();
-    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const data = await listContentDocs('exam_dates');
     return NextResponse.json(data);
   } catch (error) {
     const siteReadErrorResponse = trySiteDbReadErrorResponse(error);

@@ -7,23 +7,20 @@ import Swal from 'sweetalert2';
 import LoadingSpinner from './LoadingSpinner';
 import PageHeader from './ui/PageHeader';
 import PageLoadingArea from './ui/PageLoadingArea'; 
-import BackButton from './ui/BackButton';
-import { tableActionStyles, tableActionRowWrap } from './ui';
-// 引入您的外部表單元件
 import CreateAttendanceActivityForm from './CreateAttendanceActivityForm';
 import AttendanceQrDisplay from './AttendanceQrDisplay';
 import CourseFilter from './CourseFilter';
+import TeacherAttendanceList from './TeacherAttendanceList';
 import { 
-  CalendarDaysIcon, ArrowLeftIcon, PlusIcon, 
-  XMarkIcon, ClipboardDocumentCheckIcon, CheckCircleIcon, 
+  CalendarDaysIcon, ArrowLeftIcon, 
+  XMarkIcon, CheckCircleIcon, 
   CloudArrowUpIcon, 
-  QrCodeIcon, ChevronDownIcon, UserGroupIcon, ChevronRightIcon,
-  ArrowDownTrayIcon
+  QrCodeIcon, UserGroupIcon, ChevronRightIcon,
+  MagnifyingGlassIcon
 } from '@heroicons/react/24/outline';
 import { getSession } from '@/utils/session';
 import { teacherCourseHubPath, withReturnTo } from '@/utils/teacherCourseHub';
-import { CourseHubFeatureIcon } from './CourseHubTabNav';
-import StudentVisibilityToggle, { isStudentVisible } from './StudentVisibilityToggle';
+import { isStudentVisible } from './StudentVisibilityToggle';
 
 // ==========================================
 // 1. 型別定義
@@ -60,6 +57,10 @@ interface AttendanceActivity {
   checkInMethod?: 'manual' | 'numeric' | 'qr';
   /** 開放＝學生可見；隱藏＝學生端不顯示 */
   visibleToStudents?: boolean;
+  present?: number;
+  expected?: number;
+  absent?: number;
+  leave?: number;
 }
 
 interface AttendanceRecord {
@@ -105,22 +106,11 @@ async function confirmDiscardAttendanceChanges(): Promise<boolean> {
 const LEAVE_OPTIONS = [
   { value: '病假', label: '病假', color: 'text-blue-600' },
   { value: '事假', label: '事假', color: 'text-purple-600' },
-  { value: '公假', label: '公假', color: 'text-indigo-600' },
+  { value: '公假', label: '公假', color: 'text-primary' },
   { value: '喪假', label: '喪假', color: 'text-gray-600' },
   { value: '生理假', label: '生理假', color: 'text-pink-600' },
   { value: '心理假', label: '心理假', color: 'text-rose-600' },
 ];
-
-const ALL_LEAVE_VALUES = LEAVE_OPTIONS.map(l => l.value);
-
-// 出席細項
-const PRESENT_OPTIONS = [
-  { value: 'present', label: '出席', color: 'text-emerald-600' },
-  { value: 'late', label: '遲到', color: 'text-amber-600' },
-  { value: 'early_leave', label: '早退', color: 'text-orange-600' },
-  { value: 'late_and_early_leave', label: '遲到、早退', color: 'text-red-500' },
-];
-const ALL_PRESENT_VALUES = PRESENT_OPTIONS.map(l => l.value);
 
 function buildAttendanceUrl(courseCode?: string, attendanceCode?: string) {
   if (!courseCode) return '/back-panel/teacher-courses';
@@ -284,6 +274,10 @@ function mapActivityFromApi(item: {
   status?: string;
   gracePeriodMinutes?: number;
   visibleToStudents?: boolean;
+  present?: number;
+  expected?: number;
+  absent?: number;
+  leave?: number;
 }): AttendanceActivity {
   const toISO = (d: unknown) => {
     if (!d) return undefined;
@@ -324,7 +318,28 @@ function mapActivityFromApi(item: {
     gracePeriodMinutes: item.gracePeriodMinutes,
     checkInMethod,
     visibleToStudents: item.visibleToStudents !== false,
+    present: typeof item.present === 'number' ? item.present : undefined,
+    expected: typeof item.expected === 'number' ? item.expected : undefined,
+    absent: typeof item.absent === 'number' ? item.absent : undefined,
+    leave: typeof item.leave === 'number' ? item.leave : undefined,
   };
+}
+
+function formatCountdown(ms: number): string {
+  if (ms <= 0) return '00:00';
+  const totalSec = Math.floor(ms / 1000);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+function quickStatusKey(status?: string, leaveType?: string): 'present' | 'late' | 'excused' | 'absent' | '' {
+  if (!status) return '';
+  if (status === 'present') return 'present';
+  if (status === 'late' || status === 'early_leave' || status === 'late_and_early_leave') return 'late';
+  if (status === 'leave' || leaveType) return 'excused';
+  if (status === 'absent') return 'absent';
+  return '';
 }
 
 // ==========================================
@@ -341,7 +356,7 @@ const Modal = ({ open, onClose, title, size = 'md', children }: { open: boolean;
     <div className="fixed inset-0 z-[99999] flex justify-center items-center p-4 animate-fade-in">
       <div className="absolute inset-0 bg-black/60" onClick={onClose}></div>
       <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${maxWidthClass} max-h-full sm:max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in border border-gray-100`}>
-        <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
+        <div className="bg-gradient-to-r from-primary to-tertiary p-4 flex justify-between items-center text-white flex-shrink-0">
           <h3 className="text-xl font-bold flex items-center">{title}</h3>
           <button onClick={onClose} className="text-white/80 hover:text-white transition-colors p-1 rounded-full hover:bg-white/20">
             <XMarkIcon className="w-6 h-6" />
@@ -354,198 +369,7 @@ const Modal = ({ open, onClose, title, size = 'md', children }: { open: boolean;
   );
 };
 
-// --- [關鍵修正] 全局懸浮下拉選單 (避免撐開表格) ---
-interface FixedDropdownProps {
-  isOpen: boolean;
-  onClose: () => void;
-  options: { value: string; label: string; color?: string }[];
-  onSelect: (val: string) => void;
-  triggerRef: React.RefObject<HTMLButtonElement>;
-}
-
-const FixedDropdownPortal = ({ isOpen, onClose, options, onSelect, triggerRef }: FixedDropdownProps) => {
-  const [coords, setCoords] = useState({ top: 0, left: 0 });
-
-  useEffect(() => {
-    if (isOpen) {
-      const updatePosition = () => {
-        if (triggerRef.current) {
-          const rect = triggerRef.current.getBoundingClientRect();
-          setCoords({
-            top: rect.bottom + 6,
-            left: rect.right - 96
-          });
-        }
-      };
-      updatePosition();
-      window.addEventListener('scroll', updatePosition, true);
-      window.addEventListener('resize', updatePosition);
-      return () => {
-        window.removeEventListener('scroll', updatePosition, true);
-        window.removeEventListener('resize', updatePosition);
-      };
-    }
-  }, [isOpen, triggerRef]);
-
-  // 點擊外部關閉
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (triggerRef.current && triggerRef.current.contains(target)) return; // 點擊觸發按鈕不處理(由按鈕自己toggle)
-      const menu = document.getElementById('fixed-portal-menu');
-      if (menu && !menu.contains(target)) onClose();
-    };
-    if (isOpen) window.addEventListener('mousedown', handleClick);
-    return () => window.removeEventListener('mousedown', handleClick);
-  }, [isOpen, onClose, triggerRef]);
-
-  if (!isOpen) return null;
-
-  return createPortal(
-    <div 
-      id="fixed-portal-menu"
-      className="fixed z-[99999] bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-gray-100 py-1.5 animate-fade-in-down w-24 overflow-hidden"
-      style={{ top: coords.top, left: coords.left }}
-    >
-      {options.map((opt) => (
-        <button
-          key={opt.value}
-          onClick={() => { onSelect(opt.value); onClose(); }}
-          className={`w-full text-center px-1 py-2 text-base hover:bg-gray-100 font-bold transition-colors ${opt.color || 'text-gray-700'}`}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>,
-    document.body
-  );
-};
-
-// --- 出席按鈕組件 (整合懸浮選單) ---
-const PresentButton = ({ currentStatus, onSetStatus, disabled = false }: { currentStatus: string, onSetStatus: (val: string) => void, disabled?: boolean }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  
-  const isPresentType = ALL_PRESENT_VALUES.includes(currentStatus);
-  const selectedOption = PRESENT_OPTIONS.find(o => o.value === currentStatus);
-  const displayLabel = selectedOption ? selectedOption.label : '出席';
-  
-  let radioBorder = 'border-gray-300';
-  let dotBg = '';
-  let textCls = 'text-gray-500';
-  let btnCls = 'text-gray-400 hover:bg-gray-100';
-
-  if (isPresentType) {
-    if (currentStatus === 'present') {
-      radioBorder = 'border-emerald-500';
-      dotBg = 'bg-emerald-500';
-      textCls = 'text-emerald-500';
-      btnCls = 'text-emerald-500 hover:bg-emerald-100';
-    } else if (currentStatus === 'late') {
-      radioBorder = 'border-amber-500';
-      dotBg = 'bg-amber-500';
-      textCls = 'text-amber-500';
-      btnCls = 'text-amber-500 hover:bg-amber-100';
-    } else if (currentStatus === 'early_leave') {
-      radioBorder = 'border-orange-500';
-      dotBg = 'bg-orange-500';
-      textCls = 'text-orange-500';
-      btnCls = 'text-orange-500 hover:bg-orange-100';
-    } else {
-      radioBorder = 'border-red-500';
-      dotBg = 'bg-red-500';
-      textCls = 'text-red-500';
-      btnCls = 'text-red-500 hover:bg-red-100';
-    }
-  }
-
-  return (
-    <>
-      <div className="relative flex items-center gap-1.5">
-        <label className={`flex items-center gap-1.5 ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
-          <input 
-            type="radio" 
-            checked={isPresentType} 
-            onChange={() => !disabled && onSetStatus(isPresentType ? currentStatus : 'present')} 
-            disabled={disabled}
-            className="hidden"
-          />
-          <div className={`w-5 h-5 rounded-full border flex items-center justify-center flex-shrink-0 ${radioBorder}`}>
-            {isPresentType && <div className={`w-2.5 h-2.5 rounded-full ${dotBg}`} />}
-          </div>
-          <span className={`text-base font-bold whitespace-nowrap ${textCls}`}>{displayLabel}</span>
-        </label>
-        
-        <button
-          type="button"
-          disabled={disabled}
-          ref={buttonRef}
-          onClick={(e) => { e.preventDefault(); setIsOpen(!isOpen); }}
-          className={`p-1 rounded-full transition-all ${btnCls} ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
-        >
-          <ChevronDownIcon className="w-3.5 h-3.5" />
-        </button>
-      </div>
-
-      <FixedDropdownPortal 
-        isOpen={isOpen}
-        onClose={() => setIsOpen(false)}
-        triggerRef={buttonRef}
-        options={PRESENT_OPTIONS}
-        onSelect={onSetStatus}
-      />
-    </>
-  );
-};
-
-// --- 請假按鈕組件 (整合懸浮選單) ---
-const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { currentStatus: string, onSetStatus: (val: string) => void, disabled?: boolean }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  
-  const isLeave = ALL_LEAVE_VALUES.includes(currentStatus);
-  const displayLabel = isLeave ? currentStatus : '請假'; // 顯示目前假別
-
-  return (
-    <>
-      <div className="relative flex items-center gap-1.5">
-        <label className={`flex items-center gap-1.5 ${disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
-          <input 
-            type="radio" 
-            checked={isLeave} 
-            onChange={() => !disabled && onSetStatus(isLeave ? currentStatus : '病假')} 
-            disabled={disabled}
-            className="hidden"
-          />
-          <div className={`w-5 h-5 rounded-full border flex items-center justify-center flex-shrink-0 ${isLeave ? 'border-blue-500' : 'border-gray-300'}`}>
-            {isLeave && <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />}
-          </div>
-          <span className={`text-base font-bold whitespace-nowrap ${isLeave ? 'text-blue-500' : 'text-gray-500'}`}>{displayLabel}</span>
-        </label>
-        
-          <button
-            type="button"
-            disabled={disabled}
-            ref={buttonRef}
-            onClick={(e) => { e.preventDefault(); setIsOpen(!isOpen); }}
-            className={`p-1 rounded-full transition-all ${isLeave ? 'text-blue-500 hover:bg-blue-100' : 'text-gray-400 hover:bg-gray-100'} ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
-          >
-            <ChevronDownIcon className="w-3.5 h-3.5" />
-          </button>
-        </div>
-  
-        <FixedDropdownPortal 
-          isOpen={isOpen}
-          onClose={() => setIsOpen(false)}
-          triggerRef={buttonRef}
-          options={LEAVE_OPTIONS}
-          onSelect={onSetStatus}
-        />
-      </>
-    );
-  };
-  
-  // ==========================================
+// ==========================================
   // 3. 第三層：點名執行 (AttendanceRosterManager)
   // ==========================================
 
@@ -556,6 +380,7 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
     activityInfo,
     onBack,
     actions,
+    countdownLabel,
   }: {
     activityName: string;
     courseName: string;
@@ -563,35 +388,52 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
     activityInfo?: AttendanceActivity | null;
     onBack: () => void;
     actions?: React.ReactNode;
+    countdownLabel?: string | null;
   }) {
-    const subtitle =
-      studentCount === undefined
-        ? `${courseName} • 載入中`
-        : `${courseName} • 共 ${studentCount} 人`;
+    const datePart = activityInfo?.date
+      ? (() => {
+          const d = new Date(activityInfo.date);
+          if (Number.isNaN(d.getTime())) return '';
+          return ` · ${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+        })()
+      : '';
 
     return (
-      <div className="pt-0 mb-8">
-        <div className="border-l-4 border-indigo-500 pl-4 mb-4">
-          <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
-            <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+      <div className="mb-6 bg-surface-containerLowest rounded-xl border border-outline-variant/40 shadow-sm px-4 py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            type="button"
+            onClick={onBack}
+            className="text-on-surfaceVariant hover:bg-surface-containerHigh transition-colors p-2 rounded-full shrink-0"
+            aria-label="返回"
+          >
+            <ArrowLeftIcon className="w-5 h-5" />
+          </button>
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold text-on-surface truncate">
               {activityName}
+              {datePart ? <span className="font-semibold text-on-surfaceVariant">{datePart} 點名</span> : null}
             </h1>
-            {activityInfo && shouldDisplayCheckInCode(activityInfo) && (
-              <div className="inline-flex">
-                <span className="bg-indigo-100 text-indigo-700 px-2 py-1.5 rounded-lg text-sm font-bold flex items-center shadow-sm border border-indigo-200">
-                  <QrCodeIcon className="w-4 h-4 mr-1.5"/>
-                  簽到碼: <span className="text-lg ml-1 font-mono tracking-wider">{activityInfo.checkInCode}</span>
+            <p className="text-sm text-on-surfaceVariant mt-0.5 truncate">
+              {courseName}
+              {studentCount !== undefined ? ` · 共 ${studentCount} 人` : ''}
+              {activityInfo && shouldDisplayCheckInCode(activityInfo) ? (
+                <span className="ml-2 inline-flex items-center text-primary font-mono font-bold">
+                  <QrCodeIcon className="w-4 h-4 mr-1" />
+                  {activityInfo.checkInCode}
                 </span>
-              </div>
-            )}
+              ) : null}
+            </p>
           </div>
-          <p className="text-gray-500 text-sm mt-1">{subtitle}</p>
         </div>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <BackButton label="返回點名列表" onClick={onBack} withSpacing={false} />
-          {actions ? (
-            <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>
+        <div className="flex items-center gap-4 flex-wrap justify-end">
+          {countdownLabel ? (
+            <div className="flex flex-col items-end">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-on-surfaceVariant">剩餘時間</span>
+              <span className="font-mono text-3xl font-bold text-tertiary leading-none">{countdownLabel}</span>
+            </div>
           ) : null}
+          {actions}
         </div>
       </div>
     );
@@ -641,6 +483,8 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
     const [saving, setSaving] = useState(false);
     const [activityInfo, setActivityInfo] = useState<AttendanceActivity | null>(initialActivityData || null);
     const [savedSnapshot, setSavedSnapshot] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [nowMs, setNowMs] = useState(() => Date.now());
     const baselineReadyRef = useRef(false);
     const allowLeaveRef = useRef(false);
 
@@ -715,6 +559,20 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
       window.addEventListener('popstate', handlePopState);
       return () => window.removeEventListener('popstate', handlePopState);
     }, [isDirty, isArchived, loading, studentsLoading, confirmLeaveIfDirty, onClose]);
+
+    useEffect(() => {
+      if (!activityInfo?.endTime) return;
+      const id = window.setInterval(() => setNowMs(Date.now()), 1000);
+      return () => window.clearInterval(id);
+    }, [activityInfo?.endTime]);
+
+    const countdownLabel = useMemo(() => {
+      if (!activityInfo?.endTime) return null;
+      if (activityInfo.status && activityInfo.status !== 'active') return null;
+      const end = Date.parse(activityInfo.endTime);
+      if (Number.isNaN(end)) return null;
+      return formatCountdown(end - nowMs);
+    }, [activityInfo?.endTime, activityInfo?.status, nowMs]);
   
     const fetchRecords = useCallback(async () => {
       setLoading(true);
@@ -765,6 +623,17 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
     const handleSetLeave = (studentId: string, leaveType: string) => {
       setRecords(prev => ({ ...prev, [studentId]: { status: 'leave', leaveType } }));
     };
+
+    const handleQuickStatus = (studentId: string, key: 'present' | 'late' | 'excused' | 'absent') => {
+      if (isArchived) return;
+      if (key === 'present') handleSetStatus(studentId, 'present');
+      else if (key === 'late') handleSetStatus(studentId, 'late');
+      else if (key === 'absent') handleSetStatus(studentId, 'absent');
+      else {
+        const prev = records[studentId];
+        handleSetLeave(studentId, prev?.leaveType || '事假');
+      }
+    };
   
     const handleNoteChange = (studentId: string, note: string) => {
       setNotes(prev => ({ ...prev, [studentId]: note }));
@@ -795,7 +664,7 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
           icon: 'success',
           title: '儲存成功',
           text: '點名紀錄已成功儲存',
-          confirmButtonColor: '#4f46e5',
+          confirmButtonColor: '#2D6DF6',
           customClass: { popup: 'rounded-2xl' }
         });
       } catch (error) {
@@ -813,20 +682,18 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
     };
   
     const markAllPresent = () => {
-      setRecords(prev => {
-        const newRecords = { ...prev };
-        safeStudents.forEach(s => {
-          if (!newRecords[s.studentId] || !newRecords[s.studentId].status) {
-            newRecords[s.studentId] = { status: 'present' };
-          }
+      setRecords(() => {
+        const newRecords: Record<string, { status: string; leaveType?: string }> = {};
+        safeStudents.forEach((s) => {
+          newRecords[s.studentId] = { status: 'present' };
         });
         return newRecords;
       });
       Swal.fire({
         icon: 'success',
-        title: '已將未點名學生設為出席',
+        title: '已全部設為出席',
         confirmButtonText: '太棒了',
-        confirmButtonColor: '#4f46e5',
+        confirmButtonColor: '#2D6DF6',
         timer: 1500,
         timerProgressBar: true,
         customClass: { popup: 'rounded-2xl' }
@@ -836,6 +703,16 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
     const getRecordForStudent = useCallback((student: Student) => {
       return records[student.studentId] || (student.id ? records[student.id] : undefined);
     }, [records]);
+
+    const filteredStudents = useMemo(() => {
+      const q = searchQuery.trim().toLowerCase();
+      if (!q) return safeStudents;
+      return safeStudents.filter(
+        (s) =>
+          s.name.toLowerCase().includes(q) ||
+          s.studentId.toLowerCase().includes(q)
+      );
+    }, [safeStudents, searchQuery]);
   
     // 統計僅計算目前課程名單內的學生
     const stats = useMemo(() => {
@@ -870,6 +747,15 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
         unrecorded: safeStudents.length - recorded,
       };
     }, [safeStudents, getRecordForStudent]);
+
+    const statusBtnClass = (active: boolean, tone: 'present' | 'late' | 'excused' | 'absent') => {
+      const base = 'border rounded-lg py-1.5 px-1 text-xs sm:text-sm font-bold flex justify-center items-center transition-colors whitespace-nowrap';
+      if (!active) return `${base} border-outline-variant text-on-surfaceVariant hover:bg-surface-containerLow`;
+      if (tone === 'present') return `${base} bg-secondary text-white border-secondary`;
+      if (tone === 'late') return `${base} bg-amber-500 text-white border-amber-500`;
+      if (tone === 'excused') return `${base} bg-primary text-white border-primary`;
+      return `${base} bg-error text-white border-error`;
+    };
   
     return (
       <div className="page-shell w-full min-w-0 pb-20 flex flex-col h-full animate-fade-in">
@@ -879,16 +765,16 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
           studentCount={safeStudents.length}
           activityInfo={activityInfo}
           onBack={handleRequestClose}
+          countdownLabel={countdownLabel}
           actions={
             !isArchived ? (
-              <>
-                <button onClick={markAllPresent} className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center">
-                  <CheckCircleIcon className="w-4 h-4 mr-1" /> 一鍵全到
-                </button>
-                <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center transform active:scale-95">
-                  {saving ? <LoadingSpinner size={16} color="white" /> : <><CloudArrowUpIcon className="w-5 h-5 mr-1" /> 儲存紀錄</>}
-                </button>
-              </>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="px-6 py-3 bg-primary-container text-on-primary text-sm font-bold rounded-lg hover:bg-primary transition-colors shadow-sm flex items-center gap-2 active:scale-95"
+              >
+                {saving ? <LoadingSpinner size={16} color="white" /> : <><CloudArrowUpIcon className="w-5 h-5" /> 儲存出勤</>}
+              </button>
             ) : undefined
           }
         />
@@ -914,141 +800,157 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
             />
           </div>
         )}
-  
-        {/* Stats Bar */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-4 mb-4">
-          <div className="bg-emerald-50 border border-emerald-100 p-2 rounded-lg text-center"><div className="text-xs text-emerald-600 font-bold">出席</div><div className="text-lg font-bold text-emerald-700">{stats.present}</div></div>
-          <div className="bg-rose-50 border border-rose-100 p-2 rounded-lg text-center"><div className="text-xs text-rose-600 font-bold">曠課</div><div className="text-lg font-bold text-rose-700">{stats.absent}</div></div>
-          <div className="bg-blue-50 border border-blue-100 p-2 rounded-lg text-center"><div className="text-xs text-blue-600 font-bold">請假</div><div className="text-lg font-bold text-blue-700">{stats.leave}</div></div>
-          <div className="bg-amber-50 border border-amber-100 p-2 rounded-lg text-center"><div className="text-xs text-amber-600 font-bold">遲/早退</div><div className="text-lg font-bold text-amber-700">{stats.late + stats.early_leave + stats.late_and_early_leave}</div></div>
-          <div className="bg-gray-50 border border-gray-100 p-2 rounded-lg text-center col-span-2 md:col-span-1"><div className="text-xs text-gray-500 font-bold">未點</div><div className="text-lg font-bold text-gray-600">{stats.unrecorded}</div></div>
+
+        <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-4 mb-6 bg-surface-containerLow p-4 rounded-xl border border-outline-variant/50">
+          <div className="relative w-full lg:w-96">
+            <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-on-surfaceVariant" />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="搜尋姓名或學號…"
+              className="w-full pl-10 pr-4 py-3 rounded-lg border border-outline-variant bg-surface-containerLowest focus:border-primary focus:ring-1 focus:ring-primary outline-none text-sm"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-3 justify-between lg:justify-end">
+            <div className="flex flex-wrap items-center gap-3 px-2 lg:px-4 lg:border-r border-outline-variant text-sm font-bold">
+              <span className="text-on-surfaceVariant text-xs font-semibold">統計</span>
+              <span className="text-secondary">出席 {stats.present}</span>
+              <span className="text-amber-600">遲到 {stats.late + stats.early_leave + stats.late_and_early_leave}</span>
+              <span className="text-primary">請假 {stats.leave}</span>
+              <span className="text-error">曠課 {stats.absent}</span>
+              {stats.unrecorded > 0 ? (
+                <span className="text-on-surfaceVariant font-medium">未點 {stats.unrecorded}</span>
+              ) : null}
+            </div>
+            {!isArchived ? (
+              <button
+                type="button"
+                onClick={markAllPresent}
+                className="border border-outline-variant text-on-surfaceVariant px-4 py-2 rounded-lg font-bold hover:bg-surface-containerHigh transition-colors active:scale-95 flex items-center gap-2 text-sm"
+              >
+                <CheckCircleIcon className="w-5 h-5" />
+                全部設為出席
+              </button>
+            ) : null}
+          </div>
         </div>
   
-        {/* Roster Table */}
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex-1 flex flex-col">
-            {safeStudents.length === 0 ? (
-                <div className="text-center py-12 text-gray-400">沒有符合條件的學生</div>
-            ) : (
-               <>
-                  <div className="hidden md:block overflow-x-auto">
-                      <table className="w-full text-sm text-left text-gray-500" style={{ minWidth: '800px' }}>
-                          <thead className="bg-gray-50 text-xs text-gray-700 uppercase sticky top-0 z-10">
-                              <tr>
-                                  <th className="px-6 py-4 font-bold w-1/6">學號</th>
-                                  <th className="px-6 py-4 font-bold w-1/6">姓名</th>
-                                  <th className="px-6 py-4 font-bold w-1/3">點名狀態</th>
-                                  <th className="px-6 py-4 font-bold w-1/3">備註</th>
-                              </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-100">
-                              {safeStudents.map((student) => {
-                                  const currentRecord = records[student.studentId] || { status: '' };
-                                  const currentStatus = currentRecord.status;
-                                  const currentLeaveType = currentRecord.leaveType;
-                                  
-                                  return (
-                                      <tr key={student.studentId} className={`hover:bg-indigo-50/30 transition-colors ${!currentStatus ? 'bg-orange-50/10' : ''}`}>
-                                          <td className="px-6 py-4 font-mono text-gray-900">{student.studentId}</td>
-                                          <td className="px-6 py-4 font-bold text-gray-900">{student.name}</td>
-                                          <td className="px-6 py-4">
-                                              <div className="grid grid-cols-3 gap-2 items-center w-full">
-                                                  {/* 出席/遲到/早退 */}
-                                                  <div className="flex justify-start">
-                                                      <PresentButton 
-                                                          currentStatus={currentStatus} 
-                                                          onSetStatus={(val) => handleSetStatus(student.studentId, val)} 
-                                                          disabled={isArchived}
-                                                      />
-                                                  </div>
-  
-                                                  {/* 曠課 */}
-                                                  <div className="flex justify-center">
-                                                      <label className={`flex items-center gap-1.5 ${isArchived ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
-                                                          <input type="radio" checked={currentStatus === 'absent'} onChange={() => !isArchived && handleSetStatus(student.studentId, 'absent')} className="hidden" disabled={isArchived} />
-                                                          <div className={`w-5 h-5 rounded-full border flex items-center justify-center flex-shrink-0 ${currentStatus === 'absent' ? 'border-rose-500' : 'border-gray-300'}`}>
-                                                              {currentStatus === 'absent' && <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />}
-                                                          </div>
-                                                          <span className={`text-base font-bold ${currentStatus === 'absent' ? 'text-rose-500' : 'text-gray-500'}`}>曠課</span>
-                                                      </label>
-                                                  </div>
-                                                  
-                                                  {/* 請假 (特殊處理：帶有懸浮選單的按鈕) */}
-                                                  <div className="flex justify-end pr-4 xl:pr-8">
-                                                      <LeaveButton 
-                                                          currentStatus={currentStatus === 'leave' ? currentLeaveType || '事假' : ''}
-                                                          onSetStatus={(val) => handleSetLeave(student.studentId, val)}
-                                                          disabled={isArchived}
-                                                      />
-                                                  </div>
-                                              </div>
-                                          </td>
-                                          <td className="px-6 py-4">
-                                              <input type="text" placeholder="備註..." className={`w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:ring-1 focus:ring-indigo-500 outline-none ${isArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-white'}`} disabled={isArchived} readOnly={isArchived} value={notes[student.studentId] || ''} onChange={(e) => handleNoteChange(student.studentId, e.target.value)} />
-                                          </td>
-                                      </tr>
-                                  );
-                              })}
-                          </tbody>
-                      </table>
-                  </div>
-  
-                  {/* Mobile View */}
-                  <div className="md:hidden p-4 space-y-4 bg-gray-50/50">
-                       {safeStudents.map((student) => {
-                           const currentRecord = records[student.studentId] || { status: '' };
-                           const currentStatus = currentRecord.status;
-                           const currentLeaveType = currentRecord.leaveType;
-                           
-                           return (
-                              <div key={student.studentId} className={`bg-white border rounded-xl p-4 shadow-sm ${!currentStatus ? 'border-orange-200 bg-orange-50/30' : 'border-gray-200'}`}>
-                                  <div className="flex justify-between items-center mb-3">
-                                      <div><div className="font-bold text-gray-900 text-lg">{student.name}</div><div className="text-xs font-mono text-gray-500">{student.studentId}</div></div>
-                                      {currentStatus && <span className="px-2 py-1 rounded text-xs font-bold bg-gray-100 text-gray-700">{
-                                        currentStatus === 'present' ? '出席' :
-                                        currentStatus === 'late' ? '遲到' :
-                                        currentStatus === 'early_leave' ? '早退' :
-                                        currentStatus === 'late_and_early_leave' ? '遲到、早退' :
-                                        currentStatus === 'absent' ? '曠課' : currentLeaveType || '請假'
-                                      }</span>}
-                                  </div>
-                                  
-                                  <div className="flex flex-col gap-3 w-full mt-3 pt-3 border-t border-gray-100">
-                                    <div className="grid grid-cols-3 w-full items-center px-1">
-                                      <div className="flex justify-start">
-                                        <PresentButton 
-                                            currentStatus={currentStatus}
-                                            onSetStatus={(val) => handleSetStatus(student.studentId, val)}
-                                            disabled={isArchived}
-                                        />
-                                      </div>
-                                      <div className="flex justify-center">
-                                        <label className={`flex items-center gap-1.5 ${isArchived ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
-                                            <input type="radio" checked={currentStatus === 'absent'} onChange={() => !isArchived && handleSetStatus(student.studentId, 'absent')} className="hidden" disabled={isArchived} />
-                                            <div className={`w-5 h-5 rounded-full border flex items-center justify-center flex-shrink-0 ${currentStatus === 'absent' ? 'border-rose-500' : 'border-gray-300'}`}>
-                                                {currentStatus === 'absent' && <div className="w-2.5 h-2.5 rounded-full bg-rose-500" />}
-                                            </div>
-                                            <span className={`text-base font-bold ${currentStatus === 'absent' ? 'text-rose-500' : 'text-gray-500'}`}>曠課</span>
-                                        </label>
-                                      </div>
-                                      <div className="flex justify-end">
-                                        <LeaveButton 
-                                            currentStatus={currentStatus === 'leave' ? currentLeaveType || '事假' : ''}
-                                            onSetStatus={(val) => handleSetLeave(student.studentId, val)}
-                                            disabled={isArchived}
-                                        />
-                                      </div>
-                                    </div>
-                                    <div className="w-full">
-                                      <input type="text" placeholder="備註..." className={`w-full border border-gray-200 rounded-lg px-3 py-2 text-base focus:ring-1 focus:ring-indigo-500 outline-none ${isArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-gray-50'}`} disabled={isArchived} readOnly={isArchived} value={notes[student.studentId] || ''} onChange={(e) => handleNoteChange(student.studentId, e.target.value)} />
-                                    </div>
-                                  </div>
+        {filteredStudents.length === 0 ? (
+          <div className="text-center py-12 text-on-surfaceVariant bg-surface-containerLowest rounded-xl border border-outline-variant/40">
+            {safeStudents.length === 0 ? '沒有學生名單' : '沒有符合搜尋條件的學生'}
+          </div>
+        ) : (
+          <div className="bg-surface-containerLowest rounded-xl border border-outline-variant/40 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left min-w-[720px]">
+                <thead className="bg-surface-containerHigh/80 text-on-surfaceVariant sticky top-0 z-10">
+                  <tr>
+                    <th className="px-4 py-3 font-bold w-[18%]">學號</th>
+                    <th className="px-4 py-3 font-bold w-[16%]">姓名</th>
+                    <th className="px-4 py-3 font-bold w-[42%]">點名狀態</th>
+                    <th className="px-4 py-3 font-bold w-[24%]">備註</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-outline-variant/60">
+                  {filteredStudents.map((student) => {
+                    const currentRecord = getRecordForStudent(student) || { status: '' };
+                    const currentStatus = currentRecord.status;
+                    const currentLeaveType = currentRecord.leaveType;
+                    const activeKey = quickStatusKey(currentStatus, currentLeaveType);
+
+                    return (
+                      <tr
+                        key={student.studentId}
+                        className={`hover:bg-surface-containerLow/80 transition-colors ${
+                          !currentStatus ? 'bg-amber-50/40' : 'bg-surface-containerLowest'
+                        }`}
+                      >
+                        <td className="px-4 py-3 font-mono text-on-surface whitespace-nowrap">
+                          {student.studentId}
+                        </td>
+                        <td className="px-4 py-3 font-bold text-on-surface whitespace-nowrap">
+                          {student.name}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-col gap-2">
+                            <div className="grid grid-cols-4 gap-1.5 max-w-md">
+                              <button
+                                type="button"
+                                disabled={isArchived}
+                                onClick={() => handleQuickStatus(student.studentId, 'present')}
+                                className={statusBtnClass(activeKey === 'present', 'present')}
+                              >
+                                出席
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isArchived}
+                                onClick={() => handleQuickStatus(student.studentId, 'late')}
+                                className={statusBtnClass(activeKey === 'late', 'late')}
+                              >
+                                遲到
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isArchived}
+                                onClick={() => handleQuickStatus(student.studentId, 'excused')}
+                                className={statusBtnClass(activeKey === 'excused', 'excused')}
+                              >
+                                請假
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isArchived}
+                                onClick={() => handleQuickStatus(student.studentId, 'absent')}
+                                className={statusBtnClass(activeKey === 'absent', 'absent')}
+                              >
+                                曠課
+                              </button>
+                            </div>
+                            {!isArchived && activeKey === 'excused' ? (
+                              <div className="flex flex-wrap gap-1.5">
+                                {LEAVE_OPTIONS.map((opt) => (
+                                  <button
+                                    key={opt.value}
+                                    type="button"
+                                    onClick={() => handleSetLeave(student.studentId, opt.value)}
+                                    className={`px-2 py-0.5 rounded-md text-[11px] font-bold border transition-colors ${
+                                      currentLeaveType === opt.value
+                                        ? 'bg-primary text-white border-primary'
+                                        : 'border-outline-variant text-on-surfaceVariant hover:bg-surface-container'
+                                    }`}
+                                  >
+                                    {opt.label}
+                                  </button>
+                                ))}
                               </div>
-                           );
-                       })}
-                  </div>
-               </>
-            )}
-        </div>
+                            ) : null}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <input
+                            type="text"
+                            placeholder="備註…"
+                            className={`w-full border border-outline-variant rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none ${
+                              isArchived
+                                ? 'bg-surface-container text-on-surfaceVariant cursor-not-allowed'
+                                : 'bg-surface'
+                            }`}
+                            disabled={isArchived}
+                            readOnly={isArchived}
+                            value={notes[student.studentId] || ''}
+                            onChange={(e) => handleNoteChange(student.studentId, e.target.value)}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
         </>
         )}
         
@@ -1075,6 +977,8 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
     const [activities, setActivities] = useState<AttendanceActivity[]>([]);
     const [loading, setLoading] = useState(true);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [studentCount, setStudentCount] = useState(0);
+    const [absenceAlertCount, setAbsenceAlertCount] = useState(0);
   
     const formatDate = (isoString: string) => {
       if (!isoString) return '';
@@ -1112,10 +1016,17 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
               title?: string;
               date?: unknown;
               startTime?: unknown;
-              mode?: 'manual' | 'digital';
+              endTime?: unknown;
+              mode?: 'manual' | 'digital' | 'qr';
               checkInMethod?: string;
               type?: string;
               checkInCode?: string;
+              status?: string;
+              present?: number;
+              expected?: number;
+              absent?: number;
+              leave?: number;
+              visibleToStudents?: boolean;
             }) => mapActivityFromApi(item));
   
             const sorted = mappedData.sort(
@@ -1131,8 +1042,76 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
         }
       } catch { Swal.fire('錯誤', '無法載入點名活動', 'error'); } finally { setLoading(false); }
     }, [courseId]);
+
+    const computeAbsenceAlerts = useCallback(async (list: AttendanceActivity[]) => {
+      const recent = list
+        .filter((a) => a.status !== 'scheduled')
+        .slice(0, 5);
+      if (recent.length < 2) {
+        setAbsenceAlertCount(0);
+        return;
+      }
+      try {
+        const results = await Promise.all(
+          recent.map(async (a) => {
+            const res = await fetch('/api/attendance/records/get', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ courseId, activityId: a.id }),
+            });
+            if (!res.ok) return [] as AttendanceRecord[];
+            const data = await res.json();
+            return (Array.isArray(data.records) ? data.records : []) as AttendanceRecord[];
+          })
+        );
+
+        const studentIds = new Set<string>();
+        results.forEach((records) => {
+          records.forEach((r) => studentIds.add(r.studentId));
+        });
+
+        let alertCount = 0;
+        studentIds.forEach((sid) => {
+          let streak = 0;
+          for (const records of results) {
+            const rec = records.find((r) => r.studentId === sid);
+            if (rec?.status === 'absent') streak += 1;
+            else break;
+          }
+          if (streak >= 2) alertCount += 1;
+        });
+        setAbsenceAlertCount(alertCount);
+      } catch {
+        setAbsenceAlertCount(0);
+      }
+    }, [courseId]);
   
     useEffect(() => { fetchActivities(); }, [fetchActivities]);
+
+    useEffect(() => {
+      let cancelled = false;
+      (async () => {
+        try {
+          const stuRes = await fetch(`/api/course-student-list/list?courseId=${encodeURIComponent(courseId)}`);
+          if (!stuRes.ok || cancelled) return;
+          const roster = await stuRes.json();
+          if (!cancelled) setStudentCount(Array.isArray(roster) ? roster.length : 0);
+        } catch {
+          if (!cancelled) setStudentCount(0);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [courseId]);
+
+    useEffect(() => {
+      if (activities.length === 0) {
+        setAbsenceAlertCount(0);
+        return;
+      }
+      void computeAbsenceAlerts(activities);
+    }, [activities, computeAbsenceAlerts]);
   
     // 匯出紀錄
     const handleExport = async () => {
@@ -1340,152 +1319,48 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
           icon: 'success',
           title: nextVisible ? '已開放' : '已隱藏',
           text: nextVisible ? '學生端現在可以看到此點名。' : '學生端將無法看到此點名。',
-          confirmButtonColor: '#4f46e5',
+          confirmButtonColor: '#2D6DF6',
         });
       } catch {
         Swal.fire('錯誤', '更新可見性失敗', 'error');
       }
     };
   
-    const actionButtons = (
-      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-        {!isArchived && (
-          <button
-            className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center"
-            onClick={() => setIsCreateModalOpen(true)}
-          >
-            <PlusIcon className="w-4 h-4 mr-2" /> 新增點名
-          </button>
-        )}
-        <button
-          onClick={handleExport}
-          className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm flex items-center"
-        >
-          <ArrowDownTrayIcon className="w-4 h-4 mr-2" /> 匯出紀錄
-        </button>
-      </div>
-    );
-
     return (
-      <div className={embedded ? 'w-full min-w-0 flex flex-col animate-fade-in' : 'page-shell w-full min-w-0 pb-10 flex flex-col h-full animate-fade-in'}>
-        {!embedded && (
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
-            <div className="border-l-4 border-indigo-500 pl-4">
-              <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-                <CalendarDaysIcon className="h-8 w-8 text-indigo-600" />
-                {courseName}
-              </h1>
-              <p className="text-gray-500 text-sm mt-1">點名活動列表</p>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <button
-                className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors shadow-sm font-medium flex items-center"
-                onClick={onBack}
-              >
-                <ArrowLeftIcon className="w-4 h-4 mr-2" /> 返回課程
-              </button>
-              {actionButtons}
-            </div>
-          </div>
-        )}
-
-        {isArchived && (
-          <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl flex items-center shadow-sm mb-4">
-            <span className="font-bold mr-2">提示：</span>
-            此課程已封存，您只能查看活動列表及匯出紀錄，無法新增或刪除點名活動。
-          </div>
-        )}
-
-        {embedded && (
-          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3 mb-6">
-            {actionButtons}
-          </div>
-        )}
-  
-        {/* 外部表單 Modal Wrapper */}
+      <>
         {isCreateModalOpen && (
-            <Modal
-              open={true}
+          <Modal
+            open={true}
+            onClose={() => setIsCreateModalOpen(false)}
+            title="新增點名活動"
+          >
+            <CreateAttendanceActivityForm
+              courseId={courseId}
               onClose={() => setIsCreateModalOpen(false)}
-              title="新增點名活動"
-            >
-                <CreateAttendanceActivityForm 
-                  courseId={courseId}
-                  onClose={() => setIsCreateModalOpen(false)}
-                  onComplete={() => {
-                    setIsCreateModalOpen(false);
-                    fetchActivities();
-                  }}
-                />
-            </Modal>
+              onComplete={() => {
+                setIsCreateModalOpen(false);
+                fetchActivities();
+              }}
+            />
+          </Modal>
         )}
-  
-        {loading ? (
-          <PageLoadingArea />
-        ) : activities.length === 0 ? (
-             <div className="text-center min-h-[280px] flex flex-col items-center justify-center bg-white rounded-xl border-2 border-dashed border-gray-300 shadow-sm">
-                 <ClipboardDocumentCheckIcon className="w-12 h-12 mb-3 text-gray-300" />
-                 <p className="text-gray-500 font-medium">目前沒有點名活動</p>
-             </div>
-         ) : (
-             <div className="grid grid-cols-1 gap-4">
-                {activities.map((activity) => (
-                  <div
-                    key={activity.id}
-                    className="w-full text-left bg-white border-2 border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md hover:border-indigo-300 transition-shadow duration-200"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 min-h-[2.5rem]">
-                      <div className="min-w-0 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
-                        <div className="hidden sm:flex flex-shrink-0 w-10 h-10 bg-indigo-50 rounded-full items-center justify-center text-indigo-600">
-                          <CourseHubFeatureIcon id="attendance" />
-                        </div>
-                        <div className="min-w-0">
-                        <h4 className="text-lg font-bold text-gray-900 line-clamp-2 sm:line-clamp-1 leading-7">
-                          {activity.name}
-                        </h4>
-                        <div className="text-sm text-gray-500 mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
-                          <span className="font-mono">{formatDate(activity.date)}</span>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded border bg-gray-50 text-gray-700 text-xs font-bold">
-                            {modeLabel(activity)}
-                          </span>
-                          {shouldDisplayCheckInCode(activity) && (
-                            <span className="inline-flex items-center text-indigo-600 font-mono font-bold">
-                              <QrCodeIcon className="w-4 h-4 mr-1 shrink-0" />
-                              {activity.checkInCode}
-                            </span>
-                          )}
-                        </div>
-                        </div>
-                      </div>
-                      <div className={tableActionRowWrap}>
-                        <StudentVisibilityToggle
-                          open={isStudentVisible(activity.visibleToStudents)}
-                          disabled={isArchived}
-                          onToggle={() => void handleToggleVisibility(activity)}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => onSelectActivity(activity)}
-                          className={tableActionStyles.primary}
-                        >
-                          {isArchived ? '查看紀錄' : '進入點名'}
-                        </button>
-                        {!isArchived && (
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(activity.id)}
-                            className={tableActionStyles.danger}
-                          >
-                            刪除
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-             </div>
-         )}
-      </div>
+        <TeacherAttendanceList
+          courseName={courseName}
+          activities={activities}
+          loading={loading}
+          isArchived={isArchived}
+          studentCount={studentCount}
+          absenceAlertCount={absenceAlertCount}
+          embedded={embedded}
+          onBack={onBack}
+          onCreate={() => setIsCreateModalOpen(true)}
+          onExport={() => void handleExport()}
+          onSelect={onSelectActivity}
+          onDelete={(id) => void handleDelete(id)}
+          onToggleVisibility={(item) => void handleToggleVisibility(item)}
+          shouldShowCheckInCode={shouldDisplayCheckInCode}
+        />
+      </>
     );
   }
   
@@ -1834,7 +1709,7 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
               <PageHeader
                 title={resolvedCourseName}
                 description="點名活動列表 • 載入中"
-                icon={<CalendarDaysIcon className="h-8 w-8 text-indigo-600" />}
+                icon={<CalendarDaysIcon className="h-8 w-8 text-primary" />}
               />
             )}
             <PageLoadingArea />
@@ -1861,7 +1736,7 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
           <PageHeader
             title="點名管理"
             description="記錄學生的出缺席狀況，包含手動點名與數字簽到。"
-            icon={<CalendarDaysIcon className="h-8 w-8 text-indigo-600" />}
+            icon={<CalendarDaysIcon className="h-8 w-8 text-primary" />}
           />
           <PageLoadingArea />
         </div>
@@ -1874,7 +1749,7 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
         <PageHeader
           title="點名管理"
           description="記錄學生的出缺席狀況，包含手動點名與數字簽到。"
-          icon={<CalendarDaysIcon className="h-8 w-8 text-indigo-600" />}
+          icon={<CalendarDaysIcon className="h-8 w-8 text-primary" />}
         />
   
         {loading ? (
@@ -1925,7 +1800,7 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
                           </thead>
                           <tbody className="divide-y divide-gray-100">
                               {filteredCourses.map((course) => (
-                              <tr key={course.id} className="hover:bg-indigo-50/30 transition-colors group">
+                              <tr key={course.id} className="hover:bg-primary/5 transition-colors group">
                                   <td className="px-6 py-4 whitespace-nowrap">
                                       <div className="font-bold text-gray-900 text-base">{course.name}</div>
                                       <div className="text-xs font-mono text-gray-500 mt-1">{course.code}</div>
@@ -1936,7 +1811,7 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
                                       </span>
                                   </td>
                                   <td className="px-6 py-4 text-right whitespace-nowrap">
-                                      <button onClick={() => selectCourse(course)} className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">管理</button>
+                                      <button onClick={() => selectCourse(course)} className="inline-flex items-center px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover transition-colors shadow-sm">管理</button>
                                   </td>
                               </tr>
                               ))}
@@ -1951,7 +1826,7 @@ const LeaveButton = ({ currentStatus, onSetStatus, disabled = false }: { current
                                    <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-600 shrink-0"><UserGroupIcon className="w-3 h-3 mr-1"/>{studentCounts[course.id] ?? '-'} 人</span>
                               </div>
                               <div className="border-t border-gray-100 pt-3 flex justify-end">
-                                   <button onClick={(e) => { e.stopPropagation(); selectCourse(course); }} className="w-full flex items-center justify-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors">管理點名 <ChevronRightIcon className="w-4 h-4 ml-1" /></button>
+                                   <button onClick={(e) => { e.stopPropagation(); selectCourse(course); }} className="w-full flex items-center justify-center px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover transition-colors">管理點名 <ChevronRightIcon className="w-4 h-4 ml-1" /></button>
                               </div>
                           </div>
                       ))}

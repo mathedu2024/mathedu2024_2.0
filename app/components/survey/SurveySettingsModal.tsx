@@ -59,7 +59,7 @@ export default function SurveySettingsModal({
         aria-labelledby="survey-settings-title"
         className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col"
       >
-        <div className="bg-gradient-to-r from-indigo-500 to-purple-500 px-5 py-4 flex justify-between items-center text-white shrink-0">
+        <div className="bg-gradient-to-r from-primary to-tertiary px-5 py-4 flex justify-between items-center text-white shrink-0">
           <h2 id="survey-settings-title" className="font-bold text-lg flex items-center gap-2">
             <Cog6ToothIcon className="w-5 h-5" />
             問卷詳細設定
@@ -72,30 +72,30 @@ export default function SurveySettingsModal({
         <div className="p-5 space-y-5 overflow-y-auto flex-1">
           <section>
             <div className="flex items-center gap-2 mb-3">
-              <UserGroupIcon className="w-5 h-5 text-indigo-600" />
+              <UserGroupIcon className="w-5 h-5 text-primary" />
               <h3 className="text-sm font-bold text-gray-800">填答模式</h3>
             </div>
             <div className="space-y-3">
-              <label className="flex items-start gap-3 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 has-[:checked]:border-indigo-300 has-[:checked]:bg-indigo-50/50">
+              <label className="flex items-start gap-3 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 has-[:checked]:border-primary/40 has-[:checked]:bg-primary/10">
                 <input
                   type="radio"
                   name="survey-response-mode"
                   checked={survey.responseMode === 'named'}
                   onChange={() => setMode('named')}
-                  className="mt-0.5 size-4 accent-indigo-600"
+                  className="mt-0.5 size-4 accent-[#2D6DF6]"
                 />
                 <span>
                   <span className="block text-sm font-semibold text-gray-800">記名</span>
                   <span className="block text-xs text-gray-500 mt-0.5">教師可看到填寫者姓名</span>
                 </span>
               </label>
-              <label className="flex items-start gap-3 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 has-[:checked]:border-indigo-300 has-[:checked]:bg-indigo-50/50">
+              <label className="flex items-start gap-3 p-3 rounded-xl border border-gray-200 cursor-pointer hover:bg-gray-50 has-[:checked]:border-primary/40 has-[:checked]:bg-primary/10">
                 <input
                   type="radio"
                   name="survey-response-mode"
                   checked={survey.responseMode === 'anonymous'}
                   onChange={() => setMode('anonymous')}
-                  className="mt-0.5 size-4 accent-indigo-600"
+                  className="mt-0.5 size-4 accent-[#2D6DF6]"
                 />
                 <span>
                   <span className="block text-sm font-semibold text-gray-800">不記名</span>
@@ -109,7 +109,7 @@ export default function SurveySettingsModal({
 
           <section className="border-t border-gray-100 pt-5">
             <div className="flex items-center gap-2 mb-3">
-              <CalendarDaysIcon className="w-5 h-5 text-indigo-600" />
+              <CalendarDaysIcon className="w-5 h-5 text-primary" />
               <h3 className="text-sm font-bold text-gray-800">填答日期限制</h3>
             </div>
             <label className="flex items-center gap-2 cursor-pointer mb-3">
@@ -124,7 +124,7 @@ export default function SurveySettingsModal({
                     answerEndAt: e.target.checked ? prev.answerEndAt : undefined,
                   }))
                 }
-                className="w-4 h-4 text-indigo-600 rounded accent-indigo-600"
+                className="w-4 h-4 text-primary rounded accent-[#2D6DF6]"
               />
               <span className="text-sm text-gray-700">限制填答期間（未勾選則不限日期）</span>
             </label>
@@ -142,7 +142,7 @@ export default function SurveySettingsModal({
                         answerStartAt: fromDatetimeLocalValue(e.target.value),
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 </div>
                 <div>
@@ -157,7 +157,7 @@ export default function SurveySettingsModal({
                         answerEndAt: fromDatetimeLocalValue(e.target.value),
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 </div>
               </div>
@@ -171,7 +171,7 @@ export default function SurveySettingsModal({
 
           <section className="border-t border-gray-100 pt-5">
             <div className="flex items-center gap-2 mb-3">
-              <EyeIcon className="w-5 h-5 text-indigo-600" />
+              <EyeIcon className="w-5 h-5 text-primary" />
               <h3 className="text-sm font-bold text-gray-800">學生查看填答</h3>
             </div>
             <label className="flex items-start gap-3 cursor-pointer">
@@ -184,7 +184,7 @@ export default function SurveySettingsModal({
                     responsesVisibleToStudents: e.target.checked,
                   }))
                 }
-                className="mt-0.5 size-4 rounded accent-indigo-600"
+                className="mt-0.5 size-4 rounded accent-[#2D6DF6]"
               />
               <span>
                 <span className="block text-sm text-gray-800">允許學生查看自己的填答內容</span>
@@ -200,7 +200,7 @@ export default function SurveySettingsModal({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700"
+            className="px-4 py-2 rounded-xl text-sm font-semibold bg-primary text-white hover:bg-primary-hover"
           >
             完成
           </button>

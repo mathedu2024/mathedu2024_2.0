@@ -53,7 +53,7 @@ export default function StudentSurveyStartModal({
         aria-labelledby="survey-start-title"
         className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col"
       >
-        <div className="bg-gradient-to-r from-indigo-500 to-purple-500 px-5 py-4 flex justify-between items-center text-white shrink-0">
+        <div className="bg-gradient-to-r from-primary to-tertiary px-5 py-4 flex justify-between items-center text-white shrink-0">
           <h2 id="survey-start-title" className="font-bold text-lg flex items-center gap-2 min-w-0">
             <ClipboardDocumentListIcon className="w-5 h-5 shrink-0" />
             <span className="truncate">{mode === 'retake' ? '再次填寫' : '開始填寫'}</span>
@@ -69,27 +69,27 @@ export default function StudentSurveyStartModal({
         </div>
 
         <div className="p-5 overflow-y-auto flex-1">
-          <h3 className="font-bold text-gray-900 text-lg mb-4">{survey.title}</h3>
+          <h3 className="font-bold text-on-surface text-lg mb-4">{survey.title}</h3>
 
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 text-sm">
             <div>
-              <dt className="text-gray-500">填答模式</dt>
-              <dd className="font-medium text-gray-900">{survey.responseModeLabel}</dd>
+              <dt className="text-on-surfaceVariant">填答模式</dt>
+              <dd className="font-medium text-on-surface">{survey.responseModeLabel}</dd>
             </div>
             <div>
-              <dt className="text-gray-500">填答期間</dt>
-              <dd className="font-medium text-gray-900">{survey.answerWindowLabel}</dd>
+              <dt className="text-on-surfaceVariant">填答期間</dt>
+              <dd className="font-medium text-on-surface">{survey.answerWindowLabel}</dd>
             </div>
             <div>
-              <dt className="text-gray-500">填寫次數</dt>
-              <dd className="font-medium text-gray-900">
+              <dt className="text-on-surfaceVariant">填寫次數</dt>
+              <dd className="font-medium text-on-surface">
                 {survey.maxAttempts <= 1 ? '限填一次' : `最多 ${survey.maxAttempts} 次`}
               </dd>
             </div>
             {(survey.submissionCount ?? 0) > 0 && (
               <div>
-                <dt className="text-gray-500">已填寫</dt>
-                <dd className="font-medium text-gray-900">
+                <dt className="text-on-surfaceVariant">已填寫</dt>
+                <dd className="font-medium text-on-surface">
                   {survey.submissionCount} / {survey.maxAttempts} 次
                 </dd>
               </div>
@@ -110,11 +110,11 @@ export default function StudentSurveyStartModal({
           )}
         </div>
 
-        <div className="px-5 py-4 bg-gray-50 border-t border-gray-100 flex gap-2 shrink-0">
+        <div className="px-5 py-4 bg-surface border-t border-outline-variant/40 flex gap-2 shrink-0">
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 bg-white border border-gray-200 text-gray-700 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50"
+            className="flex-1 bg-white border border-outline-variant/40 text-on-surface py-2.5 rounded-lg text-sm font-medium hover:bg-surface"
           >
             取消
           </button>
@@ -122,7 +122,7 @@ export default function StudentSurveyStartModal({
             type="button"
             onClick={handleStart}
             disabled={!canTake}
-            className="flex-1 bg-indigo-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+            className="flex-1 bg-primary text-white py-2.5 rounded-lg text-sm font-medium hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
           >
             {actionLabel}
           </button>

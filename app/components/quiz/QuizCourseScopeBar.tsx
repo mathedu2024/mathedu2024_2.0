@@ -29,8 +29,8 @@ export default function QuizCourseScopeBar({
             onClick={() => onChange(scope.id)}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
               value === scope.id
-                ? 'bg-indigo-600 text-white border-indigo-600'
-                : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'
+                ? 'bg-primary text-white border-primary'
+                : 'bg-white text-gray-600 border-gray-200 hover:border-primary/40'
             }`}
           >
             {scope.label}

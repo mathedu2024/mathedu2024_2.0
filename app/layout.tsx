@@ -1,15 +1,29 @@
-import Script from "next/script";
 import type { Metadata } from "next";
-import { Noto_Sans_TC } from "next/font/google";
+import { Noto_Sans_TC, Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import 'sweetalert2/dist/sweetalert2.min.css';
 import Navigation from './components/Navigation';
 import AutoLogout from './AutoLogout';
 
 const notoSansTC = Noto_Sans_TC({
-  weight: ['300', '400', '500', '700'],
+  weight: ['400', '500', '700'],
   subsets: ['latin'],
   display: 'swap',
+  variable: '--font-body',
+});
+
+const plusJakarta = Plus_Jakarta_Sans({
+  weight: ['700', '800'],
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-display',
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  weight: ['600', '700'],
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-mono',
 });
 
 export const metadata: Metadata = {
@@ -23,7 +37,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-TW" className="h-full scroll-smooth overflow-hidden" data-scroll-behavior="smooth">
+    <html lang="zh-TW" className={`h-full scroll-smooth overflow-hidden ${notoSansTC.variable} ${plusJakarta.variable} ${jetbrainsMono.variable}`} data-scroll-behavior="smooth">
       <head>
         <link rel="icon" href="/learn.png" type="image/png" />
         <link rel="icon" href="/learn.png" type="image/x-icon" />
@@ -34,25 +48,15 @@ export default function RootLayout({
           rel="stylesheet" 
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
         />
-
-        <Script
-          src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"
-          strategy="beforeInteractive"
-        />
-        <Script id="emailjs-init" strategy="beforeInteractive">
-          {`emailjs.init("Oxm7lO3VyhQ4vxUTW");`}
-        </Script>
       </head>
 
-      <body className={`${notoSansTC.className} bg-gray-50 text-gray-900 h-screen flex flex-col antialiased overflow-hidden`}>
+      <body className={`${notoSansTC.className} bg-surface text-on-surface h-screen flex flex-col antialiased overflow-hidden`}>
         <AutoLogout />
-        {/* Navigation 導覽列 */}
         <Navigation />
         
         <main className="w-full flex-1 overflow-y-auto overflow-x-hidden relative">
           {children}
         </main>
-        
         <div id="modal-root"></div>
       </body>
     </html>

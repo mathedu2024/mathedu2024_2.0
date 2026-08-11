@@ -17,6 +17,13 @@ import {
   setCachedMenuItems,
   setCachedUserInfo,
 } from '@/utils/sidebarCache';
+import {
+  CourseHubFeatureIcon,
+  TEACHER_COURSE_HUB_TAB_IDS,
+  getCourseHubTabLabel,
+  type CourseHubTabId,
+} from '@/components/CourseHubTabNav';
+import { teacherCourseHubPath, type TeacherCourseHubTab } from '@/utils/teacherCourseHub';
 
 interface UserInfo {
   id: string;
@@ -34,6 +41,14 @@ interface MenuItem {
   disabled?: boolean;
   href?: string;
 }
+
+/** 進入單一課程後：側欄改顯示課程內選單（替換後台全域選單） */
+export type CourseWorkspaceSidebar = {
+  courseCode: string;
+  courseName: string;
+  subjectLabel?: string;
+  activeTab: CourseHubTabId;
+};
 
 interface SidebarProps {
   // 狀態控制
@@ -55,7 +70,8 @@ interface SidebarProps {
   dashboardHref?: string;
   /** 學生端：所有選單文字粗體；教師端：僅選中項目粗體 */
   boldNavLabels?: boolean;
-  
+  /** 老師課程工作區：側欄內容改為課程選單 */
+  courseWorkspace?: CourseWorkspaceSidebar | null;
 }
 
 export default function Sidebar({
@@ -68,6 +84,7 @@ export default function Sidebar({
   onLogout,
   dashboardHref,
   boldNavLabels = false,
+  courseWorkspace = null,
 }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -239,22 +256,25 @@ export default function Sidebar({
   // 判斷用戶角色
   const getUserRole = (): string => {
     if (!currentInfo) return '學生';
-    
+
     if (currentInfo.currentRole) {
       if (currentInfo.currentRole === 'admin') return '管理員';
       if (currentInfo.currentRole === 'teacher') return '老師';
+      if (currentInfo.currentRole === 'author') return '作者';
     }
-    
+
     if (Array.isArray(currentInfo.role)) {
-      if (currentInfo.role.map(r => r.toLowerCase()).includes('admin')) return '管理員';
-      if (currentInfo.role.map(r => r.toLowerCase()).includes('teacher')) return '老師';
+      const roles = currentInfo.role.map((r) => String(r).toLowerCase());
+      if (roles.includes('admin') || roles.includes('管理員')) return '管理員';
+      if (roles.includes('teacher') || roles.includes('老師')) return '老師';
+      if (roles.includes('author') || roles.includes('作者')) return '作者';
       return '學生';
     }
-    
-    // 處理字串角色
-    const role = currentInfo.role?.toLowerCase();
+
+    const role = String(currentInfo.role ?? '').toLowerCase();
     if (role === 'admin' || role === '管理員') return '管理員';
     if (role === 'teacher' || role === '老師') return '老師';
+    if (role === 'author' || role === '作者') return '作者';
     return '學生';
   };
 
@@ -277,10 +297,22 @@ export default function Sidebar({
     ? displayInfo
     : { name: '', id: '', role: displayInfo.role };
 
+  const isDashboardRoute =
+    pathname.startsWith('/student') ||
+    pathname.startsWith('/back-panel') ||
+    pathname.startsWith('/panel');
+  /**
+   * 儀表板桌面：頂欄不渲染，側欄貼齊視窗頂部。
+   * 僅依 pathname／compact（不讀 session），避免 SSR／client hydration class 不一致。
+   */
+  const flushToViewportTop = isDashboardRoute && !isCompactNav;
+
   const sidebarClasses = clsx(
-    'flex flex-col z-[60] bg-white border-r border-gray-200 shadow-sm',
-    'transition-all duration-300 ease-in-out',
-    'fixed top-16 left-0 h-[calc(100vh-64px)]',
+    'flex flex-col z-[60] bg-surface-containerLowest border-r border-outline-variant/50 shadow-sm',
+    'transition-[width,transform] duration-300 ease-in-out',
+    flushToViewportTop
+      ? 'fixed top-0 left-0 h-screen'
+      : 'fixed top-16 left-0 h-[calc(100vh-64px)]',
     isCompactNav && 'hidden',
     !isCompactNav && {
       'w-64': sidebarOpen,
@@ -291,8 +323,8 @@ export default function Sidebar({
   );
 
   const navItemBase = 'flex items-center h-12 rounded-xl select-none w-full transition-all duration-200 group';
-  const navItemActive = 'bg-indigo-50 text-indigo-600 shadow-sm';
-  const navItemInactive = 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600';
+  const navItemActive = 'bg-primary/10 text-primary shadow-sm';
+  const navItemInactive = 'text-on-surfaceVariant hover:bg-surface-containerLow hover:text-primary';
 
   const navItemClass = (isActive: boolean, layoutClass = '') =>
     clsx(
@@ -306,24 +338,108 @@ export default function Sidebar({
     <>
       {/* 統一的側邊欄 */}
       <aside className={sidebarClasses}>
-        <div className={`p-4 border-b border-gray-100 ${!sidebarOpen ? 'flex justify-center' : ''}`}>
-          <div className={`flex items-center gap-3 transition-all duration-300 ${!sidebarOpen ? 'justify-center' : ''}`}>
-            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0 shadow-sm">
-              {safeDisplayInfo.name?.[0] || '?'}
-            </div>
-            {sidebarOpen && (
-              <div className="overflow-hidden">
-                <div className="font-bold text-gray-900 text-sm truncate">{safeDisplayInfo.name || '\u00A0'}</div>
-                <div className="text-xs text-indigo-500 font-medium flex items-center mt-0.5">
-                  <span className="bg-indigo-50 px-1.5 py-0.5 rounded text-[10px] mr-1 border border-indigo-100">{safeDisplayInfo.role}</span>
-                  <span className="truncate">{safeDisplayInfo.id || '\u00A0'}</span>
-                </div>
-              </div>
+        {/* 與右側頂欄同高的標題列（h-16）；標題置中、字級加大 */}
+        <div
+          className={clsx(
+            'h-16 shrink-0 box-border flex items-center justify-center',
+            sidebarOpen ? 'px-3' : 'px-0',
+          )}
+        >
+          <Link
+            href="/"
+            className={clsx(
+              'group flex items-center justify-center text-center',
+              sidebarOpen ? 'w-full min-w-0' : 'sr-only',
             )}
-          </div>
+            tabIndex={sidebarOpen ? undefined : -1}
+            aria-hidden={!sidebarOpen}
+            title="高中學習資源教育網 2.0"
+          >
+            <span className="font-display text-lg font-extrabold text-primary tracking-tight leading-snug group-hover:text-primary-hover transition-colors">
+              高中學習資源教育網 2.0
+            </span>
+          </Link>
+        </div>
+
+        <div className={`p-4 ${!sidebarOpen ? 'flex justify-center' : ''}`}>
+          {courseWorkspace ? (
+            <div className={`flex flex-col ${sidebarOpen ? 'items-center text-center' : 'items-center'}`}>
+              <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-primary-container text-on-primary flex items-center justify-center shadow-sm shrink-0">
+                <span className="font-display text-xl md:text-2xl font-extrabold leading-none" aria-hidden>
+                  Σ
+                </span>
+              </div>
+              {sidebarOpen && (
+                <div className="mt-3 min-w-0 w-full">
+                  <div className="font-display font-bold text-on-surface text-base line-clamp-2">
+                    {courseWorkspace.courseName}
+                  </div>
+                  <div className="text-xs text-on-surfaceVariant mt-1 truncate">
+                    {courseWorkspace.subjectLabel || courseWorkspace.courseCode}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className={`flex items-center gap-3 ${!sidebarOpen ? 'justify-center' : ''}`}>
+              <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0 shadow-sm">
+                {safeDisplayInfo.name?.[0] || '?'}
+              </div>
+              {sidebarOpen && (
+                <div className="overflow-hidden min-w-0">
+                  <div className="font-bold text-on-surface text-sm truncate">{safeDisplayInfo.name || '\u00A0'}</div>
+                  <div className="text-xs text-primary font-medium flex items-center mt-0.5">
+                    <span className="bg-primary/10 px-1.5 py-0.5 rounded text-[10px] mr-1 border border-primary/20">{safeDisplayInfo.role}</span>
+                    <span className="truncate text-on-surfaceVariant">{safeDisplayInfo.id || '\u00A0'}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <nav className="flex flex-col flex-1 p-3 gap-1 overflow-y-auto custom-scrollbar">
+            {courseWorkspace ? (
+              <>
+                {TEACHER_COURSE_HUB_TAB_IDS.map((tabId) => {
+                  const isActive = courseWorkspace.activeTab === tabId;
+                  const href = teacherCourseHubPath(
+                    courseWorkspace.courseCode,
+                    tabId as TeacherCourseHubTab
+                  );
+                  const label = getCourseHubTabLabel(tabId, 'teacher');
+                  return (
+                    <Link
+                      key={tabId}
+                      href={href}
+                      className={clsx(
+                        navItemBase,
+                        !sidebarOpen ? 'justify-center px-0' : 'px-3',
+                        'font-bold',
+                        isActive
+                          ? 'bg-primary-container text-on-primary shadow-sm'
+                          : navItemInactive,
+                      )}
+                      title={!sidebarOpen ? label : undefined}
+                    >
+                      <span className="flex items-center justify-center w-6 h-6">
+                        <CourseHubFeatureIcon
+                          id={tabId}
+                          className={clsx(
+                            'h-6 w-6 flex-shrink-0 transition-colors',
+                            isActive ? 'text-on-primary' : 'text-gray-400 group-hover:text-primary'
+                          )}
+                        />
+                      </span>
+                      {sidebarOpen && (
+                        <span className="ml-3 text-sm flex-shrink-0">{label}</span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </>
+            ) : (
+              <>
             {dashboardHref ? (
               <Link
                 href={dashboardHref}
@@ -335,7 +451,7 @@ export default function Sidebar({
                 title="儀表板"
             >
                 <span className="flex items-center justify-center w-6 h-6">
-                    <svg xmlns="http://www.w3.org/2000/svg" className={clsx("h-6 w-6 flex-shrink-0 transition-colors", optimisticTab === null ? "text-indigo-600" : "text-gray-400 group-hover:text-indigo-600")} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className={clsx("h-6 w-6 flex-shrink-0 transition-colors", optimisticTab === null ? "text-primary" : "text-gray-400 group-hover:text-primary")} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l9-9 9 9M4.5 10.5V21a1.5 1.5 0 001.5 1.5h3.75A1.5 1.5 0 0011.25 21V15h1.5v6a1.5 1.5 0 001.5 1.5h3.75A1.5 1.5 0 0019.5 21V10.5" />
                     </svg>
                 </span>
@@ -353,7 +469,7 @@ export default function Sidebar({
                   title="儀表板"
               >
                   <span className="flex items-center justify-center w-6 h-6">
-                      <svg xmlns="http://www.w3.org/2000/svg" className={clsx("h-6 w-6 flex-shrink-0 transition-colors", optimisticTab === null ? "text-indigo-600" : "text-gray-400 group-hover:text-indigo-600")} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className={clsx("h-6 w-6 flex-shrink-0 transition-colors", optimisticTab === null ? "text-primary" : "text-gray-400 group-hover:text-primary")} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l9-9 9 9M4.5 10.5V21a1.5 1.5 0 001.5 1.5h3.75A1.5 1.5 0 0011.25 21V15h1.5v6a1.5 1.5 0 001.5 1.5h3.75A1.5 1.5 0 0019.5 21V10.5" />
                       </svg>
                   </span>
@@ -411,7 +527,7 @@ export default function Sidebar({
                             {React.cloneElement(displayItem.icon as React.ReactElement<{ className?: string }>, {
                                 className: clsx(
                                     "h-6 w-6 flex-shrink-0 transition-colors",
-                                    optimisticTab === displayItem.id ? "text-indigo-600" : (displayItem.disabled ? "text-gray-300" : "text-gray-400 group-hover:text-indigo-600")
+                                    optimisticTab === displayItem.id ? "text-primary" : (displayItem.disabled ? "text-gray-300" : "text-gray-400 group-hover:text-primary")
                                 )
                             })}
                         </span>
@@ -449,7 +565,7 @@ export default function Sidebar({
                             {React.cloneElement(displayItem.icon as React.ReactElement<{ className?: string }>, {
                                 className: clsx(
                                     "h-6 w-6 flex-shrink-0 transition-colors",
-                                    optimisticTab === displayItem.id ? "text-indigo-600" : (displayItem.disabled ? "text-gray-300" : "text-gray-400 group-hover:text-indigo-600")
+                                    optimisticTab === displayItem.id ? "text-primary" : (displayItem.disabled ? "text-gray-300" : "text-gray-400 group-hover:text-primary")
                                 )
                             })}
                         </span>
@@ -459,13 +575,15 @@ export default function Sidebar({
                     </button>
                 );
             })}
+              </>
+            )}
         </nav>
 
-        <div className="p-3 border-t border-gray-100 bg-gray-50/50 space-y-1">
+        <div className="p-3 border-t border-outline-variant/40 bg-surface-containerLow/60 space-y-1">
           <button
             onClick={onToggleSidebar}
             className={clsx(
-              'flex items-center h-10 rounded-xl w-full text-gray-500 hover:bg-white hover:text-indigo-600 hover:shadow-sm transition-all duration-200',
+              'flex items-center h-10 rounded-xl w-full text-on-surfaceVariant hover:bg-surface-containerLowest hover:text-primary hover:shadow-sm transition-all duration-200',
               !sidebarOpen ? 'justify-center' : 'px-3'
             )}
             aria-label={sidebarOpen ? "收合選單" : "展開選單"}
@@ -488,7 +606,7 @@ export default function Sidebar({
           <button
             onClick={handleLogoutClick}
             className={clsx(
-              'flex items-center h-10 rounded-xl w-full text-red-500 hover:bg-red-50 hover:text-red-600 transition-all duration-200',
+              'flex items-center h-10 rounded-xl w-full text-error hover:bg-error/10 hover:text-error transition-all duration-200',
               !sidebarOpen ? 'justify-center' : 'px-3'
             )}
             title={!sidebarOpen ? "登出" : ""}

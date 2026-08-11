@@ -6,11 +6,11 @@ import type { QuestionOverviewItem } from '@/utils/examAnswerStatus';
 
 const STATUS_CLASS: Record<QuestionOverviewItem['status'], string> = {
   answered: 'bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-200',
-  unanswered: 'bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200',
+  unanswered: 'bg-surface-container text-on-surfaceVariant border-outline-variant/50 hover:bg-surface-containerHigh',
   skipped: 'bg-red-100 text-red-800 border-red-300 hover:bg-red-200',
 };
 
-const ACTIVE_RING = 'ring-2 ring-indigo-500 ring-offset-1';
+const ACTIVE_RING = 'ring-2 ring-primary ring-offset-1';
 
 interface ExamAnswerOverviewProps {
   items: QuestionOverviewItem[];
@@ -71,8 +71,8 @@ export default function ExamAnswerOverview({
           </div>
         )}
 
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
-          <h3 className="text-sm font-bold text-gray-800 mb-2">作答概況</h3>
+        <div className="bg-white rounded-xl border border-outline-variant/40 shadow-sm p-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+          <h3 className="text-sm font-bold text-on-surface mb-2">作答概況</h3>
           <div className="grid grid-cols-5 gap-1.5 mb-3">
             {items.map((item) => (
               <button
@@ -99,13 +99,13 @@ export default function ExamAnswerOverview({
               </button>
             ))}
           </div>
-          <div className="space-y-1 text-[11px] text-gray-500 leading-relaxed">
+          <div className="space-y-1 text-[11px] text-on-surfaceVariant leading-relaxed">
             <p>
               <span className="inline-block w-2.5 h-2.5 rounded-sm bg-emerald-200 border border-emerald-400 mr-1 align-middle" />
               已作答
             </p>
             <p>
-              <span className="inline-block w-2.5 h-2.5 rounded-sm bg-gray-200 border border-gray-400 mr-1 align-middle" />
+              <span className="inline-block w-2.5 h-2.5 rounded-sm bg-surface-containerHigh border border-outline mr-1 align-middle" />
               未作答
             </p>
             <p>
@@ -113,7 +113,7 @@ export default function ExamAnswerOverview({
               標記略過
             </p>
             {!readOnly && (
-              <p className="text-gray-400 pt-1 border-t border-gray-100 mt-2">
+              <p className="text-on-surfaceVariant pt-1 border-t border-outline-variant/40 mt-2">
                 點題號跳轉；連點兩下或右鍵可標記／取消略過
               </p>
             )}

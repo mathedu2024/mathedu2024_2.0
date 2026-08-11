@@ -169,7 +169,7 @@ export default function AttendanceQrDisplay({
       <div className="fixed inset-0 z-[999999] bg-slate-950 text-white flex flex-col animate-fade-in">
         <div className="flex items-center justify-between px-4 sm:px-8 py-4">
           <div className="flex items-center gap-2 font-bold text-lg">
-            <QrCodeIcon className="w-6 h-6 text-indigo-300" />
+            <QrCodeIcon className="w-6 h-6 text-primary/50" />
             QR Code 簽到
           </div>
           <button
@@ -215,9 +215,9 @@ export default function AttendanceQrDisplay({
 
   return (
     <>
-      <div className={`rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4 ${className}`}>
+      <div className={`rounded-2xl border border-primary/20 bg-primary/10 p-4 ${className}`}>
         <div className="flex items-center justify-between gap-3 mb-3">
-          <div className="flex items-center gap-2 text-indigo-800 font-bold">
+          <div className="flex items-center gap-2 text-primary font-bold">
             <QrCodeIcon className="w-5 h-5" />
             QR Code 簽到
           </div>
@@ -225,7 +225,7 @@ export default function AttendanceQrDisplay({
             <button
               type="button"
               onClick={() => setIsFullscreen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary hover:bg-primary-hover text-white text-xs font-bold shadow-sm transition-colors"
             >
               <ArrowsPointingOutIcon className="w-4 h-4" />
               全螢幕
@@ -234,7 +234,7 @@ export default function AttendanceQrDisplay({
         </div>
 
         {loading && !qrDataUrl ? (
-          <div className="h-64 flex items-center justify-center text-sm text-indigo-500">產生簽到 QR 中…</div>
+          <div className="h-64 flex items-center justify-center text-sm text-primary">產生簽到 QR 中…</div>
         ) : error ? (
           <div className="rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm p-4 text-center">
             {error}
@@ -255,17 +255,17 @@ export default function AttendanceQrDisplay({
               <button
                 type="button"
                 onClick={() => setIsFullscreen(true)}
-                className="group relative rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                className="group relative rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 title="點擊全螢幕顯示"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={qrDataUrl}
                   alt="簽到 QR Code"
-                  className="w-64 h-64 sm:w-72 sm:h-72 rounded-xl bg-white p-2 shadow-sm border border-indigo-100"
+                  className="w-64 h-64 sm:w-72 sm:h-72 rounded-xl bg-white p-2 shadow-sm border border-primary/20"
                 />
                 <span className="absolute inset-0 rounded-xl bg-indigo-900/0 group-hover:bg-indigo-900/10 transition-colors flex items-center justify-center">
-                  <span className="opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-white/95 text-indigo-700 text-xs font-bold shadow">
+                  <span className="opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-white/95 text-primary text-xs font-bold shadow">
                     <ArrowsPointingOutIcon className="w-4 h-4" />
                     全螢幕
                   </span>

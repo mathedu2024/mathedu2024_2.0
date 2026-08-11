@@ -120,7 +120,7 @@ export default function QuizAnalyticsPanel({ quiz, teacherId }: QuizAnalyticsPan
               {analytics.fiveMarkStats && (
                 <div className="bg-white rounded-2xl border border-gray-100 p-5">
                   <h3 className="text-sm font-bold text-gray-800 mb-3 flex items-center">
-                    <ChartBarIcon className="w-5 h-5 mr-2 text-indigo-500" />
+                    <ChartBarIcon className="w-5 h-5 mr-2 text-primary" />
                     五標與平均
                   </h3>
                   <div className="overflow-hidden rounded-xl border border-gray-200">
@@ -147,7 +147,7 @@ export default function QuizAnalyticsPanel({ quiz, teacherId }: QuizAnalyticsPan
                     <div key={bucket.range} className="flex-1 flex flex-col items-center gap-1">
                       <span className="text-xs text-gray-600 font-medium">{bucket.count}</span>
                       <div
-                        className="w-full bg-indigo-500 rounded-t-md transition-all min-h-[4px]"
+                        className="w-full bg-primary rounded-t-md transition-all min-h-[4px]"
                         style={{ height: `${(bucket.count / maxBucket) * 100}%` }}
                       />
                       <span className="text-[10px] text-gray-500 text-center">{bucket.range}</span>

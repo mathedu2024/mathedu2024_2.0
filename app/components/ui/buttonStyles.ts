@@ -13,9 +13,9 @@ const tableBtn = 'px-4 py-2 inline-flex items-center justify-center';
 
 /** Type 3 — 表格操作欄按鈕 */
 export const tableActionStyles = {
-  primary: `${tableBtn} bg-indigo-600 text-white ${text} rounded-lg hover:bg-indigo-700 ${transition}`,
+  primary: `${tableBtn} bg-primary text-white ${text} rounded-lg hover:bg-primary-hover ${transition}`,
   success: `${tableBtn} bg-emerald-500 text-white ${text} rounded-lg hover:bg-emerald-600 ${transition}`,
-  secondary: `${tableBtn} bg-white text-indigo-600 border border-indigo-200 ${text} rounded-lg hover:bg-indigo-50 ${transition}`,
+  secondary: `${tableBtn} bg-white text-primary border border-primary/30 ${text} rounded-lg hover:bg-primary-light ${transition}`,
   danger: `${tableBtn} bg-red-500 text-white ${text} rounded-lg hover:bg-red-600 ${transition} disabled:opacity-40 disabled:cursor-not-allowed`,
   dangerSolid: `${tableBtn} bg-red-500 text-white ${text} rounded-lg hover:bg-red-600 ${transition}`,
   dangerOutline: `${tableBtn} bg-white text-red-600 border border-red-200 ${text} rounded-lg hover:bg-red-50 ${transition} disabled:opacity-40 disabled:cursor-not-allowed`,
@@ -30,8 +30,8 @@ export const tableActionRowNowrap = tableActionRow;
 
 /** Type 1 — 頁面級普通按鈕（無 icon） */
 export const btnStyles = {
-  primary: `px-4 py-2 bg-indigo-600 text-white ${text} rounded-lg hover:bg-indigo-700 ${transition}`,
-  secondary: `px-4 py-2 bg-white text-indigo-600 border border-indigo-200 ${text} rounded-lg hover:bg-indigo-50 ${transition}`,
+  primary: `px-4 py-2 bg-primary text-white ${text} rounded-lg hover:bg-primary-hover ${transition}`,
+  secondary: `px-4 py-2 bg-white text-primary border border-primary/30 ${text} rounded-lg hover:bg-primary-light ${transition}`,
   ghost: `px-4 py-2 text-gray-500 ${text} rounded-lg hover:text-gray-700 hover:bg-gray-50 ${transition}`,
   danger: `px-4 py-2 bg-white text-red-600 border border-red-200 ${text} rounded-lg hover:bg-red-50 ${transition}`,
   dangerSolid: `px-4 py-2 bg-red-500 text-white ${text} rounded-lg hover:bg-red-600 ${transition}`,
@@ -50,7 +50,7 @@ export function btnWithIconStyle(style: string) {
 
 /** 小型文字按鈕（篩選重設等） */
 export const btnSmall = {
-  ghost: `text-xs font-medium text-gray-500 hover:text-indigo-600 px-3 py-1.5 hover:bg-white rounded-lg transition-colors`,
+  ghost: `text-xs font-medium text-gray-500 hover:text-primary px-3 py-1.5 hover:bg-white rounded-lg transition-colors`,
 } as const;
 
 /** 返回按鈕（Type 2 導覽，尺寸與表格操作 secondary 一致） */

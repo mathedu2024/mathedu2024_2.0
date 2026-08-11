@@ -35,6 +35,34 @@ export function getCourseDisplayStatus(course: CourseListFilterFields): string {
   return course.status || '—';
 }
 
+/** 教師端卡片／篩選：已發布、草稿、已封存 */
+export type TeacherCourseBucket = '已發布' | '草稿' | '已封存';
+
+export function isTeacherCourseDraft(course: CourseListFilterFields): boolean {
+  if (isCourseArchived(course)) return false;
+  const s = course.status || '';
+  return s === '未開課' || s === '資料建置中...' || s === '草稿';
+}
+
+export function getTeacherCourseBucket(course: CourseListFilterFields): TeacherCourseBucket {
+  if (isCourseArchived(course) || course.status === '已封存') return '已封存';
+  if (isTeacherCourseDraft(course)) return '草稿';
+  return '已發布';
+}
+
+export function getTeacherCourseBucketBadgeClass(bucket: TeacherCourseBucket): string {
+  switch (bucket) {
+    case '已發布':
+      return 'bg-secondary-container/40 text-secondary border border-secondary/20';
+    case '草稿':
+      return 'bg-surface-containerHigh text-on-surfaceVariant border border-outline-variant';
+    case '已封存':
+      return 'bg-error/10 text-error border border-error/20';
+    default:
+      return 'bg-surface-container text-on-surfaceVariant';
+  }
+}
+
 function parseEnrolledCourseKey(key: string): { name: string; code: string } | null {
   const trimmed = key.trim();
   const half = trimmed.match(/^(.+)\(([^()]+)\)$/);
@@ -91,6 +119,10 @@ export function matchesCourseListFilters(
     statusMatch = !archived;
   } else if (selectedStatus === '已封存') {
     statusMatch = archived;
+  } else if (selectedStatus === '已發布') {
+    statusMatch = !archived && !isTeacherCourseDraft(course);
+  } else if (selectedStatus === '草稿' || selectedStatus === '草稿箱') {
+    statusMatch = !archived && isTeacherCourseDraft(course);
   } else {
     statusMatch = course.status === selectedStatus && !archived;
   }
@@ -155,7 +187,7 @@ export function getCourseStatusColor(status: string) {
     case '報名中':
       return 'bg-emerald-100 text-emerald-800 border border-emerald-200';
     case '開課中':
-      return 'bg-indigo-100 text-indigo-800 border border-indigo-200';
+      return 'bg-primary/10 text-primary border border-primary/30';
     case '已額滿':
       return 'bg-rose-100 text-rose-800 border border-rose-200';
     case '未開課':
@@ -179,18 +211,18 @@ export const courseListTableStyles = {
     table: 'w-full text-sm text-left text-gray-500',
     thead: 'text-xs text-gray-700 uppercase bg-gray-50',
     th: 'px-6 py-4 font-bold',
-    row: 'hover:bg-indigo-50/30 transition-colors',
+    row: 'hover:bg-primary/5 transition-colors',
     courseName: 'font-bold text-gray-900 text-base',
     courseCode: 'text-sm font-mono text-gray-500 mt-1',
     teacherAvatar:
-      'w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mr-3 text-sm font-bold shrink-0',
+      'w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-3 text-sm font-bold shrink-0',
     teacherName: 'truncate min-w-0 flex-1 text-sm',
     studentCount:
       'inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-gray-100 text-gray-800',
     classTimesCell: 'px-6 py-4 text-gray-600',
     classTimes: 'line-clamp-2 text-sm leading-relaxed',
     meetingLink:
-      'inline-flex items-center text-indigo-600 hover:text-indigo-800 transition-colors bg-indigo-50 hover:bg-indigo-100 p-2 rounded-lg text-sm font-bold',
+      'inline-flex items-center text-primary hover:text-primary transition-colors bg-primary/10 hover:bg-primary/10 p-2 rounded-lg text-sm font-bold',
     meetingEmpty: 'text-gray-400 text-sm',
     statusBadge: 'px-3 py-1 rounded-full text-sm font-bold',
     actionPrimary: tableActionStyles.primary,
@@ -208,14 +240,14 @@ export const courseListTableStyles = {
     courseCode: 'text-sm font-mono text-gray-500 mb-2',
     statusBadge: 'inline-block px-3 py-1 rounded-full text-xs font-bold',
     meetingLink:
-      'inline-flex items-center justify-center w-full py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-sm font-bold transition-colors',
+      'inline-flex items-center justify-center w-full py-2 bg-primary/10 text-primary hover:bg-primary/10 rounded-lg text-sm font-bold transition-colors',
     actionPrimary:
-      'flex-1 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors shadow-sm',
+      'flex-1 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover transition-colors shadow-sm',
     actionDisabled:
       'flex-1 py-2 bg-gray-100 text-gray-400 text-sm font-medium rounded-lg border border-gray-200 cursor-not-allowed',
     actionSuccess:
       'flex-1 py-2 bg-emerald-500 text-white text-sm font-medium rounded-lg hover:bg-emerald-600 transition-colors shadow-sm flex justify-center items-center',
     actionSecondary:
-      'flex-1 py-2 bg-white text-indigo-600 border border-indigo-200 text-sm font-medium rounded-lg hover:bg-indigo-50 transition-colors shadow-sm',
+      'flex-1 py-2 bg-white text-primary border border-primary/30 text-sm font-medium rounded-lg hover:bg-primary/10 transition-colors shadow-sm',
   },
 } as const;

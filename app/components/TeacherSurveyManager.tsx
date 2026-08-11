@@ -122,7 +122,7 @@ export default function TeacherSurveyManager({
       })
       .catch(() => {
         if (!cancelled) {
-          void Swal.fire({ icon: 'error', title: '載入失敗', confirmButtonColor: '#4f46e5' });
+          void Swal.fire({ icon: 'error', title: '載入失敗', confirmButtonColor: '#2D6DF6' });
           router.push(surveysHubReturnTo);
         }
       })
@@ -181,9 +181,9 @@ export default function TeacherSurveyManager({
   return (
     <div className="page-shell w-full min-w-0">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-0">
-        <div className="border-l-4 border-indigo-500 pl-4">
+        <div className="border-l-4 border-primary pl-4">
           <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-            <ClipboardDocumentListIcon className="h-8 w-8 text-indigo-600" />
+            <ClipboardDocumentListIcon className="h-8 w-8 text-primary" />
             {title}
           </h1>
           <p className="text-gray-500 text-sm mt-1">{subtitle}</p>

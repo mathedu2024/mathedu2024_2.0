@@ -18,8 +18,8 @@ import StudentGradeViewer from '@/components/StudentGradeViewer';
 import { sortQuizzesByOrder } from '@/services/quizTypes';
 import { sortSurveysByOrder } from '@/services/surveyTypes';
 import { canStartExamTake } from '@/utils/examDraftStorage';
-import { openStudentExamReviewInNewTab } from '@/utils/examAttemptLabel';
-import { openStudentSurveyReviewInNewTab } from '@/utils/surveyAttemptLabel';
+import { openStudentExamReviewInNewTab, buildStudentExamStartUrl } from '@/utils/examAttemptLabel';
+import { buildStudentSurveyStartUrl } from '@/utils/surveyAttemptLabel';
 import { showExamTakeBlockedAlert } from '@/utils/examTakeAlerts';
 import { fetchQuizByCode, fetchSurveyByCode } from '@/utils/teacherClientApi';
 import { openBlankPreviewTab, openTeacherExamPreviewInNewTab } from '@/utils/teacherExamPreview';
@@ -30,6 +30,7 @@ import BackButton from '@/components/ui/BackButton';
 import CourseHubTabNav, {
   STUDENT_COURSE_HUB_TAB_IDS,
   CourseHubFeatureIcon,
+  courseHubFeatureListStyles,
 } from '@/components/CourseHubTabNav';
 import 'react-quill-new/dist/quill.snow.css';
 
@@ -199,28 +200,28 @@ function FeatureListCard({
       tabIndex={onClick ? 0 : undefined}
       onClick={onClick}
       onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
-      className={`w-full text-left bg-white border-2 border-gray-200 rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all duration-300 group ${onClick ? 'cursor-pointer' : ''}`}
+      className={`${courseHubFeatureListStyles.row} ${onClick ? 'cursor-pointer' : ''}`}
     >
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 min-h-[2.5rem]">
         <div className="min-w-0 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
-          <div className="hidden sm:flex flex-shrink-0 w-10 h-10 bg-indigo-50 rounded-full items-center justify-center text-indigo-600 font-bold">
+          <div className="hidden sm:flex flex-shrink-0 w-10 h-10 bg-primary/10 rounded-full items-center justify-center text-primary font-bold">
             {icon}
           </div>
           {mobileIcon && (
-            <div className="sm:hidden inline-block w-fit bg-indigo-50 text-indigo-600 font-bold text-xs px-2.5 py-1 rounded-md mb-1">
+            <div className="sm:hidden inline-block w-fit bg-primary/10 text-primary font-bold text-xs px-2.5 py-1 rounded-md mb-1">
               {mobileIcon}
             </div>
           )}
           {!mobileIcon && (
-            <div className="sm:hidden inline-flex w-fit bg-indigo-50 text-indigo-600 items-center justify-center rounded-md p-1.5 mb-1">
+            <div className="sm:hidden inline-flex w-fit bg-primary/10 text-primary items-center justify-center rounded-md p-1.5 mb-1">
               {icon}
             </div>
           )}
           <div className="min-w-0">
-            <h4 className="text-base sm:text-lg font-bold text-gray-900 group-hover:text-indigo-600 transition-colors line-clamp-2 sm:line-clamp-1 leading-7">
+            <h4 className="text-base sm:text-lg font-bold text-on-surface group-hover:text-primary transition-colors line-clamp-2 sm:line-clamp-1 leading-7">
               {title}
             </h4>
-            <div className="text-sm text-gray-500 mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 min-h-[1.25rem]">
+            <div className="text-sm text-on-surfaceVariant mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 min-h-[1.25rem]">
               {meta}
             </div>
           </div>
@@ -238,14 +239,8 @@ function FeatureListCard({
   );
 }
 
-const featurePrimaryBtn =
-  'inline-flex items-center justify-center bg-white border-2 border-gray-100 text-gray-600 px-5 py-2.5 sm:py-2 rounded-xl hover:bg-indigo-600 hover:text-white hover:border-indigo-600 text-sm font-bold transition-all shadow-sm active:scale-95 whitespace-nowrap';
-const featureSecondaryBtn =
-  'inline-flex items-center justify-center bg-white border-2 border-gray-100 text-gray-600 px-5 py-2.5 sm:py-2 rounded-xl hover:bg-gray-50 hover:border-gray-200 text-sm font-bold transition-all shadow-sm whitespace-nowrap';
-const featureDisabledBtn =
-  'inline-flex items-center justify-center bg-gray-50 border-2 border-gray-100 text-gray-300 px-5 py-2.5 sm:py-2 rounded-xl text-sm font-bold cursor-not-allowed whitespace-nowrap';
 const featureEmptyState =
-  'text-center min-h-[220px] sm:min-h-[280px] flex flex-col items-center justify-center bg-white rounded-xl border-2 border-dashed border-gray-300 px-4 shadow-sm';
+  'text-center min-h-[220px] sm:min-h-[280px] flex flex-col items-center justify-center bg-white rounded-xl border-2 border-dashed border-outline-variant/50 px-4 shadow-sm';
 
 function LessonDetail({
   lesson,
@@ -260,6 +255,21 @@ function LessonDetail({
   router: ReturnType<typeof useRouter>;
   previewMode?: boolean;
 }) {
+  const openLessonDetail = () => {
+    const lessonData = { ...lesson, courseName: resolvedCourse?.name, courseCode: resolvedCourse?.code, courseId: resolvedCourse?.id, lessonIndex: index + 1 };
+    localStorage.setItem('currentLesson', JSON.stringify(lessonData));
+    const courseCode = resolvedCourse?.code || resolvedCourse?.id;
+    const currentUrl = courseCode
+      ? buildCourseTabUrl(courseCode, 'lessons', previewMode)
+      : previewMode
+        ? '/back-panel/teacher-courses'
+        : '/student/courses';
+    const detailPath = previewMode
+      ? `/back-panel/teacher-courses/preview/lesson?returnTo=${encodeURIComponent(currentUrl)}`
+      : `/student/lesson-detail?returnTo=${encodeURIComponent(currentUrl)}`;
+    router.push(detailPath);
+  };
+
   return (
     <FeatureListCard
       icon={<CourseHubFeatureIcon id="lessons" />}
@@ -276,28 +286,7 @@ function LessonDetail({
           {lesson.date || '日期未定'}
         </span>
       }
-      actions={
-        <button
-          type="button"
-          onClick={() => {
-            const lessonData = { ...lesson, courseName: resolvedCourse?.name, courseCode: resolvedCourse?.code, courseId: resolvedCourse?.id, lessonIndex: index + 1 };
-            localStorage.setItem('currentLesson', JSON.stringify(lessonData));
-            const courseCode = resolvedCourse?.code || resolvedCourse?.id;
-            const currentUrl = courseCode
-              ? buildCourseTabUrl(courseCode, 'lessons', previewMode)
-              : previewMode
-                ? '/back-panel/teacher-courses'
-                : '/student/courses';
-            const detailPath = previewMode
-              ? `/back-panel/teacher-courses/preview/lesson?returnTo=${encodeURIComponent(currentUrl)}`
-              : `/student/lesson-detail?returnTo=${encodeURIComponent(currentUrl)}`;
-            router.push(detailPath);
-          }}
-          className={featurePrimaryBtn}
-        >
-          查看內容
-        </button>
-      }
+      onClick={openLessonDetail}
     />
   );
 }
@@ -316,11 +305,11 @@ const Pagination = ({ currentPage, totalPages, setCurrentPage }: { currentPage: 
   }
   return (
     <div className="flex items-center justify-center gap-1.5 sm:gap-2 mt-6 sm:mt-8 flex-wrap">
-      <button onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} disabled={currentPage === 1} className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm ${currentPage === 1 ? 'bg-gray-50 text-gray-300 border border-gray-200 cursor-not-allowed shadow-none' : 'bg-white text-gray-600 hover:bg-indigo-50 border border-gray-200 hover:text-indigo-600'}`}><ChevronLeftIcon className="w-5 h-5 stroke-2" /></button>
-      {startPage > 1 && (<><button onClick={() => setCurrentPage(1)} className="w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 border border-gray-200">1</button>{startPage > 2 && <span className="px-1 sm:px-2 text-gray-400">...</span>}</>)}
-      {pageNumbers.map(number => (<button key={number} onClick={() => setCurrentPage(number)} className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm ${currentPage === number ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 border border-indigo-600' : 'bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 border border-gray-200'}`}>{number}</button>))}
-      {endPage < totalPages && (<>{endPage < totalPages - 1 && <span className="px-1 sm:px-2 text-gray-400">...</span>}<button onClick={() => setCurrentPage(totalPages)} className="w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 border border-gray-200">{totalPages}</button></>)}
-      <button onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))} disabled={currentPage === totalPages} className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm ${currentPage === totalPages ? 'bg-gray-50 text-gray-300 border border-gray-200 cursor-not-allowed shadow-none' : 'bg-white text-gray-600 hover:bg-indigo-50 border border-gray-200 hover:text-indigo-600'}`}><ChevronRightIcon className="w-5 h-5 stroke-2" /></button>
+      <button onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} disabled={currentPage === 1} className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm ${currentPage === 1 ? 'bg-surface text-outline border border-outline-variant/40 cursor-not-allowed shadow-none' : 'bg-white text-on-surfaceVariant hover:bg-primary/10 border border-outline-variant/40 hover:text-primary'}`}><ChevronLeftIcon className="w-5 h-5 stroke-2" /></button>
+      {startPage > 1 && (<><button onClick={() => setCurrentPage(1)} className="w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm bg-white text-on-surfaceVariant hover:bg-primary/10 hover:text-primary border border-outline-variant/40">1</button>{startPage > 2 && <span className="px-1 sm:px-2 text-on-surfaceVariant">...</span>}</>)}
+      {pageNumbers.map(number => (<button key={number} onClick={() => setCurrentPage(number)} className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm ${currentPage === number ? 'bg-primary text-white shadow-md shadow-primary/20 border border-primary' : 'bg-white text-on-surfaceVariant hover:bg-primary/10 hover:text-primary border border-outline-variant/40'}`}>{number}</button>))}
+      {endPage < totalPages && (<>{endPage < totalPages - 1 && <span className="px-1 sm:px-2 text-on-surfaceVariant">...</span>}<button onClick={() => setCurrentPage(totalPages)} className="w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm bg-white text-on-surfaceVariant hover:bg-primary/10 hover:text-primary border border-outline-variant/40">{totalPages}</button></>)}
+      <button onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))} disabled={currentPage === totalPages} className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm ${currentPage === totalPages ? 'bg-surface text-outline border border-outline-variant/40 cursor-not-allowed shadow-none' : 'bg-white text-on-surfaceVariant hover:bg-primary/10 border border-outline-variant/40 hover:text-primary'}`}><ChevronRightIcon className="w-5 h-5 stroke-2" /></button>
     </div>
   );
 };
@@ -796,6 +785,18 @@ export default function StudentCoursesContent({
     [courseExams]
   );
 
+  const examsBackHref = useMemo(() => {
+    const code = resolvedCourse?.code || courseCodeFromUrl;
+    if (!code) return undefined;
+    return buildCourseTabUrl(code, 'exams', previewMode);
+  }, [resolvedCourse?.code, courseCodeFromUrl, previewMode]);
+
+  const surveysBackHref = useMemo(() => {
+    const code = resolvedCourse?.code || courseCodeFromUrl;
+    if (!code) return undefined;
+    return buildCourseTabUrl(code, 'surveys', previewMode);
+  }, [resolvedCourse?.code, courseCodeFromUrl, previewMode]);
+
   const openStartModal = useCallback(
     async (exam: StudentExamListItem, mode: 'start' | 'retake') => {
       if (previewMode) {
@@ -830,9 +831,14 @@ export default function StudentCoursesContent({
         });
         if (alertResult !== 'retry-allowed') return;
       }
-      setStartModal({ exam, mode });
+      router.push(
+        buildStudentExamStartUrl(exam.quizCode, {
+          mode,
+          from: examsBackHref,
+        })
+      );
     },
-    [studentInfo?.id, resolveExamTitle, previewMode]
+    [studentInfo?.id, resolveExamTitle, previewMode, router, examsBackHref]
   );
 
   const openSurveyStart = useCallback(
@@ -856,16 +862,15 @@ export default function StudentCoursesContent({
         }
         return;
       }
-      setSurveyStartModal({ survey, mode });
+      router.push(
+        buildStudentSurveyStartUrl(survey.surveyCode, {
+          mode,
+          from: surveysBackHref,
+        })
+      );
     },
-    [previewMode]
+    [previewMode, router, surveysBackHref]
   );
-
-  const examsBackHref = useMemo(() => {
-    const code = resolvedCourse?.code || courseCodeFromUrl;
-    if (!code) return undefined;
-    return buildCourseTabUrl(code, 'exams', previewMode);
-  }, [resolvedCourse?.code, courseCodeFromUrl, previewMode]);
 
   const openHistory = useCallback((exam: StudentExamListItem) => {
     if (previewMode) {
@@ -943,16 +948,30 @@ export default function StudentCoursesContent({
     }
 
     if (activeCourseTab === 'exams' && examIdFromUrl && !loadingExams) {
-      const target = courseExams.find((e) => e.id === examIdFromUrl);
+      const target = courseExams.find(
+        (e) => e.id === examIdFromUrl || e.quizCode === examIdFromUrl
+      );
       if (target) {
         deepLinkHandledRef.current = handleKey;
         if (reviewFromUrl && target.submitted) {
           openHistory(target);
-        } else {
+          router.replace(buildCourseTabUrl(resolvedCourse.code, 'exams', previewMode), { scroll: false });
+        } else if (previewMode) {
           const isRetake = target.submitted && target.canRetake;
           void openStartModal(target, isRetake ? 'retake' : 'start');
+          router.replace(buildCourseTabUrl(resolvedCourse.code, 'exams', previewMode), { scroll: false });
+        } else {
+          const isRetake = target.submitted && target.canRetake;
+          const from = resolvedCourse.code
+            ? buildCourseTabUrl(resolvedCourse.code, 'exams', previewMode)
+            : undefined;
+          router.replace(
+            buildStudentExamStartUrl(target.quizCode, {
+              mode: isRetake ? 'retake' : 'start',
+              from,
+            })
+          );
         }
-        router.replace(buildCourseTabUrl(resolvedCourse.code, 'exams', previewMode), { scroll: false });
       } else if (!loadingExams) {
         deepLinkHandledRef.current = handleKey;
         router.replace(buildCourseTabUrl(resolvedCourse.code, 'exams', previewMode), { scroll: false });
@@ -961,12 +980,27 @@ export default function StudentCoursesContent({
     }
 
     if (activeCourseTab === 'surveys' && surveyIdFromUrl && !loadingSurveys) {
-      const target = courseSurveys.find((s) => s.id === surveyIdFromUrl);
+      const target = courseSurveys.find(
+        (s) => s.id === surveyIdFromUrl || s.surveyCode === surveyIdFromUrl
+      );
       if (target) {
         deepLinkHandledRef.current = handleKey;
-        const isRetake = target.submitted && target.canRetake;
-        void openSurveyStart(target, isRetake ? 'retake' : 'start');
-        router.replace(buildCourseTabUrl(resolvedCourse.code, 'surveys', previewMode), { scroll: false });
+        if (previewMode) {
+          const isRetake = target.submitted && target.canRetake;
+          void openSurveyStart(target, isRetake ? 'retake' : 'start');
+          router.replace(buildCourseTabUrl(resolvedCourse.code, 'surveys', previewMode), { scroll: false });
+        } else {
+          const isRetake = target.submitted && target.canRetake;
+          const from = resolvedCourse.code
+            ? buildCourseTabUrl(resolvedCourse.code, 'surveys', previewMode)
+            : undefined;
+          router.replace(
+            buildStudentSurveyStartUrl(target.surveyCode, {
+              mode: isRetake ? 'retake' : 'start',
+              from,
+            })
+          );
+        }
       } else if (!loadingSurveys) {
         deepLinkHandledRef.current = handleKey;
         router.replace(buildCourseTabUrl(resolvedCourse.code, 'surveys', previewMode), { scroll: false });
@@ -1022,7 +1056,7 @@ export default function StudentCoursesContent({
   const getAttendanceStatusPill = (status: string | undefined, leaveType?: string) => {
     if (!status) {
       return (
-        <span className="inline-flex items-center justify-center px-5 py-2 text-sm font-bold text-gray-400">
+        <span className="inline-flex items-center justify-center px-5 py-2 text-sm font-bold text-on-surfaceVariant">
           未記錄
         </span>
       );
@@ -1033,7 +1067,7 @@ export default function StudentCoursesContent({
       absent: { text: '曠課', styles: 'text-red-700 bg-red-50 border-red-100' },
       leave: { text: '請假', styles: 'text-purple-700 bg-purple-50 border-purple-100' },
     };
-    const config = statusMap[status] || { text: status, styles: 'text-gray-700 bg-gray-50 border-gray-100' };
+    const config = statusMap[status] || { text: status, styles: 'text-on-surface bg-surface border-outline-variant/40' };
     const displayText = status === 'leave' && leaveType ? leaveType : config.text;
     return (
       <span className={`inline-flex items-center justify-center px-5 py-2 text-sm font-bold border-2 rounded-xl ${config.styles}`}>
@@ -1048,14 +1082,14 @@ export default function StudentCoursesContent({
 
       {/* Header Area */}
       <div className={`flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 ${courseCodeFromUrl ? 'mb-0' : 'mb-8'}`}>
-        <div className="border-l-4 border-indigo-500 pl-4">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-800 flex items-center gap-2 sm:gap-3 min-w-0">
-            <BookOpenIcon className="h-7 w-7 sm:h-8 sm:w-8 text-indigo-600 shrink-0" />
+        <div className="border-l-4 border-primary pl-4">
+          <h1 className="font-display text-xl sm:text-2xl font-extrabold text-on-surface flex items-center gap-2 sm:gap-3 min-w-0">
+            <BookOpenIcon className="h-7 w-7 sm:h-8 sm:w-8 text-primary shrink-0" />
             <span className="truncate">
               {courseCodeFromUrl && resolvedCourse ? resolvedCourse.name : '我的課程'}
             </span>
           </h1>
-          <p className="text-gray-500 text-sm mt-1 break-all">
+          <p className="text-on-surfaceVariant text-sm mt-1 break-all">
             {courseCodeFromUrl && resolvedCourse
               ? resolvedCourse.code
               : '查看課程內容與進度'}
@@ -1081,9 +1115,9 @@ export default function StudentCoursesContent({
       {!courseCodeFromUrl && loadingCourses && courses.length === 0 && <PageLoadingArea />}
 
       {!courseCodeFromUrl && !loadingCourses && courses.length === 0 && (
-        <div className="text-center py-16 px-6 bg-white rounded-2xl border border-dashed border-gray-300">
-          <h3 className="mt-2 text-xl font-bold text-gray-900">尚無課程</h3>
-          <p className="text-gray-500 mt-2">您目前還沒有選擇任何課程</p>
+        <div className="text-center py-16 px-6 bg-white rounded-2xl border border-dashed border-outline-variant/50">
+          <h3 className="mt-2 text-xl font-bold text-on-surface">尚無課程</h3>
+          <p className="text-on-surfaceVariant mt-2">您目前還沒有選擇任何課程</p>
         </div>
       )}
 
@@ -1099,23 +1133,23 @@ export default function StudentCoursesContent({
       {showMainLoading && <PageLoadingArea />}
 
       {!showMainLoading && !effectiveSelectedCourse && !loadingCourses && courses.length === 0 && courseCodeFromUrl && (
-        <div className="text-center py-16 px-6 bg-white rounded-2xl border border-dashed border-gray-300">
-          <h3 className="mt-2 text-xl font-bold text-gray-900">尚無課程</h3>
-          <p className="text-gray-500 mt-2">您目前還沒有選擇任何課程</p>
+        <div className="text-center py-16 px-6 bg-white rounded-2xl border border-dashed border-outline-variant/50">
+          <h3 className="mt-2 text-xl font-bold text-on-surface">尚無課程</h3>
+          <p className="text-on-surfaceVariant mt-2">您目前還沒有選擇任何課程</p>
         </div>
       )}
 
       {!showMainLoading && isResolvedCourseArchived && courseCodeFromUrl && (
-        <div className="text-center py-16 px-6 bg-white rounded-2xl border border-dashed border-gray-300">
-          <h3 className="mt-2 text-xl font-bold text-gray-900">此課程已封存</h3>
-          <p className="text-gray-500 mt-2">您可以在課程清單中查看此課程，但無法進入課程內容。</p>
+        <div className="text-center py-16 px-6 bg-white rounded-2xl border border-dashed border-outline-variant/50">
+          <h3 className="mt-2 text-xl font-bold text-on-surface">此課程已封存</h3>
+          <p className="text-on-surfaceVariant mt-2">您可以在課程清單中查看此課程，但無法進入課程內容。</p>
         </div>
       )}
 
       {!showMainLoading && resolvedCourse && courseCodeFromUrl && !isResolvedCourseArchived && (
             <div className="animate-fade-in space-y-6">
               {/* 分頁列（獨立） */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 px-3 sm:px-6">
+              <div className="bg-white rounded-2xl shadow-sm border border-outline-variant/40 px-3 sm:px-6">
                 <CourseHubTabNav
                   tabs={STUDENT_COURSE_HUB_TAB_IDS}
                   active={activeCourseTab}
@@ -1125,14 +1159,14 @@ export default function StudentCoursesContent({
               </div>
 
               {activeCourseTab === 'info' && (
-              <div className="bg-gradient-to-r from-indigo-600 to-blue-600 rounded-2xl shadow-xl p-4 sm:p-6 md:p-8 text-white relative overflow-hidden">
+              <div className="bg-gradient-to-r from-primary to-tertiary rounded-2xl shadow-xl p-4 sm:p-6 md:p-8 text-white relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl -mt-20 -mr-20"></div>
                 
                 <div className="relative z-10">
                     <div className="mb-4 sm:mb-6 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
                     <div className="min-w-0">
-                        <h3 className="text-xl sm:text-2xl md:text-3xl font-bold mb-2 tracking-tight break-words">{resolvedCourse.name}</h3>
-                        <p className="text-indigo-100 font-mono text-sm sm:text-lg opacity-80 break-all">{resolvedCourse.code}</p>
+                        <h3 className="font-display text-xl sm:text-2xl md:text-3xl font-extrabold mb-2 tracking-tight break-words">{resolvedCourse.name}</h3>
+                        <p className="text-primary-fixed font-mono text-sm sm:text-lg opacity-80 break-all">{resolvedCourse.code}</p>
                     </div>
                     <div>
                         <span className="px-4 py-1.5 rounded-full text-sm font-bold bg-white/20 backdrop-blur-md text-white border border-white/30 shadow-sm">
@@ -1141,7 +1175,7 @@ export default function StudentCoursesContent({
                     </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 text-indigo-50">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 text-primary-fixed">
                     <div className="flex items-start">
                         <ClockIcon className="w-5 h-5 mr-3 mt-0.5 opacity-70" />
                         <div>
@@ -1185,7 +1219,7 @@ export default function StudentCoursesContent({
                                 href={resolvedCourse.liveStreamURL} 
                                 target="_blank" 
                                 rel="noopener noreferrer" 
-                                className="inline-flex items-center gap-2 w-full sm:w-auto sm:min-w-[160px] px-5 py-2.5 bg-white text-indigo-600 rounded-xl font-bold text-sm hover:bg-indigo-50 transition-colors shadow-lg shadow-indigo-900/20"
+                                className="inline-flex items-center gap-2 w-full sm:w-auto sm:min-w-[160px] px-5 py-2.5 bg-white text-primary rounded-xl font-bold text-sm hover:bg-primary/10 transition-colors shadow-lg shadow-primary/20"
                              >
                                 <VideoCameraIcon className="w-5 h-5 shrink-0" />
                                 <span className="flex-1 text-center">進入線上會議</span>
@@ -1197,7 +1231,7 @@ export default function StudentCoursesContent({
                                 href={link.url} 
                                 target="_blank" 
                                 rel="noopener noreferrer" 
-                                className="inline-flex items-center gap-2 w-full sm:w-auto sm:min-w-[160px] px-5 py-2.5 bg-white text-indigo-600 rounded-xl font-bold text-sm hover:bg-indigo-50 transition-colors shadow-lg shadow-indigo-900/20"
+                                className="inline-flex items-center gap-2 w-full sm:w-auto sm:min-w-[160px] px-5 py-2.5 bg-white text-primary rounded-xl font-bold text-sm hover:bg-primary/10 transition-colors shadow-lg shadow-primary/20"
                              >
                                 {renderIcon(link.icon, "w-5 h-5 shrink-0")}
                                 <span className="flex-1 text-center">{link.name}</span>
@@ -1219,11 +1253,11 @@ export default function StudentCoursesContent({
                       </div>
                     ) : lessons.length === 0 ? (
                       <div className={featureEmptyState}>
-                        <BookOpenIcon className="w-12 h-12 mb-3 text-gray-300" />
-                        <p className="text-gray-500 font-medium">此課程尚未發布任何內容</p>
+                        <BookOpenIcon className="w-12 h-12 mb-3 text-outline" />
+                        <p className="text-on-surfaceVariant font-medium">此課程尚未發布任何內容</p>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 gap-4">
+                      <div className={courseHubFeatureListStyles.shell}>
                         {lessons.map((lesson, index) => (
                           <LessonDetail
                             key={lesson.id}
@@ -1246,7 +1280,7 @@ export default function StudentCoursesContent({
                         <PageLoadingArea />
                       </div>
                     ) : activeAnnouncements.length > 0 ? (
-                      <div className="grid grid-cols-1 gap-4">
+                      <div className={courseHubFeatureListStyles.shell}>
                           {sortedAnnouncements.map(ann => (
                             <FeatureListCard
                               key={ann.id}
@@ -1258,22 +1292,14 @@ export default function StudentCoursesContent({
                                   {new Date(ann.createdAt).toLocaleDateString()}
                                 </span>
                               }
-                              actions={
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedAnnouncement(ann)}
-                                  className={featurePrimaryBtn}
-                                >
-                                  查看公告
-                                </button>
-                              }
+                              onClick={() => setSelectedAnnouncement(ann)}
                             />
                           ))}
                       </div>
                     ) : (
                       <div className={featureEmptyState}>
-                        <MegaphoneIcon className="w-12 h-12 mb-3 text-gray-300" />
-                        <p className="text-gray-500 font-medium">目前沒有課程公告</p>
+                        <MegaphoneIcon className="w-12 h-12 mb-3 text-outline" />
+                        <p className="text-on-surfaceVariant font-medium">目前沒有課程公告</p>
                       </div>
                     )}
                   </div>
@@ -1287,14 +1313,13 @@ export default function StudentCoursesContent({
                       </div>
                     ) : courseExams.length === 0 ? (
                       <div className={featureEmptyState}>
-                        <ClipboardDocumentCheckIcon className="w-12 h-12 mb-3 text-gray-300" />
-                        <p className="text-gray-500 font-medium">目前沒有線上測驗</p>
+                        <ClipboardDocumentCheckIcon className="w-12 h-12 mb-3 text-outline" />
+                        <p className="text-on-surfaceVariant font-medium">目前沒有線上測驗</p>
                       </div>
                     ) : (
                       <>
-                        <div className="grid grid-cols-1 gap-4">
+                        <div className={courseHubFeatureListStyles.shell}>
                           {currentExams.map((exam) => {
-                            const canStart = exam.accessible && (!exam.submitted || exam.canRetake);
                             const isRetake = exam.submitted && exam.canRetake;
                             const windowEnded = !!exam.windowEnded || exam.windowPhase === 'ended';
                             const windowUpcoming = exam.windowPhase === 'upcoming';
@@ -1322,40 +1347,7 @@ export default function StudentCoursesContent({
                                     </span>
                                   </>
                                 }
-                                actions={
-                                  <>
-                                    {exam.submitted && (
-                                      <button type="button" onClick={() => openHistory(exam)} className={featureSecondaryBtn}>
-                                        作答紀錄
-                                      </button>
-                                    )}
-                                    {canStart && !windowEnded ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => void openStartModal(exam, isRetake ? 'retake' : 'start')}
-                                        className={featurePrimaryBtn}
-                                      >
-                                        {previewMode
-                                          ? '預覽作答'
-                                          : isRetake
-                                            ? '再次作答'
-                                            : '開始作答'}
-                                      </button>
-                                    ) : windowUpcoming && !exam.submitted ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => void openStartModal(exam, 'start')}
-                                        className={featurePrimaryBtn}
-                                      >
-                                        查看詳情
-                                      </button>
-                                    ) : !exam.submitted ? (
-                                      <button type="button" disabled className={featureDisabledBtn}>
-                                        {windowEnded ? '已截止' : '無法作答'}
-                                      </button>
-                                    ) : null}
-                                  </>
-                                }
+                                onClick={() => void openStartModal(exam, isRetake ? 'retake' : 'start')}
                               />
                             );
                           })}
@@ -1374,13 +1366,12 @@ export default function StudentCoursesContent({
                       </div>
                     ) : courseSurveys.length === 0 ? (
                       <div className={featureEmptyState}>
-                        <ClipboardDocumentListIcon className="w-12 h-12 mb-3 text-gray-300" />
-                        <p className="text-gray-500 font-medium">目前沒有課程問卷</p>
+                        <ClipboardDocumentListIcon className="w-12 h-12 mb-3 text-outline" />
+                        <p className="text-on-surfaceVariant font-medium">目前沒有課程問卷</p>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 gap-4">
+                      <div className={courseHubFeatureListStyles.shell}>
                         {courseSurveys.map((survey) => {
-                          const canFill = survey.accessible && (!survey.submitted || survey.canRetake);
                           const windowEnded = !!survey.windowEnded || survey.windowPhase === 'ended';
                           const windowUpcoming = survey.windowPhase === 'upcoming';
                           const isRetake = survey.submitted && survey.canRetake;
@@ -1407,49 +1398,8 @@ export default function StudentCoursesContent({
                                   </span>
                                 </>
                               }
-                              actions={
-                                <>
-                                  {survey.canViewResponse && (
-                                    <button
-                                      type="button"
-                                      onClick={() => openStudentSurveyReviewInNewTab(survey.surveyCode)}
-                                      className={featureSecondaryBtn}
-                                    >
-                                      查看填寫
-                                    </button>
-                                  )}
-                                  {canFill && !windowEnded ? (
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        void openSurveyStart(survey, isRetake ? 'retake' : 'start')
-                                      }
-                                      className={featurePrimaryBtn}
-                                    >
-                                      {previewMode
-                                        ? '預覽填寫'
-                                        : isRetake
-                                          ? '再次填寫'
-                                          : '開始填寫'}
-                                    </button>
-                                  ) : windowUpcoming && !survey.submitted ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => void openSurveyStart(survey, 'start')}
-                                      className={featurePrimaryBtn}
-                                    >
-                                      查看詳情
-                                    </button>
-                                  ) : !survey.submitted ? (
-                                    <button type="button" disabled className={featureDisabledBtn}>
-                                      {windowEnded ? '已截止' : '無法填寫'}
-                                    </button>
-                                  ) : !survey.canViewResponse ? (
-                                    <button type="button" disabled className={featureDisabledBtn}>
-                                      已完成
-                                    </button>
-                                  ) : null}
-                                </>
+                              onClick={() =>
+                                void openSurveyStart(survey, isRetake ? 'retake' : 'start')
                               }
                             />
                           );
@@ -1467,14 +1417,15 @@ export default function StudentCoursesContent({
                       </div>
                     ) : courseAttendance.length === 0 ? (
                       <div className={featureEmptyState}>
-                        <ClockIcon className="w-12 h-12 mb-3 text-gray-300" />
-                        <p className="text-gray-500 font-medium">目前沒有點名紀錄</p>
+                        <ClockIcon className="w-12 h-12 mb-3 text-outline" />
+                        <p className="text-on-surfaceVariant font-medium">目前沒有點名紀錄</p>
                       </div>
                     ) : (
                       <>
-                        <div className="grid grid-cols-1 gap-4">
+                        <div className={courseHubFeatureListStyles.shell}>
                           {currentAttendance.map((activity) => {
                             const hasCheckedIn = activity.studentStatus === 'present' || activity.studentStatus === 'late';
+                            const canCheckIn = activity.status === 'active' && !hasCheckedIn;
                             const phaseText =
                               activity.status === 'active'
                                 ? '進行中'
@@ -1498,13 +1449,14 @@ export default function StudentCoursesContent({
                                       activity.status === 'active'
                                         ? 'text-green-700 font-medium'
                                         : activity.status === 'upcoming'
-                                          ? 'text-blue-700 font-medium'
-                                          : 'text-gray-500 font-medium'
+                                          ? 'text-primary font-medium'
+                                          : 'text-on-surfaceVariant font-medium'
                                     }>
                                       {phaseText}
                                     </span>
                                   </>
                                 }
+                                onClick={canCheckIn ? () => openAttendanceCheckIn(activity) : undefined}
                                 actions={
                                   activity.status === 'past' ? (
                                     getAttendanceStatusPill(activity.studentStatus, activity.studentLeaveType)
@@ -1512,15 +1464,11 @@ export default function StudentCoursesContent({
                                     <span className="inline-flex items-center justify-center px-5 py-2 text-sm font-bold border-2 rounded-xl text-emerald-700 bg-emerald-50 border-emerald-100">
                                       已簽到
                                     </span>
-                                  ) : activity.status === 'active' ? (
-                                    <button type="button" onClick={() => openAttendanceCheckIn(activity)} className={featurePrimaryBtn}>
-                                      簽到
-                                    </button>
-                                  ) : (
-                                    <span className="inline-flex items-center justify-center px-5 py-2 text-sm font-bold text-gray-400">
+                                  ) : activity.status === 'upcoming' ? (
+                                    <span className="inline-flex items-center justify-center px-5 py-2 text-sm font-bold text-on-surfaceVariant">
                                       尚未開始
                                     </span>
-                                  )
+                                  ) : undefined
                                 }
                               />
                             );
@@ -1540,9 +1488,9 @@ export default function StudentCoursesContent({
                 activeCourseTab === 'grades' ? (
                   <div className="mb-4">
                     <div className={featureEmptyState}>
-                      <ClipboardDocumentListIcon className="w-12 h-12 mb-3 text-gray-300" />
-                      <p className="text-gray-500 font-medium">預覽模式不顯示個人成績</p>
-                      <p className="text-sm text-gray-400 mt-1">成績需以實際學生帳號登入後查看</p>
+                      <ClipboardDocumentListIcon className="w-12 h-12 mb-3 text-outline" />
+                      <p className="text-on-surfaceVariant font-medium">預覽模式不顯示個人成績</p>
+                      <p className="text-sm text-on-surfaceVariant mt-1">成績需以實際學生帳號登入後查看</p>
                     </div>
                   </div>
                 ) : null
@@ -1565,8 +1513,8 @@ export default function StudentCoursesContent({
               ) : activeCourseTab === 'grades' ? (
                 <div className="mb-4">
                   <div className={featureEmptyState}>
-                    <ClipboardDocumentListIcon className="w-12 h-12 mb-3 text-gray-300" />
-                    <p className="text-gray-500 font-medium">找不到學生資料，請重新登入</p>
+                    <ClipboardDocumentListIcon className="w-12 h-12 mb-3 text-outline" />
+                    <p className="text-on-surfaceVariant font-medium">找不到學生資料，請重新登入</p>
                   </div>
                 </div>
               ) : null}
@@ -1577,7 +1525,7 @@ export default function StudentCoursesContent({
         <div className="fixed inset-0 z-[99999] flex justify-center items-center p-4 animate-fade-in">
           <div className="absolute inset-0 bg-black/60" onClick={() => setSelectedAnnouncement(null)}></div>
           <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in">
-            <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
+            <div className="bg-gradient-to-r from-primary to-tertiary p-4 flex justify-between items-center text-white flex-shrink-0">
               <h3 className="text-xl font-bold flex items-center pr-8 line-clamp-1">
                 {selectedAnnouncement.title}
               </h3>
@@ -1586,22 +1534,22 @@ export default function StudentCoursesContent({
               </button>
             </div>
             <div className="p-6 flex-1 overflow-y-auto custom-scrollbar bg-white">
-              <div className="text-xs text-gray-500 mb-4 font-mono pb-4 border-b border-gray-100">發布日期：{new Date(selectedAnnouncement.createdAt).toLocaleDateString()}</div>
+              <div className="text-xs text-on-surfaceVariant mb-4 font-mono pb-4 border-b border-outline-variant/40">發布日期：{new Date(selectedAnnouncement.createdAt).toLocaleDateString()}</div>
               {/<[a-z][\s\S]*>/i.test(selectedAnnouncement.content) ? (
                 <div className="ql-snow">
                   <RichHtmlContent
                     html={selectedAnnouncement.content}
-                    className="ql-editor text-gray-700 mb-6"
+                    className="ql-editor text-on-surface mb-6"
                   />
                 </div>
               ) : (
-                <div className="prose prose-sm text-gray-700 whitespace-pre-line mb-6">{selectedAnnouncement.content}</div>
+                <div className="prose prose-sm text-on-surface whitespace-pre-line mb-6">{selectedAnnouncement.content}</div>
               )}
               {selectedAnnouncement.links && selectedAnnouncement.links.length > 0 && (
-                <div className="space-y-2 mt-6 pt-4 border-t border-gray-100">
-                  <h5 className="font-bold text-gray-800 text-sm mb-3">相關連結</h5>
+                <div className="space-y-2 mt-6 pt-4 border-t border-outline-variant/40">
+                  <h5 className="font-bold text-on-surface text-sm mb-3">相關連結</h5>
                   {selectedAnnouncement.links.map((link, idx) => (
-                    <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center text-indigo-600 hover:text-indigo-800 text-sm bg-indigo-50 hover:bg-indigo-100 p-3 rounded-lg transition-colors font-medium">
+                    <a key={idx} href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center text-primary hover:text-primary text-sm bg-primary/10 hover:bg-primary/10 p-3 rounded-lg transition-colors font-medium">
                       <LinkIcon className="w-4 h-4 mr-2" />
                       {link.name || link.url}
                     </a>
@@ -1614,7 +1562,7 @@ export default function StudentCoursesContent({
         document.body
       )}
 
-      {startModal && (studentInfo?.id || previewMode) && (
+      {previewMode && startModal && (
         <StudentExamStartModal
           open
           onClose={() => setStartModal(null)}
@@ -1626,7 +1574,7 @@ export default function StudentCoursesContent({
         />
       )}
 
-      {surveyStartModal && (
+      {previewMode && surveyStartModal && (
         <StudentSurveyStartModal
           open
           onClose={() => setSurveyStartModal(null)}

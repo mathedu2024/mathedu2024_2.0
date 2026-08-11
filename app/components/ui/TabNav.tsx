@@ -25,8 +25,8 @@ export interface TabNavProps {
 }
 
 const underlineTabBase = 'text-sm font-bold transition-all border-b-2';
-const underlineTabActive = 'border-indigo-600 text-indigo-600';
-const underlineTabInactive = 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-200';
+const underlineTabActive = 'border-primary text-primary';
+const underlineTabInactive = 'border-transparent text-on-surfaceVariant hover:text-on-surface hover:border-outline-variant';
 
 const underlineSizeClasses = {
   default: 'px-4 py-3',
@@ -63,7 +63,7 @@ export default function TabNav({
       >
         <nav
           className={clsx(
-            'inline-flex w-full sm:w-auto p-1 bg-gray-100 rounded-xl gap-0.5 overflow-x-auto shrink-0',
+            'inline-flex w-full sm:w-auto p-1 bg-surface-container rounded-xl gap-0.5 overflow-x-auto shrink-0',
             navClassName,
           )}
         >
@@ -78,8 +78,8 @@ export default function TabNav({
                   'flex-1 sm:flex-none text-sm font-bold rounded-lg transition-all whitespace-nowrap',
                   segmentedSizeClasses[size],
                   active
-                    ? 'bg-white text-indigo-600 shadow-sm ring-1 ring-indigo-100'
-                    : 'text-gray-500 hover:text-gray-700',
+                    ? 'bg-surface-containerLowest text-primary shadow-sm ring-1 ring-primary/20'
+                    : 'text-on-surfaceVariant hover:text-on-surface',
                 )}
               >
                 {item.label}
@@ -95,7 +95,7 @@ export default function TabNav({
   return (
     <div
       className={clsx(
-        'border-b border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4',
+        'border-b border-outline-variant/40 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4',
         withMargin && 'mb-6',
         className,
       )}

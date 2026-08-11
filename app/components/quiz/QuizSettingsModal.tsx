@@ -59,7 +59,7 @@ export default function QuizSettingsModal({ open, quiz, onChange, onClose }: Qui
         aria-labelledby="quiz-settings-title"
         className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col"
       >
-        <div className="bg-gradient-to-r from-indigo-500 to-purple-500 px-5 py-4 flex justify-between items-center text-white shrink-0">
+        <div className="bg-gradient-to-r from-primary to-tertiary px-5 py-4 flex justify-between items-center text-white shrink-0">
           <h2 id="quiz-settings-title" className="font-bold text-lg flex items-center gap-2">
             <Cog6ToothIcon className="w-5 h-5" />
             測驗詳細設定
@@ -77,7 +77,7 @@ export default function QuizSettingsModal({ open, quiz, onChange, onClose }: Qui
         <div className="p-5 space-y-6 overflow-y-auto flex-1">
           <section>
             <div className="flex items-center gap-2 mb-3">
-              <CalendarDaysIcon className="w-5 h-5 text-indigo-600" />
+              <CalendarDaysIcon className="w-5 h-5 text-primary" />
               <h3 className="text-sm font-bold text-gray-800">作答日期限制</h3>
             </div>
             <label className="flex items-center gap-2 cursor-pointer mb-3">
@@ -92,7 +92,7 @@ export default function QuizSettingsModal({ open, quiz, onChange, onClose }: Qui
                     answerEndAt: e.target.checked ? prev.answerEndAt : undefined,
                   }))
                 }
-                className="w-4 h-4 text-indigo-600 rounded accent-indigo-600"
+                className="w-4 h-4 text-primary rounded accent-[#2D6DF6]"
               />
               <span className="text-sm text-gray-700">限制作答期間（未勾選則不限日期）</span>
             </label>
@@ -110,7 +110,7 @@ export default function QuizSettingsModal({ open, quiz, onChange, onClose }: Qui
                         answerStartAt: fromDatetimeLocalValue(e.target.value),
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 </div>
                 <div>
@@ -125,7 +125,7 @@ export default function QuizSettingsModal({ open, quiz, onChange, onClose }: Qui
                         answerEndAt: fromDatetimeLocalValue(e.target.value),
                       }))
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 </div>
               </div>
@@ -139,7 +139,7 @@ export default function QuizSettingsModal({ open, quiz, onChange, onClose }: Qui
 
           <section className="border-t border-gray-100 pt-6">
             <div className="flex items-center gap-2 mb-3">
-              <ClockIcon className="w-5 h-5 text-indigo-600" />
+              <ClockIcon className="w-5 h-5 text-primary" />
               <h3 className="text-sm font-bold text-gray-800">考試時間限制</h3>
             </div>
             <label className="flex items-center gap-2 cursor-pointer mb-3">
@@ -153,7 +153,7 @@ export default function QuizSettingsModal({ open, quiz, onChange, onClose }: Qui
                     timeLimitMinutes: e.target.checked ? (prev.timeLimitMinutes ?? 60) : undefined,
                   }))
                 }
-                className="w-4 h-4 text-indigo-600 rounded accent-indigo-600"
+                className="w-4 h-4 text-primary rounded accent-[#2D6DF6]"
               />
               <span className="text-sm text-gray-700">啟用時間限制（未勾選則不限時）</span>
             </label>
@@ -185,7 +185,7 @@ export default function QuizSettingsModal({ open, quiz, onChange, onClose }: Qui
                       return prev;
                     });
                   }}
-                  className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
                 <span className="text-sm text-gray-500">分鐘</span>
               </div>
@@ -194,7 +194,7 @@ export default function QuizSettingsModal({ open, quiz, onChange, onClose }: Qui
 
           <section className="border-t border-gray-100 pt-6">
             <div className="flex items-center gap-2 mb-3">
-              <ArrowPathIcon className="w-5 h-5 text-indigo-600" />
+              <ArrowPathIcon className="w-5 h-5 text-primary" />
               <h3 className="text-sm font-bold text-gray-800">作答次數限制</h3>
             </div>
             <label className="flex items-center gap-2 cursor-pointer mb-3">
@@ -208,7 +208,7 @@ export default function QuizSettingsModal({ open, quiz, onChange, onClose }: Qui
                     attemptLimit: e.target.checked ? undefined : (prev.attemptLimit ?? 1),
                   }))
                 }
-                className="w-4 h-4 text-indigo-600 rounded accent-indigo-600"
+                className="w-4 h-4 text-primary rounded accent-[#2D6DF6]"
               />
               <span className="text-sm text-gray-700">允許無限次作答</span>
             </label>
@@ -236,7 +236,7 @@ export default function QuizSettingsModal({ open, quiz, onChange, onClose }: Qui
                       attemptLimit: Math.max(1, prev.attemptLimit ?? 1),
                     }));
                   }}
-                  className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
                 <span className="text-sm text-gray-500">次</span>
               </div>
@@ -275,7 +275,7 @@ export default function QuizSettingsModal({ open, quiz, onChange, onClose }: Qui
 
           <section className="border-t border-gray-100 pt-6">
             <div className="flex items-center gap-2 mb-3">
-              <LockClosedIcon className="w-5 h-5 text-indigo-600" />
+              <LockClosedIcon className="w-5 h-5 text-primary" />
               <h3 className="text-sm font-bold text-gray-800">作答環境</h3>
             </div>
             <label className="flex items-center gap-2 cursor-pointer mb-2">
@@ -285,7 +285,7 @@ export default function QuizSettingsModal({ open, quiz, onChange, onClose }: Qui
                 onChange={(e) =>
                   onChange((prev) => ({ ...prev, examLockEnabled: e.target.checked }))
                 }
-                className="w-4 h-4 text-indigo-600 rounded accent-indigo-600"
+                className="w-4 h-4 text-primary rounded accent-[#2D6DF6]"
               />
               <span className="text-sm text-gray-700">作答期間禁止離開測驗頁</span>
             </label>
@@ -299,7 +299,7 @@ export default function QuizSettingsModal({ open, quiz, onChange, onClose }: Qui
                 onChange={(e) =>
                   onChange((prev) => ({ ...prev, requireFullscreen: e.target.checked }))
                 }
-                className="w-4 h-4 text-indigo-600 rounded accent-indigo-600"
+                className="w-4 h-4 text-primary rounded accent-[#2D6DF6]"
               />
               <span className="text-sm text-gray-700 flex items-center gap-1">
                 <ArrowsPointingOutIcon className="w-4 h-4" />
@@ -313,7 +313,7 @@ export default function QuizSettingsModal({ open, quiz, onChange, onClose }: Qui
 
           <section className="border-t border-gray-100 pt-6">
             <div className="flex items-center gap-2 mb-3">
-              <DocumentCheckIcon className="w-5 h-5 text-indigo-600" />
+              <DocumentCheckIcon className="w-5 h-5 text-primary" />
               <h3 className="text-sm font-bold text-gray-800">成績公布</h3>
             </div>
             <label className="flex items-center gap-2 cursor-pointer mb-2">
@@ -326,7 +326,7 @@ export default function QuizSettingsModal({ open, quiz, onChange, onClose }: Qui
                     resultsPublished: !e.target.checked,
                   }))
                 }
-                className="w-4 h-4 text-indigo-600 rounded accent-indigo-600"
+                className="w-4 h-4 text-primary rounded accent-[#2D6DF6]"
               />
               <span className="text-sm text-gray-700">暫不公布正確答案與逐題詳情</span>
             </label>
@@ -359,7 +359,7 @@ export default function QuizSettingsModal({ open, quiz, onChange, onClose }: Qui
               </div>
               <div className="sm:col-span-2">
                 <div className="flex items-center gap-2 mb-2">
-                  <HashtagIcon className="w-4 h-4 text-indigo-600" />
+                  <HashtagIcon className="w-4 h-4 text-primary" />
                   <label className="text-sm text-gray-600 font-medium">大題題號編排</label>
                 </div>
                 <div className="space-y-2 pl-6">
@@ -371,7 +371,7 @@ export default function QuizSettingsModal({ open, quiz, onChange, onClose }: Qui
                       onChange={() =>
                         onChange((prev) => ({ ...prev, continuousQuestionNumbers: true }))
                       }
-                      className="w-4 h-4 text-indigo-600 accent-indigo-600 mt-0.5"
+                      className="w-4 h-4 text-primary accent-[#2D6DF6] mt-0.5"
                     />
                     <span className="text-sm text-gray-700">
                       大題間連續編號
@@ -388,7 +388,7 @@ export default function QuizSettingsModal({ open, quiz, onChange, onClose }: Qui
                       onChange={() =>
                         onChange((prev) => ({ ...prev, continuousQuestionNumbers: false }))
                       }
-                      className="w-4 h-4 text-indigo-600 accent-indigo-600 mt-0.5"
+                      className="w-4 h-4 text-primary accent-[#2D6DF6] mt-0.5"
                     />
                     <span className="text-sm text-gray-700">
                       各大題重新編號
@@ -414,7 +414,7 @@ export default function QuizSettingsModal({ open, quiz, onChange, onClose }: Qui
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm"
+            className="flex-1 bg-primary text-white py-2 rounded-lg text-sm font-medium hover:bg-primary-hover shadow-sm"
           >
             完成
           </button>

@@ -3,6 +3,10 @@ import type { Quiz } from '@/services/quizTypes';
 import type { QuizGradingOverview } from '@/services/quizSubmissionService';
 import type { QuizAnalytics } from '@/services/quizSubmissionTypes';
 import type { Survey } from '@/services/surveyTypes';
+import type { AdminStatsPayload } from '@/utils/adminStatsTypes';
+import { EMPTY_ADMIN_STATS } from '@/utils/adminStatsTypes';
+
+export type { AdminStatsPayload } from '@/utils/adminStatsTypes';
 
 export async function fetchTeacherProfile(account: string): Promise<Record<string, unknown>> {
   return fetchCached(`teacher-profile:${account}`, async () => {
@@ -16,18 +20,32 @@ export async function fetchTeacherProfile(account: string): Promise<Record<strin
   });
 }
 
-export async function fetchAdminStats(): Promise<{
-  studentCount: number;
-  teacherCount: number;
-  courseCount: number;
-}> {
+export async function fetchAdminStats(): Promise<AdminStatsPayload> {
   return fetchCached('admin-stats', async () => {
     const res = await fetch('/api/admin/stats', { credentials: 'same-origin' });
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
       throw new Error(`admin stats fetch failed (${res.status})${detail ? `: ${detail.slice(0, 120)}` : ''}`);
     }
-    return res.json();
+    const data = (await res.json()) as Partial<AdminStatsPayload>;
+    const weekly = Array.isArray(data.weeklyGrowth) ? data.weeklyGrowth.map((n) => Number(n) || 0) : [];
+    const monthly = Array.isArray(data.monthlyGrowth) ? data.monthlyGrowth.map((n) => Number(n) || 0) : [];
+    return {
+      studentCount: Number(data.studentCount) || 0,
+      teacherCount: Number(data.teacherCount) || 0,
+      courseCount: Number(data.courseCount) || 0,
+      activeCourseCount: Number(data.activeCourseCount) || 0,
+      monthNewStudents: Number(data.monthNewStudents) || 0,
+      weeklyGrowth: weekly.length === 7 ? weekly : EMPTY_ADMIN_STATS.weeklyGrowth,
+      monthlyGrowth: monthly.length === 30 ? monthly : EMPTY_ADMIN_STATS.monthlyGrowth,
+      pendingReviews: {
+        posts: Number(data.pendingReviews?.posts) || 0,
+        teachers: Number(data.pendingReviews?.teachers) || 0,
+      },
+      recentLogs: Array.isArray(data.recentLogs) ? data.recentLogs : [],
+      dbReadGuard: data.dbReadGuard,
+      dbWriteGuard: data.dbWriteGuard,
+    };
   }, 60_000);
 }
 
@@ -36,8 +54,9 @@ export interface AdminTeacherRow {
   name: string;
   account: string;
   password: string;
-  roles: ('admin' | 'teacher')[];
+  roles: ('admin' | 'teacher' | 'author')[];
   note?: string;
+  email?: string;
 }
 
 export async function fetchAdminList(): Promise<AdminTeacherRow[]> {

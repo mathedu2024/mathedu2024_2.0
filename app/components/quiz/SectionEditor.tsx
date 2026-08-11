@@ -132,9 +132,9 @@ function SectionEditor({
   };
 
   return (
-    <div className="rounded-2xl border-2 border-indigo-100 bg-gradient-to-b from-indigo-50/40 to-white shadow-sm">
-      <div className="flex items-start gap-3 px-5 py-4 border-b border-indigo-100 bg-white/80">
-        <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-lg">
+    <div className="rounded-2xl border-2 border-primary/20 bg-gradient-to-b from-primary/5/40 to-white shadow-sm">
+      <div className="flex items-start gap-3 px-5 py-4 border-b border-primary/20 bg-white/80">
+        <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center font-bold text-lg">
           {sectionIndex + 1}
         </div>
         <div className="flex-1 min-w-0 space-y-3">
@@ -143,7 +143,7 @@ function SectionEditor({
               value={section.title}
               onChange={(title) => onChange({ ...section, title })}
               placeholder="大題名稱，例如：選擇題"
-              className="flex-1 min-w-[12rem] text-lg font-bold text-gray-800 bg-transparent border-b-2 border-transparent focus:border-indigo-400 focus:outline-none px-0 py-1"
+              className="flex-1 min-w-[12rem] text-lg font-bold text-gray-800 bg-transparent border-b-2 border-transparent focus:border-primary/50 focus:outline-none px-0 py-1"
             />
             <div className="flex items-center gap-2 flex-shrink-0">
               {section.shuffleQuestions && (
@@ -156,7 +156,7 @@ function SectionEditor({
                   選項打亂
                 </span>
               )}
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700">
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary">
                 {questionCount} 題
               </span>
               <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">
@@ -168,7 +168,7 @@ function SectionEditor({
               <button
                 type="button"
                 onClick={() => setExpanded((v) => !v)}
-                className="p-1.5 text-gray-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50"
+                className="p-1.5 text-gray-400 hover:text-primary rounded-lg hover:bg-primary/10"
               >
                 {expanded ? <ChevronUpIcon className="w-5 h-5" /> : <ChevronDownIcon className="w-5 h-5" />}
               </button>
@@ -236,7 +236,7 @@ function SectionEditor({
                     type="checkbox"
                     checked={!!section.shuffleQuestions}
                     onChange={(e) => onChange({ ...section, shuffleQuestions: e.target.checked })}
-                    className="w-4 h-4 text-indigo-600 accent-indigo-600"
+                    className="w-4 h-4 text-primary accent-[#2D6DF6]"
                   />
                   打亂此大題的題目順序
                 </label>
@@ -245,7 +245,7 @@ function SectionEditor({
                     type="checkbox"
                     checked={!!section.shuffleOptions}
                     onChange={(e) => onChange({ ...section, shuffleOptions: e.target.checked })}
-                    className="w-4 h-4 text-indigo-600 accent-indigo-600"
+                    className="w-4 h-4 text-primary accent-[#2D6DF6]"
                   />
                   打亂單選／多選題的選項順序
                 </label>
@@ -266,7 +266,7 @@ function SectionEditor({
               <button
                 type="button"
                 onClick={() => addQuestion('single')}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-dashed border-gray-300 text-sm text-gray-600 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/50 transition-colors"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-dashed border-gray-300 text-sm text-gray-600 hover:border-primary/50 hover:text-primary hover:bg-primary/10 transition-colors"
               >
                 <PlusIcon className="w-4 h-4" />
                 新增新題目

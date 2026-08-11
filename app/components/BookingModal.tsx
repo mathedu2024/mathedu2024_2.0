@@ -18,6 +18,11 @@ import {
 
 import { createPortal } from 'react-dom';
 import Swal from 'sweetalert2';
+import {
+  buildTutoringStudentNotifyEmail,
+  buildTutoringTeacherNotifyEmail,
+  sendAppEmail,
+} from '@/utils/email';
 interface BookingModalProps {
   slot: TutoringSlot | null;
   userInfo: {
@@ -82,34 +87,53 @@ const BookingModal: React.FC<BookingModalProps> = ({ slot, userInfo, onClose, on
         }),
       });
 
+      const bookResult = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || '伺服器錯誤，請稍後再試');
+        throw new Error(bookResult.error || '伺服器錯誤，請稍後再試');
       }
 
-      // Send email via EmailJS
-      const templateParams = {
-        name: formData.studentName,
-        studentId: formData.studentId,
-        topic: slot.title || '',
-        time: `${slot.date} ${slot.startTime} - ${slot.endTime}`,
-        teacher: slot.teacherName || '',
-        mode: slot.locationType || '',
-        format: slot.method || '',
-        studentEmail: formData.studentEmail,
-      };
+      const timeLabel = `${slot.date} ${slot.startTime} - ${slot.endTime}`;
+      const topic = slot.title || '';
+      const mode = slot.locationType || '';
+      const format = slot.method || '';
 
+      // 學生成功通知 + 老師提醒（老師需帳號已綁定 email）
       try {
-        const emailjs = (await import('@emailjs/browser')).default;
-        await emailjs.send(
-            "service_4cq55em", 
-            "template_r6jbq0k", 
-            templateParams, 
-            "Oxm7lO3VyhQ4vxUTW"
+        await sendAppEmail(
+          buildTutoringStudentNotifyEmail({
+            toEmail: formData.studentEmail,
+            name: formData.studentName,
+            studentId: formData.studentId,
+            topic,
+            time: timeLabel,
+            teacher: slot.teacherName || bookResult.teacherName || '',
+            mode,
+            format,
+          })
         );
       } catch (emailError) {
-        console.warn("EmailJS send failed:", emailError);
-        // Don't block success flow if email fails
+        console.warn('Student notify email failed:', emailError);
+      }
+
+      const teacherEmail = String(bookResult.teacherEmail || '').trim();
+      if (teacherEmail) {
+        try {
+          await sendAppEmail(
+            buildTutoringTeacherNotifyEmail({
+              toEmail: teacherEmail,
+              teacherName: bookResult.teacherName || slot.teacherName || '',
+              studentName: formData.studentName,
+              studentId: formData.studentId,
+              topic,
+              time: timeLabel,
+              mode,
+              format,
+              problemDescription: formData.problemDescription,
+            })
+          );
+        } catch (emailError) {
+          console.warn('Teacher notify email failed:', emailError);
+        }
       }
 
       // 使用 SweetAlert2 顯示成功訊息
@@ -118,7 +142,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ slot, userInfo, onClose, on
         title: '預約成功！',
         text: '您的輔導時段已成功預約。',
         confirmButtonText: '確定',
-        confirmButtonColor: '#4f46e5', // indigo-600
+        confirmButtonColor: '#2D6DF6', // indigo-600
         customClass: { popup: 'rounded-2xl' }
       }).then(() => { onSuccess(); onClose(); });
     } catch (err) {
@@ -166,7 +190,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ slot, userInfo, onClose, on
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
+          <div className="bg-gradient-to-r from-primary to-tertiary p-4 flex justify-between items-center text-white flex-shrink-0">
             <h2 className="text-xl font-bold flex items-center">
               <CalendarIcon className="w-6 h-6 mr-2" />
               預約輔導
@@ -182,9 +206,9 @@ const BookingModal: React.FC<BookingModalProps> = ({ slot, userInfo, onClose, on
           {/* Content */}
           <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
             {/* Slot Info Card */}
-            <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-4 mb-6">
-               <h3 className="font-bold text-indigo-900 text-lg mb-3">{slot.title}</h3>
-               <div className="space-y-2 text-sm text-indigo-800">
+            <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 mb-6">
+               <h3 className="font-bold text-on-surface text-lg mb-3">{slot.title}</h3>
+               <div className="space-y-2 text-sm text-primary">
                   <div className="flex items-center"><ClockIcon className="w-4 h-4 mr-2 opacity-70" /> {slot.date} {slot.startTime}-{slot.endTime}</div>
                   <div className="flex items-center"><UserIcon className="w-4 h-4 mr-2 opacity-70" /> {slot.teacherName}</div>
                   <div className="flex items-center">
@@ -192,14 +216,14 @@ const BookingModal: React.FC<BookingModalProps> = ({ slot, userInfo, onClose, on
                       {slot.locationType} ({slot.method})
                   </div>
                   {slot.locationDetails && slot.locationType !== '線上輔導' && (
-                      <div className="ml-6 text-xs text-indigo-600">地點: {slot.locationDetails}</div>
+                      <div className="ml-6 text-xs text-primary">地點: {slot.locationDetails}</div>
                   )}
-                  <div className="flex items-center mt-2 pt-2 border-t border-indigo-100">
+                  <div className="flex items-center mt-2 pt-2 border-t border-primary/20">
                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${slot.isFull ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
                         {slot.isFull ? <ExclamationCircleIcon className="w-3 h-3 mr-1"/> : <CheckCircleIcon className="w-3 h-3 mr-1"/>}
                         {slot.isFull ? '已額滿' : '可預約'}
                      </span>
-                     <span className="ml-3 text-xs text-indigo-500">資格: {renderQualifications()}</span>
+                     <span className="ml-3 text-xs text-primary">資格: {renderQualifications()}</span>
                   </div>
                </div>
             </div>
@@ -225,7 +249,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ slot, userInfo, onClose, on
                     value={formData.studentEmail} 
                     onChange={handleChange} 
                     required 
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all" 
+                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all" 
                     placeholder="請輸入接收通知的 Email"
                 />
               </div>
@@ -239,7 +263,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ slot, userInfo, onClose, on
                     onChange={handleChange} 
                     rows={4} 
                     required 
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all resize-none"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all resize-none"
                     placeholder="請簡述您想請教的內容..."
                 ></textarea>
               </div>
@@ -265,7 +289,7 @@ const BookingModal: React.FC<BookingModalProps> = ({ slot, userInfo, onClose, on
              <button 
                 type="submit" 
                 form="booking-form"
-                className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 bg-primary text-white py-2 rounded-lg text-sm font-medium hover:bg-primary-hover shadow-sm transition-colors flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={loading || slot.isFull}
              >
                {loading ? (

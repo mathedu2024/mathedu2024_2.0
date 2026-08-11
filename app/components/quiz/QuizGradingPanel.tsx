@@ -162,9 +162,9 @@ export default function QuizGradingPanel({
             }
           : prev
       );
-      Swal.fire({ icon: 'success', title: '批改已儲存', confirmButtonColor: '#4f46e5' });
+      Swal.fire({ icon: 'success', title: '批改已儲存', confirmButtonColor: '#2D6DF6' });
     } catch {
-      Swal.fire({ icon: 'error', title: '儲存失敗', confirmButtonColor: '#4f46e5' });
+      Swal.fire({ icon: 'error', title: '儲存失敗', confirmButtonColor: '#2D6DF6' });
     } finally {
       setSaving(false);
     }
@@ -194,7 +194,7 @@ export default function QuizGradingPanel({
               {answer.score} / {answer.maxScore} 分
             </span>
             {answer.gradingStatus === 'auto' && (
-              <span className="ml-2 text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">自動批改</span>
+              <span className="ml-2 text-xs text-primary bg-primary/10 px-2 py-0.5 rounded-full">自動批改</span>
             )}
             {answer.gradingStatus === 'manual' && (
               <span className="ml-2 text-xs text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">手動批改</span>
@@ -344,9 +344,9 @@ export default function QuizGradingPanel({
                   <button
                     type="button"
                     onClick={() => handleSelectStudent(row)}
-                    className={`w-full text-left px-4 py-3 hover:bg-indigo-50 transition-colors ${
+                    className={`w-full text-left px-4 py-3 hover:bg-primary/10 transition-colors ${
                       selectedRow?.studentId === row.studentId
-                        ? 'bg-indigo-50 border-l-4 border-indigo-500'
+                        ? 'bg-primary/10 border-l-4 border-primary'
                         : ''
                     } ${!row.submitted ? 'opacity-90' : ''}`}
                   >
@@ -383,7 +383,7 @@ export default function QuizGradingPanel({
                         總分 {selectedSubmission.totalScore} / {selectedSubmission.maxScore}
                       </p>
                       {selectedSubmission.gradedByTeacherName && (
-                        <p className="text-sm text-indigo-600 mt-1">
+                        <p className="text-sm text-primary mt-1">
                           批改老師：{selectedSubmission.gradedByTeacherName}
                         </p>
                       )}
@@ -396,7 +396,7 @@ export default function QuizGradingPanel({
                   <button
                     onClick={() => void saveGrades()}
                     disabled={saving || Object.keys(draftGrades).length === 0}
-                    className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
+                    className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-xl text-sm font-medium hover:bg-primary-hover disabled:opacity-50"
                   >
                     <CheckCircleIcon className="w-4 h-4 mr-1.5" />
                     儲存批改
@@ -424,7 +424,7 @@ export default function QuizGradingPanel({
                           onClick={() => setSelectedSubmissionId(sub.id)}
                           className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
                             selectedSubmission?.id === sub.id
-                              ? 'bg-indigo-600 text-white border-indigo-600'
+                              ? 'bg-primary text-white border-primary'
                               : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
                           }`}
                         >

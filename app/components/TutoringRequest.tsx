@@ -128,14 +128,14 @@ const TutoringRequest: React.FC = () => {
 
               return (
                 <div key={slot.id} className="bg-white border border-gray-200 rounded-xl shadow-sm p-5 relative overflow-hidden transition-shadow hover:shadow-md">
-                  <div className={`absolute top-0 left-0 w-1 h-full ${isBooked ? 'bg-green-500' : isFull ? 'bg-red-500' : 'bg-indigo-500'}`}></div>
+                  <div className={`absolute top-0 left-0 w-1 h-full ${isBooked ? 'bg-green-500' : isFull ? 'bg-red-500' : 'bg-primary'}`}></div>
                   
                   <div className="flex justify-between items-start mb-3 pl-3">
                     <h3 className="text-lg font-bold text-gray-900 flex-1 pr-2">{slot.title}</h3>
                     <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${
                       isBooked ? 'bg-green-100 text-green-700' : 
                       isFull ? 'bg-red-100 text-red-700' : 
-                      'bg-indigo-100 text-indigo-700'
+                      'bg-primary/10 text-primary'
                     }`}>
                       {isBooked ? '已預約' : isFull ? '已額滿' : '可預約'}
                     </span>
@@ -228,7 +228,7 @@ const TutoringRequest: React.FC = () => {
                         ) : isFull ? (
                           <span className="px-2 py-1 text-xs rounded-full font-medium bg-red-100 text-red-700">已額滿</span>
                         ) : (
-                          <span className="px-2 py-1 text-xs rounded-full font-medium bg-indigo-100 text-indigo-700">可預約</span>
+                          <span className="px-2 py-1 text-xs rounded-full font-medium bg-primary/10 text-primary">可預約</span>
                         )}
                       </td>
                       <td className="px-6 py-4 text-right">

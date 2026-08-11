@@ -17,6 +17,20 @@ export { default as TabNav } from './TabNav';
 export type { TabNavProps, TabNavItem } from './TabNav';
 
 export {
+  dashboardSectionTitle,
+  dashboardPageTitle,
+  dashboardPageSubtitle,
+  dashboardFilterPanel,
+  dashboardPanel,
+  dashboardPanelDivide,
+  dashboardRowHover,
+  dashboardEmpty,
+  dashboardError,
+  dashboardIconShell,
+  dashboardModalHeader,
+} from './dashboardChrome';
+
+export {
   tableActionStyles,
   tableActionRow,
   tableActionRowWrap,

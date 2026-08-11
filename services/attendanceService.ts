@@ -406,7 +406,7 @@ export async function submitCheckIn(data: CheckInData): Promise<string> {
                 throw new Error('點名活動不存在。');
             }
             if (studentAttendanceDoc.exists) {
-                throw new Error('您已經簽到過了。');
+                throw new Error('您已完成簽到，無需重複掃描。');
             }
             if (!studentDoc.exists) {
                 throw new Error('學生資料不存在。');
@@ -453,7 +453,7 @@ export async function submitCheckIn(data: CheckInData): Promise<string> {
             const method = activityData.checkInMethod || 'numeric';
             if (method === 'qr') {
                 if (!qrToken || !verifyStoredQrToken(activityData as Record<string, unknown>, qrToken)) {
-                    throw new Error('簽到 QR 已過期或無效，請重新掃描。');
+                    throw new Error('簽到 QR 碼已過期，請重新掃描畫面上的最新 QR 碼。');
                 }
             } else if (method === 'numeric') {
                 if (!checkInCode || activityData.checkInCode !== checkInCode) {

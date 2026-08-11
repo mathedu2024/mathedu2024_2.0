@@ -13,20 +13,15 @@ import {
   UserIcon,
   ShieldCheckIcon,
   AcademicCapIcon,
+  PencilSquareIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { fetchAdminList, invalidateAdminList, type AdminTeacherRow } from '@/utils/teacherClientApi';
+import { DEFAULT_ACCOUNT_PASSWORD } from '@/utils/accountDefaults';
 
 type AdminTeacher = AdminTeacherRow;
 
-const DEFAULT_PASSWORD = 'abcd1234';
-
-function generateRandomId() {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  return Date.now().toString() + Math.floor(Math.random() * 100000).toString();
-}
+const DEFAULT_PASSWORD = DEFAULT_ACCOUNT_PASSWORD;
 
 export default function TeacherAdminManager() {
   const [teachers, setTeachers] = useState<AdminTeacher[]>([]);
@@ -53,34 +48,85 @@ export default function TeacherAdminManager() {
     fetchData();
   }, []);
 
-  // 新增或更新
+  // 邀請開通（新帳號）或更新既有帳號
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingTeacher) return;
 
-    // Trim whitespace from account and create a clean data object for submission
-    const teacherData = { ...editingTeacher, account: editingTeacher.account.trim() };
+    const teacherData = {
+      ...editingTeacher,
+      account: editingTeacher.account.trim(),
+      email: String(editingTeacher.email || '').trim().toLowerCase(),
+    };
+    const isUpdating = !!teacherData.id;
+
+    if (!teacherData.name?.trim()) {
+      Swal.fire({ icon: 'warning', title: '警告', text: '姓名不能為空' });
+      return;
+    }
+
+    if (!teacherData.roles || teacherData.roles.length === 0) {
+      Swal.fire({ icon: 'warning', title: '警告', text: '請至少勾選一項系統權限（管理員／老師／作者）' });
+      return;
+    }
+
+    if (!isUpdating) {
+      if (!teacherData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(teacherData.email)) {
+        Swal.fire({ icon: 'warning', title: '警告', text: '請輸入有效的電子郵件（Gmail 等）以寄送邀請' });
+        return;
+      }
+
+      setIsSubmitting(true);
+      try {
+        const inviteRes = await fetch('/api/admin/invite-teacher', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: teacherData.name.trim(),
+            email: teacherData.email,
+            roles: teacherData.roles,
+            note: teacherData.note || '',
+          }),
+        });
+        const inviteData = await inviteRes.json().catch(() => ({}));
+        if (!inviteRes.ok) {
+          throw new Error(inviteData.error || '邀請寄送失敗');
+        }
+        await Swal.fire({
+          icon: 'success',
+          title: '邀請已寄出',
+          html: `已寄送開通邀請至 <b>${teacherData.email}</b>。<br/>對方可自行設定帳號名稱；預設密碼為 <code>${DEFAULT_PASSWORD}</code>。`,
+        });
+        setEditingTeacher(null);
+        setIsEditing(false);
+      } catch (error) {
+        console.error('Invite error:', error);
+        Swal.fire('錯誤', error instanceof Error ? error.message : '邀請失敗，請稍後再試。', 'error');
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
 
     if (!teacherData.account) {
       Swal.fire({ icon: 'warning', title: '警告', text: '帳號不能為空' });
       return;
     }
 
-    // 帳號格式檢查
     if (!/^[A-Za-z0-9]+$/.test(teacherData.account)) {
       Swal.fire({ icon: 'warning', title: '警告', text: '帳號僅能包含英文字母(區分大小寫)和數字，不能有空白、標點或其他字元' });
       return;
     }
-    
+
+    if (teacherData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(teacherData.email)) {
+      Swal.fire({ icon: 'warning', title: '警告', text: '電子郵件格式錯誤' });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const isUpdating = !!teacherData.id;
-
-      // 用本地列表檢查帳號重複，避免再打一次 /api/admin/list
       const isDuplicate = teachers.some((item) => {
-        if (isUpdating && item.id === teacherData.id) {
-          return false;
-        }
+        if (item.id === teacherData.id) return false;
         return item.account === teacherData.account;
       });
 
@@ -92,26 +138,25 @@ export default function TeacherAdminManager() {
 
       const data = {
         ...teacherData,
-        id: isUpdating ? teacherData.id : generateRandomId(),
-        password: isUpdating ? teacherData.password : DEFAULT_PASSWORD,
+        password: teacherData.password || DEFAULT_PASSWORD,
       };
 
-      const createRes = await fetch('/api/admin/create-user', { method: 'POST', body: JSON.stringify(data) });
+      const createRes = await fetch('/api/admin/create-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
       if (!createRes.ok) {
         const errData = await createRes.json().catch(() => ({}));
         throw new Error(errData.error || '伺服器錯誤，請稍後再試');
       }
 
       invalidateAdminList();
-      setTeachers(prevTeachers => {
-        if (isUpdating) {
-          return prevTeachers.map(item => item.id === teacherData.id ? data : item);
-        } else {
-          return [...prevTeachers, data];
-        }
-      });
-      
-      Swal.fire('成功', `帳號 ${data.account} 已成功${isUpdating ? '更新' : '建立'}。`, 'success');
+      setTeachers((prevTeachers) =>
+        prevTeachers.map((item) => (item.id === teacherData.id ? data : item))
+      );
+
+      Swal.fire('成功', `帳號 ${data.account} 已成功更新。`, 'success');
       setEditingTeacher(null);
       setIsEditing(false);
     } catch (error) {
@@ -165,7 +210,7 @@ export default function TeacherAdminManager() {
       showCancelButton: true,
       confirmButtonText: '確定',
       cancelButtonText: '取消',
-      confirmButtonColor: '#4f46e5',
+      confirmButtonColor: '#2D6DF6',
     });
 
     if (!result.isConfirmed) return;
@@ -205,7 +250,15 @@ export default function TeacherAdminManager() {
   };
 
   const handleAdd = () => {
-    setEditingTeacher({ id: '', name: '', account: '', password: DEFAULT_PASSWORD, roles: [], note: '' });
+    setEditingTeacher({
+      id: '',
+      name: '',
+      account: '',
+      email: '',
+      password: DEFAULT_PASSWORD,
+      roles: ['teacher'],
+      note: '',
+    });
     setIsEditing(true);
   };
 
@@ -219,16 +272,16 @@ export default function TeacherAdminManager() {
   return (
     <div className="page-shell w-full min-w-0 flex flex-col h-full animate-fade-in">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
-        <div className="border-l-4 border-indigo-500 pl-4">
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-            <ShieldCheckIcon className="h-8 w-8 text-indigo-600" />
+        <div className="border-l-4 border-primary pl-4">
+          <h1 className="font-display text-2xl font-bold text-on-surface flex items-center gap-3">
+            <ShieldCheckIcon className="h-8 w-8 text-primary" />
             老師/管理員管理
           </h1>
-          <p className="text-gray-500 text-sm mt-1">管理教師與管理員帳號</p>
+          <p className="text-on-surfaceVariant text-sm mt-1">管理教師、管理員與線上文章作者帳號</p>
         </div>
       </div>
 
-      <div className="bg-white border border-gray-200 p-4 rounded-xl shadow-sm mb-6 flex-shrink-0">
+      <div className="bg-surface-containerLowest border border-outline-variant/40 p-4 rounded-xl shadow-sm mb-6 flex-shrink-0">
         <div className="flex flex-col md:flex-row gap-4 items-center">
           <div className="relative flex-1 w-full min-w-0">
               <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -237,7 +290,7 @@ export default function TeacherAdminManager() {
                   placeholder="搜尋姓名或帳號..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm"
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-sm"
               />
           </div>
           <button
@@ -246,7 +299,7 @@ export default function TeacherAdminManager() {
             className={`${btnWithIconStyle(btnStyles.primary)} w-full md:w-auto shrink-0`}
           >
             <PlusIcon className={`${btnIcon} ${btnIconGap}`} />
-            新增帳號
+            邀請開通
           </button>
         </div>
       </div>
@@ -256,10 +309,10 @@ export default function TeacherAdminManager() {
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 animate-fade-in">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden transform scale-100 flex flex-col">
             {/* Header */}
-            <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white shrink-0">
+            <div className="bg-gradient-to-r from-primary to-tertiary p-4 flex justify-between items-center text-white shrink-0">
               <h3 className="font-bold flex items-center gap-2">
                 <ShieldCheckIcon className="w-5 h-5" />
-                {editingTeacher.id ? '編輯帳號資料' : '建立新帳號'}
+                {editingTeacher.id ? '編輯帳號資料' : '邀請開通新帳號'}
               </h3>
               <button
                 type="button"
@@ -287,52 +340,94 @@ export default function TeacherAdminManager() {
                       <input 
                           type="text" 
                           value={editingTeacher?.name || ''} 
-                          onChange={e => setEditingTeacher(prev => prev ? { ...prev, name: e.target.value } : { id: '', name: e.target.value, account: '', password: DEFAULT_PASSWORD, roles: [], note: '' })} 
-                          className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent" 
+                          onChange={e => setEditingTeacher(prev => prev ? { ...prev, name: e.target.value } : null)} 
+                          className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent" 
                           required 
                           placeholder="請輸入姓名"
                       />
                   </div>
                 </div>
-                
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">帳號 <span className="text-red-500">*</span></label>
-                  <input 
-                    type="text" 
-                    value={editingTeacher?.account || ''} 
-                    onChange={e => setEditingTeacher(prev => prev ? { ...prev, account: e.target.value } : { id: '', name: '', account: e.target.value, password: DEFAULT_PASSWORD, roles: [], note: '' })} 
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono" 
-                    required 
-                    placeholder="請輸入登入帳號 (英數組合)"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">僅限英文字母與數字，不可包含空白。</p>
-                </div>
+
+                {editingTeacher.id ? (
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">帳號 <span className="text-red-500">*</span></label>
+                    <input 
+                      type="text" 
+                      value={editingTeacher?.account || ''} 
+                      onChange={e => setEditingTeacher(prev => prev ? { ...prev, account: e.target.value } : null)} 
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent font-mono" 
+                      required 
+                      placeholder="請輸入登入帳號 (英數組合)"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">僅限英文字母與數字，不可包含空白。</p>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">電子郵件 <span className="text-red-500">*</span></label>
+                    <input
+                      type="email"
+                      value={editingTeacher?.email || ''}
+                      onChange={e => setEditingTeacher(prev => prev ? { ...prev, email: e.target.value } : null)}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent"
+                      required
+                      placeholder="對方的 Gmail / Email"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">將寄送邀請連結，由對方自行設定帳號名稱。</p>
+                  </div>
+                )}
+
+                {editingTeacher.id && (
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-bold text-gray-700 mb-2">電子郵件</label>
+                    <input
+                      type="email"
+                      value={editingTeacher?.email || ''}
+                      onChange={e => setEditingTeacher(prev => prev ? { ...prev, email: e.target.value } : null)}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent"
+                      placeholder="用於輔導通知、忘記密碼等"
+                    />
+                  </div>
+                )}
                 
                 <div className="md:col-span-2">
                   <label className="block text-sm font-bold text-gray-700 mb-3">系統權限 <span className="text-red-500">*</span></label>
                   <div className="flex flex-wrap gap-4">
-                    <label className={`flex items-center px-4 py-3 border rounded-xl cursor-pointer transition-all ${editingTeacher?.roles?.includes('admin') ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-gray-200 hover:bg-gray-50'}`}>
+                    <label className={`flex items-center px-4 py-3 border rounded-xl cursor-pointer transition-all ${editingTeacher?.roles?.includes('admin') ? 'border-primary bg-primary/10 text-primary' : 'border-gray-200 hover:bg-gray-50'}`}>
                       <input 
                         type="checkbox" 
                         checked={editingTeacher?.roles?.includes('admin') || false} 
                         onChange={e => setEditingTeacher(prev => prev ? { ...prev, roles: e.target.checked ? [...(prev.roles || []), 'admin'] : (prev.roles || []).filter(r => r !== 'admin') } : null)} 
-                        className="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 mr-3 accent-indigo-600 cursor-pointer"
+                        className="w-5 h-5 text-primary border-gray-300 rounded focus:ring-primary mr-3 accent-[#2D6DF6] cursor-pointer"
                       />
                       <ShieldCheckIcon className="w-5 h-5 mr-2" />
                       <span className="font-medium">系統管理員</span>
                     </label>
                     
-                    <label className={`flex items-center px-4 py-3 border rounded-xl cursor-pointer transition-all ${editingTeacher?.roles?.includes('teacher') ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-gray-200 hover:bg-gray-50'}`}>
+                    <label className={`flex items-center px-4 py-3 border rounded-xl cursor-pointer transition-all ${editingTeacher?.roles?.includes('teacher') ? 'border-primary bg-primary/10 text-primary' : 'border-gray-200 hover:bg-gray-50'}`}>
                       <input 
                         type="checkbox" 
                         checked={editingTeacher?.roles?.includes('teacher') || false} 
                         onChange={e => setEditingTeacher(prev => prev ? { ...prev, roles: e.target.checked ? [...(prev.roles || []), 'teacher'] : (prev.roles || []).filter(r => r !== 'teacher') } : null)} 
-                        className="w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 mr-3 accent-indigo-600 cursor-pointer"
+                        className="w-5 h-5 text-primary border-gray-300 rounded focus:ring-primary mr-3 accent-[#2D6DF6] cursor-pointer"
                       />
                       <AcademicCapIcon className="w-5 h-5 mr-2" />
                       <span className="font-medium">授課老師</span>
                     </label>
+
+                    <label className={`flex items-center px-4 py-3 border rounded-xl cursor-pointer transition-all ${editingTeacher?.roles?.includes('author') ? 'border-primary bg-primary/10 text-primary' : 'border-gray-200 hover:bg-gray-50'}`}>
+                      <input 
+                        type="checkbox" 
+                        checked={editingTeacher?.roles?.includes('author') || false} 
+                        onChange={e => setEditingTeacher(prev => prev ? { ...prev, roles: e.target.checked ? [...(prev.roles || []), 'author'] : (prev.roles || []).filter(r => r !== 'author') } : null)} 
+                        className="w-5 h-5 text-primary border-gray-300 rounded focus:ring-primary mr-3 accent-[#2D6DF6] cursor-pointer"
+                      />
+                      <PencilSquareIcon className="w-5 h-5 mr-2" />
+                      <span className="font-medium">線上文章作者</span>
+                    </label>
                   </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    作者需以「作者」身分登入後台，才會看到線上文章選單；管理員與老師身分不承擔線上文章業務。可與老師／管理員權限並存（登入時選擇身分）。
+                  </p>
                 </div>
                 
                 <div className="md:col-span-2">
@@ -340,7 +435,7 @@ export default function TeacherAdminManager() {
                   <textarea 
                     value={editingTeacher?.note || ''} 
                     onChange={e => setEditingTeacher(prev => prev ? { ...prev, note: e.target.value } : null)} 
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none" 
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent resize-none" 
                     rows={3}
                     placeholder="可選填相關備註..."
                   />
@@ -349,7 +444,7 @@ export default function TeacherAdminManager() {
             </form>
 
             {/* Footer */}
-            <div className="p-4 bg-gray-50 border-t border-gray-100 flex gap-2 shrink-0">
+            <div className="p-4 bg-surface-containerLow border-t border-outline-variant/40 flex gap-2 shrink-0">
               <button
                 type="button"
                 onClick={handleCancel}
@@ -361,11 +456,11 @@ export default function TeacherAdminManager() {
               <button
                 type="submit"
                 form="teacher-admin-form"
-                className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm flex items-center justify-center disabled:opacity-70"
+                className="flex-1 bg-primary text-white py-2 rounded-lg text-sm font-medium hover:bg-primary-hover shadow-sm flex items-center justify-center disabled:opacity-70"
                 disabled={isSubmitting}
               >
                 {isSubmitting && <LoadingSpinner size={16} color="white" className="mr-2" />}
-                {editingTeacher.id ? '儲存變更' : '建立帳號'}
+                {editingTeacher.id ? '儲存變更' : '寄送邀請'}
               </button>
             </div>
           </div>
@@ -389,19 +484,23 @@ export default function TeacherAdminManager() {
                             <div className={courseListTableStyles.mobile.courseName}>{item.name}</div>
                             <p className={`${courseListTableStyles.mobile.courseCode} bg-gray-100 px-2 py-0.5 rounded inline-block`}>{item.account}</p>
                         </div>
-                        <div className="flex gap-1">
+                        <div className="flex flex-wrap gap-1.5 justify-end">
                             {item.roles.map(role => (
                                 <span key={role} className={`${courseListTableStyles.mobile.statusBadge} ${
-                                    role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                                    role === 'admin'
+                                      ? 'bg-tertiary/15 text-tertiary'
+                                      : role === 'author'
+                                      ? 'bg-emerald-100 text-emerald-700'
+                                      : 'bg-blue-100 text-blue-700'
                                 }`}>
-                                    {role === 'admin' ? '管理員' : '老師'}
+                                    {role === 'admin' ? '管理員' : role === 'author' ? '作者' : '老師'}
                                 </span>
                             ))}
                         </div>
                       </div>
                       
                       {item.note && (
-                          <div className="text-sm text-gray-600 mb-4 bg-gray-50 p-2 rounded-lg border border-gray-100">
+                          <div className="text-sm text-gray-600 mb-4 bg-gray-50 p-2 rounded-lg border border-outline-variant/40">
                               <span className="font-bold text-gray-400 text-xs uppercase block mb-1">備註</span>
                               {item.note}
                           </div>
@@ -413,7 +512,7 @@ export default function TeacherAdminManager() {
                           className={tableActionStyles.warning}
                           disabled={isSubmitting}
                         >
-                          重設密碼
+                          復原密碼
                         </button>
                         <button 
                           onClick={() => handleEdit(item)} 
@@ -439,50 +538,61 @@ export default function TeacherAdminManager() {
               </div>
 
               {/* Desktop View: Table */}
-              <div className={courseListTableStyles.desktop.wrapper}>
-                <table className={courseListTableStyles.desktop.table}>
+              <div className={`${courseListTableStyles.desktop.wrapper} overflow-x-auto`}>
+                <table className={`${courseListTableStyles.desktop.table} table-fixed min-w-[960px]`}>
+                  <colgroup>
+                    <col className="w-[15%]" />
+                    <col className="w-[15%]" />
+                    <col className="w-[30%]" />
+                    <col className="w-[16%]" />
+                    <col className="w-[24%]" />
+                  </colgroup>
                   <thead className={courseListTableStyles.desktop.thead}>
                     <tr>
-                      <th scope="col" className={`${courseListTableStyles.desktop.th} w-1/4`}>姓名</th>
-                      <th scope="col" className={`${courseListTableStyles.desktop.th} w-1/4`}>帳號</th>
-                      <th scope="col" className={`${courseListTableStyles.desktop.th} w-1/6`}>權限</th>
+                      <th scope="col" className={courseListTableStyles.desktop.th}>姓名</th>
+                      <th scope="col" className={courseListTableStyles.desktop.th}>帳號</th>
+                      <th scope="col" className={courseListTableStyles.desktop.th}>權限</th>
                       <th scope="col" className={courseListTableStyles.desktop.th}>備註</th>
-                      <th scope="col" className={`${courseListTableStyles.desktop.th} text-right min-w-[180px]`}>操作</th>
+                      <th scope="col" className={`${courseListTableStyles.desktop.th} text-right`}>操作</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {filteredTeachers.length > 0 ? filteredTeachers.map(item => (
                       <tr key={item.id} className={courseListTableStyles.desktop.row}>
-                        <td className="px-6 py-4">
-                            <div className={courseListTableStyles.desktop.courseName}>{item.name}</div>
+                        <td className="px-4 lg:px-6 py-4 align-middle">
+                            <div className={`${courseListTableStyles.desktop.courseName} break-words`}>{item.name}</div>
                         </td>
-                        <td className="px-6 py-4">
-                            <span className="text-sm font-mono text-gray-600 bg-gray-100 px-2 py-1 rounded">{item.account}</span>
+                        <td className="px-4 lg:px-6 py-4 align-middle">
+                            <span className="text-sm font-mono text-gray-600 bg-gray-100 px-2 py-1 rounded inline-block max-w-full truncate">{item.account}</span>
                         </td>
-                        <td className="px-6 py-4">
-                            <div className="flex gap-2">
+                        <td className="px-4 lg:px-6 py-4 align-middle">
+                            <div className="flex flex-wrap gap-1.5">
                                 {item.roles.map(role => (
-                                    <span key={role} className={`${courseListTableStyles.desktop.statusBadge} ${
-                                        role === 'admin' 
-                                        ? 'bg-purple-50 text-purple-700 border border-purple-200' 
+                                    <span key={role} className={`${courseListTableStyles.desktop.statusBadge} whitespace-nowrap ${
+                                        role === 'admin'
+                                        ? 'bg-tertiary/10 text-tertiary border border-tertiary/30'
+                                        : role === 'author'
+                                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                         : 'bg-blue-50 text-blue-700 border border-blue-200'
                                     }`}>
-                                        {role === 'admin' ? '管理員' : '老師'}
+                                        {role === 'admin' ? '管理員' : role === 'author' ? '作者' : '老師'}
                                     </span>
                                 ))}
                             </div>
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-500 truncate max-w-xs" title={item.note}>
-                            {item.note || '-'}
+                        <td className="px-4 lg:px-6 py-4 text-sm text-gray-500 align-middle">
+                            <div className="line-clamp-2 break-words" title={item.note}>
+                              {item.note || '-'}
+                            </div>
                         </td>
-                        <td className="px-6 py-4 text-right whitespace-nowrap">
-                          <div className={courseListTableStyles.desktop.actionRow}>
+                        <td className="px-4 lg:px-6 py-4 text-right align-middle">
+                          <div className={`${courseListTableStyles.desktop.actionRow} justify-end`}>
                             <button 
                               onClick={() => handleResetPassword(item.account)} 
                               className={courseListTableStyles.desktop.actionWarning}
                               disabled={isSubmitting}
                             >
-                              重設密碼
+                              復原密碼
                             </button>
                             <button 
                               onClick={() => handleEdit(item)} 

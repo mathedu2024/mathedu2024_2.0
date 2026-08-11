@@ -1,16 +1,21 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { trySiteErrorResponse } from '@/utils/apiErrorResponse';
 import { quizService } from '@/services/quizService';
 import type { QuizInput } from '@/services/quizTypes';
+import { requireAuthFromRequest } from '@/services/apiAuth';
 
 export async function POST(req: NextRequest) {
-  try {
-    const { quizId, teacherId, ...rest } = (await req.json()) as QuizInput & { quizId: string; teacherId: string };
+  const auth = requireAuthFromRequest(req, 'admin', 'teacher');
+  if (auth.ok === false) return auth.response;
 
-    if (!quizId || !teacherId) {
-      return NextResponse.json({ error: 'Missing quizId or teacherId' }, { status: 400 });
+  try {
+    const { quizId, ...rest } = (await req.json()) as QuizInput & { quizId: string; teacherId?: string };
+
+    if (!quizId) {
+      return NextResponse.json({ error: 'Missing quizId' }, { status: 400 });
     }
 
+    const teacherId = auth.session.id;
     await quizService.update(quizId, teacherId, rest);
     return NextResponse.json({ message: 'Quiz updated' }, { status: 200 });
   } catch (error) {

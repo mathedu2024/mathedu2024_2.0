@@ -65,9 +65,9 @@ function ResourceTypeIcon({ type }: { type: ResourceItem['type'] }) {
     case 'pdf':
       return <DocumentIcon className="w-5 h-5 text-red-500" />;
     case 'document':
-      return <DocumentTextIcon className="w-5 h-5 text-blue-500" />;
+      return <DocumentTextIcon className="w-5 h-5 text-primary" />;
     default:
-      return <LinkIcon className="w-5 h-5 text-gray-500" />;
+      return <LinkIcon className="w-5 h-5 text-on-surfaceVariant" />;
   }
 }
 
@@ -92,8 +92,8 @@ const ResourceFolderCard = memo(function ResourceFolderCard({
     <div
       className={`bg-white rounded-2xl border transition-all duration-300 overflow-hidden ${
         isExpanded
-          ? 'border-indigo-500 shadow-md ring-1 ring-indigo-100'
-          : 'border-gray-200 shadow-sm hover:border-indigo-300 hover:shadow-md'
+          ? 'border-primary shadow-md ring-1 ring-primary/20'
+          : 'border-outline-variant/40 shadow-sm hover:border-primary/40 hover:shadow-md'
       }`}
     >
       <div
@@ -104,8 +104,8 @@ const ResourceFolderCard = memo(function ResourceFolderCard({
           <div
             className={`p-3 rounded-xl transition-colors ${
               isExpanded
-                ? 'bg-indigo-100 text-indigo-600'
-                : 'bg-indigo-50 text-indigo-500 group-hover:bg-indigo-100'
+                ? 'bg-primary/10 text-primary'
+                : 'bg-primary/10 text-primary group-hover:bg-primary/10'
             }`}
           >
             {isExpanded ? (
@@ -115,18 +115,18 @@ const ResourceFolderCard = memo(function ResourceFolderCard({
             )}
           </div>
           <div>
-            <h3 className="text-lg font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">
+            <h3 className="text-lg font-bold text-on-surface group-hover:text-primary transition-colors">
               {folder.title}
             </h3>
-            <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500 mt-1.5 font-medium">
-              <span className="flex items-center bg-gray-100 px-2 py-0.5 rounded-md font-mono text-xs">
+            <div className="flex flex-wrap items-center gap-3 text-sm text-on-surfaceVariant mt-1.5 font-medium">
+              <span className="flex items-center bg-surface-container px-2 py-0.5 rounded-md font-mono text-xs">
                 <KeyIcon className="w-3.5 h-3.5 mr-1" /> {folder.indexCode}
               </span>
               <span className="flex items-center">
                 <UserIcon className="w-4 h-4 mr-1" />
                 {teacherName}
               </span>
-              <span className="flex items-center text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-md text-xs">
+              <span className="flex items-center text-primary bg-primary/10 px-2 py-0.5 rounded-md text-xs">
                 共 {publicItems.length} 個項目
               </span>
             </div>
@@ -134,17 +134,17 @@ const ResourceFolderCard = memo(function ResourceFolderCard({
         </div>
         <div className="mt-4 sm:mt-0 flex justify-end w-full sm:w-auto pr-2">
           {isExpanded ? (
-            <ChevronUpIcon className="w-6 h-6 text-indigo-500" />
+            <ChevronUpIcon className="w-6 h-6 text-primary" />
           ) : (
-            <ChevronDownIcon className="w-6 h-6 text-gray-400 group-hover:text-indigo-400" />
+            <ChevronDownIcon className="w-6 h-6 text-on-surfaceVariant group-hover:text-primary/70" />
           )}
         </div>
       </div>
 
       {isExpanded && (
-        <div className="border-t border-gray-100 bg-gray-50/50 p-5">
+        <div className="border-t border-outline-variant/40 bg-surface/50 p-5">
           {publicItems.length === 0 ? (
-            <div className="text-center py-8 text-gray-400 text-sm">
+            <div className="text-center py-8 text-on-surfaceVariant text-sm">
               此資料夾中目前沒有公開的資源項目。
             </div>
           ) : (
@@ -159,12 +159,12 @@ const ResourceFolderCard = memo(function ResourceFolderCard({
                       key={itemKey}
                       type="button"
                       onClick={() => onWatchVideo(ytId, item.title, folder.indexCode)}
-                      className="flex items-center text-left p-4 bg-white border border-gray-200 rounded-xl hover:border-indigo-400 hover:shadow-md hover:-translate-y-0.5 transition-all group w-full"
+                      className="flex items-center text-left p-4 bg-white border border-outline-variant/40 rounded-xl hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 transition-all group w-full"
                     >
-                      <div className="mr-4 p-2 bg-gray-50 rounded-lg group-hover:bg-indigo-50 transition-colors">
+                      <div className="mr-4 p-2 bg-surface rounded-lg group-hover:bg-primary/10 transition-colors">
                         <ResourceTypeIcon type={item.type} />
                       </div>
-                      <span className="font-bold text-gray-700 group-hover:text-indigo-700 transition-colors line-clamp-1">
+                      <span className="font-bold text-on-surface group-hover:text-primary transition-colors line-clamp-1">
                         {item.title}
                       </span>
                     </button>
@@ -177,12 +177,12 @@ const ResourceFolderCard = memo(function ResourceFolderCard({
                     href={item.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-indigo-400 hover:shadow-md hover:-translate-y-0.5 transition-all group"
+                    className="flex items-center p-4 bg-white border border-outline-variant/40 rounded-xl hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 transition-all group"
                   >
-                    <div className="mr-4 p-2 bg-gray-50 rounded-lg group-hover:bg-indigo-50 transition-colors">
+                    <div className="mr-4 p-2 bg-surface rounded-lg group-hover:bg-primary/10 transition-colors">
                       <ResourceTypeIcon type={item.type} />
                     </div>
-                    <span className="font-bold text-gray-700 group-hover:text-indigo-700 transition-colors line-clamp-1">
+                    <span className="font-bold text-on-surface group-hover:text-primary transition-colors line-clamp-1">
                       {item.title}
                     </span>
                   </a>
@@ -201,7 +201,7 @@ function EmptyState({
   title,
   description,
   iconClassName,
-  iconBgClassName = 'bg-gray-50',
+  iconBgClassName = 'bg-surface',
 }: {
   icon: React.ComponentType<{ className?: string }>;
   title: string;
@@ -210,12 +210,12 @@ function EmptyState({
   iconBgClassName?: string;
 }) {
   return (
-    <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-gray-300 shadow-sm">
+    <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-outline-variant/50 shadow-sm">
       <div className={`w-20 h-20 ${iconBgClassName} rounded-full flex items-center justify-center mx-auto mb-4`}>
         <Icon className={`w-10 h-10 ${iconClassName}`} />
       </div>
-      <h3 className="text-xl font-bold text-gray-800 mb-2">{title}</h3>
-      <p className="text-gray-500">{description}</p>
+      <h3 className="text-xl font-bold text-on-surface mb-2">{title}</h3>
+      <p className="text-on-surfaceVariant">{description}</p>
     </div>
   );
 }
@@ -342,33 +342,33 @@ export default function ResourcesContent() {
   return (
     <div className="page-shell w-full min-w-0 pt-4 sm:pt-6 md:pt-8 pb-10 flex flex-col h-full animate-fade-in">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div className="border-l-4 border-indigo-500 pl-4">
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-            <CloudArrowDownIcon className="h-8 w-8 text-indigo-600" />
+        <div className="border-l-4 border-primary pl-4">
+          <h1 className="font-display text-2xl font-extrabold text-on-surface flex items-center gap-3">
+            <CloudArrowDownIcon className="h-8 w-8 text-primary" />
             線上資源
           </h1>
-          <p className="text-gray-500 text-sm mt-1">
+          <p className="text-on-surfaceVariant text-sm mt-1">
             搜尋與下載教學資源
           </p>
         </div>
       </div>
 
-      <div className="mb-8 bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100">
+      <div className="mb-8 bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-outline-variant/40">
         <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-3">
           <div className="w-full relative flex-1">
-            <MagnifyingGlassIcon className="w-6 h-6 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
+            <MagnifyingGlassIcon className="w-6 h-6 text-on-surfaceVariant absolute left-4 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="請輸入老師提供的索引碼進行搜尋"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-gray-800 bg-gray-50 focus:bg-white text-base shadow-inner"
+              className="w-full pl-12 pr-4 py-3 border border-outline-variant/40 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-on-surface bg-surface focus:bg-surface-containerLowest text-base shadow-inner"
             />
           </div>
           <button
             type="submit"
             disabled={loading}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-xl shadow-sm transition-all disabled:opacity-70 whitespace-nowrap text-base"
+            className="bg-primary hover:bg-primary-hover text-white font-bold py-3 px-8 rounded-xl shadow-sm transition-all disabled:opacity-70 whitespace-nowrap text-base"
           >
             搜尋
           </button>
@@ -381,15 +381,15 @@ export default function ResourcesContent() {
         ) : !hasSearched ? (
           <EmptyState
             icon={MagnifyingGlassIcon}
-            iconBgClassName="bg-indigo-50"
-            iconClassName="text-indigo-300"
+            iconBgClassName="bg-primary/10"
+            iconClassName="text-primary/50"
             title="等待搜尋指令"
             description="請在上方輸入關鍵字後點擊「搜尋」，以確保您能專注找到所需的資源。"
           />
         ) : folders.length === 0 ? (
           <EmptyState
             icon={FolderOpenIcon}
-            iconClassName="text-gray-300"
+            iconClassName="text-outline"
             title="找不到相關資源"
             description="請確認您輸入的索引碼是否正確。"
           />

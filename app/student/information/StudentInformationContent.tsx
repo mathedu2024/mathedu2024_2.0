@@ -134,7 +134,7 @@ export default function StudentInformationContent() {
 
       if (res.ok) {
         invalidateStudentClientCache(studentInfo?.id);
-        Swal.fire({ icon: 'success', title: '更新成功', text: '個人資料已儲存', confirmButtonColor: '#4f46e5' });
+        Swal.fire({ icon: 'success', title: '更新成功', text: '個人資料已儲存', confirmButtonColor: '#2D6DF6' });
       } else {
         throw new Error('更新失敗'); 
       }
@@ -186,7 +186,7 @@ export default function StudentInformationContent() {
           icon: 'success',
           title: '修改成功',
           text: '您的密碼已更新，下次登入請使用新密碼。',
-          confirmButtonColor: '#4f46e5',
+          confirmButtonColor: '#2D6DF6',
         });
         setCurrentPassword('');
         setNewPassword('');
@@ -208,7 +208,7 @@ export default function StudentInformationContent() {
   if (!studentInfo) {
     return (
         <div className="min-h-screen flex items-center justify-center">
-            <p className="text-gray-500">無法載入學生資料</p>
+            <p className="text-on-surfaceVariant">無法載入學生資料</p>
         </div>
     );
   }
@@ -217,12 +217,12 @@ export default function StudentInformationContent() {
     <div className="page-shell w-full min-w-0 pt-4 sm:pt-6 md:pt-8 pb-10 min-h-full flex flex-col animate-fade-in">
       {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div className="border-l-4 border-indigo-500 pl-4">
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-            <UserCircleIcon className="w-8 h-8 text-indigo-600" />
+        <div className="border-l-4 border-primary pl-4">
+          <h1 className="font-display text-2xl font-extrabold text-on-surface flex items-center gap-3">
+            <UserCircleIcon className="w-8 h-8 text-primary" />
             個人資料
           </h1>
-          <p className="text-gray-500 text-sm mt-1">查看個人資料與修改密碼</p>
+          <p className="text-on-surfaceVariant text-sm mt-1">查看個人資料與修改密碼</p>
         </div>
       </div>
 
@@ -234,10 +234,10 @@ export default function StudentInformationContent() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column: Basic Info */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center">
-                <IdentificationIcon className="w-5 h-5 text-gray-500 mr-2" />
-                <h3 className="text-lg font-bold text-gray-800">基本資料</h3>
+          <div className="bg-white rounded-2xl shadow-sm border border-outline-variant/40 overflow-hidden">
+            <div className="px-6 py-4 border-b border-outline-variant/40 bg-surface/50 flex items-center">
+                <IdentificationIcon className="w-5 h-5 text-on-surfaceVariant mr-2" />
+                <h3 className="text-lg font-bold text-on-surface">基本資料</h3>
             </div>
             
             <div className="p-6">
@@ -245,11 +245,11 @@ export default function StudentInformationContent() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Name */}
                     <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                        <label className="block text-xs font-bold text-on-surfaceVariant uppercase tracking-wider mb-2">
                             姓名
                         </label>
-                        <div className="flex items-center p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-700 font-medium">
-                            <span className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center mr-3 text-sm font-bold">
+                        <div className="flex items-center p-3 bg-surface rounded-xl border border-outline-variant/40 text-on-surface font-medium">
+                            <span className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center mr-3 text-sm font-bold">
                                 {studentInfo.name?.[0] || '生'}
                             </span>
                             {studentInfo.name}
@@ -258,49 +258,49 @@ export default function StudentInformationContent() {
 
                     {/* Gender */}
                     <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                        <label className="block text-xs font-bold text-on-surfaceVariant uppercase tracking-wider mb-2">
                             性別
                         </label>
-                        <div className="flex items-center p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-700 font-medium">
-                            <UserCircleIcon className="w-5 h-5 text-gray-400 mr-3" />
+                        <div className="flex items-center p-3 bg-surface rounded-xl border border-outline-variant/40 text-on-surface font-medium">
+                            <UserCircleIcon className="w-5 h-5 text-on-surfaceVariant mr-3" />
                         {formatGender(studentInfo.gender)}
                         </div>
                     </div>
 
                     {/* Student ID / Account */}
                     <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                        <label className="block text-xs font-bold text-on-surfaceVariant uppercase tracking-wider mb-2">
                             學號
                         </label>
-                        <div className="flex items-center p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-700 font-medium font-mono">
-                            <IdentificationIcon className="w-5 h-5 text-gray-400 mr-3" />
+                        <div className="flex items-center p-3 bg-surface rounded-xl border border-outline-variant/40 text-on-surface font-medium font-mono">
+                            <IdentificationIcon className="w-5 h-5 text-on-surfaceVariant mr-3" />
                         {studentInfo.studentId || studentInfo.account || studentInfo.id}
                         </div>
                     </div>
 
                     {/* Grade */}
                     <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                        <label className="block text-xs font-bold text-on-surfaceVariant uppercase tracking-wider mb-2">
                             年級
                         </label>
-                        <div className="flex items-center p-3 bg-gray-50 rounded-xl border border-gray-200 text-gray-700 font-medium">
-                            <AcademicCapIcon className="w-5 h-5 text-gray-400 mr-3" />
+                        <div className="flex items-center p-3 bg-surface rounded-xl border border-outline-variant/40 text-on-surface font-medium">
+                            <AcademicCapIcon className="w-5 h-5 text-on-surfaceVariant mr-3" />
                         {studentInfo.grade || '未填寫'}
                         </div>
                     </div>
 
                     {/* Phone */}
                     <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-                            手機號碼 <span className="text-indigo-500 text-[10px] ml-1">(可修改)</span>
+                        <label className="block text-xs font-bold text-on-surfaceVariant uppercase tracking-wider mb-2">
+                            手機號碼 <span className="text-primary text-[10px] ml-1">(可修改)</span>
                         </label>
                         <div className="relative">
-                            <PhoneIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                            <PhoneIcon className="w-5 h-5 text-on-surfaceVariant absolute left-3 top-1/2 transform -translate-y-1/2" />
                             <input 
                                 type="tel" 
                                 value={phone}
                                 onChange={(e) => setPhone(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                                className="w-full pl-10 pr-4 py-3 rounded-xl border border-outline-variant/40 focus:border-primary focus:ring-2 focus:ring-primary/30 outline-none transition-all"
                                 placeholder="請輸入手機號碼"
                             />
                         </div>
@@ -308,16 +308,16 @@ export default function StudentInformationContent() {
 
                     {/* Email (Editable) */}
                     <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-                            電子郵件 <span className="text-indigo-500 text-[10px] ml-1">(可修改)</span>
+                        <label className="block text-xs font-bold text-on-surfaceVariant uppercase tracking-wider mb-2">
+                            電子郵件 <span className="text-primary text-[10px] ml-1">(可修改)</span>
                         </label>
                         <div className="relative">
-                            <EnvelopeIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                            <EnvelopeIcon className="w-5 h-5 text-on-surfaceVariant absolute left-3 top-1/2 transform -translate-y-1/2" />
                             <input 
                                 type="email" 
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                                className="w-full pl-10 pr-4 py-3 rounded-xl border border-outline-variant/40 focus:border-primary focus:ring-2 focus:ring-primary/30 outline-none transition-all"
                                 placeholder="請輸入電子郵件"
                             />
                         </div>
@@ -325,16 +325,16 @@ export default function StudentInformationContent() {
 
                     {/* Address (Editable) */}
                     <div className="md:col-span-2">
-                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-                            住址 <span className="text-indigo-500 text-[10px] ml-1">(可修改)</span>
+                        <label className="block text-xs font-bold text-on-surfaceVariant uppercase tracking-wider mb-2">
+                            住址 <span className="text-primary text-[10px] ml-1">(可修改)</span>
                         </label>
                         <div className="relative">
-                            <HomeIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                            <HomeIcon className="w-5 h-5 text-on-surfaceVariant absolute left-3 top-1/2 transform -translate-y-1/2" />
                             <input 
                                 type="text" 
                                 value={address}
                                 onChange={(e) => setAddress(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                                className="w-full pl-10 pr-4 py-3 rounded-xl border border-outline-variant/40 focus:border-primary focus:ring-2 focus:ring-primary/30 outline-none transition-all"
                                 placeholder="請輸入通訊地址"
                             />
                         </div>
@@ -342,22 +342,22 @@ export default function StudentInformationContent() {
 
                     {/* Enrolled Courses */}
                     <div className="md:col-span-2">
-                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex justify-between items-center">
+                        <label className="block text-xs font-bold text-on-surfaceVariant uppercase tracking-wider mb-3 flex justify-between items-center">
                             <span>報名課程</span>
                         </label>
-                        <div className="bg-gray-50 rounded-xl border border-gray-200 p-4">
+                        <div className="bg-surface rounded-xl border border-outline-variant/40 p-4">
                         {/* 改用經過狀態過濾的 userCourses 確保不顯示已封存課程 */}
                         {userCourses.length > 0 ? (
                                 <div className="flex flex-col gap-2">
                                 {userCourses.map((course, index) => (
-                                    <div key={index} className="flex items-center px-3 py-2 rounded-lg text-sm font-medium bg-white border border-indigo-100 text-indigo-700 shadow-sm">
+                                    <div key={index} className="flex items-center px-3 py-2 rounded-lg text-sm font-medium bg-white border border-primary/20 text-primary shadow-sm">
                                         <BookOpenIcon className="w-4 h-4 mr-1.5" />
                                         {course.name || course.title || '未知課程'}
                                     </div>
                                 ))}
                                 </div>
                             ) : (
-                                <p className="text-gray-500 text-sm italic">目前無報名課程</p>
+                                <p className="text-on-surfaceVariant text-sm italic">目前無報名課程</p>
                             )}
                         </div>
                     </div>
@@ -367,7 +367,7 @@ export default function StudentInformationContent() {
                     <button 
                         type="submit" 
                         disabled={isUpdatingProfile}
-                        className="bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-200 disabled:bg-gray-300 disabled:shadow-none"
+                        className="bg-primary text-white px-6 py-2.5 rounded-xl font-bold hover:bg-primary-hover transition-colors shadow-sm shadow-primary/20 disabled:bg-outline disabled:shadow-none"
                     >
                         {isUpdatingProfile ? '儲存中...' : '儲存變更'}
                     </button>
@@ -384,45 +384,45 @@ export default function StudentInformationContent() {
 
         {/* Right Column: Change Password */}
         <div className="lg:col-span-1">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden md:sticky md:top-8">
-                <div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex items-center">
-                    <KeyIcon className="w-5 h-5 text-gray-500 mr-2" />
-                    <h3 className="text-lg font-bold text-gray-800">修改密碼</h3>
+            <div className="bg-white rounded-2xl shadow-sm border border-outline-variant/40 overflow-hidden md:sticky md:top-8">
+                <div className="px-6 py-4 border-b border-outline-variant/40 bg-surface/50 flex items-center">
+                    <KeyIcon className="w-5 h-5 text-on-surfaceVariant mr-2" />
+                    <h3 className="text-lg font-bold text-on-surface">修改密碼</h3>
                 </div>
                 <div className="p-6">
                     <form onSubmit={handleChangePassword} className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">目前密碼</label>
+                            <label className="block text-sm font-medium text-on-surface mb-1">目前密碼</label>
                             <input 
                                 type="password" 
                                 required
                                 value={currentPassword}
                                 onChange={(e) => setCurrentPassword(e.target.value)}
-                                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                                className="w-full px-4 py-2 rounded-xl border border-outline-variant/40 focus:border-primary focus:ring-2 focus:ring-primary/30 outline-none transition-all"
                                 placeholder="請輸入目前密碼"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">新密碼</label>
+                            <label className="block text-sm font-medium text-on-surface mb-1">新密碼</label>
                             <input 
                                 type="password" 
                                 required
                                 minLength={6}
                                 value={newPassword}
                                 onChange={(e) => setNewPassword(e.target.value)}
-                                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                                className="w-full px-4 py-2 rounded-xl border border-outline-variant/40 focus:border-primary focus:ring-2 focus:ring-primary/30 outline-none transition-all"
                                 placeholder="請輸入新密碼"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">確認新密碼</label>
+                            <label className="block text-sm font-medium text-on-surface mb-1">確認新密碼</label>
                             <input 
                                 type="password" 
                                 required
                                 minLength={6}
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
-                                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                                className="w-full px-4 py-2 rounded-xl border border-outline-variant/40 focus:border-primary focus:ring-2 focus:ring-primary/30 outline-none transition-all"
                                 placeholder="再次輸入新密碼"
                             />
                         </div>
@@ -430,7 +430,7 @@ export default function StudentInformationContent() {
                         <button 
                             type="submit" 
                             disabled={isSubmitting}
-                            className="w-full bg-indigo-600 text-white font-bold py-2.5 rounded-xl hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-200 disabled:bg-gray-300 disabled:shadow-none mt-2"
+                            className="w-full bg-primary text-white font-bold py-2.5 rounded-xl hover:bg-primary-hover transition-colors shadow-sm shadow-primary/20 disabled:bg-outline disabled:shadow-none mt-2"
                         >
                             {isSubmitting ? '更新中...' : '確認修改'}
                         </button>

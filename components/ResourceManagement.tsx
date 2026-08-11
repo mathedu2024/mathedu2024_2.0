@@ -508,17 +508,17 @@ export default function ResourceManagement() {
     <div className="page-shell w-full min-w-0 flex flex-col h-full animate-fade-in">
       {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
-        <div className="border-l-4 border-indigo-500 pl-4">
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-            <CloudArrowDownIcon className="h-8 w-8 text-indigo-600" />
+        <div className="border-l-4 border-primary pl-4">
+          <h1 className="font-display text-2xl font-bold text-on-surface flex items-center gap-3">
+            <CloudArrowDownIcon className="h-8 w-8 text-primary" />
             線上資源管理
           </h1>
-          <p className="text-gray-500 text-sm mt-1">管理教學影片連結、PDF 教材與外部網頁</p>
+          <p className="text-on-surfaceVariant text-sm mt-1">管理教學影片連結、PDF 教材與外部網頁</p>
         </div>
         {!loading && (
         <button 
           onClick={() => openModal()}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2"
+          className="bg-primary hover:bg-primary-hover text-white font-bold py-2 px-6 rounded-xl shadow-sm transition-all flex items-center justify-center gap-2"
         >
           <PlusIcon className="h-5 w-5" />
           建立資源資料夾
@@ -531,7 +531,7 @@ export default function ResourceManagement() {
       ) : (
       <>
       {/* 篩選器 */}
-      <div className="mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+      <div className="mb-6 bg-surface-containerLowest p-4 rounded-xl shadow-sm border border-outline-variant/40">
         <button
           type="button"
           onClick={() => setIsMobileFilterOpen(!isMobileFilterOpen)}
@@ -576,7 +576,7 @@ export default function ResourceManagement() {
               placeholder="輸入名稱或索引碼搜尋..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all outline-none text-sm"
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none text-sm"
             />
             <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
@@ -592,7 +592,7 @@ export default function ResourceManagement() {
       </div>
 
       {/* Data Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-surface-containerLowest rounded-2xl shadow-sm border border-outline-variant/40 overflow-hidden">
         {/* 桌面版表格檢視 */}
         <div className="hidden md:block overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-100">
@@ -605,7 +605,7 @@ export default function ResourceManagement() {
                 >
                   <div className="flex items-center gap-1">
                     資料夾名稱
-                    <ArrowsUpDownIcon className={`w-4 h-4 transition-colors ${sortDirection === 'asc' ? 'text-indigo-500' : 'text-gray-400 group-hover:text-indigo-400'}`} />
+                    <ArrowsUpDownIcon className={`w-4 h-4 transition-colors ${sortDirection === 'asc' ? 'text-primary' : 'text-gray-400 group-hover:text-primary/70'}`} />
                   </div>
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">索引碼</th>
@@ -622,10 +622,10 @@ export default function ResourceManagement() {
                   const canEdit = isAdmin || isOwner;
 
                   return (
-                    <tr key={folder.id} className="hover:bg-indigo-50/30 transition-colors">
+                    <tr key={folder.id} className="hover:bg-primary/5 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+                          <div className="p-2 bg-primary/10 rounded-lg text-primary">
                             <FolderIcon className="h-5 w-5" />
                           </div>
                           <span className="font-bold text-gray-800">{folder.title}</span>
@@ -712,11 +712,11 @@ export default function ResourceManagement() {
             const canEdit = isAdmin || isOwner;
 
             return (
-              <div key={folder.id} className="bg-white border border-gray-100 rounded-xl shadow-sm p-5 flex flex-col gap-3 active:scale-[0.99] transition-transform">
+              <div key={folder.id} className="bg-surface-containerLowest border border-outline-variant/40 rounded-xl shadow-sm p-5 flex flex-col gap-3 active:scale-[0.99] transition-transform">
                 <div className="flex justify-between items-start">
                    <div className="min-w-0 flex-1">
                        <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2 truncate">
-                         <FolderIcon className="w-5 h-5 text-indigo-500 flex-shrink-0" />
+                         <FolderIcon className="w-5 h-5 text-primary flex-shrink-0" />
                          <span className="truncate">{folder.title}</span>
                        </h3>
                        <p className="text-xs font-mono text-gray-500 mt-1 flex items-center gap-1 truncate">
@@ -774,13 +774,13 @@ export default function ResourceManagement() {
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-gray-900/60 animate-fade-in">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-pop-in">
             {/* Modal Header */}
-            <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 p-6 flex justify-between items-center text-white">
+            <div className="bg-gradient-to-r from-primary to-tertiary p-6 flex justify-between items-center text-white">
               <div className="min-w-0 pr-4">
                 <h3 className="text-xl font-bold flex items-center gap-2 truncate">
                   {editingFolder ? <PencilSquareIcon className="h-6 w-6 flex-shrink-0" /> : <PlusIcon className="h-6 w-6 flex-shrink-0" />}
                   <span className="truncate">{editingFolder ? '編輯資源資料夾' : '建立資源資料夾'}</span>
                 </h3>
-                <p className="text-indigo-100 text-xs mt-1 truncate">
+                <p className="text-primary-fixed text-xs mt-1 truncate">
                   {editingFolder ? `索引碼：${editingFolder.indexCode}` : '系統將自動產生唯一的搜尋索引碼'}
                 </p>
               </div>
@@ -799,7 +799,7 @@ export default function ResourceManagement() {
                     value={formTitle}
                     onChange={(e) => setFormTitle(e.target.value)}
                     placeholder="例如：113學測複習講義" 
-                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary outline-none transition-all"
                   />
                 </div>
                 <div>
@@ -817,11 +817,11 @@ export default function ResourceManagement() {
               <div className="space-y-4 pt-4 border-t border-gray-100">
                 <div className="flex items-center justify-between">
                   <h4 className="font-bold text-gray-800 flex items-center gap-2">
-                    <LinkIcon className="h-5 w-5 text-indigo-500" /> 資源清單
+                    <LinkIcon className="h-5 w-5 text-primary" /> 資源清單
                   </h4>
                   <button 
                     onClick={addItem}
-                    className="text-xs bg-indigo-50 text-indigo-600 px-3 py-1.5 rounded-lg font-bold hover:bg-indigo-100 transition-colors"
+                    className="text-xs bg-primary/10 text-primary px-3 py-1.5 rounded-lg font-bold hover:bg-primary/15 transition-colors"
                   >
                     + 新增一項
                   </button>
@@ -838,11 +838,11 @@ export default function ResourceManagement() {
                                 <div
                                   ref={provided.innerRef}
                                   {...provided.draggableProps}
-                                  className="p-4 bg-gray-50 rounded-2xl space-y-3 relative group/item border border-gray-100"
+                                  className="p-4 bg-gray-50 rounded-2xl space-y-3 relative group/item border border-outline-variant/40"
                                 >
                                   <div
                                     {...provided.dragHandleProps}
-                                    className="absolute left-2 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-indigo-500 cursor-grab active:cursor-grabbing"
+                                    className="absolute left-2 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-primary cursor-grab active:cursor-grabbing"
                                   >
                                     <Bars3Icon className="w-5 h-5" />
                                   </div>
@@ -854,7 +854,7 @@ export default function ResourceManagement() {
                                           placeholder="標題 (例如：微積分第一章影片)"
                                           value={item.title}
                                           onChange={(e) => updateItem(index, 'title', e.target.value)}
-                                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
                                         />
                                       </div>
                                       <div className="flex gap-2 w-full md:w-auto">
@@ -890,7 +890,7 @@ export default function ResourceManagement() {
                                           placeholder="資源網址 (https://...)"
                                           value={item.url}
                                           onChange={(e) => updateItemUrl(index, e.target.value)}
-                                          className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                                          className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
                                         />
                                       </div>
                                       <button 
@@ -924,7 +924,7 @@ export default function ResourceManagement() {
               </button>
               <button 
                 onClick={handleSave}
-                className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all"
+                className="flex-1 bg-primary text-white py-3 rounded-xl font-bold hover:bg-primary-hover shadow-lg shadow-primary/20 transition-all"
               >
                 儲存資源資料夾
               </button>
@@ -939,13 +939,13 @@ export default function ResourceManagement() {
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-gray-900/80 animate-fade-in">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] animate-pop-in">
             {/* Header */}
-            <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 p-6 flex justify-between items-center text-white shrink-0">
+            <div className="bg-gradient-to-r from-primary to-tertiary p-6 flex justify-between items-center text-white shrink-0">
               <div className="min-w-0 pr-4">
                 <h3 className="text-xl font-bold flex items-center gap-2 truncate">
                   <EyeIcon className="h-6 w-6 flex-shrink-0" />
                   <span className="truncate">預覽資源：{previewFolder.title}</span>
                 </h3>
-                <p className="text-indigo-100 text-xs mt-1 truncate">
+                <p className="text-primary-fixed text-xs mt-1 truncate">
                   以學生視角查看資源內容。
                 </p>
               </div>
@@ -960,7 +960,7 @@ export default function ResourceManagement() {
                 <div className="space-y-4 h-full flex flex-col">
                   <button 
                     onClick={() => setPlayingVideoId(null)}
-                    className="text-indigo-600 hover:text-indigo-800 font-bold text-sm flex items-center gap-1 w-fit transition-colors"
+                    className="text-primary hover:text-primary-hover font-bold text-sm flex items-center gap-1 w-fit transition-colors"
                   >
                     &larr; 返回清單
                   </button>
@@ -995,13 +995,13 @@ export default function ResourceManagement() {
                             <button 
                               key={item.id || index} 
                               onClick={() => setPlayingVideoId(ytId)}
-                              className="flex items-center text-left p-4 bg-white border border-gray-200 rounded-xl hover:border-indigo-400 hover:shadow-md hover:-translate-y-0.5 transition-all group w-full"
+                              className="flex items-center text-left p-4 bg-white border border-gray-200 rounded-xl hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 transition-all group w-full"
                             >
                               <div className="mr-4 p-3 bg-rose-50 rounded-xl text-rose-500 group-hover:bg-rose-100 transition-colors">
                                 <VideoCameraIcon className="w-6 h-6" />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <span className="font-bold text-gray-800 group-hover:text-indigo-700 transition-colors block truncate">
+                                <span className="font-bold text-gray-800 group-hover:text-primary transition-colors block truncate">
                                   {item.title}
                                 </span>
                                 <span className="text-xs text-gray-500 mt-1 block">點擊在站內觀看影片</span>
@@ -1016,13 +1016,13 @@ export default function ResourceManagement() {
                             href={item.url} 
                             target="_blank" 
                             rel="noopener noreferrer" 
-                            className="flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-indigo-400 hover:shadow-md hover:-translate-y-0.5 transition-all group"
+                            className="flex items-center p-4 bg-white border border-gray-200 rounded-xl hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 transition-all group"
                           >
-                            <div className="mr-4 p-3 bg-gray-50 rounded-xl text-gray-500 group-hover:bg-indigo-50 transition-colors">
+                            <div className="mr-4 p-3 bg-gray-50 rounded-xl text-gray-500 group-hover:bg-primary/10 transition-colors">
                               {getItemIcon(item.type)}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <span className="font-bold text-gray-800 group-hover:text-indigo-700 transition-colors block truncate">
+                              <span className="font-bold text-gray-800 group-hover:text-primary transition-colors block truncate">
                                 {item.title}
                               </span>
                               <span className="text-xs text-gray-500 mt-1 flex items-center gap-1">

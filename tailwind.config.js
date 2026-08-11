@@ -8,10 +8,56 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        // Academic Precision — remapped indigo so existing indigo-* classes follow brand blue
+        indigo: {
+          50: '#f0f3ff',
+          100: '#e7eeff',
+          200: '#dbe1ff',
+          300: '#b3c5ff',
+          400: '#7a9dff',
+          500: '#2d6df6',
+          600: '#0053d5',
+          700: '#003fa5',
+          800: '#002a75',
+          900: '#111c2d',
+          950: '#0a1220',
+        },
         primary: {
           DEFAULT: '#2D6DF6',
-          light: '#E9F0FF', 
+          light: '#E9F0FF',
           hover: '#1B4FC1',
+          fixed: '#dbe1ff',
+          container: '#2d6df6',
+        },
+        secondary: {
+          DEFAULT: '#006a62',
+          container: '#57fae9',
+          onContainer: '#007168',
+        },
+        tertiary: {
+          DEFAULT: '#484ad6',
+          container: '#6265f0',
+        },
+        surface: {
+          DEFAULT: '#f9f9ff',
+          bright: '#f9f9ff',
+          dim: '#cfdaf2',
+          container: '#e7eeff',
+          containerLow: '#f0f3ff',
+          containerHigh: '#dee8ff',
+          containerHighest: '#d8e3fb',
+          containerLowest: '#ffffff',
+          variant: '#d8e3fb',
+        },
+        on: {
+          surface: '#111c2d',
+          surfaceVariant: '#424655',
+          primary: '#ffffff',
+          background: '#111c2d',
+        },
+        outline: {
+          DEFAULT: '#737686',
+          variant: '#c3c6d7',
         },
         success: {
           DEFAULT: '#2AB673',
@@ -35,17 +81,17 @@ module.exports = {
           focus: '#2D6DF6',
         },
         text: {
-          main: '#1A1A1A',
-          secondary: '#555555',
+          main: '#111c2d',
+          secondary: '#424655',
         },
         table: {
-          even: '#FAFAFA',
+          even: '#f0f3ff',
           odd: '#FFFFFF',
           head: '#E9F0FF',
         },
         card: {
           bg: '#FFFFFF',
-          border: '#E6E6E6',
+          border: '#c3c6d7',
         },
         tag: {
           quiz: '#2D6DF6',
@@ -54,9 +100,15 @@ module.exports = {
           custom: '#E64545',
         },
       },
+      fontFamily: {
+        display: ['var(--font-display)', 'Noto Sans TC', 'sans-serif'],
+        body: ['var(--font-body)', 'Noto Sans TC', 'sans-serif'],
+        mono: ['var(--font-mono)', 'ui-monospace', 'monospace'],
+      },
       boxShadow: {
         card: '0 2px 10px 0 rgba(30, 42, 80, 0.08)',
         btn: '0 2px 4px 0 rgba(45, 109, 246, 0.15)',
+        elevate: '0 8px 24px rgba(45, 109, 246, 0.12)',
       },
 
       screens: {
@@ -79,6 +131,7 @@ module.exports = {
         '128': '32rem',
       },
       maxWidth: {
+        'container-max': '1280px',
         '8xl': '88rem',
         '9xl': '96rem',
       },

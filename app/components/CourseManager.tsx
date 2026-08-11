@@ -113,7 +113,7 @@ const Modal = ({ open, onClose, title, size = 'md', children }: { open: boolean;
     <div className="fixed inset-0 z-[99999] flex justify-center items-center p-4 animate-fade-in">
       <div className="absolute inset-0 bg-black/60 transition-opacity" onClick={onClose}></div>
       <div className={`relative bg-white rounded-2xl shadow-2xl w-full ${maxWidthClass} max-h-full sm:max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in transform scale-100`}>
-        <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
+        <div className="bg-gradient-to-r from-primary to-tertiary p-4 flex justify-between items-center text-white flex-shrink-0">
           <h3 className="text-xl font-bold flex items-center">{title}</h3>
           <button onClick={onClose} className="text-white/80 hover:text-white transition-colors p-1 rounded-full hover:bg-white/10">
             <XMarkIcon className="w-6 h-6" />
@@ -219,7 +219,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                         icon: 'success',
                         title: '更新成功',
                         text: '課程資料已成功儲存。',
-                        confirmButtonColor: '#4f46e5',
+                        confirmButtonColor: '#2D6DF6',
                         customClass: { popup: 'rounded-2xl' }
                     });
                 } else {
@@ -252,7 +252,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                         icon: 'success',
                         title: '建立成功',
                         text: '新課程已成功加入系統。',
-                        confirmButtonColor: '#4f46e5',
+                        confirmButtonColor: '#2D6DF6',
                         customClass: { popup: 'rounded-2xl' }
                     });
                 } else {
@@ -265,7 +265,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                 icon: 'error',
                 title: '儲存失敗',
                 text: err instanceof Error ? err.message : '儲存課程時發生錯誤',
-                confirmButtonColor: '#4f46e5',
+                confirmButtonColor: '#2D6DF6',
                 customClass: { popup: 'rounded-2xl' }
             });
         } finally {
@@ -393,7 +393,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                 icon: 'success',
                 title: '刪除成功',
                 text: '課程已從系統中移除。',
-                confirmButtonColor: '#4f46e5',
+                confirmButtonColor: '#2D6DF6',
                 customClass: { popup: 'rounded-2xl' }
             });
         } catch {
@@ -401,7 +401,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                 icon: 'error',
                 title: '錯誤',
                 text: '刪除課程時發生錯誤。',
-                confirmButtonColor: '#4f46e5',
+                confirmButtonColor: '#2D6DF6',
                 customClass: { popup: 'rounded-2xl' }
             });
         } finally {
@@ -412,10 +412,20 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
     const handleArchive = async (id: string) => {
         const result = await Swal.fire({
             title: '確定要封存此課程嗎？',
-            text: '封存後課程將不會顯示在首頁清單中。',
+            html: `
+              <div class="text-left text-sm text-gray-600 space-y-2">
+                <p>封存後：</p>
+                <ul class="list-disc pl-5 space-y-1">
+                  <li>不會顯示在公開課程介紹</li>
+                  <li>僅供檢視，無法再編輯內容或登記成績</li>
+                  <li>老師仍可從此封存課<strong>複製測驗／問卷</strong>到新班級</li>
+                  <li>新學期建議使用「複製為新課」建立新課程（不含學生、成績、點名）</li>
+                </ul>
+              </div>
+            `,
             icon: 'question',
             showCancelButton: true,
-            confirmButtonColor: '#4f46e5',
+            confirmButtonColor: '#2D6DF6',
             cancelButtonColor: '#9ca3af',
             confirmButtonText: '確定封存',
             cancelButtonText: '取消',
@@ -433,8 +443,8 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
             Swal.fire({
                 icon: 'success',
                 title: '已封存',
-                text: '課程已成功移至封存清單。',
-                confirmButtonColor: '#4f46e5',
+                text: '課程已成功移至封存清單。可用「複製為新課」開新學期。',
+                confirmButtonColor: '#2D6DF6',
                 customClass: { popup: 'rounded-2xl' }
             });
         } catch {
@@ -442,11 +452,71 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                 icon: 'error',
                 title: '錯誤',
                 text: '封存課程時發生錯誤。',
-                confirmButtonColor: '#4f46e5',
+                confirmButtonColor: '#2D6DF6',
                 customClass: { popup: 'rounded-2xl' }
             });
         } finally {
             await fetchCourses({ bypassCache: true });
+        }
+    };
+
+    const handleCloneCourse = async (course: Course) => {
+        const { value: formValues } = await Swal.fire({
+            title: '複製為新學期課程',
+            html: `
+              <p class="text-sm text-gray-500 text-left mb-3">將複製課程資料與課堂單元。不含學生名單、成績、點名；測驗／問卷請於新課另行「從其他班複製」。</p>
+              <input id="swal-clone-name" class="swal2-input" placeholder="新課程名稱" value="${String(course.name || '').replace(/"/g, '&quot;')}">
+              <input id="swal-clone-code" class="swal2-input" placeholder="新課程代碼（必填，不可重複）">
+            `,
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: '開始複製',
+            cancelButtonText: '取消',
+            confirmButtonColor: '#2D6DF6',
+            cancelButtonColor: '#9ca3af',
+            customClass: { popup: 'rounded-2xl' },
+            preConfirm: () => {
+                const name = (document.getElementById('swal-clone-name') as HTMLInputElement)?.value?.trim();
+                const code = (document.getElementById('swal-clone-code') as HTMLInputElement)?.value?.trim();
+                if (!code) {
+                    Swal.showValidationMessage('請填寫新課程代碼');
+                    return false;
+                }
+                return { name, code };
+            },
+        });
+
+        if (!formValues) return;
+
+        try {
+            Swal.fire({ title: '複製中…', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            const res = await fetch('/api/courses/clone', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    sourceCourseId: course.id,
+                    newName: formValues.name,
+                    newCode: formValues.code,
+                }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || '複製失敗');
+            await fetchCourses({ bypassCache: true });
+            Swal.fire({
+                icon: 'success',
+                title: '已建立新課程',
+                text: data.message || '複製完成。請至新課複製測驗／問卷並加入學生。',
+                confirmButtonColor: '#2D6DF6',
+                customClass: { popup: 'rounded-2xl' },
+            });
+        } catch (error) {
+            Swal.fire({
+                icon: 'error',
+                title: '複製失敗',
+                text: error instanceof Error ? error.message : '請稍後再試',
+                confirmButtonColor: '#2D6DF6',
+                customClass: { popup: 'rounded-2xl' },
+            });
         }
     };
 
@@ -455,7 +525,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
             title: '確定要取消封存此課程嗎？',
             icon: 'question',
             showCancelButton: true,
-            confirmButtonColor: '#4f46e5',
+            confirmButtonColor: '#2D6DF6',
             cancelButtonColor: '#9ca3af',
             confirmButtonText: '確認取消封存',
             cancelButtonText: '再想想',
@@ -474,7 +544,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                 icon: 'success',
                 title: '已復原',
                 text: '課程已取消封存。',
-                confirmButtonColor: '#4f46e5',
+                confirmButtonColor: '#2D6DF6',
                 customClass: { popup: 'rounded-2xl' }
             });
         } catch {
@@ -482,7 +552,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                 icon: 'error',
                 title: '錯誤',
                 text: '操作失敗，請稍後再試。',
-                confirmButtonColor: '#4f46e5',
+                confirmButtonColor: '#2D6DF6',
                 customClass: { popup: 'rounded-2xl' }
             });
         } finally {
@@ -655,7 +725,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                     icon: 'success',
                     title: '移除成功',
                     text: `已將學生 ${student.name} 從課程中移除`,
-                    confirmButtonColor: '#4f46e5',
+                    confirmButtonColor: '#2D6DF6',
                     customClass: { popup: 'rounded-2xl' }
                 });
         } catch {
@@ -663,7 +733,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                 icon: 'error',
                 title: '錯誤',
                 text: '移除學生時發生錯誤',
-                confirmButtonColor: '#4f46e5',
+                confirmButtonColor: '#2D6DF6',
                 customClass: { popup: 'rounded-2xl' }
             });
         }
@@ -676,12 +746,12 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
         <div className="page-shell w-full min-w-0 flex flex-col h-full animate-fade-in">
             {/* Header Area */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
-                <div className="border-l-4 border-indigo-500 pl-4">
-                    <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-                        <UserGroupIcon className="h-8 w-8 text-indigo-600" />
+                <div className="border-l-4 border-primary pl-4">
+                    <h1 className="font-display text-2xl font-bold text-on-surface flex items-center gap-3">
+                        <UserGroupIcon className="h-8 w-8 text-primary" />
                         課程管理
                     </h1>
-                    <p className="text-gray-500 text-sm mt-1">新增、編輯、管理所有課程</p>
+                    <p className="text-on-surfaceVariant text-sm mt-1">新增、編輯、管理所有課程</p>
                 </div>
             </div>
 
@@ -689,10 +759,10 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
             <div className="md:hidden mb-4">
                 <button
                     onClick={() => setIsFilterOpen(!isFilterOpen)}
-                    className="w-full flex items-center justify-between bg-white px-5 py-4 rounded-xl shadow-sm border border-gray-100 transition-all active:scale-[0.99]"
+                    className="w-full flex items-center justify-between bg-surface-containerLowest px-5 py-4 rounded-xl shadow-sm border border-outline-variant/40 transition-all active:scale-[0.99]"
                 >
                     <span className="font-bold text-gray-700 flex items-center text-sm">
-                        <FunnelIcon className="w-5 h-5 mr-2 text-indigo-500" />
+                        <FunnelIcon className="w-5 h-5 mr-2 text-primary" />
                         條件篩選與搜尋
                     </span>
                     <ChevronDownIcon 
@@ -706,7 +776,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                 md:block mb-8 transition-all duration-300 ease-in-out
                 ${isFilterOpen ? 'max-h-[1000px] opacity-100 overflow-visible' : 'max-h-0 md:max-h-none opacity-0 md:opacity-100 overflow-hidden md:overflow-visible'}
             `}>
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 relative z-[60]">
+                <div className="bg-surface-containerLowest rounded-2xl shadow-sm border border-outline-variant/40 p-4 relative z-[60]">
                     <div className="flex flex-col md:flex-row gap-4 items-center">
                         <div className="relative w-full md:flex-1 min-w-0">
                             <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -715,7 +785,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                 placeholder="搜尋名稱或代碼..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all text-sm"
+                                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-sm"
                             />
                         </div>
                         <div className="w-full md:w-40 flex-shrink-0">
@@ -773,7 +843,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                         <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border border-dashed border-gray-200 text-gray-400">
                             <ArchiveBoxIcon className="w-16 h-16 mb-4 text-gray-300" />
                             <p className="text-lg">沒有找到符合條件的課程</p>
-                            <button onClick={() => { setSearchTerm(''); setSelectedSubject('all'); setSelectedStatus('all'); }} className="mt-4 text-indigo-600 hover:text-indigo-800 font-medium flex items-center">
+                            <button onClick={() => { setSearchTerm(''); setSelectedSubject('all'); setSelectedStatus('all'); }} className="mt-4 text-primary hover:text-primary font-medium flex items-center">
                                 <ArrowPathIcon className="w-4 h-4 mr-1" /> 清除篩選
                             </button>
                         </div>
@@ -840,6 +910,14 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                                         >
                                                             {course.status === '已封存' || String(course.archived) === 'true' ? '查看' : '編輯'}
                                                         </button>
+                                                        {(course.status === '已封存' || String(course.archived) === 'true') && (
+                                                            <button
+                                                                onClick={() => void handleCloneCourse(course)}
+                                                                className={courseListTableStyles.desktop.actionWarning}
+                                                            >
+                                                                複製為新課
+                                                            </button>
+                                                        )}
                                                         <button 
                                                             onClick={() => handleShowStudents(course)}
                                                             className={courseListTableStyles.desktop.actionSuccess}
@@ -887,6 +965,14 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                             >
                                                 {course.status === '已封存' || String(course.archived) === 'true' ? '查看' : '編輯'}
                                             </button>
+                                            {(course.status === '已封存' || String(course.archived) === 'true') && (
+                                                <button
+                                                    onClick={() => void handleCloneCourse(course)}
+                                                    className={tableActionStyles.warning}
+                                                >
+                                                    複製為新課
+                                                </button>
+                                            )}
                                             <button 
                                                 onClick={() => handleShowStudents(course)}
                                                 className={tableActionStyles.success}
@@ -921,25 +1007,25 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                     <form onSubmit={handleSaveCourse} className="flex flex-col flex-1 overflow-hidden">
                         <div className="p-6 space-y-6 overflow-y-auto custom-scrollbar pb-6">
                         {isEditingArchived && (
-                            <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-xl flex items-center shadow-sm">
-                                <span className="font-bold mr-2">提示：</span>
-                                此為封存課程，僅供檢視。若要修改請先取消封存。
+                            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                                <p className="font-bold mb-1">此課程已封存（僅供檢視）</p>
+                                <p>無法編輯內容。新學期請使用「複製為新課」；測驗／問卷可於新班級以「從其他班複製」帶入。</p>
                             </div>
                         )}
                         {/* Section 1: Basic Info */}
-                        <div className="bg-gray-50/50 p-5 rounded-xl border border-gray-100 relative z-[40] hover:z-[50] focus-within:z-[50]">
+                        <div className="bg-surface-containerLow/60 p-5 rounded-xl border border-outline-variant/40 relative z-[40] hover:z-[50] focus-within:z-[50]">
                             <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 flex items-center">
-                                <span className="w-1 h-4 bg-indigo-500 rounded-full mr-2"></span>
+                                <span className="w-1 h-4 bg-primary rounded-full mr-2"></span>
                                 基本資訊
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <div className="relative z-[30]">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">課程名稱 <span className="text-red-500">*</span></label>
-                                    <input type="text" value={editingCourse.name} onChange={e => setEditingCourse(prev => prev ? { ...prev, name: e.target.value } : null)} className={`w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all ${editingCourse.id && editingCourse.id !== 'new' ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} required readOnly={!!(editingCourse.id && editingCourse.id !== 'new')} placeholder="輸入課程名稱" />
+                                    <input type="text" value={editingCourse.name} onChange={e => setEditingCourse(prev => prev ? { ...prev, name: e.target.value } : null)} className={`w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all ${editingCourse.id && editingCourse.id !== 'new' ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} required readOnly={!!(editingCourse.id && editingCourse.id !== 'new')} placeholder="輸入課程名稱" />
                                 </div>
                                 <div className="relative z-[30]">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">課程代碼 <span className="text-red-500">*</span></label>
-                                    <input type="text" value={editingCourse.code} onChange={e => setEditingCourse(prev => prev ? { ...prev, code: e.target.value } : null)} className={`w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all ${editingCourse.id && editingCourse.id !== 'new' ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} required readOnly={!!(editingCourse.id && editingCourse.id !== 'new')} placeholder="例: M20240901" />
+                                    <input type="text" value={editingCourse.code} onChange={e => setEditingCourse(prev => prev ? { ...prev, code: e.target.value } : null)} className={`w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all ${editingCourse.id && editingCourse.id !== 'new' ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} required readOnly={!!(editingCourse.id && editingCourse.id !== 'new')} placeholder="例: M20240901" />
                                 </div>
                                 {editingCourse.id && editingCourse.id !== 'new' && (
                                     <div className="md:col-span-2 text-xs text-amber-600 bg-amber-50 p-2.5 rounded-lg border border-amber-200 relative z-[20]">
@@ -959,9 +1045,9 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                         </div>
 
                         {/* Section 2: Content & Categorization */}
-                        <div className="bg-gray-50/50 p-5 rounded-xl border border-gray-100 relative z-[30] hover:z-[50] focus-within:z-[50]">
+                        <div className="bg-surface-containerLow/60 p-5 rounded-xl border border-outline-variant/40 relative z-[30] hover:z-[50] focus-within:z-[50]">
                             <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 flex items-center">
-                                <span className="w-1 h-4 bg-purple-500 rounded-full mr-2"></span>
+                                <span className="w-1 h-4 bg-tertiary rounded-full mr-2"></span>
                                 內容與分類
                             </h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -992,7 +1078,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                                     }}
                                                     className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
                                                         isSelected 
-                                                        ? 'bg-indigo-100 text-indigo-700 ring-2 ring-indigo-500 ring-offset-1' 
+                                                        ? 'bg-primary/10 text-primary ring-2 ring-primary ring-offset-1' 
                                                         : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
                                                     } ${isEditingArchived ? 'opacity-60 cursor-not-allowed' : ''}`}
                                                 >
@@ -1017,7 +1103,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                     <textarea 
                                         value={editingCourse.description} 
                                         onChange={e => setEditingCourse(prev => prev ? { ...prev, description: e.target.value } : null)} 
-                                        className={`w-full p-3 border border-gray-300 rounded-lg h-48 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all resize-none ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} 
+                                        className={`w-full p-3 border border-gray-300 rounded-lg h-48 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all resize-none ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} 
                                         disabled={isEditingArchived}
                                         placeholder="請描述課程內容、目標等..."
                                     ></textarea>
@@ -1026,11 +1112,11 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                     <label className="block text-sm font-bold text-gray-700 mb-2">課程介紹封面圖片 <span className="text-red-500">*</span></label>
                                     <div className="flex gap-4 overflow-x-auto p-5 border border-gray-200 rounded-2xl bg-gray-50/50 shadow-inner no-scrollbar snap-x min-h-[300px] items-center">
                                         {courseImages.map(img => (
-                                            <div key={img} className={`relative flex-shrink-0 w-48 h-48 sm:w-56 sm:h-56 rounded-xl overflow-hidden group border-2 transition-all snap-start shadow-md ${selectedImage === img ? 'border-indigo-500 ring-4 ring-indigo-100 scale-[0.98]' : 'border-white hover:border-indigo-200'} ${isEditingArchived ? 'cursor-default opacity-80' : 'cursor-pointer'}`} onClick={() => !isEditingArchived && setSelectedImage(img)}>
+                                            <div key={img} className={`relative flex-shrink-0 w-48 h-48 sm:w-56 sm:h-56 rounded-xl overflow-hidden group border-2 transition-all snap-start shadow-md ${selectedImage === img ? 'border-primary ring-4 ring-primary/20 scale-[0.98]' : 'border-white hover:border-primary/30'} ${isEditingArchived ? 'cursor-default opacity-80' : 'cursor-pointer'}`} onClick={() => !isEditingArchived && setSelectedImage(img)}>
                                                 <Image src={img} alt="課程圖片" fill className={`object-cover bg-white transition-transform duration-500 ${isEditingArchived ? '' : 'group-hover:scale-110'}`} sizes="(max-width: 768px) 192px, 224px" />
                                                 {selectedImage === img && (
-                                                    <div className="absolute inset-0 bg-indigo-600/30-[1px] flex items-center justify-center">
-                                                        <div className="bg-indigo-600 rounded-full p-2 shadow-xl ring-2 ring-white">
+                                                    <div className="absolute inset-0 bg-primary/30-[1px] flex items-center justify-center">
+                                                        <div className="bg-primary rounded-full p-2 shadow-xl ring-2 ring-white">
                                                             <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                                                         </div>
                                                     </div>
@@ -1044,7 +1130,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                         </div>
 
                         {/* Section 3: Time & Location */}
-                        <div className="bg-gray-50/50 p-5 rounded-xl border border-gray-100 relative z-[20] hover:z-[50] focus-within:z-[50]">
+                        <div className="bg-surface-containerLow/60 p-5 rounded-xl border border-outline-variant/40 relative z-[20] hover:z-[50] focus-within:z-[50]">
                             <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 flex items-center">
                                 <span className="w-1 h-4 bg-green-500 rounded-full mr-2"></span>
                                 時間與地點
@@ -1053,14 +1139,14 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                 <div className="relative z-[50]">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">開始日期 <span className="text-red-500">*</span></label>
                                     <div className="relative">
-                                        <DatePicker disabled={isEditingArchived} selected={editingCourse.startDate ? new Date(editingCourse.startDate.replace(/-/g, '/')) : null} onChange={(date: Date | null) => { const newDate = date ? new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().split('T')[0] : ''; setEditingCourse(prev => prev ? { ...prev, startDate: newDate } : null) }} dateFormat="yyyy/MM/dd" className={`w-full p-2.5 pl-10 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} placeholderText="YYYY/MM/DD" required wrapperClassName="w-full" />
+                                        <DatePicker disabled={isEditingArchived} selected={editingCourse.startDate ? new Date(editingCourse.startDate.replace(/-/g, '/')) : null} onChange={(date: Date | null) => { const newDate = date ? new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().split('T')[0] : ''; setEditingCourse(prev => prev ? { ...prev, startDate: newDate } : null) }} dateFormat="yyyy/MM/dd" className={`w-full p-2.5 pl-10 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-primary ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} placeholderText="YYYY/MM/DD" required wrapperClassName="w-full" />
                                         <CalendarIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                                     </div>
                                 </div>
                                 <div className="relative z-[50]">
                                     <label className="block text-sm font-medium text-gray-700 mb-1">結束日期 <span className="text-red-500">*</span></label>
                                     <div className="relative">
-                                        <DatePicker disabled={isEditingArchived} selected={editingCourse.endDate ? new Date(editingCourse.endDate.replace(/-/g, '/')) : null} onChange={(date: Date | null) => { const newDate = date ? new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().split('T')[0] : ''; setEditingCourse(prev => prev ? { ...prev, endDate: newDate } : null) }} dateFormat="yyyy/MM/dd" className={`w-full p-2.5 pl-10 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} placeholderText="YYYY/MM/DD" required wrapperClassName="w-full" />
+                                        <DatePicker disabled={isEditingArchived} selected={editingCourse.endDate ? new Date(editingCourse.endDate.replace(/-/g, '/')) : null} onChange={(date: Date | null) => { const newDate = date ? new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().split('T')[0] : ''; setEditingCourse(prev => prev ? { ...prev, endDate: newDate } : null) }} dateFormat="yyyy/MM/dd" className={`w-full p-2.5 pl-10 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-primary ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} placeholderText="YYYY/MM/DD" required wrapperClassName="w-full" />
                                         <CalendarIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                                     </div>
                                 </div>
@@ -1078,7 +1164,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                     <div className="md:col-span-2 relative z-[35]">
                                         <label className="block text-sm font-medium text-gray-700 mb-1">上課地點 <span className="text-red-500">*</span></label>
                                         <div className="relative">
-                                            <input type="text" disabled={isEditingArchived} value={editingCourse.location} onChange={e => setEditingCourse(prev => prev ? { ...prev, location: e.target.value } : null)} className={`w-full p-2.5 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} required placeholder="例如：A棟 301 教室" />
+                                            <input type="text" disabled={isEditingArchived} value={editingCourse.location} onChange={e => setEditingCourse(prev => prev ? { ...prev, location: e.target.value } : null)} className={`w-full p-2.5 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary outline-none ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} required placeholder="例如：A棟 301 教室" />
                                             <MapPinIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                                         </div>
                                     </div>
@@ -1086,7 +1172,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                 {editingCourse.teachingMethod === '線上上課' && (
                                     <div className="md:col-span-2 relative z-[35]">
                                         <label className="block text-sm font-medium text-gray-700 mb-1">直播網址 <span className="text-red-500">*</span></label>
-                                        <input type="text" disabled={isEditingArchived} value={editingCourse.liveStreamURL} onChange={e => setEditingCourse(prev => prev ? { ...prev, liveStreamURL: e.target.value } : null)} className={`w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} required placeholder="https://..." />
+                                        <input type="text" disabled={isEditingArchived} value={editingCourse.liveStreamURL} onChange={e => setEditingCourse(prev => prev ? { ...prev, liveStreamURL: e.target.value } : null)} className={`w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary outline-none ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} required placeholder="https://..." />
                                     </div>
                                 )}
                                 {editingCourse.teachingMethod === '實體與線上同步上課' && (
@@ -1094,20 +1180,20 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                         <div className="md:col-span-2 relative z-[35]">
                                             <label className="block text-sm font-medium text-gray-700 mb-1">上課地點 <span className="text-red-500">*</span></label>
                                             <div className="relative">
-                                                <input type="text" disabled={isEditingArchived} value={editingCourse.location} onChange={e => setEditingCourse(prev => prev ? { ...prev, location: e.target.value } : null)} className={`w-full p-2.5 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} required />
+                                                <input type="text" disabled={isEditingArchived} value={editingCourse.location} onChange={e => setEditingCourse(prev => prev ? { ...prev, location: e.target.value } : null)} className={`w-full p-2.5 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary outline-none ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} required />
                                                 <MapPinIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                                             </div>
                                         </div>
                                         <div className="md:col-span-2 relative z-[34]">
                                             <label className="block text-sm font-medium text-gray-700 mb-1">直播網址 <span className="text-red-500">*</span></label>
-                                            <input type="text" disabled={isEditingArchived} value={editingCourse.liveStreamURL} onChange={e => setEditingCourse(prev => prev ? { ...prev, liveStreamURL: e.target.value } : null)} className={`w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} required />
+                                            <input type="text" disabled={isEditingArchived} value={editingCourse.liveStreamURL} onChange={e => setEditingCourse(prev => prev ? { ...prev, liveStreamURL: e.target.value } : null)} className={`w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary outline-none ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} required />
                                         </div>
                                     </>
                                 )}
                                 <div className={`md:col-span-2 relative z-[32] ${isEditingArchived ? 'pointer-events-none opacity-60' : ''}`}>
                                   <div className="flex justify-between items-center mb-2">
                                     <label className="block text-sm font-medium text-gray-700">自訂連結按鈕</label>
-                                    <button type="button" onClick={() => setEditingCourse(prev => prev ? { ...prev, customLinks: [...(prev.customLinks || []), { name: '', url: '', icon: 'LinkIcon' }] } : null)} disabled={isEditingArchived} className="text-indigo-600 text-xs font-bold hover:text-indigo-800 flex items-center">
+                                    <button type="button" onClick={() => setEditingCourse(prev => prev ? { ...prev, customLinks: [...(prev.customLinks || []), { name: '', url: '', icon: 'LinkIcon' }] } : null)} disabled={isEditingArchived} className="text-primary text-xs font-bold hover:text-primary flex items-center">
                                       <PlusIcon className="w-4 h-4 mr-1" /> 新增連結
                                     </button>
                                   </div>
@@ -1137,7 +1223,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                             newLinks[idx] = { ...newLinks[idx], name: e.target.value };
                                             setEditingCourse(prev => prev ? { ...prev, customLinks: newLinks } : null);
                                           }}
-                                          className="w-1/3 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-indigo-500 outline-none h-10"
+                                          className="w-1/3 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-primary outline-none h-10"
                                         />
                                         <input 
                                           type="url" 
@@ -1149,7 +1235,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                             newLinks[idx] = { ...newLinks[idx], url: e.target.value };
                                             setEditingCourse(prev => prev ? { ...prev, customLinks: newLinks } : null);
                                           }}
-                                          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-indigo-500 outline-none h-10"
+                                          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-primary outline-none h-10"
                                         />
                                         {!isEditingArchived && (
                                             <button type="button" onClick={() => {
@@ -1192,9 +1278,9 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                                     />
                                                 </div>
                                                 <div className="flex items-center gap-2 flex-grow">
-                                                    <input type="time" lang="en-GB" disabled={isEditingArchived} value={time.startTime} onChange={e => updateClassTime(index, 'startTime', e.target.value)} className={`p-2 border border-gray-300 rounded-lg w-full outline-none focus:ring-2 focus:ring-indigo-500 ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} step="300" />
+                                                    <input type="time" lang="en-GB" disabled={isEditingArchived} value={time.startTime} onChange={e => updateClassTime(index, 'startTime', e.target.value)} className={`p-2 border border-gray-300 rounded-lg w-full outline-none focus:ring-2 focus:ring-primary ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} step="300" />
                                                     <span className="text-gray-400">→</span>
-                                                    <input type="time" lang="en-GB" disabled={isEditingArchived} value={time.endTime} onChange={e => updateClassTime(index, 'endTime', e.target.value)} className={`p-2 border border-gray-300 rounded-lg w-full outline-none focus:ring-2 focus:ring-indigo-500 ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} step="300" />
+                                                    <input type="time" lang="en-GB" disabled={isEditingArchived} value={time.endTime} onChange={e => updateClassTime(index, 'endTime', e.target.value)} className={`p-2 border border-gray-300 rounded-lg w-full outline-none focus:ring-2 focus:ring-primary ${isEditingArchived ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} step="300" />
                                                 </div>
                                                 {!isEditingArchived && (
                                                     <button type="button" onClick={() => removeClassTime(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors">
@@ -1204,7 +1290,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                             </div>
                                         ))}
                                         {!isEditingArchived && (
-                                            <button type="button" onClick={addClassTime} className="text-sm text-indigo-600 hover:text-indigo-800 font-medium flex items-center mt-2">
+                                            <button type="button" onClick={addClassTime} className="text-sm text-primary hover:text-primary font-medium flex items-center mt-2">
                                                 <PlusIcon className="w-4 h-4 mr-1" /> 新增時段
                                             </button>
                                         )}
@@ -1214,7 +1300,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                         </div>
 
                         {/* Section 4: Status & Visibility */}
-                        <div className="bg-gray-50/50 p-5 rounded-xl border border-gray-100 relative z-[10] hover:z-[50] focus-within:z-[50]">
+                        <div className="bg-surface-containerLow/60 p-5 rounded-xl border border-outline-variant/40 relative z-[10] hover:z-[50] focus-within:z-[50]">
                             <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 flex items-center">
                                 <span className="w-1 h-4 bg-yellow-500 rounded-full mr-2"></span>
                                 狀態與可見度
@@ -1232,7 +1318,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                 </div>
                                 <div className="md:col-span-2 pt-2 relative z-[10]">
                                     <label className={`inline-flex items-center select-none ${isEditingArchived ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
-                                        <input type="checkbox" disabled={isEditingArchived} checked={editingCourse.showInIntroduction} onChange={e => setEditingCourse(prev => prev ? { ...prev, showInIntroduction: e.target.checked } : null)} className={`w-5 h-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 accent-indigo-600 ${isEditingArchived ? 'cursor-not-allowed' : 'cursor-pointer'}`} />
+                                        <input type="checkbox" disabled={isEditingArchived} checked={editingCourse.showInIntroduction} onChange={e => setEditingCourse(prev => prev ? { ...prev, showInIntroduction: e.target.checked } : null)} className={`w-5 h-5 text-primary rounded border-gray-300 focus:ring-primary accent-[#2D6DF6] ${isEditingArchived ? 'cursor-not-allowed' : 'cursor-pointer'}`} />
                                         <span className="ml-3 text-sm text-gray-700">將課程顯示在首頁的「課程介紹」中</span>
                                     </label>
                                 </div>
@@ -1240,12 +1326,12 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                         </div>
                         </div>
 
-                        <div className="p-4 bg-gray-50 border-t border-gray-100 flex gap-2 flex-shrink-0">
+                        <div className="p-4 bg-surface-containerLow border-t border-outline-variant/40 flex gap-2 flex-shrink-0">
                             <button type="button" onClick={() => setEditingCourse(null)} disabled={isSubmitting} className="flex-1 bg-white border border-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
                                 {isEditingArchived ? '關閉' : '取消'}
                             </button>
                             {!isEditingArchived && (
-                                <button type="submit" disabled={isSubmitting} className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm transition-colors flex items-center justify-center disabled:opacity-50">
+                                <button type="submit" disabled={isSubmitting} className="flex-1 bg-primary text-white py-2 rounded-lg text-sm font-medium hover:bg-primary-hover shadow-sm transition-colors flex items-center justify-center disabled:opacity-50">
                                     {isSubmitting && <LoadingSpinner size={16} color="white" className="mr-2" />}
                                     {editingCourse.id && editingCourse.id !== 'new' ? '儲存更新' : '確認建立'}
                                 </button>
@@ -1282,7 +1368,7 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                                     </thead>
                                     <tbody className="divide-y divide-gray-100 bg-white">
                                         {studentList.map((stu) => (
-                                            <tr key={stu.id} className="hover:bg-indigo-50/30 transition-colors">
+                                            <tr key={stu.id} className="hover:bg-primary/5 transition-colors">
                                                 <td className="px-6 py-3">
                                                     <div className="flex items-center gap-3 min-w-0">
                                                         <div className={courseListTableStyles.desktop.teacherAvatar}>
@@ -1317,8 +1403,8 @@ export default function CourseManager({ onProcessingStateChange }: CourseManager
                             </div>
                         )}
                     </div>
-                    <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-2 flex-shrink-0">
-                        <button onClick={() => setShowStudentListModal(null)} className="px-6 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm transition-colors">
+                    <div className="p-4 bg-surface-containerLow border-t border-outline-variant/40 flex justify-end gap-2 flex-shrink-0">
+                        <button onClick={() => setShowStudentListModal(null)} className="px-6 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover shadow-sm transition-colors">
                             關閉
                         </button>
                     </div>

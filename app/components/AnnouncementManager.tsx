@@ -115,7 +115,7 @@ export default function AnnouncementManager() {
         icon: 'warning',
         title: '提醒',
         text: '標題和內容為必填項目',
-        confirmButtonColor: '#4f46e5',
+        confirmButtonColor: '#2D6DF6',
         customClass: { popup: 'rounded-2xl' }
       });
       return;
@@ -145,7 +145,7 @@ export default function AnnouncementManager() {
             icon: 'success',
             title: '更新成功',
             text: '公告已成功更新',
-            confirmButtonColor: '#4f46e5',
+            confirmButtonColor: '#2D6DF6',
             customClass: { popup: 'rounded-2xl' }
           });
           setAnnouncements(prev => prev.map(ann => 
@@ -183,7 +183,7 @@ export default function AnnouncementManager() {
             icon: 'success',
             title: '建立成功',
             text: '新公告已成功建立',
-            confirmButtonColor: '#4f46e5',
+            confirmButtonColor: '#2D6DF6',
             customClass: { popup: 'rounded-2xl' }
           });
           const newAnnouncement: Announcement = {
@@ -250,7 +250,7 @@ export default function AnnouncementManager() {
           icon: 'success',
           title: '刪除成功',
           text: '公告已成功移除',
-          confirmButtonColor: '#4f46e5',
+          confirmButtonColor: '#2D6DF6',
           customClass: { popup: 'rounded-2xl' }
         });
         setAnnouncements(prev => prev.filter(ann => ann.id !== id));
@@ -371,12 +371,12 @@ export default function AnnouncementManager() {
   return (
     <div className="page-shell max-w-7xl mx-auto w-full min-w-0 flex flex-col h-full overflow-y-auto animate-fade-in">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
-        <div className="border-l-4 border-indigo-500 pl-4">
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-            <MegaphoneIcon className="h-8 w-8 text-indigo-600" />
+        <div className="border-l-4 border-primary pl-4">
+          <h1 className="font-display text-2xl font-bold text-on-surface flex items-center gap-3">
+            <MegaphoneIcon className="h-8 w-8 text-primary" />
             公告管理
           </h1>
-          <p className="text-gray-500 text-sm mt-1">發布與管理最新公告</p>
+          <p className="text-on-surfaceVariant text-sm mt-1">發布與管理最新公告</p>
         </div>
       </div>
 
@@ -384,10 +384,10 @@ export default function AnnouncementManager() {
       <div className="md:hidden mb-4">
         <button
           onClick={() => setIsFilterOpen(!isFilterOpen)}
-          className="w-full flex items-center justify-between bg-white px-5 py-4 rounded-xl shadow-sm border border-gray-100 transition-all active:scale-[0.99]"
+          className="w-full flex items-center justify-between bg-surface-containerLowest px-5 py-4 rounded-xl shadow-sm border border-outline-variant/40 transition-all active:scale-[0.99]"
         >
           <span className="font-bold text-gray-700 flex items-center text-sm">
-            <FunnelIcon className="w-5 h-5 mr-2 text-indigo-500" />
+            <FunnelIcon className="w-5 h-5 mr-2 text-primary" />
             條件篩選與搜尋
           </span>
           <ChevronDownIcon 
@@ -400,7 +400,7 @@ export default function AnnouncementManager() {
         md:block mb-8 transition-all duration-300 ease-in-out
         ${isFilterOpen ? 'max-h-[1000px] opacity-100 overflow-visible' : 'max-h-0 md:max-h-none opacity-0 md:opacity-100 overflow-hidden md:overflow-visible'}
       `}>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+        <div className="bg-surface-containerLowest p-4 rounded-xl shadow-sm border border-outline-variant/40">
           <div className="flex flex-col md:flex-row gap-4 items-center">
             <div className="relative w-full md:flex-1 min-w-0">
               <input
@@ -408,7 +408,7 @@ export default function AnnouncementManager() {
                 placeholder="搜尋公告..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm"
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-sm"
               />
               <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
@@ -574,7 +574,7 @@ export default function AnnouncementManager() {
             aria-labelledby="announcement-modal-title"
             className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-full sm:max-h-[90vh] flex flex-col overflow-visible animate-bounce-in"
           >
-            <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0 rounded-t-2xl">
+            <div className="bg-gradient-to-r from-primary to-tertiary p-4 flex justify-between items-center text-white flex-shrink-0 rounded-t-2xl">
               <h2 id="announcement-modal-title" className="text-xl font-bold flex items-center gap-2">
                 <MegaphoneIcon className="w-6 h-6" />
                 {editingId ? '編輯公告' : '建立新公告'}
@@ -594,7 +594,7 @@ export default function AnnouncementManager() {
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1.5">標題 <span className="text-red-500">*</span></label>
                   <input
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all shadow-sm"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all shadow-sm"
                     value={form.title}
                     onChange={e => setForm(prev => ({ ...prev, title: e.target.value }))}
                     placeholder="請輸入公告標題"
@@ -656,7 +656,7 @@ export default function AnnouncementManager() {
                     <button
                       type="button"
                       onClick={addLink}
-                      className="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center transition-colors"
+                      className="text-primary hover:text-primary text-sm font-medium flex items-center transition-colors"
                     >
                       <PlusIcon className="w-4 h-4 mr-1" /> 新增連結
                     </button>
@@ -671,14 +671,14 @@ export default function AnnouncementManager() {
                             placeholder="連結名稱"
                             value={link.name}
                             onChange={e => updateLink(index, 'name', e.target.value)}
-                            className="flex-1 px-3 py-2 h-10 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                            className="flex-1 px-3 py-2 h-10 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
                           />
                           <input
                             type="url"
                             placeholder="連結網址 (URL)"
                             value={link.url}
                             onChange={e => updateLink(index, 'url', e.target.value)}
-                            className="flex-1 px-3 py-2 h-10 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                            className="flex-1 px-3 py-2 h-10 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
                           />
                           <button
                             type="button"
@@ -697,7 +697,7 @@ export default function AnnouncementManager() {
                 </div>
               </div>
 
-              <div className="p-4 bg-gray-50 border-t border-gray-100 flex gap-2 flex-shrink-0 rounded-b-2xl">
+              <div className="p-4 bg-surface-containerLow border-t border-outline-variant/40 flex gap-2 flex-shrink-0 rounded-b-2xl">
                 <button
                   type="button"
                   className="flex-1 bg-white border border-gray-200 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
@@ -708,7 +708,7 @@ export default function AnnouncementManager() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm transition-colors flex items-center justify-center disabled:opacity-50"
+                  className="flex-1 bg-primary text-white py-2 rounded-lg text-sm font-medium hover:bg-primary-hover shadow-sm transition-colors flex items-center justify-center disabled:opacity-50"
                   disabled={loading}
                 >
                   {loading ? <LoadingSpinner size={16} color="white" className="mr-2" /> : <CheckIcon className="w-5 h-5 mr-2" />}

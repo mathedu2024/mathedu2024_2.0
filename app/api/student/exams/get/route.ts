@@ -159,15 +159,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: access.reason ?? '無法作答' }, { status: 403 });
     }
 
-    return NextResponse.json({
-      quiz: quizForStudent(false),
-      submission: null,
-      readOnly: false,
-      canRetake: hasAttemptsLeft && submissionCount > 0,
-      submissionCount,
-      maxAttempts,
-      resultsPublished,
-    });
+    // 未帶 take=true：一律不開放作答，須經課程頁確認視窗後再開始
+    return NextResponse.json(
+      {
+        error: '請先從課程的線上測驗頁確認後再開始作答',
+        requireConfirm: true,
+        quizCode: quiz.quizCode,
+        assignedCourses: quiz.assignedCourses ?? [],
+      },
+      { status: 403 }
+    );
   } catch (error) {
     const siteReadErrorResponse = trySiteDbReadErrorResponse(error, req);
     if (siteReadErrorResponse) return siteReadErrorResponse;

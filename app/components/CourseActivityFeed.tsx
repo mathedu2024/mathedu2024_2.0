@@ -14,6 +14,15 @@ import {
 import type { CourseActivityItem, CourseActivityType } from '@/services/courseActivityTypes';
 import { formatActivityDateTime } from '@/services/courseActivityTypes';
 import PageLoadingArea from '@/components/ui/PageLoadingArea';
+import {
+  dashboardSectionTitle,
+  dashboardPanel,
+  dashboardPanelDivide,
+  dashboardRowHover,
+  dashboardEmpty,
+  dashboardError,
+  dashboardIconShell,
+} from '@/components/ui/dashboardChrome';
 import { fetchCached } from '@/utils/clientFetchCache';
 
 type Audience = 'student' | 'teacher' | 'admin';
@@ -76,7 +85,7 @@ function iconForType(type: CourseActivityType) {
 function accentForType(type: CourseActivityType): string {
   switch (type) {
     case 'lesson':
-      return 'bg-indigo-50 text-indigo-600';
+      return 'bg-primary/10 text-primary';
     case 'announcement':
       return 'bg-amber-50 text-amber-600';
     case 'quiz':
@@ -86,7 +95,7 @@ function accentForType(type: CourseActivityType): string {
     case 'quiz_pending_grade':
       return 'bg-rose-50 text-rose-600';
     default:
-      return 'bg-indigo-50 text-indigo-600';
+      return 'bg-primary/10 text-primary';
   }
 }
 
@@ -117,8 +126,8 @@ function FeedPagination({
         disabled={currentPage === 1}
         className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm ${
           currentPage === 1
-            ? 'bg-gray-50 text-gray-300 border border-gray-200 cursor-not-allowed shadow-none'
-            : 'bg-white text-gray-600 hover:bg-indigo-50 border border-gray-200 hover:text-indigo-600'
+            ? 'bg-surface-containerLow text-outline border border-outline-variant/40 cursor-not-allowed shadow-none'
+            : 'bg-surface-containerLowest text-on-surfaceVariant hover:bg-primary/5 border border-outline-variant/40 hover:text-primary'
         }`}
       >
         <ChevronLeftIcon className="w-5 h-5 stroke-2" />
@@ -128,11 +137,11 @@ function FeedPagination({
           <button
             type="button"
             onClick={() => setCurrentPage(1)}
-            className="w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 border border-gray-200"
+            className="w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm bg-surface-containerLowest text-on-surfaceVariant hover:bg-primary/5 hover:text-primary border border-outline-variant/40"
           >
             1
           </button>
-          {startPage > 2 && <span className="px-1 sm:px-2 text-gray-400">...</span>}
+          {startPage > 2 && <span className="px-1 sm:px-2 text-outline">...</span>}
         </>
       )}
       {pageNumbers.map((number) => (
@@ -142,8 +151,8 @@ function FeedPagination({
           onClick={() => setCurrentPage(number)}
           className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm ${
             currentPage === number
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 border border-indigo-600'
-              : 'bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 border border-gray-200'
+              ? 'bg-primary text-on-primary shadow-md shadow-primary/20 border border-primary'
+              : 'bg-surface-containerLowest text-on-surfaceVariant hover:bg-primary/5 hover:text-primary border border-outline-variant/40'
           }`}
         >
           {number}
@@ -151,11 +160,11 @@ function FeedPagination({
       ))}
       {endPage < totalPages && (
         <>
-          {endPage < totalPages - 1 && <span className="px-1 sm:px-2 text-gray-400">...</span>}
+          {endPage < totalPages - 1 && <span className="px-1 sm:px-2 text-outline">...</span>}
           <button
             type="button"
             onClick={() => setCurrentPage(totalPages)}
-            className="w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm bg-white text-gray-600 hover:bg-indigo-50 hover:text-indigo-600 border border-gray-200"
+            className="w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm bg-surface-containerLowest text-on-surfaceVariant hover:bg-primary/5 hover:text-primary border border-outline-variant/40"
           >
             {totalPages}
           </button>
@@ -167,8 +176,8 @@ function FeedPagination({
         disabled={currentPage === totalPages}
         className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all shadow-sm ${
           currentPage === totalPages
-            ? 'bg-gray-50 text-gray-300 border border-gray-200 cursor-not-allowed shadow-none'
-            : 'bg-white text-gray-600 hover:bg-indigo-50 border border-gray-200 hover:text-indigo-600'
+            ? 'bg-surface-containerLow text-outline border border-outline-variant/40 cursor-not-allowed shadow-none'
+            : 'bg-surface-containerLowest text-on-surfaceVariant hover:bg-primary/5 border border-outline-variant/40 hover:text-primary'
         }`}
       >
         <ChevronRightIcon className="w-5 h-5 stroke-2" />
@@ -251,40 +260,40 @@ export default function CourseActivityFeed({ audience }: CourseActivityFeedProps
 
   return (
     <div className="animate-fade-in pb-16 sm:pb-24" style={{ animationDelay: '0.25s' }}>
-      <h2 className="text-xl font-bold text-gray-800 border-l-4 border-indigo-500 pl-4 mb-6">
+      <h2 className={dashboardSectionTitle}>
         課程公告
       </h2>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className={dashboardPanel}>
         {loading ? (
           <div className="py-10">
             <PageLoadingArea minHeight="min-h-[120px]" />
           </div>
         ) : error ? (
-          <div className="px-5 py-8 text-center text-red-600 text-sm">{error}</div>
+          <div className={dashboardError}>{error}</div>
         ) : items.length === 0 ? (
-          <div className="px-5 py-10 text-center text-gray-700 text-sm font-medium">
+          <div className={dashboardEmpty}>
             目前沒有課程公告
           </div>
         ) : (
           <>
-            <ul className="divide-y divide-gray-100">
+            <ul className={dashboardPanelDivide}>
               {pageItems.map((item) => (
                 <li key={item.id}>
                   <Link
                     href={item.href}
-                    className="flex items-start gap-3 px-4 sm:px-5 py-4 hover:bg-indigo-50/40 transition-colors"
+                    className={`flex items-start gap-3 px-4 sm:px-5 py-4 ${dashboardRowHover}`}
                   >
                     <div
-                      className={`mt-0.5 p-2 rounded-xl shrink-0 ${accentForType(item.type)}`}
+                      className={`${dashboardIconShell} ${accentForType(item.type)}`}
                     >
                       {iconForType(item.type)}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm sm:text-base font-semibold text-gray-900 leading-snug">
+                      <p className="text-sm sm:text-base font-semibold text-on-surface leading-snug">
                         {item.message}
                       </p>
-                      <p className="text-xs sm:text-sm text-indigo-600 mt-1.5 font-medium tabular-nums">
+                      <p className="text-xs sm:text-sm text-primary mt-1.5 font-medium tabular-nums font-mono">
                         {formatActivityDateTime(item.at)}
                       </p>
                     </div>

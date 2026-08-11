@@ -269,7 +269,7 @@ function AttendancePanel({ courseId }: { courseId: string }) {
           onClick={() => setCreateOpen(false)}
         />
         <div className="relative w-full sm:max-w-xl max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl border border-white/20">
-          <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-indigo-600 to-violet-600 text-white">
+          <div className="sticky top-0 z-10 flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-primary to-violet-600 text-white">
             <div>
               <p className="text-xs font-medium text-white/80">課程互動 · 點名</p>
               <h3 className="text-lg font-bold">新增點名活動</h3>
@@ -690,7 +690,7 @@ export default function TeacherCourseInteract({
               onClick={() => setMode(id)}
               className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm sm:text-base font-bold transition-colors ${
                 active
-                  ? 'bg-white text-indigo-800 shadow-lg'
+                  ? 'bg-white text-primary shadow-lg'
                   : 'bg-white/10 text-white/80 hover:bg-white/20'
               }`}
             >

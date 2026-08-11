@@ -1,17 +1,15 @@
 import { NextResponse } from 'next/server';
 import { trySiteDbReadErrorResponse } from '@/utils/apiErrorResponse';
-import { adminDb } from '../../../../services/firebase-admin';
+import { listContentDocs } from '@/services/contentDbSplit';
 
 const ANNOUNCEMENT_LIST_LIMIT = 50;
 
 export async function GET() {
   try {
-    const snapshot = await adminDb
-      .collection('announcements')
-      .orderBy('createdAt', 'desc')
-      .limit(ANNOUNCEMENT_LIST_LIMIT)
-      .get();
-    const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const data = await listContentDocs('announcements', {
+      orderBy: { field: 'createdAt', direction: 'desc' },
+      limit: ANNOUNCEMENT_LIST_LIMIT,
+    });
     return NextResponse.json(data);
   } catch (error) {
     const siteReadErrorResponse = trySiteDbReadErrorResponse(error);

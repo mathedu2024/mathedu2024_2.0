@@ -642,7 +642,7 @@ export default function StudentGradeViewer({ studentInfo, courseCodeFromUrl, emb
                             {getSelectedCourseInfo().name} <span className="font-normal text-gray-500 text-sm sm:text-base ml-1">({getSelectedCourseInfo().code})</span>
                         </h3>
                         <div className="flex items-center text-sm text-gray-500 mt-1">
-                            <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-xs font-medium mr-2">授課教師</span>
+                            <span className="bg-primary/10 text-primary px-2 py-0.5 rounded text-xs font-medium mr-2">授課教師</span>
                             {getTeacherNames()}
                         </div>
                     </div>
@@ -653,7 +653,7 @@ export default function StudentGradeViewer({ studentInfo, courseCodeFromUrl, emb
                     <div>
                         {!embedded && (
                         <h4 className="text-lg font-bold text-gray-800 mb-4 flex items-center">
-                            <span className="w-1 h-6 bg-indigo-500 rounded-full mr-2"></span>
+                            <span className="w-1 h-6 bg-primary rounded-full mr-2"></span>
                             總成績概況
                         </h4>
                         )}
@@ -661,16 +661,16 @@ export default function StudentGradeViewer({ studentInfo, courseCodeFromUrl, emb
                             {/* 第一排：最終成績與原始成績 */}
                             <div className="grid grid-cols-1">
                                 {/* 合併後的紫色成績卡片 */}
-                                <div className="p-4 sm:p-6 bg-gradient-to-br from-indigo-600 to-indigo-800 border border-indigo-700 rounded-2xl shadow-lg text-white flex flex-col md:flex-row">
+                                <div className="p-4 sm:p-6 bg-gradient-to-br from-primary to-primary-hover border border-primary-hover rounded-2xl shadow-lg text-white flex flex-col md:flex-row">
                                     {/* 左半邊：最終成績 */}
                                     <div className="flex-1 flex flex-col justify-between pb-4 md:pb-0 md:pr-6 border-b border-white/10 md:border-b-0 md:border-r">
                                         <div>
-                                            <div className="text-sm font-bold text-indigo-100 uppercase tracking-wider mb-1">最終成績</div>
+                                            <div className="text-sm font-bold text-primary-fixed uppercase tracking-wider mb-1">最終成績</div>
                                             <div className="text-4xl sm:text-5xl font-black">
                                                 {!showFinalTotal ? '未公布' : studentGrade ? (gradeData?.student?.manualAdjust ?? gradeSummaries.total) : '未評分'}
                                             </div>
                                         </div>
-                                        <div className="text-xs text-indigo-200 mt-2 flex justify-between items-end">
+                                        <div className="text-xs text-primary-fixed mt-2 flex justify-between items-end">
                                             <span>{showFinalTotal ? (gradeData?.student?.manualAdjust ? '手動調整後成績' : '依權重比例計算') : '老師尚未公布'}</span>
                                             {showFinalTotal && studentGrade && <span className={`font-bold ${Number(gradeData?.student?.manualAdjust ?? gradeSummaries.total) < 60 ? 'text-red-300' : ''}`}>{Number(gradeData?.student?.manualAdjust ?? gradeSummaries.total) < 60 ? '不及格' : '及格'}</span>}
                                         </div>
@@ -678,12 +678,12 @@ export default function StudentGradeViewer({ studentInfo, courseCodeFromUrl, emb
                                     {/* 右半邊：原始成績 */}
                                     <div className="flex-1 flex flex-col justify-between pt-4 md:pt-0 md:pl-6">
                                         <div>
-                                            <div className="text-sm font-bold text-indigo-200 uppercase tracking-wider mb-1">原始成績</div>
+                                            <div className="text-sm font-bold text-primary-fixed uppercase tracking-wider mb-1">原始成績</div>
                                             <div className="text-4xl sm:text-5xl font-bold text-white/90">
                                                 {!showOriginalTotal ? '未公布' : studentGrade ? gradeSummaries.total : '未評分'}
                                             </div>
                                         </div>
-                                        <div className="text-xs text-indigo-300 mt-2">
+                                        <div className="text-xs text-primary/50 mt-2">
                                             {showOriginalTotal ? '依權重比例計算' : '老師尚未公布'}
                                         </div>
                                     </div>
@@ -693,8 +693,8 @@ export default function StudentGradeViewer({ studentInfo, courseCodeFromUrl, emb
                             {/* 第二排：平時與定期成績（固定 1×4） */}
                             <div className="grid grid-cols-4 gap-2 sm:gap-3 md:gap-4">
                                 {/* 平時加權成績 */}
-                                <div className="p-3 sm:p-4 md:p-6 bg-gradient-to-br from-indigo-50 to-white border border-indigo-100 rounded-xl sm:rounded-2xl shadow-sm min-w-0">
-                                    <div className="text-[10px] sm:text-sm font-bold text-indigo-500 uppercase tracking-wider mb-1 leading-tight">平時加權成績</div>
+                                <div className="p-3 sm:p-4 md:p-6 bg-gradient-to-br from-primary/5 to-white border border-primary/20 rounded-xl sm:rounded-2xl shadow-sm min-w-0">
+                                    <div className="text-[10px] sm:text-sm font-bold text-primary uppercase tracking-wider mb-1 leading-tight">平時加權成績</div>
                                     <div className="text-xl sm:text-3xl md:text-4xl font-bold text-gray-900 tabular-nums">
                                         {studentGrade ? gradeSummaries.regWeighted : '未評分'}
                                     </div>
@@ -711,11 +711,11 @@ export default function StudentGradeViewer({ studentInfo, courseCodeFromUrl, emb
                                             onClick={() => handleSelectPeriodicGrade(name, hasScore ? score : undefined)}
                                         >
                                             <div className="text-[10px] sm:text-sm font-bold text-gray-500 uppercase tracking-wider mb-1 leading-tight line-clamp-2">{name}</div>
-                                            <div className={`text-xl sm:text-3xl md:text-4xl font-bold tabular-nums ${hasScore ? 'text-gray-900 group-hover:text-indigo-600 transition-colors' : 'text-gray-900'}`}>
+                                            <div className={`text-xl sm:text-3xl md:text-4xl font-bold tabular-nums ${hasScore ? 'text-gray-900 group-hover:text-primary transition-colors' : 'text-gray-900'}`}>
                                                 {hasScore ? score : <span className="text-gray-300 text-sm sm:text-2xl font-normal">未評分</span>}
                                             </div>
-                                            <div className="sm:hidden text-[9px] text-indigo-500 mt-1 font-medium">點擊分析</div>
-                                            <div className="hidden sm:flex text-xs text-gray-400 mt-2 items-center group-hover:text-indigo-500 transition-colors">
+                                            <div className="sm:hidden text-[9px] text-primary mt-1 font-medium">點擊分析</div>
+                                            <div className="hidden sm:flex text-xs text-gray-400 mt-2 items-center group-hover:text-primary transition-colors">
                                                 點擊查看成績分析 <svg className="w-3 h-3 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                                             </div>
                                         </div>
@@ -728,7 +728,7 @@ export default function StudentGradeViewer({ studentInfo, courseCodeFromUrl, emb
                     <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200 p-4 sm:p-6 md:p-8">
                         <div className="mb-6">
                             <h4 className="text-lg font-bold text-gray-800 flex items-center">
-                                <span className="w-1 h-6 bg-indigo-500 rounded-full mr-2"></span>
+                                <span className="w-1 h-6 bg-primary rounded-full mr-2"></span>
                                 平時成績列表
                             </h4>
                         </div>
@@ -741,7 +741,7 @@ export default function StudentGradeViewer({ studentInfo, courseCodeFromUrl, emb
                                         key={index}
                                         type="button"
                                         onClick={() => handleSelectGrade(col)}
-                                        className="w-full text-left bg-white border border-gray-200 rounded-xl p-4 hover:border-indigo-300 hover:shadow-sm transition-all active:scale-[0.99]"
+                                        className="w-full text-left bg-white border border-gray-200 rounded-xl p-4 hover:border-primary/40 hover:shadow-sm transition-all active:scale-[0.99]"
                                     >
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="min-w-0 flex-1">
@@ -752,7 +752,7 @@ export default function StudentGradeViewer({ studentInfo, courseCodeFromUrl, emb
                                                     </span>
                                                     <span className="text-xs text-gray-500 font-mono">{col.date}</span>
                                                 </div>
-                                                <p className="text-[11px] text-indigo-500 mt-2 font-medium">點擊查看成績分析</p>
+                                                <p className="text-[11px] text-primary mt-2 font-medium">點擊查看成績分析</p>
                                             </div>
                                             <div className="shrink-0 text-right">
                                                 {col.score !== undefined && col.score !== null ? (
@@ -783,8 +783,8 @@ export default function StudentGradeViewer({ studentInfo, courseCodeFromUrl, emb
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {paginatedScores.length > 0 ? (
                                         paginatedScores.map((col, index) => (
-                                            <tr key={index} onClick={() => handleSelectGrade(col)} className="cursor-pointer hover:bg-indigo-50/50 transition-colors group">
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 group-hover:text-indigo-700">{col.name}</td>
+                                            <tr key={index} onClick={() => handleSelectGrade(col)} className="cursor-pointer hover:bg-primary/10 transition-colors group">
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 group-hover:text-primary">{col.name}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                     <span className={`px-2 py-1 rounded text-xs font-medium ${col.type === '小考' ? 'bg-blue-50 text-blue-700' : col.type === '作業' ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
                                                         {col.type}
@@ -797,7 +797,7 @@ export default function StudentGradeViewer({ studentInfo, courseCodeFromUrl, emb
                                                     ) : (
                                                         <span className="text-xs text-gray-400">未評分</span>
                                                     )}
-                                                    <div className="text-[10px] text-indigo-400 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">查看分析</div>
+                                                    <div className="text-[10px] text-primary/70 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">查看分析</div>
                                                 </td>
                                             </tr>
                                         ))
@@ -815,7 +815,7 @@ export default function StudentGradeViewer({ studentInfo, courseCodeFromUrl, emb
                                 {Array.from({length: totalPages}).map((_, idx) => (
                                     <button
                                         key={idx}
-                                        className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${currentPage === idx+1 ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                                        className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${currentPage === idx+1 ? 'bg-primary text-white shadow-sm' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
                                         onClick={() => setCurrentPage(idx+1)}
                                     >
                                         {idx+1}
@@ -828,7 +828,7 @@ export default function StudentGradeViewer({ studentInfo, courseCodeFromUrl, emb
                     <div className="bg-white rounded-2xl shadow-sm border-2 border-gray-200 p-4 sm:p-6 md:p-8">
                         <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                             <h4 className="text-lg font-bold text-gray-800 flex items-center shrink-0">
-                                <span className="w-1 h-6 bg-indigo-500 rounded-full mr-2"></span>
+                                <span className="w-1 h-6 bg-primary rounded-full mr-2"></span>
                                 成績趨勢分析
                             </h4>
                             <nav className="inline-flex w-full sm:w-auto p-1 bg-gray-100 rounded-lg gap-0.5">
@@ -843,7 +843,7 @@ export default function StudentGradeViewer({ studentInfo, courseCodeFromUrl, emb
                                         onClick={() => setYAxisType(mode.value)}
                                         className={`flex-1 sm:flex-none px-2.5 sm:px-3 py-1.5 text-xs font-bold rounded-md transition-all whitespace-nowrap ${
                                             yAxisType === mode.value
-                                                ? 'bg-white text-indigo-600 shadow-sm'
+                                                ? 'bg-white text-primary shadow-sm'
                                                 : 'text-gray-500 hover:text-gray-700'
                                         }`}
                                     >
@@ -906,34 +906,34 @@ export default function StudentGradeViewer({ studentInfo, courseCodeFromUrl, emb
 
                 return (
                     <div className="space-y-8">
-                        <div className="bg-indigo-50 p-6 rounded-xl border border-indigo-100 text-center">
-                            <h5 className="font-bold text-indigo-900 mb-2 uppercase tracking-wide text-xs">您的分數</h5>
+                        <div className="bg-primary/10 p-6 rounded-xl border border-primary/20 text-center">
+                            <h5 className="font-bold text-on-surface mb-2 uppercase tracking-wide text-xs">您的分數</h5>
                             <div className="flex items-baseline justify-center gap-1 mb-2">
                                 {hasStudentScore ? (
                                   <>
-                                    <span className="text-5xl font-extrabold text-indigo-600 leading-none">
+                                    <span className="text-5xl font-extrabold text-primary leading-none">
                                         {studentScore}
                                     </span>
-                                    <span className="text-lg text-indigo-400 font-medium leading-none">/ {maxScore}</span>
+                                    <span className="text-lg text-primary/70 font-medium leading-none">/ {maxScore}</span>
                                   </>
                                 ) : (
-                                  <span className="text-3xl font-bold text-indigo-300 leading-none">未評分</span>
+                                  <span className="text-3xl font-bold text-primary/50 leading-none">未評分</span>
                                 )}
                             </div>
                             {fivePointInterval && (
-                                <span className="inline-block mt-2 px-3 py-1 bg-white text-indigo-600 rounded-full text-xs font-bold border border-indigo-100 shadow-sm">
+                                <span className="inline-block mt-2 px-3 py-1 bg-white text-primary rounded-full text-xs font-bold border border-primary/20 shadow-sm">
                                     {fivePointInterval}
                                 </span>
                             )}
                             {!hasStudentScore && (
-                              <p className="text-xs text-indigo-400 mt-3">仍可查看本班五標與成績分布</p>
+                              <p className="text-xs text-primary/70 mt-3">仍可查看本班五標與成績分布</p>
                             )}
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div>
                                 <h5 className="font-bold text-gray-800 mb-4 flex items-center">
-                                    <ChartBarIcon className="w-5 h-5 mr-2 text-indigo-500" /> 五標統計
+                                    <ChartBarIcon className="w-5 h-5 mr-2 text-primary" /> 五標統計
                                 </h5>
                                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                                     <table className="min-w-full divide-y divide-gray-100">
@@ -952,9 +952,9 @@ export default function StudentGradeViewer({ studentInfo, courseCodeFromUrl, emb
                                                 { label: '底標', value: distributionData.statistics.底標 },
                                                 { label: '平均', value: distributionData.statistics.平均, isAvg: true },
                                             ].map((stat, idx) => (
-                                                <tr key={idx} className={`${fivePointInterval === stat.label ? 'bg-indigo-50' : ''} ${stat.isAvg ? 'bg-gray-50 font-bold' : ''}`}>
-                                                    <td className={`px-4 py-3 text-sm ${fivePointInterval === stat.label ? 'text-indigo-700 font-bold' : 'text-gray-700'}`}>{stat.label}</td>
-                                                    <td className={`px-4 py-3 text-sm text-right ${fivePointInterval === stat.label ? 'text-indigo-700 font-bold' : 'text-gray-900'}`}>{stat.value ?? '-'}</td>
+                                                <tr key={idx} className={`${fivePointInterval === stat.label ? 'bg-primary/10' : ''} ${stat.isAvg ? 'bg-gray-50 font-bold' : ''}`}>
+                                                    <td className={`px-4 py-3 text-sm ${fivePointInterval === stat.label ? 'text-primary font-bold' : 'text-gray-700'}`}>{stat.label}</td>
+                                                    <td className={`px-4 py-3 text-sm text-right ${fivePointInterval === stat.label ? 'text-primary font-bold' : 'text-gray-900'}`}>{stat.value ?? '-'}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -964,7 +964,7 @@ export default function StudentGradeViewer({ studentInfo, courseCodeFromUrl, emb
 
                             <div>
                                 <h5 className="font-bold text-gray-800 mb-4 flex items-center">
-                                    <ChartBarIcon className="w-5 h-5 mr-2 text-indigo-500" /> 成績分布
+                                    <ChartBarIcon className="w-5 h-5 mr-2 text-primary" /> 成績分布
                                 </h5>
                                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                                     <table className="min-w-full divide-y divide-gray-100">
@@ -982,14 +982,14 @@ export default function StudentGradeViewer({ studentInfo, courseCodeFromUrl, emb
                                                 const isMyRange = isScoreInDistributionRange(studentScore, d.range);
                                                 
                                                 return (
-                                                    <tr key={index} className={isMyRange ? 'bg-indigo-50' : ''}>
-                                                        <td className={`px-4 py-2 text-sm ${isMyRange ? 'font-bold text-indigo-700' : 'text-gray-600'}`}>{d.range}</td>
-                                                        <td className={`px-4 py-2 text-sm text-center ${isMyRange ? 'font-bold text-indigo-700' : 'text-gray-900'}`}>{d.count}</td>
+                                                    <tr key={index} className={isMyRange ? 'bg-primary/10' : ''}>
+                                                        <td className={`px-4 py-2 text-sm ${isMyRange ? 'font-bold text-primary' : 'text-gray-600'}`}>{d.range}</td>
+                                                        <td className={`px-4 py-2 text-sm text-center ${isMyRange ? 'font-bold text-primary' : 'text-gray-900'}`}>{d.count}</td>
                                                         <td className="px-4 py-2 align-middle">
                                                             <div className="flex items-center">
                                                                 <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden mr-2">
                                                                     <div 
-                                                                        className={`h-full rounded-full ${isMyRange ? 'bg-indigo-500' : 'bg-gray-400'}`} 
+                                                                        className={`h-full rounded-full ${isMyRange ? 'bg-primary' : 'bg-gray-400'}`} 
                                                                         style={{ width: `${percentage}%` }}
                                                                     ></div>
                                                                 </div>

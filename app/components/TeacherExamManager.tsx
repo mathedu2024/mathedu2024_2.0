@@ -79,9 +79,9 @@ function ExamSubViewHeader({
   return (
     <>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-0">
-        <div className="border-l-4 border-indigo-500 pl-4">
+        <div className="border-l-4 border-primary pl-4">
           <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-            <ClipboardDocumentCheckIcon className="h-8 w-8 text-indigo-600" />
+            <ClipboardDocumentCheckIcon className="h-8 w-8 text-primary" />
             {examSubView === 'builder' && quizTitle ? '編輯測驗' : title}
           </h1>
           <p className="text-gray-500 text-sm mt-1">{subtitle}</p>
@@ -225,7 +225,7 @@ export default function TeacherExamManager({
       })
       .catch(() => {
         if (!cancelled) {
-          Swal.fire({ icon: 'error', title: '載入失敗', confirmButtonColor: '#4f46e5' });
+          Swal.fire({ icon: 'error', title: '載入失敗', confirmButtonColor: '#2D6DF6' });
           router.push(examsHubReturnTo);
         }
       })
@@ -251,7 +251,7 @@ export default function TeacherExamManager({
       icon: 'info',
       title: '無法編輯此測驗',
       text: '此測驗由其他老師建立，您僅能進行批改與分析。',
-      confirmButtonColor: '#4f46e5',
+      confirmButtonColor: '#2D6DF6',
       customClass: { popup: 'rounded-2xl' },
     }).then(() => {
       router.replace(withExamReturn(examDetailPath(editingQuiz.quizCode, 'grading')));
@@ -318,7 +318,7 @@ export default function TeacherExamManager({
       inputValue: quiz.assignedCourses?.[0]?.courseId ?? '',
       inputLabel: '適用班級',
       showCancelButton: true,
-      confirmButtonColor: '#4f46e5',
+      confirmButtonColor: '#2D6DF6',
       cancelButtonColor: '#9ca3af',
       confirmButtonText: '建立副本',
       cancelButtonText: '取消',
@@ -358,7 +358,7 @@ export default function TeacherExamManager({
         icon: 'error',
         title: '複製失敗',
         text: error instanceof Error ? error.message : '請稍後再試',
-        confirmButtonColor: '#4f46e5',
+        confirmButtonColor: '#2D6DF6',
       });
     }
   };
@@ -388,9 +388,9 @@ export default function TeacherExamManager({
       invalidateTeacherQuizzes(userInfo.id);
       invalidateQuizByCode(quiz.quizCode);
       setQuizzes((prev) => prev.filter((q) => q.id !== quiz.id));
-      Swal.fire({ icon: 'success', title: '已刪除', confirmButtonColor: '#4f46e5' });
+      Swal.fire({ icon: 'success', title: '已刪除', confirmButtonColor: '#2D6DF6' });
     } catch {
-      Swal.fire({ icon: 'error', title: '刪除失敗', confirmButtonColor: '#4f46e5' });
+      Swal.fire({ icon: 'error', title: '刪除失敗', confirmButtonColor: '#2D6DF6' });
     }
   };
 
@@ -476,9 +476,9 @@ export default function TeacherExamManager({
   return (
     <div className="page-shell w-full min-w-0 flex flex-col h-full">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
-        <div className="border-l-4 border-indigo-500 pl-4">
+        <div className="border-l-4 border-primary pl-4">
           <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-            <ClipboardDocumentCheckIcon className="h-8 w-8 text-indigo-600" />
+            <ClipboardDocumentCheckIcon className="h-8 w-8 text-primary" />
             測驗管理
           </h1>
           <p className="text-gray-500 text-sm mt-1">建立、管理您的課堂測驗</p>
@@ -503,7 +503,7 @@ export default function TeacherExamManager({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="搜尋測驗標題..."
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-transparent text-sm"
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-transparent text-sm"
             />
           </div>
           <button
@@ -551,16 +551,16 @@ export default function TeacherExamManager({
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filteredQuizzes.map((quiz) => (
-                <tr key={quiz.id} className="hover:bg-indigo-50/30 transition-colors">
+                <tr key={quiz.id} className="hover:bg-primary/5 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="h-9 w-9 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center flex-shrink-0">
+                      <div className="h-9 w-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
                         <ClipboardDocumentCheckIcon className="w-4 h-4" />
                       </div>
                       <span className="font-medium text-gray-900 truncate">
                         {quiz.title}
                         {userInfo?.id && quiz.teacherId !== userInfo.id && (
-                          <span className="ml-2 text-xs font-normal text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                          <span className="ml-2 text-xs font-normal text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                             共同課程
                           </span>
                         )}

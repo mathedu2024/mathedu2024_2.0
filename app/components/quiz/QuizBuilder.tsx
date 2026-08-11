@@ -206,7 +206,7 @@ export default function QuizBuilder({
     const currentQuiz = quizRef.current;
     if (!currentQuiz.title.trim()) {
       if (!silent) {
-        Swal.fire({ icon: 'warning', title: '請輸入測驗標題', confirmButtonColor: '#4f46e5' });
+        Swal.fire({ icon: 'warning', title: '請輸入測驗標題', confirmButtonColor: '#2D6DF6' });
       }
       return false;
     }
@@ -214,7 +214,7 @@ export default function QuizBuilder({
     const imageLimitError = validateQuizImageCount(currentQuiz);
     if (imageLimitError) {
       if (!silent) {
-        Swal.fire({ icon: 'warning', title: imageLimitError, confirmButtonColor: '#4f46e5' });
+        Swal.fire({ icon: 'warning', title: imageLimitError, confirmButtonColor: '#2D6DF6' });
       }
       return false;
     }
@@ -224,7 +224,7 @@ export default function QuizBuilder({
         Swal.fire({
           icon: 'warning',
           title: '請設定有效的考試時間（至少 1 分鐘）',
-          confirmButtonColor: '#4f46e5',
+          confirmButtonColor: '#2D6DF6',
         });
       }
       return false;
@@ -250,7 +250,7 @@ export default function QuizBuilder({
       const publishError = validateQuizForPublish(currentQuiz);
       if (publishError) {
         if (!silent) {
-          Swal.fire({ icon: 'warning', title: publishError, confirmButtonColor: '#4f46e5' });
+          Swal.fire({ icon: 'warning', title: publishError, confirmButtonColor: '#2D6DF6' });
         }
         return false;
       }
@@ -367,7 +367,7 @@ export default function QuizBuilder({
           icon: 'success',
           title: successTitle,
           text: successText,
-          confirmButtonColor: '#4f46e5',
+          confirmButtonColor: '#2D6DF6',
         });
       }
       return true;
@@ -377,7 +377,7 @@ export default function QuizBuilder({
           icon: 'error',
           title: '儲存失敗',
           text: error instanceof Error ? error.message : '請稍後再試',
-          confirmButtonColor: '#4f46e5',
+          confirmButtonColor: '#2D6DF6',
         });
       }
       return false;
@@ -393,7 +393,7 @@ export default function QuizBuilder({
         icon: 'warning',
         title: '無法開啟預覽',
         text: '瀏覽器封鎖了新分頁，請允許此網站開啟彈出式視窗',
-        confirmButtonColor: '#4f46e5',
+        confirmButtonColor: '#2D6DF6',
       });
       return;
     }
@@ -415,7 +415,7 @@ export default function QuizBuilder({
           icon: 'warning',
           title: '無法開啟預覽',
           text: error instanceof Error ? error.message : '請稍後再試',
-          confirmButtonColor: '#4f46e5',
+          confirmButtonColor: '#2D6DF6',
         });
       }
     }, 220);
@@ -428,7 +428,7 @@ export default function QuizBuilder({
         icon: 'info',
         title: '尚無題目',
         text: '請先新增至少一題再預覽學生作答畫面。',
-        confirmButtonColor: '#4f46e5',
+        confirmButtonColor: '#2D6DF6',
       });
       return;
     }
@@ -441,7 +441,7 @@ export default function QuizBuilder({
         showCancelButton: true,
         confirmButtonText: '儲存並預覽',
         cancelButtonText: '取消',
-        confirmButtonColor: '#4f46e5',
+        confirmButtonColor: '#2D6DF6',
         cancelButtonColor: '#9ca3af',
       });
       if (!result.isConfirmed) return;
@@ -494,10 +494,10 @@ export default function QuizBuilder({
           type="button"
           onClick={() => openStudentPreviewRef.current()}
           disabled={saving}
-          className="inline-flex items-center px-4 py-2 bg-white border border-violet-200 text-violet-700 rounded-xl hover:bg-violet-50 transition-colors shadow-sm font-medium text-sm disabled:opacity-50"
+          className="inline-flex items-center px-4 py-2 bg-surface-containerLowest border border-primary text-primary rounded-xl hover:bg-primary/5 transition-colors shadow-sm font-medium text-sm disabled:opacity-50"
         >
           <EyeIcon className="w-4 h-4 mr-1.5" />
-          學生版預覽
+          預覽
         </button>
       );
 
@@ -509,7 +509,7 @@ export default function QuizBuilder({
               type="button"
               onClick={() => void saveQuizRef.current()}
               disabled={saving}
-              className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors shadow-sm font-medium text-sm disabled:opacity-50"
+              className="inline-flex items-center px-4 py-2 bg-primary-container text-on-primary rounded-xl hover:bg-primary transition-colors shadow-sm font-medium text-sm disabled:opacity-50"
             >
               <CloudArrowUpIcon className="w-4 h-4 mr-1.5" />
               儲存
@@ -525,19 +525,19 @@ export default function QuizBuilder({
             type="button"
             onClick={() => void saveQuizRef.current('draft')}
             disabled={saving}
-            className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors shadow-sm font-medium text-sm disabled:opacity-50"
+            className="inline-flex items-center px-4 py-2 bg-surface-containerLowest border border-outline-variant text-on-surface rounded-xl hover:bg-surface-containerLow transition-colors shadow-sm font-medium text-sm disabled:opacity-50"
           >
             <CloudArrowUpIcon className="w-4 h-4 mr-1.5" />
-            儲存
+            儲存草稿
           </button>
           <button
             type="button"
             onClick={() => void saveQuizRef.current('published')}
             disabled={saving}
-            className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors shadow-sm font-medium text-sm disabled:opacity-50"
+            className="inline-flex items-center px-4 py-2 bg-primary-container text-on-primary rounded-xl hover:bg-primary transition-colors shadow-sm font-medium text-sm disabled:opacity-50"
           >
             <DocumentCheckIcon className="w-4 h-4 mr-1.5" />
-            開放測驗
+            發佈測驗
           </button>
         </>
       );
@@ -552,9 +552,9 @@ export default function QuizBuilder({
 
   return (
     <QuizImageProvider value={quizImageParams}>
-    <div className="space-y-6">
+    <div className="space-y-6 pb-8">
       {quiz.status === 'published' && (
-        <div className="rounded-xl border border-indigo-100 bg-indigo-50/70 px-4 py-3 text-sm text-indigo-900 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <div className="rounded-xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-on-surface flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <p>
             此測驗目前<strong>開放</strong>給學生。點「<strong>儲存</strong>」只會更新內容，不會改為隱藏。
           </p>
@@ -562,53 +562,98 @@ export default function QuizBuilder({
             type="button"
             onClick={() => void saveQuizRef.current('draft')}
             disabled={saving}
-            className="shrink-0 text-red-600 hover:text-red-700 text-sm font-medium underline-offset-2 hover:underline disabled:opacity-50"
+            className="shrink-0 text-error hover:text-error text-sm font-medium underline-offset-2 hover:underline disabled:opacity-50"
           >
             改為隱藏
           </button>
         </div>
       )}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <h2 className="text-lg font-bold text-gray-800 mb-4 border-l-4 border-indigo-500 pl-3">測驗基本資料</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="md:col-span-2">
-            <label className="text-gray-700 text-sm font-bold mb-2 block">測驗標題 *</label>
+
+      <section className="bg-surface-containerLowest rounded-xl shadow-sm border border-outline-variant/30 p-6">
+        <h3 className="font-display text-lg font-bold mb-4 flex items-center gap-2 text-on-surface">
+          <Cog6ToothIcon className="w-5 h-5 text-primary" />
+          測驗設定
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
+          <div className="md:col-span-3">
+            <label className="block text-sm text-on-surfaceVariant mb-2 font-medium">測驗標題 *</label>
             <input
               type="text"
               value={quiz.title}
               onChange={(e) => setQuiz((prev) => ({ ...prev, title: e.target.value }))}
               placeholder="例如：第一章小測驗"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-transparent"
+              className="w-full px-4 py-2.5 border border-outline-variant rounded-lg text-on-surface bg-surface focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
             />
           </div>
           <div>
-            <label className="text-gray-700 text-sm font-bold mb-2 block">狀態</label>
+            <label className="block text-sm text-on-surfaceVariant mb-2 font-medium">限時（分鐘）</label>
+            <input
+              type="number"
+              min={1}
+              value={quiz.timeLimitEnabled ? quiz.timeLimitMinutes ?? '' : ''}
+              placeholder="不限時"
+              onChange={(e) => {
+                const raw = e.target.value;
+                if (raw === '') {
+                  setQuiz((prev) => ({ ...prev, timeLimitEnabled: false, timeLimitMinutes: undefined }));
+                  return;
+                }
+                const n = parseInt(raw, 10);
+                if (Number.isNaN(n)) return;
+                setQuiz((prev) => ({
+                  ...prev,
+                  timeLimitEnabled: true,
+                  timeLimitMinutes: Math.max(1, n),
+                }));
+              }}
+              className="w-full px-4 py-2.5 border border-outline-variant rounded-lg text-on-surface bg-surface focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-on-surfaceVariant mb-2 font-medium">狀態</label>
             <span
-              className={`inline-flex text-xs font-semibold px-3 py-1.5 rounded-full ${
-                quiz.status === 'published' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+              className={`inline-flex text-xs font-semibold px-3 py-2 rounded-full ${
+                quiz.status === 'published'
+                  ? 'bg-secondary/10 text-secondary border border-secondary/20'
+                  : 'bg-surface-containerHigh text-on-surfaceVariant border border-outline-variant border-dashed'
               }`}
             >
-              {quiz.status === 'published' ? '開放' : '隱藏'}
+              {quiz.status === 'published' ? '已發佈' : '草稿'}
             </span>
           </div>
-          <div className="md:col-span-2">
-            <RichTextField
-              label="測驗說明"
-              value={quiz.description ?? ''}
-              onChange={(description) => setQuiz((prev) => ({ ...prev, description }))}
-              placeholder="選填：測驗說明或注意事項"
-              minHeight="100px"
+          <div>
+            <label className="block text-sm text-on-surfaceVariant mb-2 font-medium">發佈對象</label>
+            <input
+              type="text"
+              readOnly
+              value={
+                (quiz.assignedCourses || [])
+                  .map((c) => c.courseName)
+                  .filter(Boolean)
+                  .join('、') || '本課程學生'
+              }
+              className="w-full px-4 py-2.5 border border-outline-variant rounded-lg text-on-surfaceVariant bg-surface-containerLow"
             />
           </div>
         </div>
 
-        <div className="mt-6 pt-6 border-t border-gray-100">
+        <div className="mb-5">
+          <RichTextField
+            label="測驗說明"
+            value={quiz.description ?? ''}
+            onChange={(description) => setQuiz((prev) => ({ ...prev, description }))}
+            placeholder="選填：測驗說明或注意事項"
+            minHeight="100px"
+          />
+        </div>
+
+        <div className="pt-5 border-t border-outline-variant/30">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-            <h3 className="text-sm font-bold text-gray-800">詳細設定摘要</h3>
+            <h4 className="text-sm font-bold text-on-surface">詳細設定摘要</h4>
             <button
               type="button"
               onClick={() => setSettingsOpen(true)}
-              className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-indigo-700 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
+              className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-primary bg-primary/10 rounded-lg hover:bg-primary/15 transition-colors"
             >
               <Cog6ToothIcon className="w-4 h-4 mr-1.5" />
               開啟詳細設定
@@ -616,36 +661,36 @@ export default function QuizBuilder({
           </div>
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
             <div className="flex gap-2">
-              <dt className="text-gray-500 shrink-0">測驗日期</dt>
-              <dd className="text-gray-800">{formatQuizExamDateLabel(quiz)}</dd>
+              <dt className="text-on-surfaceVariant shrink-0">測驗日期</dt>
+              <dd className="text-on-surface">{formatQuizExamDateLabel(quiz)}</dd>
             </div>
             <div className="flex gap-2">
-              <dt className="text-gray-500 shrink-0">限時</dt>
-              <dd className="text-gray-800">{formatQuizTimeLimit(quiz)}</dd>
+              <dt className="text-on-surfaceVariant shrink-0">限時</dt>
+              <dd className="text-on-surface">{formatQuizTimeLimit(quiz)}</dd>
             </div>
             <div className="flex gap-2">
-              <dt className="text-gray-500 shrink-0">作答次數</dt>
-              <dd className="text-gray-800">{formatQuizAttemptLimit(quiz)}</dd>
+              <dt className="text-on-surfaceVariant shrink-0">作答次數</dt>
+              <dd className="text-on-surface">{formatQuizAttemptLimit(quiz)}</dd>
             </div>
             <div className="flex gap-2">
-              <dt className="text-gray-500 shrink-0">成績公布</dt>
-              <dd className="text-gray-800">
+              <dt className="text-on-surfaceVariant shrink-0">成績公布</dt>
+              <dd className="text-on-surface">
                 {isQuizResultsPublished(quiz) ? '已向學生公布' : '暫不公布'}
               </dd>
             </div>
             {isQuizMultipleAttemptsAllowed(quiz) && (
               <div className="flex gap-2">
-                <dt className="text-gray-500 shrink-0">成績採計</dt>
-                <dd className="text-gray-800">{formatQuizAttemptScorePolicy(quiz)}</dd>
+                <dt className="text-on-surfaceVariant shrink-0">成績採計</dt>
+                <dd className="text-on-surface">{formatQuizAttemptScorePolicy(quiz)}</dd>
               </div>
             )}
             <div className="flex gap-2">
-              <dt className="text-gray-500 shrink-0">題號編排</dt>
-              <dd className="text-gray-800">{formatQuizQuestionNumbering(quiz)}</dd>
+              <dt className="text-on-surfaceVariant shrink-0">題號編排</dt>
+              <dd className="text-on-surface">{formatQuizQuestionNumbering(quiz)}</dd>
             </div>
             <div className="flex gap-2">
-              <dt className="text-gray-500 shrink-0">作答環境</dt>
-              <dd className="text-gray-800">
+              <dt className="text-on-surfaceVariant shrink-0">作答環境</dt>
+              <dd className="text-on-surface">
                 {[
                   quiz.examLockEnabled ? '禁止離開' : null,
                   quiz.requireFullscreen ? '全螢幕' : null,
@@ -656,7 +701,7 @@ export default function QuizBuilder({
             </div>
           </dl>
         </div>
-      </div>
+      </section>
 
       <QuizSettingsModal
         open={settingsOpen}
@@ -668,10 +713,12 @@ export default function QuizBuilder({
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-bold text-gray-800 border-l-4 border-indigo-500 pl-3">試卷大題</h2>
-            <p className="text-sm text-gray-500 mt-1 ml-4">
+            <h2 className="font-display text-lg font-bold text-on-surface flex items-center gap-2">
+              試卷題目
+            </h2>
+            <p className="text-sm text-on-surfaceVariant mt-1">
               {quiz.sections.length} 大題 · 共 {totalQuestions} 題 · 總分 {totalPoints} 分
-              <span className="mx-2 text-gray-300">·</span>
+              <span className="mx-2 text-outline-variant">·</span>
               <span className={imageCount >= 10 ? 'text-amber-600 font-medium' : ''}>
                 {formatQuizImageLimitHint(imageCount)}
               </span>
@@ -680,7 +727,7 @@ export default function QuizBuilder({
           <button
             type="button"
             onClick={addSection}
-            className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors shadow-sm font-medium text-sm"
+            className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-xl hover:bg-primary-hover transition-colors shadow-sm font-medium text-sm"
           >
             <PlusIcon className="w-4 h-4 mr-1.5" />
             新增大題
@@ -690,7 +737,7 @@ export default function QuizBuilder({
         {quiz.sections.length === 0 ? (
           <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-12 text-center text-gray-400">
             <p className="font-medium text-gray-500 mb-2">尚未建立大題</p>
-            <button type="button" onClick={addSection} className="text-indigo-600 text-sm font-medium hover:underline">
+            <button type="button" onClick={addSection} className="text-primary text-sm font-medium hover:underline">
               建立第一個大題
             </button>
           </div>

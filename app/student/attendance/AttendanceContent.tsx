@@ -66,16 +66,16 @@ const ActivityCard = ({ activity }: { activity: Activity }) => {
   const getStatusBadge = (status: Activity['status']) => {
     switch (status) {
       case 'upcoming':
-        return <span className="px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded-md">即將開始</span>;
+        return <span className="px-2 py-1 text-xs font-medium text-primary bg-primary/10 rounded-md">即將開始</span>;
       case 'active':
         return <span className="px-2 py-1 text-xs font-medium text-green-700 bg-green-100 rounded-md animate-pulse">進行中</span>;
       case 'past':
-        return <span className="px-2 py-1 text-xs font-medium text-gray-500 bg-gray-100 rounded-md">已結束</span>;
+        return <span className="px-2 py-1 text-xs font-medium text-on-surfaceVariant bg-surface-container rounded-md">已結束</span>;
     }
   };
 
   const getAttendanceStatusPill = (status: string | undefined, leaveType?: string) => {
-    if (!status) return <span className="text-xs text-gray-400">未記錄</span>;
+    if (!status) return <span className="text-xs text-on-surfaceVariant">未記錄</span>;
     
     const statusMap: Record<string, { text: string; styles: string }> = {
       present: { text: '出席', styles: 'text-green-700 bg-green-100 border-green-200' },
@@ -84,7 +84,7 @@ const ActivityCard = ({ activity }: { activity: Activity }) => {
       leave: { text: '請假', styles: 'text-purple-700 bg-purple-100 border-purple-200' },
     };
 
-    const config = statusMap[status] || { text: status, styles: 'text-gray-700 bg-gray-100' };
+    const config = statusMap[status] || { text: status, styles: 'text-on-surface bg-surface-container' };
     const displayText = status === 'leave' && leaveType ? leaveType : config.text;
 
     return (
@@ -95,14 +95,14 @@ const ActivityCard = ({ activity }: { activity: Activity }) => {
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-lg transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full min-w-0">
+    <div className="bg-white border border-outline-variant/40 rounded-xl p-4 hover:shadow-lg transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full min-w-0">
       {/* 標題與時間 (前方無圖示) */}
       <div className="flex-1">
         <div className="flex items-center gap-2 mb-1">
-          <h4 className="font-bold text-gray-800 text-lg">{activity.title}</h4>
+          <h4 className="font-bold text-on-surface text-lg">{activity.title}</h4>
           {getStatusBadge(activity.status)}
         </div>
-        <div className="text-sm text-gray-500 flex items-center gap-1">
+        <div className="text-sm text-on-surfaceVariant flex items-center gap-1">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
@@ -123,7 +123,7 @@ const ActivityCard = ({ activity }: { activity: Activity }) => {
         ) : activity.status === 'active' ? (
           <button
             onClick={() => router.push(`/student/attendance?courseId=${activity.firestoreCourseId}&activity=${activity.id}`)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium py-2 px-5 rounded-lg shadow-sm transition-colors flex items-center"
+            className="bg-primary hover:bg-primary-hover text-white text-sm font-medium py-2 px-5 rounded-lg shadow-sm transition-colors flex items-center"
           >
             <span>簽到</span>
             <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -131,7 +131,7 @@ const ActivityCard = ({ activity }: { activity: Activity }) => {
             </svg>
           </button>
         ) : (
-          <span className="text-sm text-gray-400 italic">尚未開始</span>
+          <span className="text-sm text-on-surfaceVariant italic">尚未開始</span>
         )}
       </div>
     </div>
@@ -142,7 +142,7 @@ const ActivityCard = ({ activity }: { activity: Activity }) => {
 const CourseGroupedList = ({ activities, emptyText }: { activities: Activity[], emptyText: string }) => {
   if (activities.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+      <div className="flex flex-col items-center justify-center py-12 text-on-surfaceVariant bg-surface rounded-xl border border-dashed border-outline-variant/50">
         <svg className="w-12 h-12 mb-2 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
         </svg>
@@ -159,9 +159,9 @@ const CourseGroupedList = ({ activities, emptyText }: { activities: Activity[], 
         <div key={courseName} className="animate-fade-in-up">
           {/* 課程標題 */}
           <div className="flex items-center gap-2 mb-3 pl-1">
-            <span className="w-1 h-6 bg-indigo-500 rounded-full"></span>
-            <h3 className="text-lg font-bold text-gray-700">{courseName}</h3>
-            <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
+            <span className="w-1 h-6 bg-primary rounded-full"></span>
+            <h3 className="text-lg font-bold text-on-surface">{courseName}</h3>
+            <span className="text-xs bg-surface-container text-on-surfaceVariant px-2 py-0.5 rounded-full">
               {courseActivities.length}
             </span>
           </div>
@@ -266,7 +266,10 @@ function CheckInView({
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || '簽到失敗。');
+        const err = new Error(data.error || '簽到失敗。') as Error & { code?: string; status?: number };
+        err.code = data.code;
+        err.status = response.status;
+        throw err;
       }
 
       if (onSuccess) {
@@ -285,16 +288,22 @@ function CheckInView({
         icon: 'success',
         title: '簽到成功！',
         text: `狀態：${statusText}`,
-        confirmButtonColor: '#4f46e5'
+        confirmButtonColor: '#2D6DF6'
       }).then(() => {
         router.push(resolveReturnPath());
       });
 
     } catch (err) {
+      const errObj = err as Error & { code?: string; status?: number };
+      const isDuplicate = errObj.status === 409 || errObj.code === 'ALREADY_CHECKED_IN' || (errObj.message || '').includes('無需重複掃描') || (errObj.message || '').includes('已經簽到');
+      const isQrExpired = errObj.code === 'QR_EXPIRED' || (errObj.message || '').includes('QR');
+
       Swal.fire({
-        icon: 'error',
-        title: '簽到失敗',
+        icon: isDuplicate ? 'info' : 'error',
+        title: isDuplicate ? '已簽到' : isQrExpired ? 'QR 已過期' : '簽到失敗',
         text: err instanceof Error ? err.message : '簽到時發生錯誤。',
+        confirmButtonColor: '#2D6DF6',
+        customClass: { popup: 'rounded-2xl' },
       });
       
       setCheckInCode('');
@@ -340,22 +349,22 @@ function CheckInView({
   );
   if (!activity) return (
     <div className="flex flex-col justify-center min-h-[75vh] max-w-md mx-auto px-4">
-      <div className="p-8 text-center text-gray-500">找不到點名活動。</div>
+      <div className="p-8 text-center text-on-surfaceVariant">找不到點名活動。</div>
     </div>
   );
 
   return (
     <div className="flex flex-col justify-center min-h-[75vh] max-w-md mx-auto px-4 animate-fade-in">
-      <div className="bg-white rounded-2xl shadow-lg border border-indigo-100 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-lg border border-primary/20 overflow-hidden">
         {/* Header */}
-        <div className="bg-indigo-600 px-6 py-4 text-white text-center">
+        <div className="bg-primary px-6 py-4 text-white text-center">
           <h3 className="text-xl font-bold">{activity.title}</h3>
-          <p className="text-indigo-100 text-sm mt-1">{activity.courseName}</p>
+          <p className="text-primary-fixed text-sm mt-1">{activity.courseName}</p>
         </div>
 
         {/* Body */}
         <div className="p-8">
-          <div className="flex justify-center mb-6 text-gray-500 text-sm bg-gray-50 py-2 rounded-lg">
+          <div className="flex justify-center mb-6 text-on-surfaceVariant text-sm bg-surface py-2 rounded-lg">
              <span>{new Date(activity.startTime).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })}</span>
              <span className="mx-2">➔</span>
              <span>{new Date(activity.endTime).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })}</span>
@@ -367,13 +376,13 @@ function CheckInView({
                 <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
               </div>
               <p className="text-green-600 text-lg font-bold">已完成簽到</p>
-              <p className="text-gray-600 mt-1">狀態：{finalStatus}</p>
+              <p className="text-on-surfaceVariant mt-1">狀態：{finalStatus}</p>
             </div>
           ) : (
             <form onSubmit={handleSubmit}>
               {activity.checkInMethod === 'numeric' && (
                 <div className="mb-6">
-                  <label htmlFor="checkInCode" className="block text-center text-sm font-medium text-gray-600 mb-3">
+                  <label htmlFor="checkInCode" className="block text-center text-sm font-medium text-on-surfaceVariant mb-3">
                     請輸入六位數簽到碼
                   </label>
                   <input
@@ -391,7 +400,7 @@ function CheckInView({
                     inputMode="numeric"
                     pattern="[0-9]*"
                     enterKeyHint="done"
-                    className="w-full border-2 border-gray-200 focus:border-indigo-500 p-4 rounded-xl text-center text-3xl tracking-[0.5em] font-mono font-bold text-gray-700 outline-none transition-colors"
+                    className="w-full border-2 border-outline-variant/40 focus:border-primary p-4 rounded-xl text-center text-3xl tracking-[0.5em] font-mono font-bold text-on-surface outline-none transition-colors"
                     placeholder="------"
                     required
                     autoComplete="off"
@@ -413,7 +422,7 @@ function CheckInView({
                   <button 
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-bold shadow-md hover:bg-indigo-700 hover:shadow-lg transition-all disabled:bg-indigo-300 disabled:shadow-none"
+                    className="w-full bg-primary text-white py-3.5 rounded-xl font-bold shadow-md hover:bg-primary-hover hover:shadow-lg transition-all disabled:bg-primary/40 disabled:shadow-none"
                   >
                     {isSubmitting ? '驗證中...' : '確認簽到'}
                   </button>
@@ -421,7 +430,7 @@ function CheckInView({
                 <button 
                   type="button"
                   onClick={() => router.back()}
-                  className="w-full py-3.5 text-gray-500 font-medium hover:bg-gray-50 rounded-xl transition-colors"
+                  className="w-full py-3.5 text-on-surfaceVariant font-medium hover:bg-surface rounded-xl transition-colors"
                 >
                   取消返回
                 </button>
@@ -560,12 +569,12 @@ export default function AttendanceContent() {
     <div className="page-shell w-full min-w-0 pt-4 sm:pt-6 md:pt-8 pb-10 flex flex-col h-full animate-fade-in">
       {/* Header Area */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div className="border-l-4 border-indigo-500 pl-4">
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-            <ClockIcon className="h-8 w-8 text-indigo-600" />
+        <div className="border-l-4 border-primary pl-4">
+          <h1 className="font-display text-2xl font-extrabold text-on-surface flex items-center gap-3">
+            <ClockIcon className="h-8 w-8 text-primary" />
             線上點名
           </h1>
-          <p className="text-gray-500 text-sm mt-1">查看並參與目前進行中的課程點名與歷史紀錄。</p>
+          <p className="text-on-surfaceVariant text-sm mt-1">查看並參與目前進行中的課程點名與歷史紀錄。</p>
         </div>
       </div>
 

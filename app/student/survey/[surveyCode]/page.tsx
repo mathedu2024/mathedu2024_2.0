@@ -13,7 +13,7 @@ function StudentSurveyPageInner() {
   const reviewMode = searchParams.get('review') === '1';
 
   if (!surveyCode) {
-    return <p className="text-center text-gray-500 py-16">找不到問卷</p>;
+    return <p className="text-center text-on-surfaceVariant py-16">找不到問卷</p>;
   }
 
   return <SurveyTakeView surveyCode={surveyCode} backHref={backHref} reviewMode={reviewMode} />;

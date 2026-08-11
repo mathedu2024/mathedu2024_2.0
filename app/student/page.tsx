@@ -12,10 +12,12 @@ import {
 import PageLoadingArea from '../components/ui/PageLoadingArea';
 import CourseActivityFeed from '../components/CourseActivityFeed';
 import LiveAttendanceBanner from '../components/LiveAttendanceBanner';
+import DashboardTodoSummary from '../components/DashboardTodoSummary';
 import { useStudentInfo } from './StudentInfoContext';
 import { fetchStudentDashboardData } from '@/utils/studentClientApi';
 import { getDashboardColorClasses, type DashboardColor } from '@/utils/dashboardColors';
 import { useHydrated } from '@/utils/useHydrated';
+import { dashboardSectionTitle } from '@/components/ui/dashboardChrome';
 
 interface MinimalCourse {
   name: string;
@@ -101,26 +103,26 @@ export default function StudentPanel() {
   return (
     <div className="page-shell w-full min-w-0 py-4 sm:py-6 md:py-8">
       {/* 歡迎橫幅 */}
-      <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-2xl shadow-xl p-5 sm:p-8 text-white mb-6 sm:mb-10 animate-fade-in relative overflow-hidden min-w-0">
+      <div className="bg-gradient-to-br from-primary to-tertiary rounded-2xl shadow-xl p-5 sm:p-8 text-white mb-6 sm:mb-10 animate-fade-in relative overflow-hidden min-w-0">
         <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-white opacity-10 rounded-full blur-3xl"></div>
         <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-40 h-40 bg-white opacity-10 rounded-full blur-3xl"></div>
         
         <div className="relative flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
           <div className="flex-1">
-            <h1 className="text-xl sm:text-2xl md:text-4xl font-bold mb-3 flex flex-wrap items-center gap-1 sm:gap-2">
-                歡迎回來，{studentInfo?.name}！ <span className="text-xl sm:text-2xl"></span>
+            <h1 className="font-display text-xl sm:text-2xl md:text-4xl font-extrabold mb-3 flex flex-wrap items-center gap-1 sm:gap-2 tracking-tight">
+                歡迎回來，{studentInfo?.name}！
             </h1>
-            <div className="flex flex-col sm:flex-row gap-4 text-indigo-100">
-                <p className="flex items-center"><span className="bg-indigo-500/30 px-2 py-1 rounded-md text-sm mr-2 border border-indigo-400/30">學號</span> {studentInfo?.studentId}</p>
-                <p className="hidden sm:block">|</p>
+            <div className="flex flex-col sm:flex-row gap-4 text-primary-fixed">
+                <p className="flex items-center"><span className="bg-white/20 px-2 py-1 rounded-md text-sm mr-2 border border-white/30 font-mono">學號</span> {studentInfo?.studentId}</p>
+                <p className="hidden sm:block opacity-60">|</p>
                 <p>{todayLabel || '\u00A0'}</p>
             </div>
           </div>
           <div className="text-center lg:text-right bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20">
             <div className="flex items-center gap-3">
-                 <div className="p-2 bg-indigo-500 rounded-lg"><SparklesIcon className="w-6 h-6 text-yellow-300" /></div>
+                 <div className="p-2 bg-white/20 rounded-lg"><SparklesIcon className="w-6 h-6 text-yellow-300" /></div>
                  <div className="text-left">
-                     <p className="text-xs text-indigo-200 font-medium uppercase tracking-wider">今日狀態</p>
+                     <p className="text-xs text-primary-fixed font-mono font-semibold uppercase tracking-wider">今日狀態</p>
                      <p className="text-white font-bold">學習愉快！</p>
                  </div>
             </div>
@@ -129,39 +131,39 @@ export default function StudentPanel() {
       </div>
       {/* 統計概覽：固定 1×3，不隨視窗改列 */}
       <div className="grid grid-cols-3 gap-2 sm:gap-4 md:gap-6 mb-8 sm:mb-10 animate-fade-in" style={{ animationDelay: '0.1s' }}>
-        <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm p-3 sm:p-6 border border-gray-100 hover:shadow-md transition-shadow group min-w-0">
+        <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm p-3 sm:p-6 border border-outline-variant/40 hover:shadow-md transition-shadow group min-w-0">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="min-w-0">
-                <p className="text-[10px] sm:text-sm font-bold text-gray-500 mb-0.5 sm:mb-1">已選課程</p>
-                <p className="text-xl sm:text-3xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors tabular-nums">
+                <p className="text-[10px] sm:text-sm font-bold text-on-surfaceVariant mb-0.5 sm:mb-1">已選課程</p>
+                <p className="text-xl sm:text-3xl font-bold text-on-surface group-hover:text-primary transition-colors tabular-nums">
                   {activeCourseCount !== null ? activeCourseCount : '...'}
                 </p>
             </div>
-            <div className="hidden sm:block p-4 rounded-xl bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors shrink-0">
+            <div className="hidden sm:block p-4 rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors shrink-0">
                 <BookOpenIcon className="h-6 w-6" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm p-3 sm:p-6 border border-gray-100 hover:shadow-md transition-shadow group min-w-0">
+        <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm p-3 sm:p-6 border border-outline-variant/40 hover:shadow-md transition-shadow group min-w-0">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="min-w-0">
-                <p className="text-[10px] sm:text-sm font-bold text-gray-500 mb-0.5 sm:mb-1">輔導預約</p>
-                <p className="text-xl sm:text-3xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">開放中</p>
+                <p className="text-[10px] sm:text-sm font-bold text-on-surfaceVariant mb-0.5 sm:mb-1">輔導預約</p>
+                <p className="text-xl sm:text-3xl font-bold text-on-surface group-hover:text-primary transition-colors">開放中</p>
             </div>
-            <div className="hidden sm:block p-4 rounded-xl bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors shrink-0">
+            <div className="hidden sm:block p-4 rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors shrink-0">
                 <ChatBubbleLeftRightIcon className="h-6 w-6" />
             </div>
           </div>
         </div>
 
-        <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm p-3 sm:p-6 border border-gray-100 hover:shadow-md transition-shadow group min-w-0">
+        <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm p-3 sm:p-6 border border-outline-variant/40 hover:shadow-md transition-shadow group min-w-0">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="min-w-0">
-                <p className="text-[10px] sm:text-sm font-bold text-gray-500 mb-0.5 sm:mb-1">個人資料</p>
-                <p className="text-xl sm:text-3xl font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">可檢視</p>
+                <p className="text-[10px] sm:text-sm font-bold text-on-surfaceVariant mb-0.5 sm:mb-1">個人資料</p>
+                <p className="text-xl sm:text-3xl font-bold text-on-surface group-hover:text-primary transition-colors">可檢視</p>
             </div>
-            <div className="hidden sm:block p-4 rounded-xl bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors shrink-0">
+            <div className="hidden sm:block p-4 rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors shrink-0">
                 <UserCircleIcon className="h-6 w-6" />
             </div>
           </div>
@@ -170,7 +172,7 @@ export default function StudentPanel() {
 
       {/* 快速操作 Grid */}
       <div className="animate-fade-in" style={{ animationDelay: '0.2s' }}>
-        <h2 className="text-xl font-bold text-gray-800 border-l-4 border-indigo-500 pl-4 mb-6">快速操作</h2>
+        <h2 className={dashboardSectionTitle}>快速操作</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {studentQuickActions.map((action) => (
             <button
@@ -179,18 +181,18 @@ export default function StudentPanel() {
               disabled={action.disabled}
               className={`text-left p-6 rounded-2xl border transition-all duration-300 flex items-center group ${
                 action.disabled
-                  ? 'bg-gray-50 cursor-not-allowed opacity-60 border-gray-100'
-                  : `bg-white border-gray-200 ${action.cardHover} hover:shadow-lg hover:-translate-y-1`
+                  ? 'bg-surface cursor-not-allowed opacity-60 border-outline-variant/40'
+                  : `bg-white border-outline-variant/40 ${action.cardHover} hover:shadow-lg hover:-translate-y-1`
               }`}
             >
               <div className={`p-4 rounded-xl mr-5 flex-shrink-0 relative z-10 transition-colors [&_svg]:text-current ${
-                  action.disabled ? 'bg-gray-200 text-gray-400' : `${action.iconBg} ${action.iconText} ${action.iconHover}`
+                  action.disabled ? 'bg-surface-containerHigh text-on-surfaceVariant' : `${action.iconBg} ${action.iconText} ${action.iconHover}`
               }`}>
                 {action.icon}
               </div>
               <div className="min-w-0">
-                <h3 className={`text-lg font-bold ${action.disabled ? 'text-gray-500' : `text-gray-900 ${action.titleHover}`}`}>{action.title}</h3>
-                <p className={`text-sm mt-1 ${action.disabled ? 'text-gray-400' : 'text-gray-500'}`}>{action.description}</p>
+                <h3 className={`text-lg font-bold ${action.disabled ? 'text-on-surfaceVariant' : `text-on-surface ${action.titleHover}`}`}>{action.title}</h3>
+                <p className={`text-sm mt-1 ${action.disabled ? 'text-on-surfaceVariant' : 'text-on-surfaceVariant'}`}>{action.description}</p>
               </div>
             </button>
           ))}
@@ -198,6 +200,7 @@ export default function StudentPanel() {
       </div>
 
       <div className="mt-8 sm:mt-10">
+        <DashboardTodoSummary audience="student" />
         <LiveAttendanceBanner audience="student" />
         <CourseActivityFeed audience="student" />
       </div>

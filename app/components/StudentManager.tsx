@@ -265,7 +265,7 @@ export default function StudentManager() {
         icon: 'success',
         title: '成功',
         text: `學生 "${name}" 的資料已成功儲存！`,
-        confirmButtonColor: '#4f46e5'
+        confirmButtonColor: '#2D6DF6'
       });
       setIsEditing(false);
       setEditingStudent(null);
@@ -321,7 +321,7 @@ export default function StudentManager() {
             icon: 'success',
             title: '已刪除!',
             text: '學生資料已成功刪除。',
-            confirmButtonColor: '#4f46e5'
+            confirmButtonColor: '#2D6DF6'
         });
         fetchStudents({ bypassCache: true }); // Re-fetch
       } catch (error) {
@@ -346,7 +346,7 @@ export default function StudentManager() {
       showCancelButton: true,
       confirmButtonText: '確定',
       cancelButtonText: '取消',
-      confirmButtonColor: '#4f46e5',
+      confirmButtonColor: '#2D6DF6',
     });
 
     if (!result.isConfirmed) {
@@ -361,7 +361,7 @@ export default function StudentManager() {
         icon: 'success',
         title: '成功',
         text: '密碼已復原為預設值',
-        confirmButtonColor: '#4f46e5'
+        confirmButtonColor: '#2D6DF6'
     });
   };
 
@@ -422,7 +422,7 @@ export default function StudentManager() {
       showCancelButton: true,
       confirmButtonText: '確認執行',
       cancelButtonText: '取消',
-      confirmButtonColor: '#4f46e5',
+      confirmButtonColor: '#2D6DF6',
     });
     if (!result.isConfirmed) return;
 
@@ -484,7 +484,7 @@ export default function StudentManager() {
             <div>移除課程：<b>${batchRemoveCourses.length}</b> 堂</div>
           </div>
         `,
-        confirmButtonColor: '#4f46e5',
+        confirmButtonColor: '#2D6DF6',
       });
       setSelectedStudentIds([]);
       setBatchGrade('不變更');
@@ -770,7 +770,7 @@ export default function StudentManager() {
               <div>成功新增：<b>${result.createdCount}</b> 筆</div>
             </div>
           `,
-          confirmButtonColor: '#4f46e5',
+          confirmButtonColor: '#2D6DF6',
         });
 
         setIsImportModalOpen(false);
@@ -808,18 +808,18 @@ export default function StudentManager() {
   return (
     <div className="page-shell w-full min-w-0 flex flex-col h-full animate-fade-in">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-0 mb-8">
-        <div className="border-l-4 border-indigo-500 pl-4">
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-            <UserGroupIcon className="h-8 w-8 text-indigo-600" />
+        <div className="border-l-4 border-primary pl-4">
+          <h1 className="font-display text-2xl font-bold text-on-surface flex items-center gap-3">
+            <UserGroupIcon className="h-8 w-8 text-primary" />
             學生資料管理
           </h1>
-          <p className="text-gray-500 text-sm mt-1">管理學生資訊與註冊狀態</p>
+          <p className="text-on-surfaceVariant text-sm mt-1">管理學生資訊與註冊狀態</p>
         </div>
       </div>
 
       {!isEditing && (
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm mb-6 flex-shrink-0 overflow-hidden">
-          <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 px-4 py-3 border-b border-gray-100">
+        <div className="bg-surface-containerLowest border border-outline-variant/40 rounded-xl shadow-sm mb-6 flex-shrink-0 overflow-hidden">
+          <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 px-4 py-3 border-b border-outline-variant/40">
             <div className="flex flex-col sm:flex-row flex-1 min-w-0 gap-3 md:gap-4">
               <div className="relative flex-1 min-w-0">
                 <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -828,7 +828,7 @@ export default function StudentManager() {
                   placeholder="搜尋學生姓名或帳號..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm"
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all text-sm"
                 />
               </div>
               <div className="w-full sm:w-44 md:w-48 shrink-0">
@@ -891,7 +891,7 @@ export default function StudentManager() {
 
           <div className="flex flex-col lg:flex-row lg:items-center gap-3 lg:gap-4 px-4 py-3">
             <div className="text-sm text-gray-600 font-medium shrink-0 whitespace-nowrap">
-              已選取 <span className="text-indigo-600 font-bold">{selectedStudentIds.length}</span> 位學生
+              已選取 <span className="text-primary font-bold">{selectedStudentIds.length}</span> 位學生
             </div>
             <div className="w-full lg:w-40 shrink-0">
               <Dropdown
@@ -937,7 +937,7 @@ export default function StudentManager() {
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 animate-fade-in">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden transform scale-100 flex flex-col">
             {/* Header */}
-            <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white shrink-0">
+            <div className="bg-gradient-to-r from-primary to-tertiary p-4 flex justify-between items-center text-white shrink-0">
               <h3 className="font-bold flex items-center gap-2">
                 <UserIcon className="w-5 h-5" />
                 {editingStudent.id ? '編輯學生資料' : '新增學生資料'}
@@ -965,7 +965,7 @@ export default function StudentManager() {
                     type="text"
                     value={editingStudent.studentId}
                     onChange={isExistingStudent ? undefined : handleStudentIdChange}
-                    className={isExistingStudent ? lockedFieldClass : 'w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono'}
+                    className={isExistingStudent ? lockedFieldClass : 'w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent font-mono'}
                     required
                     readOnly={isExistingStudent}
                     disabled={isExistingStudent}
@@ -993,7 +993,7 @@ export default function StudentManager() {
                       type="text"
                       value={editingStudent.name}
                       onChange={(e) => setEditingStudent(prev => prev ? { ...prev, name: e.target.value } : null)}
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent"
                       required
                       placeholder="請輸入姓名"
                     />
@@ -1055,7 +1055,7 @@ export default function StudentManager() {
                       type="email"
                       value={editingStudent.email}
                       onChange={handleEmailChange}
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent"
                       placeholder="student@example.com"
                     />
                   </div>
@@ -1071,7 +1071,7 @@ export default function StudentManager() {
                       type="tel"
                       value={editingStudent.phone}
                       onChange={(e) => setEditingStudent(prev => prev ? { ...prev, phone: e.target.value } : null)}
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent"
                       placeholder="0912-345-678"
                     />
                   </div>
@@ -1086,7 +1086,7 @@ export default function StudentManager() {
                       type="text"
                       value={editingStudent.address}
                       onChange={(e) => setEditingStudent(prev => prev ? { ...prev, address: e.target.value } : null)}
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent"
                       placeholder="請輸入通訊地址"
                     />
                   </div>
@@ -1096,7 +1096,7 @@ export default function StudentManager() {
                   <textarea
                     value={editingStudent.remarks}
                     onChange={(e) => setEditingStudent(prev => prev ? { ...prev, remarks: e.target.value } : null)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
                     rows={3}
                     placeholder="可選填相關備註..."
                   />
@@ -1105,7 +1105,7 @@ export default function StudentManager() {
             </form>
 
             {/* Footer */}
-            <div className="p-4 bg-gray-50 border-t border-gray-100 flex gap-2 shrink-0">
+            <div className="p-4 bg-surface-containerLow border-t border-outline-variant/40 flex gap-2 shrink-0">
               <button
                 type="button"
                 onClick={handleCancel}
@@ -1117,7 +1117,7 @@ export default function StudentManager() {
               <button
                 type="submit"
                 form="student-editor-form"
-                className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-sm flex items-center justify-center disabled:opacity-70"
+                className="flex-1 bg-primary text-white py-2 rounded-lg text-sm font-medium hover:bg-primary-hover shadow-sm flex items-center justify-center disabled:opacity-70"
                 disabled={loading}
               >
                 {loading ? <LoadingSpinner size={16} color="white" className="mr-2" /> : null}
@@ -1147,7 +1147,7 @@ export default function StudentManager() {
                                   type="checkbox"
                                   checked={selectedStudentIds.includes(student.id)}
                                   onChange={() => toggleStudentSelection(student.id)}
-                                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 accent-indigo-600 cursor-pointer"
+                                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-[#2D6DF6] cursor-pointer"
                                 />
                                 選取此學生
                               </label>
@@ -1161,7 +1161,7 @@ export default function StudentManager() {
                           </span>
                         </div>
                         
-                        <div className="space-y-1 text-sm text-gray-600 mb-4 bg-gray-50 p-3 rounded-lg border border-gray-100">
+                        <div className="space-y-1 text-sm text-gray-600 mb-4 bg-gray-50 p-3 rounded-lg border border-outline-variant/40">
                             <div className="flex justify-between">
                                 <span className="text-gray-500">年級:</span>
                                 <span className="font-medium text-gray-800">{student.grade}</span>
@@ -1173,11 +1173,11 @@ export default function StudentManager() {
                         </div>
                         
                         <div className={`${tableActionRow} pt-2 border-t border-gray-100`}>
-                          <button 
-                            onClick={() => handleResetPassword(student.id)} 
+                          <button
+                            onClick={() => handleResetPassword(student.id)}
                             className={tableActionStyles.warning}
                           >
-                            重設密碼
+                            復原密碼
                           </button>
                           <button 
                             onClick={() => handleEdit(student)} 
@@ -1211,7 +1211,7 @@ export default function StudentManager() {
                             type="checkbox"
                             checked={isAllFilteredSelected}
                             onChange={toggleSelectAllFiltered}
-                            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 accent-indigo-600 cursor-pointer"
+                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-[#2D6DF6] cursor-pointer"
                             title="全選目前篩選結果"
                           />
                         </th>
@@ -1231,7 +1231,7 @@ export default function StudentManager() {
                               type="checkbox"
                               checked={selectedStudentIds.includes(student.id)}
                               onChange={() => toggleStudentSelection(student.id)}
-                              className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 accent-indigo-600 cursor-pointer"
+                              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-[#2D6DF6] cursor-pointer"
                             />
                           </td>
                           <td className="px-6 py-4">
@@ -1257,11 +1257,11 @@ export default function StudentManager() {
                           </td>
                           <td className="px-6 py-4 text-right whitespace-nowrap">
                             <div className={courseListTableStyles.desktop.actionRow}>
-                              <button 
-                                onClick={() => handleResetPassword(student.id)} 
+                              <button
+                                onClick={() => handleResetPassword(student.id)}
                                 className={courseListTableStyles.desktop.actionWarning}
                               >
-                                重設密碼
+                                復原密碼
                               </button>
                               <button 
                                 onClick={() => handleEdit(student)} 
@@ -1298,7 +1298,7 @@ export default function StudentManager() {
       {isImportModalOpen && createPortal(
         <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 p-4 animate-fade-in">
           <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md max-h-full sm:max-h-[90vh] flex flex-col overflow-hidden animate-bounce-in">
-            <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-4 flex justify-between items-center text-white flex-shrink-0">
+            <div className="bg-gradient-to-r from-primary to-tertiary p-4 flex justify-between items-center text-white flex-shrink-0">
               <h3 className="text-xl font-bold flex items-center">
                 <CloudArrowUpIcon className="w-6 h-6 mr-2" />
                 匯入 Excel 檔案
@@ -1310,17 +1310,17 @@ export default function StudentManager() {
             <div className="p-6 bg-white overflow-y-auto flex-1 custom-scrollbar">
             
             <div 
-              className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${dragActive ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 bg-gray-50 hover:bg-gray-100'}`}
+              className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors cursor-pointer ${dragActive ? 'border-primary bg-primary/10' : 'border-gray-300 bg-gray-50 hover:bg-gray-100'}`}
               onDragEnter={handleDrag}
               onDragLeave={handleDrag}
               onDragOver={handleDrag}
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
             >
-              <CloudArrowUpIcon className={`w-16 h-16 mx-auto mb-4 ${dragActive ? 'text-indigo-500' : 'text-gray-400'}`} />
+              <CloudArrowUpIcon className={`w-16 h-16 mx-auto mb-4 ${dragActive ? 'text-primary' : 'text-gray-400'}`} />
               <p className="text-gray-800 font-bold mb-2">點擊選擇檔案，或將檔案拖曳至此處</p>
             <p className="text-gray-500 text-sm mb-6">支援 .xlsx 格式</p>
-              <button className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 transition-colors shadow-sm">
+              <button className="px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-hover transition-colors shadow-sm">
                 瀏覽檔案
               </button>
               </div>

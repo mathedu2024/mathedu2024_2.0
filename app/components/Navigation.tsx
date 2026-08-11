@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { getSession, type SessionData } from '../utils/session';
@@ -13,6 +13,8 @@ export default function Navigation() {
   const pathname = usePathname();
   const isCompactNav = useCompactNav();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const accountRef = useRef<HTMLDivElement>(null);
   const [session, setSessionState] = useState<SessionData | null>(null);
   type SidebarMenuItem = { id: string; title?: string; href?: string; disabled?: boolean };
   type SidebarSyncDetail = {
@@ -36,8 +38,6 @@ export default function Navigation() {
     refreshSession();
   }, [pathname, refreshSession]);
 
-  // 當使用者跳出儀表板頁面時，清空側邊欄選單資料
-  // 確保手機版選單不殘留上一次的功能上色，並改為顯示「回到儀表板」
   useEffect(() => {
     const isDashboardRoute = pathname.startsWith('/student') || pathname.startsWith('/back-panel') || pathname.startsWith('/panel');
     if (!isDashboardRoute) {
@@ -78,7 +78,8 @@ export default function Navigation() {
   }, []);
 
   const isActive = (path: string) => {
-    return pathname === path;
+    if (path === '/') return pathname === '/';
+    return pathname === path || pathname.startsWith(`${path}/`);
   };
 
   const mobileNavFont = (isActiveItem: boolean) =>
@@ -89,38 +90,46 @@ export default function Navigation() {
     const role = sessionData.currentRole || sessionData.role;
     if (Array.isArray(role)) {
       const roles = role.map((r: string) => r.toLowerCase());
-      return roles.includes('admin') || roles.includes('管理員') || roles.includes('teacher') || roles.includes('老師');
+      return roles.includes('admin') || roles.includes('管理員') || roles.includes('teacher') || roles.includes('老師') || roles.includes('author');
     }
     if (typeof role === 'string') {
       const r = role.toLowerCase();
-      return r === 'admin' || r === '管理員' || r === 'teacher' || r === '老師';
+      return r === 'admin' || r === '管理員' || r === 'teacher' || r === '老師' || r === 'author';
     }
     return false;
   };
 
-  const getCourseLoginHref = () => {
+  const getPrimaryAuthHref = () => {
     if (!session) return '/login';
-    if (!isManagementRole(session)) return '/student';
-    return '/login';
+    if (isManagementRole(session)) return '/back-panel';
+    return '/student';
   };
 
-  const getPanelHref = () => {
-    if (!session) return '/panel';
-    if (isManagementRole(session)) return '/back-panel';
-    return '/panel';
+  const getSettingsHref = () => {
+    if (!session) return '/login';
+    if (isManagementRole(session)) return '/back-panel/password';
+    return '/student/information';
+  };
+
+  const getDashboardLabel = () => {
+    if (!session) return '登入';
+    if (isManagementRole(session)) return '管理後台';
+    return '學習中心';
   };
 
   const getUserRoleDisplay = (sessionData: SessionData | null) => {
     if (!sessionData) return '學生';
     const role = sessionData.currentRole || sessionData.role;
     if (Array.isArray(role)) {
-      const roles = role.map((r: string) => r.toLowerCase());
+      const roles = role.map((r: string) => String(r).toLowerCase());
       if (roles.includes('admin') || roles.includes('管理員')) return '管理員';
       if (roles.includes('teacher') || roles.includes('老師')) return '老師';
+      if (roles.includes('author') || roles.includes('作者')) return '作者';
     } else if (typeof role === 'string') {
       const r = role.toLowerCase();
       if (r === 'admin' || r === '管理員') return '管理員';
       if (r === 'teacher' || r === '老師') return '老師';
+      if (r === 'author' || r === '作者') return '作者';
     }
     return '學生';
   };
@@ -128,62 +137,162 @@ export default function Navigation() {
   const navLinks = [
     { href: '/', label: '網站首頁' },
     { href: '/courses', label: '課程介紹' },
+    { href: '/blog', label: '線上文章' },
     { href: '/teacher', label: '老師介紹' },
     { href: '/faq', label: '常見問題' },
   ];
 
   const examFocusMode = useExamFocusMode();
-  if (examFocusMode) return null;
+  const isDashboardRoute =
+    pathname.startsWith('/student') ||
+    pathname.startsWith('/back-panel') ||
+    pathname.startsWith('/panel');
+  /**
+   * 儀表板桌面：整條頂欄不渲染、不占空間。
+   * 依 pathname／compact 判斷（不依賴 session），避免 hydration mismatch。
+   */
+  const hideChromeNav = isDashboardRoute && !isCompactNav;
+
+  useEffect(() => {
+    if (!accountOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (accountRef.current && !accountRef.current.contains(e.target as Node)) {
+        setAccountOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setAccountOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [accountOpen]);
+
+  if (examFocusMode || hideChromeNav) return null;
+
+  const avatarInitial = (session?.name?.trim()?.[0] || '?').toUpperCase();
+
+  const linkClass = (active: boolean) =>
+    `inline-flex items-center px-3.5 py-2 rounded-md text-base transition-all duration-200 ${
+      active
+        ? 'bg-primary/5 text-primary font-semibold'
+        : 'text-on-surfaceVariant hover:text-primary hover:bg-primary/5 font-medium'
+    }`;
 
   return (
-    <nav className="bg-white sticky top-0 z-50 h-16 box-border border-b border-gray-100">
+    <nav className="sticky top-0 z-50 h-16 box-border bg-surface/90 shadow-sm backdrop-blur-md border-b border-outline-variant/40">
       <div className="page-shell h-full">
-        <div className="flex justify-between items-center h-full">
-          {/* Logo */}
-          <div className="flex-1 flex items-center min-w-0">
-            <Link href="/" className="flex items-center gap-2 text-base sm:text-xl md:text-2xl font-bold text-gray-900 hover:text-indigo-600 transition-colors truncate group">
-              <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-sm group-hover:bg-indigo-700 transition-colors">
+        <div className="flex justify-between items-center h-full gap-4">
+          <div className="flex-1 flex items-center min-w-0 gap-8">
+            <Link href="/" className="flex items-center gap-2 min-w-0 group">
+              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white shadow-btn group-hover:bg-primary-hover transition-colors shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.436 60.436 0 00-.491 6.347A48.627 48.627 0 0112 20.904a48.627 48.627 0 018.232-4.41 60.46 60.46 0 00-.491-6.347m-15.482 0a50.57 50.57 0 00-2.658-.813A59.905 59.905 0 0112 3.493a59.902 59.902 0 0110.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.697 50.697 0 0112 13.489a50.702 50.702 0 017.74-3.342M6.75 15a.75.75 0 100-1.5.75.75 0 000 1.5zm0 0v-3.675A55.378 55.378 0 0112 8.443m-7.007 11.55A5.981 5.981 0 006.75 15.75v-1.5" />
                 </svg>
               </div>
-              <span className="sm:hidden">學習資源網</span>
-              <span className="hidden sm:inline md:hidden">高中學習資源網</span>
-              <span className="hidden md:inline">高中學習資源教育網 2.0</span>
+              <span className="font-display font-extrabold text-primary truncate text-base sm:text-lg md:text-xl tracking-tight">
+                <span className="sm:hidden">學習資源網</span>
+                <span className="hidden sm:inline md:hidden">高中學習資源網</span>
+                <span className="hidden md:inline">高中學習資源教育網 2.0</span>
+              </span>
             </Link>
+
+            <div className={`${isCompactNav ? 'hidden' : 'hidden md:flex'} items-center gap-1`}>
+              {navLinks.map((link) => (
+                <Link key={link.href} href={link.href} className={linkClass(isActive(link.href))}>
+                  {link.label}
+                </Link>
+              ))}
+            </div>
           </div>
 
-          {/* Desktop Navigation */}
-          <div className={`${isCompactNav ? 'hidden' : 'hidden md:flex'} md:items-center md:space-x-1`}>
-            {navLinks.map((link) => (
+          <div className={`${isCompactNav ? 'hidden' : 'hidden md:flex'} items-center gap-3 shrink-0`}>
+            {session ? (
+              <div className="relative" ref={accountRef}>
+                <button
+                  type="button"
+                  onClick={() => setAccountOpen((v) => !v)}
+                  className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border-2 border-outline-variant bg-primary text-sm font-bold text-on-primary transition-colors hover:border-primary"
+                  title={session.name || '帳號'}
+                  aria-expanded={accountOpen}
+                  aria-haspopup="menu"
+                >
+                  {avatarInitial}
+                </button>
+                {accountOpen ? (
+                  <div
+                    className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-2xl border border-outline-variant/50 bg-surface-containerLowest shadow-elevate"
+                    role="menu"
+                  >
+                    <div className="border-b border-outline-variant/40 px-4 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-bold text-on-primary">
+                          {avatarInitial}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate font-bold text-on-surface">{session.name}</p>
+                          <p className="truncate text-xs text-on-surfaceVariant">{session.account || '—'}</p>
+                          <span className="mt-1 inline-block rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                            {getUserRoleDisplay(session)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-2">
+                      <Link
+                        href={getPrimaryAuthHref()}
+                        role="menuitem"
+                        onClick={() => setAccountOpen(false)}
+                        className="flex w-full items-center rounded-xl px-3 py-2.5 text-sm font-medium text-on-surface transition-colors hover:bg-surface-containerLow"
+                      >
+                        {getDashboardLabel()}
+                      </Link>
+                      <Link
+                        href={getSettingsHref()}
+                        role="menuitem"
+                        onClick={() => setAccountOpen(false)}
+                        className="flex w-full items-center rounded-xl px-3 py-2.5 text-sm font-medium text-on-surface transition-colors hover:bg-surface-containerLow"
+                      >
+                        個人設定
+                      </Link>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={async () => {
+                          setAccountOpen(false);
+                          try {
+                            window.dispatchEvent(new Event('auth-logout'));
+                            sessionStorage.removeItem('sidebar_user_info');
+                            await logoutClient('/');
+                          } catch {
+                            window.location.href = '/';
+                          }
+                        }}
+                        className="flex w-full items-center rounded-xl px-3 py-2.5 text-sm font-medium text-error transition-colors hover:bg-error/10"
+                      >
+                        登出
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
               <Link
-                key={link.href}
-                href={link.href}
-                className={`inline-flex items-center px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
-                  isActive(link.href)
-                    ? 'bg-indigo-50 text-indigo-600 shadow-sm'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600'
-                }`}
+                href="/login"
+                className="inline-flex items-center px-6 py-2.5 rounded-full text-sm font-semibold tracking-wide text-white bg-primary hover:bg-primary-container shadow-btn active:scale-95 transition-transform"
               >
-                {link.label}
+                登入
               </Link>
-            ))}
-            <Link href={getPanelHref()} className={`ml-2 inline-flex items-center px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${isActive('/panel') || pathname.startsWith('/back-panel') ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600'}`}>
-              網站管理
-            </Link>
-            <Link
-              href={getCourseLoginHref()}
-              className="ml-4 inline-flex items-center px-5 py-2 border border-transparent text-sm font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm hover:shadow-md transition-all transform hover:-translate-y-0.5"
-            >
-              登入課程
-            </Link>
+            )}
           </div>
 
-          {/* Mobile menu button */}
           <div className={`${isCompactNav ? 'flex' : 'md:hidden flex'} items-center flex-shrink-0`}>
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-xl text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 focus:outline-none transition-colors"
+              className="inline-flex items-center justify-center p-2 rounded-xl text-on-surfaceVariant hover:text-primary hover:bg-primary/5 focus:outline-none transition-colors"
               aria-expanded={isMenuOpen}
             >
               <span className="sr-only">Open main menu</span>
@@ -197,33 +306,32 @@ export default function Navigation() {
         </div>
       </div>
 
-      {/* Mobile menu */}
       <div className={`${isCompactNav ? 'block' : 'md:hidden'} overflow-y-auto custom-scrollbar transition-all duration-300 ease-in-out ${isMenuOpen ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'}`}>
-        <div className="px-4 pt-2 pb-4 space-y-2 bg-gray-50 border-t border-gray-100 shadow-inner">
+        <div className="px-4 pt-2 pb-4 space-y-2 bg-surface-containerLow border-t border-outline-variant/50 shadow-inner">
           {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`block px-4 py-3 rounded-xl text-base font-medium transition-colors ${
-                isActive(link.href)
-                  ? 'bg-white text-indigo-600 shadow-sm'
-                  : 'text-gray-600 hover:bg-white hover:text-indigo-600'
-              }`}
-              onClick={() => setIsMenuOpen(false)}
-            >
-              {link.label}
-            </Link>
-          ))}
-          
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`block px-4 py-3 rounded-xl text-lg transition-colors ${
+                    isActive(link.href)
+                      ? 'bg-surface-containerLowest text-primary shadow-sm font-bold'
+                      : 'text-on-surfaceVariant hover:bg-surface-containerLowest hover:text-primary font-medium'
+                  }`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  {link.label}
+                </Link>
+              ))}
+
           {session ? (
-            <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="mt-4 pt-4 border-t border-outline-variant/60">
               <div className="flex items-center px-4 mb-4">
-                <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold shadow-sm">
+                <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white font-bold shadow-sm">
                   {session.name?.[0] || '?'}
                 </div>
                 <div className="ml-3">
-                  <div className="text-base font-bold text-gray-800">{session.name}</div>
-                  <div className="text-sm font-medium text-gray-500">
+                  <div className="text-base font-bold text-on-surface">{session.name}</div>
+                  <div className="text-sm font-medium text-on-surfaceVariant">
                     {getUserRoleDisplay(session)}
                   </div>
                 </div>
@@ -235,7 +343,7 @@ export default function Navigation() {
                     <Link
                       href={sidebarData.dashboardHref}
                       className={`block px-4 py-3 rounded-xl text-base ${mobileNavFont(isActive(sidebarData.dashboardHref))} transition-colors ${
-                        isActive(sidebarData.dashboardHref) ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600'
+                        isActive(sidebarData.dashboardHref) ? 'bg-primary/10 text-primary' : 'text-on-surfaceVariant hover:bg-surface-containerLowest hover:text-primary'
                       }`}
                       onClick={() => setIsMenuOpen(false)}
                     >
@@ -244,7 +352,7 @@ export default function Navigation() {
                   ) : (
                     <button
                       className={`block w-full text-left px-4 py-3 rounded-xl text-base ${mobileNavFont(sidebarData.activeTab === null)} transition-colors ${
-                        sidebarData.activeTab === null ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600'
+                        sidebarData.activeTab === null ? 'bg-primary/10 text-primary' : 'text-on-surfaceVariant hover:bg-surface-containerLowest hover:text-primary'
                       }`}
                       onClick={() => {
                         setIsMenuOpen(false);
@@ -256,17 +364,17 @@ export default function Navigation() {
                       儀表板
                     </button>
                   )}
-                  
+
                   {sidebarData.menuItems.map((item) => {
                     if (item.id.startsWith('divider')) {
-                      return <div key={item.id} className="border-t border-gray-100 mx-4 my-2" />;
+                      return <div key={item.id} className="border-t border-outline-variant/40 mx-4 my-2" />;
                     }
                     const isPersonalInfo = item.id === 'change-password' || item.id === 'information';
                     const displayItem = isPersonalInfo ? {
-                        ...item,
-                        id: 'information',
-                        title: '個人資料',
-                        href: '/student/information',
+                      ...item,
+                      id: 'information',
+                      title: '個人資料',
+                      href: '/student/information',
                     } : item;
 
                     if (displayItem.href && !displayItem.disabled) {
@@ -275,7 +383,7 @@ export default function Navigation() {
                           key={displayItem.id}
                           href={displayItem.href}
                           className={`block px-4 py-3 rounded-xl text-base ${mobileNavFont(isActive(displayItem.href))} transition-colors ${
-                            isActive(displayItem.href) ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600'
+                            isActive(displayItem.href) ? 'bg-primary/10 text-primary' : 'text-on-surfaceVariant hover:bg-surface-containerLowest hover:text-primary'
                           }`}
                           onClick={() => setIsMenuOpen(false)}
                         >
@@ -283,12 +391,12 @@ export default function Navigation() {
                         </Link>
                       );
                     }
-                    
+
                     if (displayItem.disabled) {
                       return (
                         <div
                           key={displayItem.id}
-                          className="block px-4 py-3 rounded-xl text-base font-medium text-gray-400 opacity-50 cursor-not-allowed bg-gray-50"
+                          className="block px-4 py-3 rounded-xl text-base font-medium text-outline opacity-50 cursor-not-allowed bg-surface-container"
                         >
                           {displayItem.title}
                         </div>
@@ -299,7 +407,7 @@ export default function Navigation() {
                       <button
                         key={displayItem.id}
                         className={`block w-full text-left px-4 py-3 rounded-xl text-base ${mobileNavFont(sidebarData.activeTab === displayItem.id)} transition-colors ${
-                          sidebarData.activeTab === displayItem.id ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600'
+                          sidebarData.activeTab === displayItem.id ? 'bg-primary/10 text-primary' : 'text-on-surfaceVariant hover:bg-surface-containerLowest hover:text-primary'
                         }`}
                         onClick={() => {
                           setIsMenuOpen(false);
@@ -317,23 +425,21 @@ export default function Navigation() {
                 <div className="space-y-1">
                   <Link
                     href={isManagementRole(session) ? '/back-panel' : '/student'}
-                    className="block px-4 py-3 rounded-xl text-base font-medium transition-colors text-gray-600 hover:bg-gray-50 hover:text-indigo-600"
+                    className="block px-4 py-3 rounded-xl text-base font-medium transition-colors text-on-surfaceVariant hover:bg-surface-containerLowest hover:text-primary"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     回到儀表板
                   </Link>
                 </div>
               )}
-              
+
               <button
                 onClick={async () => {
                   setIsMenuOpen(false);
                   if (typeof window !== 'undefined') {
                     if (sidebarData) {
-                      // 若 Sidebar 存在，發送事件交給 Sidebar 執行完整的登出邏輯與清除快取
                       window.dispatchEvent(new Event('request-logout'));
                     } else {
-                      // 防呆機制：若無 Sidebar (例如首頁)，改用統一的 logoutClient 登出邏輯
                       window.dispatchEvent(new Event('auth-logout'));
                       sessionStorage.removeItem('sidebar_user_info');
                       try {
@@ -345,32 +451,19 @@ export default function Navigation() {
                     }
                   }
                 }}
-                className="block w-full text-left px-4 py-3 mt-2 rounded-xl text-base font-medium text-red-500 hover:bg-red-50 transition-colors"
+                className="block w-full text-left px-4 py-3 mt-2 rounded-xl text-base font-medium text-error hover:bg-error/10 transition-colors"
               >
                 登出
               </button>
             </div>
           ) : (
-            <>
-              <Link
-                href="/panel"
-                className={`block px-4 py-3 rounded-xl text-base font-medium transition-colors ${
-                  isActive('/panel')
-                    ? 'bg-white text-indigo-600 shadow-sm'
-                    : 'text-gray-600 hover:bg-white hover:text-indigo-600'
-                }`}
-                onClick={() => setIsMenuOpen(false)}
-              >
-                網站管理
-              </Link>
-              <Link
-                href="/login"
-                className="block px-4 py-3 mt-4 text-left rounded-xl text-base font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition-colors"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                登入課程
-              </Link>
-            </>
+            <Link
+              href="/login"
+              className="block px-4 py-3 mt-4 text-center rounded-full text-base font-bold text-white bg-primary hover:bg-primary-container shadow-btn transition-colors"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              登入
+            </Link>
           )}
         </div>
       </div>

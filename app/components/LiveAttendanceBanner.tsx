@@ -12,6 +12,13 @@ import {
 import { fetchCached, invalidateFetchCache } from '@/utils/clientFetchCache';
 import { withReturnTo, teacherCourseHubPath } from '@/utils/teacherCourseHub';
 import PageLoadingArea from '@/components/ui/PageLoadingArea';
+import {
+  dashboardSectionTitle,
+  dashboardPanel,
+  dashboardPanelDivide,
+  dashboardRowHover,
+  dashboardEmpty,
+} from '@/components/ui/dashboardChrome';
 
 export interface LiveAttendanceItem {
   id: string;
@@ -151,20 +158,20 @@ export default function LiveAttendanceBanner({ audience = 'student' }: LiveAtten
 
   return (
     <div className="animate-fade-in mb-8 sm:mb-10">
-      <h2 className="text-xl font-bold text-gray-800 border-l-4 border-indigo-500 pl-4 mb-6">
+      <h2 className={dashboardSectionTitle}>
         線上點名
       </h2>
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden min-h-[7.5rem]">
+      <div className={`${dashboardPanel} min-h-[7.5rem]`}>
         {loading ? (
           <div className="py-8">
             <PageLoadingArea minHeight="min-h-[4.5rem]" />
           </div>
         ) : items.length === 0 ? (
-          <div className="px-5 py-10 text-center text-gray-700 text-sm font-medium">
+          <div className={dashboardEmpty}>
             目前沒有進行中的點名
           </div>
         ) : (
-          <ul className="divide-y divide-gray-100">
+          <ul className={dashboardPanelDivide}>
             {items.map((item) => {
               const isQr = item.checkInMethod === 'qr';
               const isManual = item.checkInMethod === 'manual';
@@ -177,12 +184,12 @@ export default function LiveAttendanceBanner({ audience = 'student' }: LiveAtten
                         audience === 'teacher' ? buildTeacherHref(item) : buildStudentHref(item)
                       )
                     }
-                    className="w-full text-left flex items-center gap-3 px-4 sm:px-5 py-4 hover:bg-indigo-50/40 transition-colors"
+                    className={`w-full text-left flex items-center gap-3 px-4 sm:px-5 py-4 ${dashboardRowHover}`}
                   >
                     <div
                       className={`p-2.5 rounded-xl shrink-0 ${
                         isQr
-                          ? 'bg-indigo-50 text-indigo-600'
+                          ? 'bg-primary/10 text-primary'
                           : isManual
                             ? 'bg-amber-50 text-amber-600'
                             : 'bg-violet-50 text-violet-600'
@@ -197,16 +204,16 @@ export default function LiveAttendanceBanner({ audience = 'student' }: LiveAtten
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm sm:text-base font-bold text-gray-900 truncate">
+                      <p className="text-sm sm:text-base font-bold text-on-surface truncate">
                         {item.courseName}
                       </p>
-                      <p className="text-sm text-indigo-600 font-medium mt-0.5 truncate">
+                      <p className="text-sm text-primary font-medium mt-0.5 truncate">
                         {item.title}
                         {' · '}
                         {methodHint(item.checkInMethod, audience)}
                       </p>
                     </div>
-                    <span className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm font-bold">
+                    <span className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-on-primary text-sm font-bold shadow-btn">
                       {audience === 'teacher' ? (
                         <>
                           <PencilSquareIcon className="w-4 h-4" />
